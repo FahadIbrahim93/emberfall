@@ -1,9 +1,23 @@
-# EMBERFALL
+# EMBERFALL — Deep-Range Intercept
 
-Deep-Range Intercept — single-file arcade shooter.
+Single-file HTML5 canvas arcade shooter. Procedural audio, wave director, boss fights, local high scores.
 
-**[Play live →](https://emberfall-game-two.vercel.app/)**
+**[▶ Play live](https://emberfall-game-two.vercel.app/)**
 
-Controls: WASD / arrows / mouse / touch · Space fire · P pause · M mute
+## Controls
+| Input | Action |
+|-------|--------|
+| WASD / Arrows | Move |
+| Space / Hold mouse | Fire |
+| Touch | Move + auto-fire |
+| P / Esc | Pause |
+| M | Mute |
 
-Fully offline. No build step. Pure HTML/CSS/JS.
+## Stack
+- Pure HTML / CSS / JS (no build, no deps)
+- Canvas 2D + Web Audio API
+- localStorage high scores
+- Runs fully offline
+
+## Repo
+`index.html` is the entire game. Open it locally or deploy as static.
