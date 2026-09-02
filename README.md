@@ -2,7 +2,7 @@
 
 Deep-Range Intercept — single-file arcade shooter.
 
-**[Play live](https://fahadibrahim93.github.io/emberfall/)**
+**[Play live →](https://emberfall-game-two.vercel.app/)**
 
 Controls: WASD / arrows / mouse / touch · Space fire · P pause · M mute
 
