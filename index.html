@@ -726,30 +726,30 @@ const D = () => DIFF[clamp(CFG.diff, 0, 3)];
 /* ─────────────────────────── palettes ─────────────────────────── */
 /* Each palette keeps hostile / friendly / tech channels perceptually
    separable, so the colourblind modes are real remaps, not hue rotations. */
-const PALETTES = [
-  { // Ember — the house look
-    name: 'Ember',
+const PALETTES = [  {
+    // Ember — the house look
+    name: 'Ember', gradeSat: 1.08, gradeCon: 1.04, gradeBri: 1, gradeHue: 0,
     hull: '#ff8a2b', hullLit: '#ffd9a8', ally: '#ffb454',
     foe: '#ff2e55', foeDeep: '#8e0f26', foeLit: '#ffb8c4',
     tech: '#35e0ff', good: '#7dffb8', rare: '#9b6bff', gold: '#ffd166',
     neb: [[38, 62, 112], [150, 52, 30]]
-  },
-  { // High contrast
-    name: 'High contrast',
+  },  {
+    // High contrast
+    name: 'High contrast', gradeSat: 1.05, gradeCon: 1.12, gradeBri: 1.02, gradeHue: 0,
     hull: '#ffffff', hullLit: '#ffffff', ally: '#ffe600',
     foe: '#ff1744', foeDeep: '#5a0012', foeLit: '#ffffff',
     tech: '#00e5ff', good: '#00ff88', rare: '#d500f9', gold: '#ffe600',
     neb: [[20, 24, 48], [60, 12, 20]]
-  },
-  { // Deuteranopia — drop red/green opposition, lean blue vs orange
-    name: 'Deuteranopia',
+  },  {
+    // Deuteranopia — drop red/green opposition, lean blue vs orange
+    name: 'Deuteranopia', gradeSat: 1.02, gradeCon: 1.05, gradeBri: 1.01, gradeHue: 6,
     hull: '#ffb000', hullLit: '#ffe6b0', ally: '#ffd166',
     foe: '#4d6bff', foeDeep: '#101f6b', foeLit: '#c3ccff',
     tech: '#00d9ff', good: '#ffe066', rare: '#b088ff', gold: '#ffd166',
     neb: [[30, 40, 96], [90, 70, 18]]
-  },
-  { // Tritanopia — avoid blue/yellow confusion, lean magenta vs teal
-    name: 'Tritanopia',
+  },  {
+    // Tritanopia — avoid blue/yellow confusion, lean magenta vs teal
+    name: 'Tritanopia', gradeSat: 1.04, gradeCon: 1.03, gradeBri: 1.01, gradeHue: -4,
     hull: '#00e0c0', hullLit: '#c9fff6', ally: '#5ef2d6',
     foe: '#ff2e8a', foeDeep: '#71063c', foeLit: '#ffc2de',
     tech: '#7ad3ff', good: '#9dffd9', rare: '#ff8ae0', gold: '#ffa8d8',
@@ -1304,22 +1304,76 @@ function bloomBegin() {
   bctx.globalCompositeOperation = 'lighter';
   bloomDirty = false;
 }
+/* glow canvas — half the bloom buffer, for the tight second stage */
+const bloomCv2 = document.createElement('canvas');
+const bctx2 = bloomCv2.getContext('2d');
 function bloomComposite() {
   if (!QUALITY.bloom || !bloomDirty) return;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  if (CAN_FILTER) ctx.filter = 'blur(' + (7 / BLOOM_DIV * 3).toFixed(1) + 'px)';
-  ctx.globalAlpha = .92;
-  ctx.drawImage(bloomCv, 0, 0, W, H);
-  ctx.filter = 'none';
-  ctx.globalAlpha = .5;
-  ctx.drawImage(bloomCv, 0, 0, W, H);
+  if (CAN_FILTER) {
+    // two-stage bloom: tight core from the quarter buffer, wide halo from a
+    // blurred half-size copy. One blur pass alone reads as haze, not glow.
+    const w2 = Math.max(1, bloomCv.width >> 1), h2 = Math.max(1, bloomCv.height >> 1);
+    if (bloomCv2.width !== w2 || bloomCv2.height !== h2) { bloomCv2.width = w2; bloomCv2.height = h2; }
+    bctx2.setTransform(1, 0, 0, 1, 0, 0);
+    bctx2.clearRect(0, 0, w2, h2);
+    bctx2.filter = 'blur(2px)';
+    bctx2.drawImage(bloomCv, 0, 0, w2, h2);
+    bctx2.filter = 'none';
+    ctx.filter = 'blur(' + (3.5 / BLOOM_DIV * 3).toFixed(1) + 'px)';
+    ctx.globalAlpha = .9;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+    ctx.filter = 'blur(' + (14 / BLOOM_DIV * 3).toFixed(1) + 'px)';
+    ctx.globalAlpha = .6;
+    ctx.drawImage(bloomCv2, 0, 0, W, H);
+    ctx.filter = 'none';
+  } else {
+    ctx.globalAlpha = .92;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+    ctx.globalAlpha = .5;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+  }
   ctx.restore();
   ctx.globalAlpha = 1;
 }
 
 /* ═══════════════════ backdrop: nebula, planet, debris ═══════════════════ */
-let nebA, nebB, planet, dust = [];
+let nebA, nebB, planet, dust = [], derelicts = [];
+
+/* v3: dead capitals drifting through the deep — vector silhouettes rendered
+   once to an offscreen canvas, so they cost nothing per frame. */
+function makeDerelict() {
+  const w = Math.round(rnd(300, 560)), h = Math.round(w * rnd(.3, .42));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.translate(w / 2, h / 2);
+  x.fillStyle = '#070c18';
+  x.strokeStyle = 'rgba(140,160,200,.25)';
+  x.lineWidth = 1.4;
+  x.beginPath();
+  x.moveTo(-w * .48, 0);
+  x.lineTo(-w * .3, -h * .22);
+  x.lineTo(-w * .05, -h * .3);
+  x.lineTo(w * .3, -h * .18);
+  x.lineTo(w * .42, 0);
+  x.lineTo(w * .22, h * .2);
+  x.lineTo(-w * .1, h * .3);
+  x.lineTo(-w * .36, h * .16);
+  x.closePath(); x.fill(); x.stroke();
+  for (let i = 0; i < 4; i++) {
+    const bx = -w * .3 + i * w * .18, bw = w * rnd(.08, .14);
+    x.fillRect(bx, -h * .3, bw, h * rnd(.14, .24));
+    x.strokeRect(bx, -h * .3, bw, h * .2);
+  }
+  // a few window lights survive; most of the hull is dead
+  for (let i = 0; i < 14; i++) {
+    if (FX.chance(.55)) continue;
+    x.fillStyle = 'rgba(255,190,120,' + rnd(.1, .3).toFixed(2) + ')';
+    x.fillRect(-w * .4 + rnd(0, w * .8), rnd(-h * .2, h * .2), 2, 1.4);
+  }
+  return { img: c, x: rnd(0, W), y: rnd(-H * 1.5, -H * .2), vy: rnd(2.6, 6.5), s: rnd(.5, 1), rot: rnd(-.06, .06), rotA: rnd(-.008, .008) };
+}
 function buildBackdrop() {
   const mk = (rgb, size) => {
     const c = document.createElement('canvas'); c.width = c.height = size;
@@ -1385,6 +1439,11 @@ function buildBackdrop() {
       dust.push({ x: rnd(0, W), y: rnd(-H, H), vy: rnd(7, 22), rot: rnd(0, TAU), vr: rnd(-.16, .16), verts, a: rnd(.05, .16) });
     }
   }
+
+  derelicts = [];
+  if (QUALITY.particles > .45) {
+    for (let i = 0; i < 3; i++) derelicts.push(makeDerelict());
+  }
 }
 
 /* ─────────── starfield ─────────── */
@@ -1410,6 +1469,19 @@ function seedStars() {
   });
 }
 let warp = 0; // 0..1, how stretched the starfield is
+/* v3: palette grading — one GPU-composited CSS filter on the canvas.
+   The canvas is hardware-composited on every platform, so this costs
+   effectively nothing and re-grades the entire frame in one step. */
+function applyGrade() {
+  try {
+    const g =
+      ' saturate(' + (PAL.gradeSat || 1.08) + ')' +
+      ' contrast(' + (PAL.gradeCon || 1.04) + ')' +
+      ' brightness(' + (PAL.gradeBri || 1) + ')' +
+      ' hue-rotate(' + (PAL.gradeHue || 0) + 'deg)';
+    cv.style.filter = g;
+  } catch (e) { }
+}
 function updateBackdrop(dt) {
   const boost = 1 + warp * 5.2;
   for (const s of stars) {
@@ -1420,12 +1492,31 @@ function updateBackdrop(dt) {
     d.y += d.vy * (1 + warp * 3) * dt; d.rot += d.vr * dt;
     if (d.y > H + 60) { d.y = -60; d.x = rnd(0, W); }
   }
+  for (const d of derelicts) {
+    d.y += d.vy * (1 + warp * 1.5) * dt; d.rot += d.rotA * dt;
+    if (d.y - d.img.height * d.s > H + 80) {
+      d.y = -d.img.height * d.s - rnd(300, 1600);
+      d.x = rnd(0, W);
+      d.s = rnd(.5, 1);
+    }
+  }
 }
 function drawBackdrop(t) {
   // nebula drift
   ctx.globalAlpha = .62;
   ctx.drawImage(nebA, W * .14 - 300, ((t * 7) % (H + 760)) - 620, 640, 640);
   ctx.drawImage(nebB, W * .72 - 320, ((t * 4.5 + H * .55) % (H + 860)) - 700, 740, 740);
+  ctx.globalAlpha = 1;
+
+  // derelict silhouettes, slow and deep
+  for (const d of derelicts) {
+    ctx.save();
+    ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+    ctx.scale(d.s, d.s);
+    ctx.globalAlpha = .5;
+    ctx.drawImage(d.img, -d.img.width / 2, -d.img.height / 2);
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
 
   // planet, parked low-left, very slowly climbing
@@ -1461,10 +1552,32 @@ function drawBackdrop(t) {
     }
   }
   ctx.globalAlpha = 1;
+
+  /* v3: the Gate — where the অপার্থিব came through. It hangs at the top of
+     the field, breathing, and widens as the run digs deeper. Emissive only,
+     so it reads as light rather than an object you can reach. */
+  const depth = clamp((GAME.wave || 0) / 26, 0, 1);
+  const gx = W / 2, gy = -H * .1;
+  const gR = H * (.15 + .1 * depth) * (1 + Math.sin(t * .7) * .045);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++) {
+    ctx.save();
+    ctx.translate(gx, gy);
+    ctx.rotate(t * .12 * (i % 2 ? -.7 : 1) * (1 + i * .35));
+    ctx.strokeStyle = i === 1 ? rgba(PAL.tech, .3) : rgba(PAL.rare, .34 + .1 * i);
+    ctx.lineWidth = Math.max(.8, 2.2 - i * .5);
+    ctx.setLineDash([gR * (.8 + i * .5), gR * .7]);
+    ctx.beginPath(); ctx.arc(0, 0, gR * (1 - i * .18), 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  emitLocal(ctx, SPR.rare, gx, gy + gR * .12, gR * 2.6, .2 + .07 * Math.sin(t * .9) + depth * .14);
+  ctx.restore();
 }
 
 /* ─────────── screen shake / flash / time distortion ─────────── */
-const CAM = { shake: 0, flash: 0, chroma: 0, zoom: 1, ox: 0, oy: 0 };
+const CAM = { shake: 0, flash: 0, chroma: 0, zoom: 1, ox: 0, oy: 0, chromaRamp: 0 };
 function shake(a) { if (CFG.shake) CAM.shake = Math.min(30, CAM.shake + a); }
 function flash(a) { if (CFG.flash) CAM.flash = Math.max(CAM.flash, a); }
 function chroma(a) { if (CFG.flash) CAM.chroma = Math.max(CAM.chroma, a); }
@@ -1476,7 +1589,8 @@ function updateCam(dt) {
   CAM.shake = Math.max(0, CAM.shake - CAM.shake * 8 * dt - 3 * dt);
   CAM.flash = Math.max(0, CAM.flash - dt * 2.6);
   CAM.chroma = Math.max(0, CAM.chroma - dt * 3.4);
-  CAM.zoom = damp(CAM.zoom, 1, 6, dt);
+  CAM.chromaRamp = damp(CAM.chromaRamp, clamp(CAM.chroma * .9, 0, 1), 10, dt);
+  CAM.zoom = damp(CAM.zoom, GAME.state === 'over' ? 1.07 : 1, 5, dt);
   if (CAM.shake > .1) {
     CAM.ox = rnd(-1, 1) * CAM.shake;
     CAM.oy = rnd(-1, 1) * CAM.shake;
@@ -3623,6 +3737,19 @@ function updateBoss(b, dt) {
       b.phasesFired[want] = true;
       b.def.onPhase(b, want);
       flash(.3); shake(12); AU.alarm();
+      // v3: phase-transition shockwave — the whole hull exhales
+      ring(b.x, b.y, { r: b.r * .5, vr: 900, life: .6, col: rgbOf(b.col), w: 5 });
+      ring(b.x, b.y, { r: b.r * .5, vr: 620, life: .8, col: '255,255,255', w: 2 });
+      if (QUALITY.particles > .5) {
+        burst(26, () => {
+          const a = rnd(0, TAU), sp = rnd(200, 560);
+          part({
+            x: b.x + Math.cos(a) * b.r * .5, y: b.y + Math.sin(a) * b.r * .3,
+            vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+            life: rnd(.3, .6), size: rnd(8, 15), spr: SPR.foe, drag: 2.4
+          });
+        });
+      }
       note(b.def.name + ' — phase ' + want, 'bad');
       MUSIC.set('boss', .95 + want * .02);
       const pips = $('bossPips').children;
@@ -3642,6 +3769,7 @@ function startBossDeath(b) {
   b.dying = true; b.hp = 0; b.dieT = 1.7; b.exT = 0;
   GAME.slowT = .8; GAME.slowV = .45;
   beams.length = 0;
+  ring(b.x, b.y, { r: b.r, vr: 520, life: 1.2, col: rgbOf(PAL.foeLit), w: 2.5 });
   AU.alarm();
 }
 function finishBossDeath(b) {
@@ -3982,6 +4110,15 @@ function drawFoe(e) {
   // capitals spawn on the cruiser chassis, so the boss art has to be picked
   // off the def rather than off e.type
   const art = (e.boss && e.def && BOSS_ART[e.def.art]) || FOE_ART[e.type];
+  // warp-in: a hostile materialising reads as light before it reads as a ship
+  if (e.state === 'enter' && e.et < .6 && QUALITY.particles > .4) {
+    const k = 1 - e.et / .6;
+    emitLocal(ctx, SPR.foe, e.x, e.y, e.r * (5 + k * 6), k * .55);
+  }
+  if (e.boss && e.arriving) {
+    // arrival wash — the field goes bright before the capital is even on it
+    emitLocal(ctx, SPR.foe, e.x, Math.max(60, e.y - e.r), e.r * 7, .3);
+  }
   ctx.save();
   ctx.translate(e.x, e.y);
   let tilt = 0;
@@ -4006,6 +4143,17 @@ function drawFoe(e) {
   ctx.restore();
 
   emit(SPR.foe, e.x, e.y - e.r * .5, e.boss ? e.r * 1.4 : e.r * 1.1, e.boss ? .45 : .3);
+
+  // v3: drop light onto the field under big ships — a glow pool, not a lamp
+  if (e.boss || e.r >= 20) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rgba(e.col, e.boss ? .1 : .07);
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + e.r * .8, e.r * 2.6, e.r * 1.1, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
 
   if (e.shielded > 0) {
     const a = .28 + (e.shieldHit > 0 ? .5 : 0);
@@ -4035,6 +4183,17 @@ function drawFoe(e) {
 function drawPlayerShip() {
   if (!P.alive) return;
   const blink = P.inv > 0 && Math.sin(GAME.t * 32) > 0;
+  // dash afterimages — past positions echo the hull, fading fast
+  if ((P.dashT > 0 || P.boost) && QUALITY.particles > .6) {
+    P.ghostT = (P.ghostT || 0) - 1 / 60;
+    if (P.ghostT <= 0) {
+      P.ghostT = .028;
+      part({
+        x: P.x, y: P.y, vx: 0, vy: 0, life: .3, size: 46,
+        spr: SPR.hull, mode: 'glow', drag: 0
+      });
+    }
+  }
   ctx.save();
   ctx.translate(P.x, P.y);
   ctx.rotate(P.bank * .48);
@@ -4317,6 +4476,20 @@ function render() {
     drawCursor();
   }
   ctx.restore();
+
+  if (CFG.flash && CAM.chromaRamp > .02 && CAN_FILTER && QUALITY.scale > .8) {
+    const k = CAM.chromaRamp * 2.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.min(.5, k * .4);
+    // channel-split ghosting: scaled copies tinted to the opposite channels
+    ctx.filter = 'sepia(1) saturate(6) hue-rotate(-25deg)';
+    ctx.drawImage(cv, -k, 0, W, H);
+    ctx.filter = 'sepia(1) saturate(6) hue-rotate(140deg)';
+    ctx.drawImage(cv, k, 0, W, H);
+    ctx.filter = 'none';
+    ctx.restore();
+  }
 
   bloomComposite();
 
@@ -5142,6 +5315,7 @@ bindSegment('segPal', 'pal', v => {
   PAL = PALETTES[clamp(v, 0, PALETTES.length - 1)];
   buildSprites();
   buildBackdrop();
+  applyGrade();
   const rt = $('tab-roster');
   if (rt) { delete rt.dataset.built; rt.innerHTML = ''; if (!rt.classList.contains('hidden')) renderRoster(); }
   for (const e of foes) if (!e.boss) e.col = PAL.foe;
@@ -5507,6 +5681,7 @@ function frame(now) {
 }
 
 boot();
+applyGrade();
 requestAnimationFrame(frame);
 
 /* offline app shell: register the service worker whenever we are actually
