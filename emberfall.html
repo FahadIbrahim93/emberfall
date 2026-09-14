@@ -16,7 +16,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600;700&display=swap"></noscript>
 <style>
 /* ═══════════════════════════════════════════════════════════
-   EMBERFALL v3 — design tokens
+   EMBERFALL v2 — design tokens
    palette: cold void, ember hull, crimson hostiles, aether tech,
             অপার্থিব violet for the otherworldly tier
    ═══════════════════════════════════════════════════════════ */
@@ -502,7 +502,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v2.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -624,13 +624,12 @@ body.needrotate #rotate{display:grid}
 
 <div id="st" class="panel hidden" role="region" aria-label="Self test results">
   <h3>Self-test</h3><div id="stSum"></div><div id="stList"></div>
-  <button class="btn hidden" id="swRegister">Enable offline app</button>
   <button class="btn" id="stClose">Close</button>
 </div>
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.0 — single-file orbital intercept shooter, Expanded Edition
+   EMBERFALL v2.0 — single-file orbital intercept shooter
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -5413,16 +5412,6 @@ function frame(now) {
 
 boot();
 requestAnimationFrame(frame);
-
-/* offline app shell: register the service worker whenever we are actually
-   being served over http(s); file:// keeps working as a plain standalone */
-(function registerSW() {
-  try {
-    if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
-    if (!('serviceWorker' in navigator)) return;
-    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
-  } catch (e) { }
-})();
 </script>
 </body>
 </html>
