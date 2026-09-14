@@ -85,6 +85,8 @@ body.noscan #scan,body.nograin #grain{display:none}
 #hud .lbl{font-size:.62rem;letter-spacing:.3em;color:var(--dim);line-height:1}
 .tl{position:absolute;top:calc(16px + var(--sat));left:calc(20px + var(--sal))}
 #score{font-size:clamp(1.3rem,4.6vw,1.95rem);font-weight:700;letter-spacing:.06em;line-height:1.15;margin-top:3px}
+@keyframes scorePunch{0%{transform:scale(1)}35%{transform:scale(1.16)}100%{transform:scale(1)}}
+#score.punch{animation:scorePunch .3s cubic-bezier(.2,.9,.3,1)}
 .combo{margin-top:5px;display:flex;align-items:center;gap:8px}
 #mult{font-size:.9rem;font-weight:700;letter-spacing:.16em;color:var(--amber);transition:color .18s,text-shadow .18s}
 #mult.t3{color:var(--gold);text-shadow:0 0 12px rgba(255,209,102,.7)}
@@ -584,6 +586,11 @@ body.needrotate #rotate{display:grid}
       <div class="opt line"><label id="lAuto">Auto-fire</label><button class="sw" id="swAuto" aria-labelledby="lAuto"><i></i></button></div>
       <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
+      <div class="opt full"><label>Frame rate cap</label>
+        <div class="seg" id="segCap">
+          <button data-v="0">Off</button><button data-v="30">30</button>
+          <button data-v="60">60</button><button data-v="120">120</button>
+        </div></div>
     </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
@@ -700,7 +707,7 @@ const CFG = {
   master: 80, music: 58, sfx: 85,
   diff: 1, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
-  hitbox: false, autofire: false, haptics: true, fps: false
+  hitbox: false, autofire: false, haptics: true, fps: false, fpscap: 0
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -2851,6 +2858,21 @@ function updatePlayer(dt, move) {
         life: .3, size: P.boost ? 12 : 8, spr: P.boost ? SPR.tech : SPR.hull, drag: 1.4
       });
     }
+    // crit damage: the last hull trails smoke and spits sparks
+    if (GAME.lives <= 1) {
+      P.smokeT = (P.smokeT || 0) - .022;
+      if (P.smokeT <= 0) {
+        P.smokeT = .07;
+        part({
+          x: P.x + rnd(-7, 7), y: P.y + rnd(-4, 8), vx: -P.vx * .12 + rnd(-14, 14), vy: rnd(70, 120),
+          life: rnd(.45, .9), size: rnd(11, 19), spr: SPR.smoke, mode: 'smoke', drag: 1
+        });
+        if (FX.chance(.5)) part({
+          x: P.x + rnd(-5, 5), y: P.y + rnd(0, 10), vx: rnd(-40, 40), vy: rnd(30, 110),
+          life: .22, size: rnd(5, 9), spr: SPR.hull, drag: 2
+        });
+      }
+    }
   }
 
   P.fireCd -= dt;
@@ -2888,6 +2910,20 @@ function hurtPlayer(src) {
   P.weapon = Math.max(1, P.weapon - 1);
   P.alive = false;
   explode(P.x, P.y, 'ally', 1.9);
+  // wounded-look: burning debris keeps tumbling after the ship is gone
+  burst(6, () => part({
+    x: P.x + rnd(-14, 14), y: P.y + rnd(-10, 10),
+    vx: rnd(-70, 70), vy: rnd(-40, 130), life: rnd(.6, 1.5),
+    size: rnd(14, 26), spr: SPR.smoke, mode: 'smoke', drag: 1
+  }));
+  burst(5, () => {
+    const a = rnd(0, TAU), sp = rnd(60, 300);
+    part({
+      x: P.x, y: P.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: rnd(.8, 1.7), size: rnd(5, 8) * 1.9, mode: 'debris',
+      rot: rnd(0, TAU), vr: rnd(-9, 9), grav: 210, col: '#8f99ad', drag: 1.4
+    });
+  });
   ring(P.x, P.y, { r: 10, vr: 640, life: .55, col: rgbOf(PAL.hull), w: 4 });
   flash(.42); shake(22); chroma(1); buzz([30, 60, 40]);
   GAME.slowT = .7; GAME.slowV = .3;
@@ -2905,6 +2941,11 @@ function addScore(n, x, y, big) {
   GAME.score += v;
   if (x !== undefined && QUALITY.particles > .5) {
     float(x, y, '+' + v, big ? PAL.gold : (GAME.mult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
+  }
+  if (big) {
+    // score punch: the readout physically reacts to a heavy hit
+    const s = $('score');
+    s.classList.remove('punch'); void s.offsetWidth; s.classList.add('punch');
   }
   return v;
 }
@@ -2978,23 +3019,25 @@ function spawnPick(x, y, type) {
   picks.push({ x: clamp(x, 28, W - 28), y, type, t: rnd(0, TAU), vy: 62, vx: rnd(-18, 18), life: 16 });
 }
 function collectPick(type) {
+  const ICON = { gun: '▲', shield: '⬡', over: '≫', pulse: '✸', hull: '✚', alloy: '◆' };
+  const N = (m, tone) => note(m, tone, ICON[type]);
   switch (type) {
     case 'gun':
-      if (P.weapon < MAX_WEAPON) { P.weapon++; note('Ordnance tier ' + P.weapon, 'good'); }
+      if (P.weapon < MAX_WEAPON) { P.weapon++; N('Ordnance tier ' + P.weapon, 'good'); }
       else { addScore(400, P.x, P.y - 26); float(P.x, P.y - 46, 'MAX', PAL.gold, 15); }
       AU.pickup(); break;
     case 'shield':
       P.shieldMax = Math.max(P.shieldMax, 1);
       P.shield = P.shieldMax;
-      note('Shield online', 'good'); AU.shieldOn(); AU.pickup(); break;
+      N('Shield online', 'good'); AU.shieldOn(); AU.pickup(); break;
     case 'over':
       P.overT = Math.min(14, P.overT + 11);
-      note('Overdrive engaged', 'good'); AU.pickup(true); break;
+      N('Overdrive engaged', 'good'); AU.pickup(true); break;
     case 'pulse':
       P.bombs = Math.min(5, P.bombs + 1);
-      note('Pulse charge stored', 'rare'); AU.pickup(true); break;
+      N('Pulse charge stored', 'rare'); AU.pickup(true); break;
     case 'hull':
-      if (GAME.lives < 6) { GAME.lives++; note('Hull recovered', 'good'); }
+      if (GAME.lives < 6) { GAME.lives++; N('Hull recovered', 'good'); }
       else addScore(700, P.x, P.y - 26);
       AU.pickup(true); break;
     case 'alloy': {
@@ -3481,6 +3524,10 @@ const BOSSES = [
     move(b, dt) {
       b.spin += dt * (b.phase >= 2 ? .85 : .5);
       if (b.charging) {
+        // game-time timer, not setTimeout — pause and slow-mo have to hold
+        // the charge consistently
+        b.chargeT -= dt;
+        if (b.chargeT <= 0) b.charging = false;
         b.x = damp(b.x, b.chargeX, 5, dt);
         b.y = damp(b.y, H * .18, 3, dt);
       } else {
@@ -3514,9 +3561,9 @@ const BOSSES = [
       }
       if (mod === 3 && ph >= 2 && !b.charging) {
         b.charging = true;
+        b.chargeT = 1.6;
         b.chargeX = clamp(P.x, 120, W - 120);
         AU.charge(.7);
-        setTimeout(() => { b.charging = false; }, 1600);
         ringShot(b, 18, b.spin, 240 * D().bulletSpd, { rad: 44 });
         return 2.4;
       }
@@ -3615,7 +3662,7 @@ function finishBossDeath(b) {
   $('bossBox').classList.add('hidden');
   flash(.75); shake(26); chroma(1); buzz([40, 60, 80]);
   AU.bomb();
-  note('Capital ship destroyed', 'rare');
+  note('Capital ship destroyed', 'rare', '☠');
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -4327,12 +4374,18 @@ function announce(title, sub, tone) {
   el.classList.add('run');
   callTimer = setTimeout(() => { el.classList.add('hidden'); el.classList.remove('run'); }, tone === 'red' ? 2900 : 2500);
 }
-function note(msg, tone) {
+function note(msg, tone, icon) {
   const feed = $('feed');
   if (feed.children.length > 4) feed.removeChild(feed.firstChild);
   const d = document.createElement('div');
   d.className = 'note' + (tone ? ' ' + tone : '');
-  d.textContent = msg;
+  if (icon) {
+    const b = document.createElement('b');
+    b.style.marginRight = '7px';
+    b.textContent = icon;
+    d.appendChild(b);
+  }
+  d.appendChild(document.createTextNode(msg));
   feed.appendChild(d);
   setTimeout(() => d.remove(), 2350);
 }
@@ -5101,6 +5154,7 @@ bindSegment('segPal', 'pal', v => {
   document.documentElement.style.setProperty('--gold', PAL.gold);
 });
 bindSegment('segQ', 'quality', () => applyQuality());
+bindSegment('segCap', 'fpscap', () => { });
 
 /* ══════════════════════════════════════════════════════════════════════
    PWA: a manifest and icon generated in-page, so the single file installs
@@ -5263,6 +5317,43 @@ function runSelfTests() {
     const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3 };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
+  T('headless sim: 60s of combat stays finite and stable', () => {
+    const savedR = R;
+    R = makeRng(4242);
+    clearAll();
+    const savedState = GAME.state, savedLives = GAME.lives;
+    GAME.state = 'playing'; GAME.paused = false; GAME.lives = 3; GAME.wave = 7;
+    P.alive = true; P.x = W / 2; P.y = H * .8; P.vx = P.vy = 0; P.inv = 1;
+    // one of every hostile plus a capital, then run the full update pipeline
+    spawnFoe('drone', { ty: 100 }); spawnFoe('mini', { ty: 140 });
+    spawnFoe('striker', { ty: 120 }); spawnFoe('weaver', { ty: 90 });
+    spawnFoe('splitter', { ty: 160 }); spawnFoe('cruiser', { ty: 150 });
+    spawnFoe('lancer', { ty: 110 }); spawnFoe('orbiter', { ty: 80 });
+    spawnFoe('warden', { ty: 130 }); spawnFoe('minelayer', { ty: 170 });
+    spawnFoe('carrier', { ty: 60 });
+    spawnBoss(0, 0);
+    const dt = 1 / 60;
+    for (let i = 0; i < 3600; i++) {
+      P.inv = 1; // keep the pilot alive; we are exercising AI, not deaths
+      for (const e of foes) if (!e.dead) updateFoe(e, dt);
+      for (let j = foes.length - 1; j >= 0; j--) if (foes[j].dead) swapOut(foes, j);
+      updateBeams(dt);
+      updateEffects(dt);
+      collide();
+      // world finite check: nothing may poison the sim with NaN
+      const check = o => {
+        ok(Number.isFinite(o.x) && Number.isFinite(o.y), 'finite position');
+        if (o.hp !== undefined) ok(Number.isFinite(o.hp), 'finite hp');
+      };
+      foes.forEach(check); fb.forEach(check); pb.forEach(check);
+      beams.forEach(check); mines.forEach(check); parts.forEach(check);
+      ok(fb.length < 6000, 'hostile fire does not accumulate without bound');
+    }
+    ok(foes.every(e => e.t < 50 || e.dead || e.ghost), 'long-lived hostiles time out');
+    clearAll();
+    GAME.state = savedState; GAME.lives = savedLives;
+    R = savedR;
+  });
   T('quality presets degrade in order', () => {
     const a = qualityFor(0), b = qualityFor(1), c = qualityFor(2);
     ok(a.maxParticles < b.maxParticles && b.maxParticles < c.maxParticles, 'particle budget climbs');
@@ -5366,7 +5457,11 @@ function stepGame(dt) {
   }
 }
 
+let capLast = 0;
 function frame(now) {
+  // battery cap: hold the target frame rate by skipping whole frames
+  if (CFG.fpscap > 0 && now - capLast < (1000 / CFG.fpscap) - 1.2) { requestAnimationFrame(frame); return; }
+  capLast = now;
   const real = Math.min(.05, (now - lastFrame) / 1000);
   lastFrame = now;
   fpsEMA = fpsEMA * .92 + (1 / Math.max(.0005, real)) * .08;
