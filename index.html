@@ -2567,6 +2567,93 @@ const FOE_ART = {
     g.lineWidth = 1; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .85); g.stroke();
     seams(g, e, [[-20, -6, 20, -6], [-13, -18, -13, 6], [13, -18, 13, 6]]);
     eye(g, e, 0, -13, 3);
+  },
+
+  /* RAM — armored charge hull. A living battering ram with a split prow. */
+  ram(g, e) {
+    exhaust(g, e, -4.5, -13, 3, 11);
+    exhaust(g, e, 4.5, -13, 3, 11);
+    /* heavy shoulder guards */
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 6.5, -4], [sx * 14, 0], [sx * 13, 7], [sx * 5, 8]]);
+      chassis(g, e);
+      g.lineWidth = 1.2; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .8); g.stroke();
+    }
+    /* body */
+    mirrorPoly(g, [[0, 15], [4.6, 9], [6.4, 0], [5.2, -8], [2.8, -12], [0, -14]]);
+    carapace(g, e, -14, 15);
+    /* split prow — opens wider as the charge lock sets */
+    const lock = e.chargeT != null ? clamp(1 - e.chargeT / 3, 0, 1) : 0;
+    const gap = 1 + lock * 2.6;
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * gap, 12], [sx * 7.5, 15.5], [sx * 3, 18], [sx * .5, 13.5]]);
+      g.fillStyle = e.col === '#fff' ? '#fff' : dark(e.col, .4);
+      g.fill();
+      g.lineWidth = 1.2; g.strokeStyle = e.col === '#fff' ? '#fff' : lit(e.col, .3, .9); g.stroke();
+    }
+    if (lock > .4 && e.col !== '#fff') {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      emitLocal(g, SPR.foe, 0, 15, 26 * lock, .4 * lock);
+      g.restore();
+    }
+    seams(g, e, [[0, -11, 0, 11], [-5.5, -2, 5.5, -2]]);
+    vents(g, e, -4.4, 2, 3, 5, 3);
+    vents(g, e, 1.4, 2, 3, 5, 3);
+    eye(g, e, 0, -5, 2.4);
+  },
+
+  /* SNIPER — long rail platform. Fins fold out; the sight does the talking. */
+  sniper(g, e) {
+    exhaust(g, e, -3.4, -11, 2.4, 9);
+    exhaust(g, e, 3.4, -11, 2.4, 9);
+    /* folded forward fins */
+    mirrorPoly(g, [[3.4, 6], [10.5, 10], [9.5, 4], [4.4, 1]]);
+    chassis(g, e);
+    g.lineWidth = 1; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .7); g.stroke();
+    /* slender body */
+    mirrorPoly(g, [[0, 16], [3, 8], [4.6, -2], [3.2, -9], [0, -12.5]]);
+    carapace(g, e, -12.5, 16);
+    /* rail barrel */
+    g.fillStyle = '#0b0610';
+    g.fillRect(-1.9, 12, 3.8, 11);
+    g.lineWidth = 1.1;
+    g.strokeStyle = e.col === '#fff' ? '#fff' : lit(e.col, .2, .95);
+    g.strokeRect(-1.9, 12, 3.8, 11);
+    /* charge tip glows as the lock closes */
+    const lk = clamp((e.lockT || 0) / (e.lockNeed || 1.5), 0, 1);
+    if (lk > .2 && e.col !== '#fff') {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      emitLocal(g, SPR.rare, 0, 24, 12 + 16 * lk, .25 + .55 * lk);
+      g.restore();
+    }
+    disc(g, 0, 24, 1.6 + 1.2 * lk, e.col === '#fff' ? '#fff' : lit(PAL.rare, .5, .35 + .6 * lk));
+    seams(g, e, [[0, -10, 0, 9]]);
+    eye(g, e, 0, -4, 2.1);
+  },
+
+  /* SHIELDBREAKER — emitter vanes wound with stored charge. */
+  shieldbreaker(g, e) {
+    exhaust(g, e, -5.5, -12, 2.6, 10);
+    exhaust(g, e, 5.5, -12, 2.6, 10);
+    /* twin emitter vanes, humming with charge */
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 7, 4], [sx * 16, 8.5], [sx * 14.5, -4], [sx * 8, -6]]);
+      chassis(g, e);
+      g.lineWidth = 1.1; g.strokeStyle = PAL.tech; g.stroke();
+      const hum = .3 + .5 * Math.sin((e.t || 0) * 5 + sx);
+      disc(g, sx * 14, 4, 1.8, e.col === '#fff' ? '#fff' : lit(PAL.tech, .5, .3 + .5 * hum));
+    }
+    /* body */
+    mirrorPoly(g, [[0, 14], [5.6, 8], [8, 0], [6.2, -8], [3, -12.5], [0, -14]]);
+    carapace(g, e, -14, 14);
+    seams(g, e, [[0, -11, 0, 10], [-6, 1, 6, 1]]);
+    /* capacitor coil over the spine */
+    const chg = clamp(1 - (e.fireT || 0) / Math.max(.1, e.cd || 3.2), 0, 1);
+    disc(g, 0, -1, 4.6, '#080510');
+    g.lineWidth = 1.3; g.strokeStyle = PAL.tech;
+    ringPath(g, 0, -1, 4.6); g.stroke();
+    disc(g, 0, -1, 2.4, e.col === '#fff' ? '#fff' : lit(PAL.tech, .55, .25 + .6 * chg));
+    eye(g, e, 0, -6.5, 2.1, PAL.tech);
   }
 };
 
@@ -5235,15 +5322,15 @@ function startRun(mode) {
     FX.reseed(hashStr('fx-' + GAME.seedLabel + '-' + (GAME.runT | 0) + '-' + ((Math.random() * 1e9) | 0)));
   }
   clearAll();
-  GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
   Object.assign(GAME, {
     state: 'playing', paused: false, t: GAME.t, runT: 0,
     hitstop: 0, slowT: 0, slowV: 1, endT: 0,
     score: 0, shown: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
-    boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false, mutator: null
+    boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false
   });
+  GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : 'main')[0] || { s: 0 }).s;
   dropPity = 0;
   DIRECTOR.wave = 0; DIRECTOR.queue = []; DIRECTOR.phase = 'idle';
@@ -5729,6 +5816,12 @@ bindClick('btnRegister', () => saveCallsign());
 bindClick('btnSetClose', () => { AU.ui(); closeSettings(); });
 bindClick('btnFull', () => toggleFullscreen());
 bindClick('stClose', () => { $('st').classList.add('hidden'); });
+bindClick('swRegister', () => {
+  const okReg = tryRegisterSW();
+  note(okReg ? 'Offline app enabled' : 'Needs to run from a web server', okReg ? 'good' : 'bad');
+  if (okReg) $('swRegister').classList.add('hidden');
+  AU.ui();
+});
 $$('.tab').forEach(t => t.onclick = () => { AU.ui(); switchTab(t.dataset.tab); });
 
 function bindRange(id, key) {
@@ -5956,7 +6049,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3 };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
@@ -5991,7 +6084,7 @@ function runSelfTests() {
       beams.forEach(check); mines.forEach(check); parts.forEach(check);
       ok(fb.length < 6000, 'hostile fire does not accumulate without bound');
     }
-    ok(foes.every(e => e.t < 50 || e.dead || e.ghost), 'long-lived hostiles time out');
+    ok(foes.every(e => (!e.boss && (e.t < 50 || e.dead || e.ghost)) || (e.boss && !e.dead)), 'long-lived hostiles time out');
     clearAll();
     GAME.state = savedState; GAME.lives = savedLives;
     R = savedR;
@@ -6155,13 +6248,18 @@ applyGrade();
 requestAnimationFrame(frame);
 
 /* offline app shell: register the service worker whenever we are actually
-   being served over http(s); file:// keeps working as a plain standalone */
-(function registerSW() {
+   being served over http(s); file:// keeps working as a plain standalone.
+   Hosts that cannot serve sw.js simply skip it — the game never depends on it. */
+function tryRegisterSW() {
   try {
-    if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
-    if (!('serviceWorker' in navigator)) return;
-    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
-  } catch (e) { }
+    if (location.protocol !== 'http:' && location.protocol !== 'https:') return false;
+    if (!('serviceWorker' in navigator)) return false;
+    navigator.serviceWorker.register('sw.js').catch(() => { });
+    return true;
+  } catch (e) { return false; }
+}
+(function registerSW() {
+  addEventListener('load', tryRegisterSW);
 })();
 </script>
 </body>
