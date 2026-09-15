@@ -108,7 +108,8 @@ function verifyRun(mode, diff, wave, score, runT, cps) {
     if (!Array.isArray(c) || c.length !== 8 || c.some(x => !Number.isFinite(x))) {
       reject('malformed checkpoint'); return v;
     }
-    if (c[0] < prev[0] + .4) { reject('checkpoint cadence'); return v; }
+    /* cadence applies between checkpoints; a run legitimately begins at t≈0 */
+    if (i > 0 && c[0] < prev[0] + .4) { reject('checkpoint cadence'); return v; }
     for (let j = 0; j < 6; j++) if (c[j] < prev[j]) { reject('non-monotonic ' + j); return v; }
     if (c[7] < 1 || c[7] > MAX_MULT) { reject('mult out of range'); return v; }
     if (c[5] > c[4]) { reject('hits exceed shots'); return v; }

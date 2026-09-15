@@ -518,6 +518,13 @@ body.needrotate #rotate{display:grid}
         <div id="tab-global" class="hidden">
           <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
           <div id="globalBody" class="hidden">
+            <div id="seasonBox" class="hidden">
+              <div class="side-head"><h3>Weekly Gauntlet</h3><span id="seasonName"></span></div>
+              <p class="empty" id="seasonTimer" style="text-align:left;padding:2px 0 8px"></p>
+              <div id="seasonBoard"></div>
+              <div id="seasonYou" class="hidden"></div>
+              <p class="empty" style="text-align:left;padding:4px 0 10px">Best five runs this week count. Verified runs only.</p>
+            </div>
             <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — top pilots, server-verified</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
@@ -5386,6 +5393,41 @@ const NET = {
     } catch (e) { return null; }
   },
 
+  async fetchSeason() {
+    if (!this.on) return null;
+    try { return await this.req('GET', '/api/season'); } catch (e) { return null; }
+  },
+
+  async renderSeason() {
+    const box = $('seasonBox');
+    if (!box) return;
+    const j = await this.fetchSeason();
+    if (!j || !j.season) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    $('seasonName').textContent = j.season;
+    const left = Math.max(0, (j.ends || 0) - Date.now());
+    const d = Math.floor(left / 86400000), h = Math.floor(left % 86400000 / 3600000);
+    $('seasonTimer').textContent = d > 0 ? d + 'd ' + h + 'h remaining' : h + 'h remaining';
+    const bd = $('seasonBoard');
+    bd.innerHTML = (j.top && j.top.length)
+      ? j.top.map((r, i) => {
+          const medal = i < 3 ? 'color:var(--gold)' : '';
+          return '<div class="row">' +
+            '<span class="rk" style="' + medal + '">' + pad2(i + 1) + '</span>' +
+            '<span class="nm">' + esc(r.n) + '</span>' +
+            '<span class="sc">' + fmt(r.pts) + '</span>' +
+            '<span class="wv">' + r.runs + ' runs</span></div>';
+        }).join('')
+      : '<div class="empty">No verified runs this week yet.<br>The ladder is wide open.</div>';
+    const you = $('seasonYou');
+    if (j.me && j.me.runs > 0) {
+      you.classList.remove('hidden');
+      you.innerHTML = '<div class="row me"><span class="rk">#' + j.me.rank + '</span>' +
+        '<span class="nm">' + esc(this.user ? this.user.name : 'you') + '</span>' +
+        '<span class="sc">' + fmt(j.me.pts) + '</span><span class="wv">' + j.me.runs + ' runs</span></div>';
+    } else you.classList.add('hidden');
+  },
+
   /* render into the title screen Global tab */
   async renderGlobal() {
     const status = $('globalStatus'), body = $('globalBody');
@@ -5398,6 +5440,7 @@ const NET = {
     }
     status.textContent = 'Linked to command deck' + (this.user ? ' · signed in as ' + this.user.name : '');
     body.classList.remove('hidden');
+    this.renderSeason();
     const j = await this.fetchBoard(boardMode());
     const box = $('globalBoard');
     if (!j || !j.top || !j.top.length) {
