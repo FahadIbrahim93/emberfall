@@ -365,6 +365,16 @@ body.touchmode .tags{justify-content:flex-start}
 body.touchmode .gauge{width:118px}
 body.touchmode #feed{max-width:52vw}
 
+/* v3: left-handed + large-button touch layouts */
+body.touchmode.lefty #bDash{right:auto;left:calc(22px + var(--sal))}
+body.touchmode.lefty #bBomb{right:auto;left:calc(106px + var(--sal))}
+body.touchmode.lefty .br{left:auto;right:calc(20px + var(--sar));align-items:flex-end}
+body.touchmode.lefty .tags{justify-content:flex-end}
+body.touchmode.lefty #stick{left:auto}
+body.touchmode.bigbtns .tbtn{width:96px;height:96px;font-size:.68rem}
+body.touchmode.bigbtns #bDash{bottom:calc(136px + var(--sab))}
+body.touchmode.bigbtns #bBomb{right:calc(122px + var(--sar));bottom:calc(42px + var(--sab))}
+
 /* rotate nudge */
 #rotate{position:fixed;inset:0;z-index:14;display:none;place-items:center;background:var(--void);
   text-align:center;padding:30px}
@@ -483,6 +493,7 @@ body.needrotate #rotate{display:grid}
         <button class="btn key" id="btnLaunch">Launch intercept<span class="sub" id="launchSub">Endless · escalating waves</span></button>
         <button class="btn" id="btnHangar">Hangar<span class="sub" id="hangarSub">Hulls and refits</span></button>
         <button class="btn" id="btnDaily">Today's run<span class="sub" id="dailySub">One seed, everyone the same</span></button>
+        <button class="btn hidden" id="btnInstall">Install app<span class="sub">Add EMBERFALL to your home screen</span></button>
         <button class="btn ghost" id="btnSettings">Settings</button>
       </div>
       <p class="creds">
@@ -514,8 +525,7 @@ body.needrotate #rotate{display:grid}
       <div>
         <p class="eyebrow">Hangar deck</p>
         <h2>Refit and rearm</h2>
-      </div>
-      <div class="alloy"><b id="alloyN">0</b><span>alloy salvaged</span></div>
+      </div>        <div class="alloy"><b id="alloyN">0</b><span>alloy salvaged</span></div>
     </div>
     <div class="bay-cols">
       <div>
@@ -530,6 +540,8 @@ body.needrotate #rotate{display:grid}
     <div class="pair" style="margin-top:20px">
       <button class="btn key" id="btnBayLaunch">Launch</button>
       <button class="btn" id="btnBayBack">Back</button>
+      <button class="btn" id="btnExport">Export save</button>
+      <button class="btn" id="btnImport">Import save</button>
       <button class="btn warn" id="btnWipe">Reset progress</button>
     </div>
   </div>
@@ -595,6 +607,8 @@ body.needrotate #rotate{display:grid}
       <div class="opt line"><label id="lHit">Show hitbox</label><button class="sw" id="swHit" aria-labelledby="lHit"><i></i></button></div>
       <div class="opt line"><label id="lAuto">Auto-fire</label><button class="sw" id="swAuto" aria-labelledby="lAuto"><i></i></button></div>
       <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
+      <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
+      <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
       <div class="opt full"><label>Frame rate cap</label>
         <div class="seg" id="segCap">
@@ -718,7 +732,8 @@ const CFG = {
   master: 80, music: 58, sfx: 85,
   diff: 1, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
-  hitbox: false, autofire: false, haptics: true, fps: false, fpscap: 0
+  hitbox: false, autofire: false, haptics: true, fps: false, fpscap: 0,
+  touchLeft: false, touchBig: false
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -5331,7 +5346,9 @@ function refreshTitleMeta() {
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name;
-  $('regMeta').textContent = META.runs ? META.runs + ' runs flown' : 'Stored on this device';
+  $('regMeta').textContent = META.runs
+    ? META.runs + ' runs · ' + fmt(META.totalKills) + ' kills · best wave ' + Math.max(1, META.bestWave)
+    : 'Stored on this device';
 }
 function pauseRun() {
   if (GAME.state !== 'playing' || GAME.paused) return;
@@ -5495,7 +5512,7 @@ addEventListener('pointermove', e => {
   }
 }, { passive: true });
 cv.addEventListener('pointerdown', e => {
-  AU.init(); AU.resume(); MUSIC.start();
+  AU.init(); AU.resume(); MUSIC.start(); AU.unlockiOS();
   if (GAME.state === 'boot') { finishBoot(); return; }
   if (e.pointerType === 'touch') { onTouchStart(e); return; }
   INPUT.mode = 'mouse';
@@ -5645,6 +5662,63 @@ bindClick('btnWipe', () => {
   saveMeta(); renderHangar(); note('Progress reset');
 });
 bindClick('btnPause', () => pauseRun());
+
+/* ── save portability: a copy-paste code carries everything between devices ── */
+function exportSave() {
+  const payload = {
+    v: 3, meta: META, cfg: CFG,
+    boards: { main: loadBoard('main'), daily: loadBoard('daily') },
+    callsign: DB.get('callsign', '')
+  };
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(
+        () => note('Save copied to clipboard', 'good'),
+        () => prompt('Copy your save code:', code)
+      );
+    } else prompt('Copy your save code:', code);
+  } catch (e) { prompt('Copy your save code:', code); }
+  AU.ui();
+}
+function importSave() {
+  const code = prompt('Paste your save code:');
+  if (!code) return;
+  try {
+    const payload = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+    if (!payload || !payload.meta) throw new Error('bad payload');
+    DB.set('meta', payload.meta);
+    if (payload.cfg) DB.set('cfg', payload.cfg);
+    if (payload.boards && payload.boards.main) DB.set('board.main', payload.boards.main);
+    if (payload.boards && payload.boards.daily) DB.set('board.daily', payload.boards.daily);
+    if (payload.callsign) DB.set('callsign', payload.callsign);
+    META.alloy = 0; loadMeta(); // reload everything from storage
+    if (payload.cfg) { for (const k in CFG) if (k in payload.cfg) CFG[k] = payload.cfg[k]; saveCfg(); }
+    renderBoard($('tab-scores'), 'main', null);
+    refreshTitleMeta();
+    note('Save imported', 'good'); AU.unlock();
+  } catch (e) {
+    note('That code did not parse', 'bad');
+  }
+  AU.ui();
+}
+bindClick('btnExport', exportSave);
+bindClick('btnImport', importSave);
+
+/* ── install prompt: offer it when the browser allows ── */
+let deferredInstall = null;
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  const b = $('btnInstall');
+  if (b) b.classList.remove('hidden');
+});
+bindClick('btnInstall', () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  deferredInstall.userChoice.finally(() => { deferredInstall = null; $('btnInstall').classList.add('hidden'); });
+  AU.ui();
+});
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
@@ -5687,6 +5761,8 @@ bindSwitch('swGrain', 'grain', v => document.body.classList.toggle('nograin', !v
 bindSwitch('swHit', 'hitbox');
 bindSwitch('swAuto', 'autofire');
 bindSwitch('swHap', 'haptics');
+bindSwitch('swLefty', 'touchLeft', v => document.body.classList.toggle('lefty', v));
+bindSwitch('swBig', 'touchBig', v => document.body.classList.toggle('bigbtns', v));
 bindSwitch('swFps', 'fps');
 
 function bindSegment(id, key, apply) {
@@ -5966,7 +6042,7 @@ function runBoot() {
 function finishBoot() {
   if (bootDone) return;
   bootDone = true;
-  AU.init(); AU.resume(); MUSIC.start(); AU.uiBig();
+  AU.init(); AU.resume(); MUSIC.start(); AU.uiBig(); AU.unlockiOS();
   showScreen('s-boot', false);
   keepAwake(true);
   toTitle();
@@ -5984,6 +6060,8 @@ function boot() {
   document.body.classList.toggle('noscan', !CFG.scan);
   document.body.classList.toggle('nograin', !CFG.grain);
   document.body.classList.toggle('touchmode', isTouchDevice());
+  document.body.classList.toggle('lefty', !!CFG.touchLeft);
+  document.body.classList.toggle('bigbtns', !!CFG.touchBig);
   if (isTouchDevice() && !DB.get('touchDefaulted', false)) {
     CFG.autofire = true; DB.set('touchDefaulted', true); saveCfg();
     const sw = $('swAuto'); if (sw) { sw.classList.add('on'); sw.setAttribute('aria-checked', 'true'); }
