@@ -1,5 +1,5 @@
 /* EMBERFALL offline cache — registered only when served over http/https. */
-const CACHE = 'emberfall-v3';
+const CACHE = 'emberfall-v3.1';
 const CORE = ['./', './index.html'];
 
 self.addEventListener('install', e => {

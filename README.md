@@ -1,4 +1,4 @@
-# EMBERFALL v3.0 — Orbital Intercept
+# EMBERFALL v3.1 — Orbital Intercept
 
 A single-file, zero-dependency orbital intercept shooter. Everything — art, music, sound — is generated procedurally at runtime. No build step, no assets to download, no network needed after first paint.
 
@@ -29,6 +29,14 @@ It's one HTML file plus an optional `sw.js`. Any static host works: GitHub Pages
 
 - Open `index.html?selftest` — the built-in test suite runs and reports in a panel (bottom right). Everything should read **PASS**.
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v3.1 — "Momentum"
+
+- **Boss Rush mode:** all four capitals back-to-back, then an endless tail at wave-20 tempo — the showcase run
+- **Replay ghosts:** your best daily run records itself and races you — draft, claim, and chase your own best line
+- **High-vis bullets option:** dark rim on hostile fire for bright rooms / OLED — verified on the non-bloom render path
+- **Performance gate:** the 20-test self-suite now includes a sustained-load benchmark — worst-case combat must hold the 120Hz sim budget on every commit
+- **Economy audited:** simulated new-player meta progression (first hull ~run 5, full completion as a long-tail goal) — no tuning needed
 
 ## What's new in v3.0 — "Expanded Edition"
 

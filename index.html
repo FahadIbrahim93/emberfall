@@ -517,7 +517,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -665,7 +665,7 @@ body.needrotate #rotate{display:grid}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.0 — single-file orbital intercept shooter, Expanded Edition
+   EMBERFALL v3.1 — single-file orbital intercept shooter, Momentum
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -6255,6 +6255,41 @@ function runSelfTests() {
     ok(foes.every(e => (!e.boss && (e.t < 50 || e.dead || e.ghost)) || (e.boss && !e.dead)), 'long-lived hostiles time out');
     clearAll();
     GAME.state = savedState; GAME.lives = savedLives;
+    R = savedR;
+  });
+  T('sustained load: 10s of full combat holds 120Hz sim', () => {
+    // Phase E perf gate: the worst realistic worst case — one of every hostile
+    // class + a capital + dense fire — must still fit the fixed-step budget.
+    const savedR = R;
+    R = makeRng(777);
+    clearAll();
+    const savedState = GAME.state, savedLives = GAME.lives;
+    GAME.state = 'playing'; GAME.paused = false; GAME.lives = 3; GAME.wave = 16;
+    P.alive = true; P.x = W / 2; P.y = H * .8; P.vx = P.vy = 0; P.inv = 1;
+    spawnFoe('drone', { ty: 100 }); spawnFoe('mini', { ty: 140 });
+    spawnFoe('striker', { ty: 120 }); spawnFoe('weaver', { ty: 90 });
+    spawnFoe('splitter', { ty: 160 }); spawnFoe('cruiser', { ty: 150 });
+    spawnFoe('lancer', { ty: 110 }); spawnFoe('orbiter', { ty: 80 });
+    spawnFoe('warden', { ty: 130 }); spawnFoe('minelayer', { ty: 170 });
+    spawnFoe('carrier', { ty: 60 });
+    spawnFoe('ram', { ty: 100 }); spawnFoe('sniper', { ty: 120 });
+    spawnFoe('shieldbreaker', { ty: 140 });
+    spawnBoss(0, 0);
+    const dt = 1 / 60;
+    const t0 = performance.now();
+    for (let i = 0; i < 600; i++) {
+      P.inv = 1;
+      for (const e of foes) if (!e.dead) updateFoe(e, dt);
+      for (let j = foes.length - 1; j >= 0; j--) if (foes[j].dead) swapOut(foes, j);
+      updateBeams(dt);
+      updateEffects(dt);
+      collide();
+    }
+    const per60 = (performance.now() - t0) / 600;
+    ok(per60 < 4, 'sim step avg ' + per60.toFixed(2) + 'ms (budget 4ms @120Hz)');
+    clearAll();
+    GAME.state = savedState; GAME.lives = 3;
+    GAME.lives = savedLives; GAME.state = savedState;
     R = savedR;
   });
   T('quality presets degrade in order', () => {
