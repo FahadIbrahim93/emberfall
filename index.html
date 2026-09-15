@@ -5381,7 +5381,7 @@ const NET = {
         runT: tele ? tele.runT : 0, kills: tele ? tele.kills : 0,
         cps: tele ? tele.cps : []
       });
-      return { rank: j.rank, top: j.top, verdict: j.verdict, season: j.season };
+      return { rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe };
     } catch (e) { return null; }
   },
 
@@ -5827,9 +5827,12 @@ function endRun() {
     if (!el) return;
     if (r) {
       el.classList.remove('hidden');
+      const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
+        ? ' · gauntlet #' + r.seasonMe.rank
+        : '';
       el.innerHTML = r.verdict === 'flagged'
-        ? '<b style="color:var(--amber)">Under review</b><span>logged · global rank #' + r.rank + ' pending verification</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + '</span>';
+        ? '<b style="color:var(--amber)">Under review</b><span>logged · global rank #' + r.rank + seasonLine + '</span>'
+        : '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + seasonLine + '</span>';
     } else el.classList.add('hidden');
   });
   showScreen('s-over', true);
@@ -5864,9 +5867,10 @@ function refreshTitleMeta() {
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name;
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
-  $('regMeta').textContent = META.runs
+  $('regMeta').textContent = (META.runs
     ? META.runs + ' runs · ' + fmt(META.totalKills) + ' kills · best wave ' + Math.max(1, META.bestWave)
-    : 'Stored on this device';
+    : 'Stored on this device')
+    + (NET.user ? ' · ' + NET.user.name : '');
 }
 function pauseRun() {
   if (GAME.state !== 'playing' || GAME.paused) return;

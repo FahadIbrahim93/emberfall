@@ -476,7 +476,8 @@ async function handleApi(req, res, pathname, ip) {
       FROM scores s JOIN users u ON u.id = s.user_id
       WHERE s.mode = ? AND (s.verdict IS NULL OR s.verdict = 'verified')
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
-    return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()) });
+    const sb = seasonBoard(now(), user.id);
+    return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me });
   }
 
   if (req.method === 'GET' && pathname === '/api/scores') {
