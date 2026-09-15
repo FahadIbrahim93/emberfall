@@ -612,6 +612,7 @@ body.needrotate #rotate{display:grid}
       <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
       <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
       <div class="opt line"><label id="lGhost">Daily ghost</label><button class="sw" id="swGhost" aria-labelledby="lGhost"><i></i></button></div>
+      <div class="opt line"><label id="lOut">High-vis bullets</label><button class="sw" id="swOut" aria-labelledby="lOut"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
       <div class="opt full"><label>Frame rate cap</label>
         <div class="seg" id="segCap">
@@ -736,7 +737,7 @@ const CFG = {
   diff: 1, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
   hitbox: false, autofire: false, haptics: true, fps: false, fpscap: 0,
-  touchLeft: false, touchBig: false, ghost: true
+  touchLeft: false, touchBig: false, ghost: true, outline: false
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -4831,6 +4832,13 @@ function drawBullets() {
   for (const b of fb) {
     const rgb = b.kind === 'seek' ? rgbOf(PAL.rare) : rgbOf(b.col || PAL.foe);
     emit(b.kind === 'seek' ? SPR.rare : SPR.foe, b.x, b.y, b.r * 4.4, .85);
+    // high-vis mode: a dark rim between glow and core. On bright backdrops
+    // the dark ring is what the eye tracks, and it costs one stroke.
+    if (CFG.outline) {
+      ctx.strokeStyle = 'rgba(5,8,16,.6)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .82, 0, TAU); ctx.stroke();
+    }
     ctx.fillStyle = PAL.foeLit;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .5, 0, TAU); ctx.fill();
     ctx.strokeStyle = 'rgba(' + rgb + ',.9)';
@@ -6015,6 +6023,7 @@ bindSwitch('swHap', 'haptics');
 bindSwitch('swLefty', 'touchLeft', v => document.body.classList.toggle('lefty', v));
 bindSwitch('swBig', 'touchBig', v => document.body.classList.toggle('bigbtns', v));
 bindSwitch('swGhost', 'ghost');
+bindSwitch('swOut', 'outline');
 bindSwitch('swFps', 'fps');
 
 function bindSegment(id, key, apply) {
