@@ -943,8 +943,8 @@ const AU = {
     const c = this.ctx;
 
     this.comp = c.createDynamicsCompressor();
-    this.comp.threshold.value = -14; this.comp.knee.value = 22;
-    this.comp.ratio.value = 4; this.comp.attack.value = .004; this.comp.release.value = .18;
+    this.comp.threshold.value = -16; this.comp.knee.value = 22;
+    this.comp.ratio.value = 5; this.comp.attack.value = .004; this.comp.release.value = .18;
 
     this.out = c.createGain();
     this.comp.connect(this.out);
@@ -985,6 +985,7 @@ const AU = {
 
     this.ready = true;
     this.applyVolumes();
+    this.unlockiOS();
   },
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => { });
@@ -1150,7 +1151,52 @@ const AU = {
     }));
   },
   ui() { if (this.gate('ui', 45)) return; this.tone({ type: 'square', f0: 1250, dur: .03, vol: .04 }); },
-  uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); }
+  uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); },
+
+  /* ── v3 voices ── */
+  gameOver() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    [440, 349, 294, 220].forEach((f, i) => this.tone({
+      type: 'triangle', f0: f, dur: .6, vol: .09, t0: t + i * .17, verb: .55
+    }));
+    this.tone({ type: 'sine', f0: 110, f1: 27, dur: 1.6, vol: .22, t0: t + .1 });
+    this.duckNow(.4, 1.2);
+  },
+  comboSting(n) {
+    if (!this.ready) return;
+    this.tone({ type: 'square', f0: 740 + Math.min(12, n) * 26, dur: .05, vol: .035, verb: .2 });
+  },
+  ramRoar() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sawtooth', f0: 84, f1: 38, dur: .5, vol: .16, t0: t, filter: ['lowpass', 480, 160] });
+    this.hiss({ dur: .4, f0: 900, f1: 220, vol: .1, t0: t });
+  },
+  sniperLock() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sine', f0: 1720, dur: .05, vol: .05, t0: t });
+    this.tone({ type: 'sine', f0: 1720, dur: .05, vol: .05, t0: t + .08 });
+  },
+  emp() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'square', f0: 980, f1: 110, dur: .38, vol: .12, t0: t });
+    this.hiss({ dur: .5, f0: 4200, f1: 260, vol: .16, t0: t, type: 'bandpass', q: 1.2 });
+    this.duckNow(.4, .6);
+  },
+  /* iOS silent-switch hardening: an inaudible buffer, played inside the
+     first gesture, unlocks WebAudio where a plain resume() is not enough */
+  unlockiOS() {
+    if (!this.ready) return;
+    try {
+      const c = this.ctx;
+      const b = c.createBuffer(1, 1, 22050);
+      const s = c.createBufferSource();
+      s.buffer = b; s.connect(c.destination); s.start(0);
+    } catch (e) { }
+  }
 };
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1161,6 +1207,7 @@ const AU = {
 const MUSIC = {
   timer: null, step: 0, nextAt: 0, bpm: 124,
   intensity: .25, target: .25, mode: 'calm', bar: 0,
+  variant: 'dreadnought', droneOsc: null, droneGain: null,
 
   // Aeolian on A, with a phrygian-flavoured boss variant. Semitone offsets.
   BASS: {
@@ -1224,9 +1271,12 @@ const MUSIC = {
     src.connect(f); f.connect(g); g.connect(AU.musicBus);
     src.start(t); src.stop(t + dur + .02);
   },
+  /* per-capital scoring: each boss gets its own harmonic ground.
+     Gate Warden sits on the tritone — the gate does not sound like home. */
+  VARIANT_ROOT: { dreadnought: 0, matriarch: -3, tyrant: 2, gatewarden: 6 },
   emit(s, t, spb) {
     const I = this.intensity, M = this.mode;
-    const root = 55; // A1
+    const root = 55 * Math.pow(2, (this.VARIANT_ROOT[this.variant] || 0) / 12);
     const st = n => root * Math.pow(2, n / 12);
     const bass = this.BASS[M] || this.BASS.calm;
     const arp = this.ARP[M] || this.ARP.calm;
@@ -1270,6 +1320,37 @@ const MUSIC = {
       this.voice(st(12) * 2, t, .2, 'sawtooth', .05, 2600, .4);
       this.voice(st(13) * 2, t + spb, .18, 'sawtooth', .04, 2200, .4);
     }
+    // title theme: a quiet four-note motif over the calm bed, menus only
+    if ((GAME.state === 'title' || GAME.state === 'hangar') && s === 0) {
+      const motif = [19, 15, 17, 14];
+      motif.forEach((n, i) => this.voice(
+        st(n) * 2, t + i * spb * 6, spb * 5, 'triangle', .05, 1400, .6, i % 2 ? 4 : -4
+      ));
+    }
+  },
+  /* low-hull sub-drone: a physical voice for “one hull left” */
+  startDrone() {
+    if (!AU.ready || this.droneOsc) return;
+    const c = AU.ctx, t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.value = 36.5;
+    f.type = 'lowpass'; f.frequency.value = 130; f.Q.value = 2;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.075, t + .6);
+    o.connect(f); f.connect(g); g.connect(AU.musicBus);
+    o.start(t);
+    this.droneOsc = o; this.droneGain = g;
+  },
+  stopDrone() {
+    if (!this.droneOsc) return;
+    const c = AU.ctx, t = c.currentTime, o = this.droneOsc, g = this.droneGain;
+    try {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(0, t + .5);
+      o.stop(t + .6);
+    } catch (e) { }
+    this.droneOsc = null; this.droneGain = null;
   }
 };
 /* ══════════════════════════════════════════════════════════════════════
@@ -3206,6 +3287,7 @@ function registerKill(e) {
   GAME.kills++;
   GAME.combo++;
   GAME.comboT = 3.2;
+  if (GAME.combo % 8 === 0) AU.comboSting(GAME.combo);
   const m = multFor(GAME.combo);
   if (m > GAME.mult) {
     GAME.maxMult = Math.max(GAME.maxMult, m);
@@ -3583,7 +3665,7 @@ function gunControl(e, dt) {
       e.lockT = 0;
       e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
       foeShot(e, aimAt(e), e.bspd * 1.7, { r: 4, col: PAL.rare });
-      AU.foeShot('heavy');
+      AU.sniperLock(); AU.foeShot('heavy');
     } else if (e.lockT >= e.lockNeed && e.fireT > 0) {
       e.lockT = e.lockNeed; // hold the lock while the barrel cycles
     }
@@ -3639,7 +3721,7 @@ function gunControl(e, dt) {
         GAME.tookEmp = true;
         if (P.shield > 0) { P.shield = 0; P.shieldRegen = 0; note('Shield suppressed', 'bad'); }
         note('Systems scrambled', 'bad');
-        AU.shieldBreak(); chroma(.5); buzz(30);
+        AU.emp(); chroma(.5); buzz(30);
       }
       break;
     }
@@ -3743,7 +3825,7 @@ function updateFoe(e, dt) {
       e.state = 'dive';
       e.ang = e.chargeAng != null ? e.chargeAng : aimAt(e);
       e.dv = 260;
-      AU.foeShot('heavy');
+      AU.ramRoar();
     }
   }
       if (e.type === 'warden' && !e.dying && e.hp > 0) {
@@ -3956,6 +4038,7 @@ const BOSSES = [
 
 function spawnBoss(index, cycle) {
   const def = BOSSES[index % BOSSES.length];
+  MUSIC.variant = def.id; // each capital scores differently
   const hp = Math.round(def.hp * (1 + cycle * .55) * (1 + GAME.wave * .035) * D().hp);
   const b = spawnFoe('cruiser', {
     x: W / 2, y: -190, state: 'boss', boss: true, def,
@@ -4194,6 +4277,7 @@ function startWave(n) {
     (GAME.mutator ? ' · ' + GAME.mutator.name : '');
   if (isBoss) { AU.alarm(); MUSIC.set('boss', .95); }
   else MUSIC.set('combat', clamp(.45 + n * .025, .45, .9));
+  MUSIC.stopDrone();
   // a guaranteed early rack upgrade, so run one always feels like it grows
   if (n === 2 || n === 4) spawnPick(W / 2, -24, 'gun');
   META.bestWave = Math.max(META.bestWave, n);
@@ -4374,6 +4458,7 @@ function updateThreat(dt) {
   GAME.threat = damp(GAME.threat, clamp(t, 0, 1), 1.6, dt);
   if (!boss) MUSIC.set(DIRECTOR.phase === 'rest' ? 'calm' : 'combat', clamp(.3 + GAME.threat * .68, .25, .95));
   const crit = GAME.lives <= 1 && P.alive && GAME.state === 'playing';
+  if (crit) MUSIC.startDrone(); else MUSIC.stopDrone();
   $('lowhp').classList.toggle('on', crit);
 }
 
@@ -5170,6 +5255,9 @@ function endRun() {
   document.body.classList.remove('flying');
   MUSIC.set('calm', .22);
   beams.length = 0;
+
+  AU.gameOver();
+  MUSIC.stopDrone();
 
   const bonusMul = 1 + refit('fortune') * .05;
   const earned = Math.round((GAME.alloyRun + GAME.score / 140 + GAME.wave * 6) * bonusMul);
