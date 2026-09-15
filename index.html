@@ -535,6 +535,16 @@ body.needrotate #rotate{display:grid}
   </div>
 </section>
 
+<!-- ════════ BOON DRAFT ════════ -->
+<section id="s-boons" class="screen" role="dialog" aria-modal="true" aria-labelledby="boonH">
+  <div class="panel card">
+    <p class="eyebrow">Salvage recovered</p>
+    <h2 id="boonH">Claim a boon</h2>
+    <p class="lede" style="margin-bottom:16px">The capital's core is intact. One refit's worth of tech — choose, it flies with you the rest of the run.</p>
+    <div class="menu" id="boonList"></div>
+  </div>
+</section>
+
 <!-- ════════ PAUSE ════════ -->
 <section id="s-pause" class="screen" role="dialog" aria-modal="true" aria-labelledby="pauseH">
   <div class="panel card">
@@ -676,6 +686,7 @@ function makeRng(seed) {
   f.pick = arr => arr[Math.floor(f() * arr.length) % arr.length];
   f.chance = p => f() < p;
   f.sign = () => f() < .5 ? -1 : 1;
+  f.reseed = seed => { a = seed >>> 0; };
   return f;
 }
 function hashStr(s) {
@@ -812,6 +823,54 @@ function saveMeta() { DB.set('meta', META); }
 const refit = id => META.refits[id] || 0;
 const hull = () => HULLS.find(h => h.id === META.ship) || HULLS[0];
 
+/* ═══════════════════════════ boons: in-run draft ═══════════════════════ */
+const BOONS = [
+  { id: 'coils', name: 'Overcharged coils', desc: 'Fire 18% faster for the rest of the run.', apply() { P.rateMul *= .82; } },
+  { id: 'plating', name: 'Nano plating', desc: 'One more hull, right now.', apply() { GAME.lives = Math.min(8, GAME.lives + 1); } },
+  { id: 'phase', name: 'Phase engine', desc: 'Dash charges rebuild 30% faster.', apply() { P.dashMul *= 1.3; } },
+  { id: 'salvage', name: 'Salvage rig', desc: '+30% alloy from everything this run.', apply() { P.alloyMul *= 1.3; } },
+  { id: 'volatile', name: 'Volatile rounds', desc: 'All guns hit 25% harder.', apply() { P.dmg *= 1.25; } },
+  { id: 'aegis', name: 'Aegis cache', desc: 'A shield now — and it rebuilds itself if lost.', apply() { P.shieldMax = Math.max(P.shieldMax, 1); P.shield = P.shieldMax; P.shieldRegenOn = true; AU.shieldOn(); } },
+  { id: 'magnetics', name: 'Magnetics', desc: 'Salvage reaches you from much further out.', apply() { P.magMul *= 1.6; } },
+  { id: 'cache', name: 'Ember cache', desc: 'Two nova pulses, immediately.', apply() { P.bombs = Math.min(5, P.bombs + 2); } },
+  { id: 'graze', name: 'Kill instinct', desc: 'Grazes score three times as much.', apply() { P.grazeMul *= 3; } }
+];
+function offerBoons() {
+  if (GAME.state !== 'playing' || GAME.lives <= 0) return;
+  const pool = BOONS.filter(b => !P.boons.some(g => g.id === b.id) || b.id === 'volatile' || b.id === 'coils');
+  const picks = [];
+  const bag = pool.slice();
+  while (picks.length < 3 && bag.length) picks.push(bag.splice(R.int(0, bag.length - 1), 1)[0]);
+  if (!picks.length) return;
+  const list = $('boonList');
+  list.innerHTML = '';
+  for (const b of picks) {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.innerHTML = '<b style="color:var(--violet);letter-spacing:.2em">' + esc(b.name) + '</b>' +
+      '<span class="sub">' + esc(b.desc) + '</span>';
+    btn.onclick = () => takeBoon(b);
+    list.appendChild(btn);
+  }
+  GAME.paused = true;
+  GAME.boonsOffered++;
+  showScreen('s-boons', true);
+  MUSIC.set('calm', .3);
+  AU.unlock();
+  setTimeout(() => list.firstChild && list.firstChild.focus(), 60);
+}
+function takeBoon(b) {
+  b.apply();
+  P.boons.push(b);
+  GAME.boons++;
+  showScreen('s-boons', false);
+  GAME.paused = false;
+  blurActive();
+  note('Boon claimed — ' + b.name, 'rare', '❖');
+  AU.pickup(true);
+  if (AU.ready) MUSIC.nextAt = Math.max(MUSIC.nextAt, AU.ctx.currentTime + .05);
+}
+
 /* ─────────────────────────── feats (achievements) ─────────────────────────── */
 const FEATS = [
   { id: 'first', name: 'First contact', desc: 'Finish a run.', check: s => true },
@@ -827,7 +886,10 @@ const FEATS = [
   { id: 'nobomb', name: 'Cold nerve', desc: 'Reach wave 8 without firing a pulse.', check: s => s.wave >= 8 && s.bombsUsed === 0 },
   { id: 'score100k', name: 'Six figures', desc: 'Score 100,000 in one run.', check: s => s.score >= 100000 },
   { id: 'wraith', name: 'অপার্থিব', desc: 'Reach wave 10 flying the Wraith.', check: s => s.wave >= 10 && s.ship === 'wraith' },
-  { id: 'nightmare', name: 'Nightmare fuel', desc: 'Reach wave 10 on Nightmare.', check: s => s.wave >= 10 && s.diff === 3 }
+  { id: 'nightmare', name: 'Nightmare fuel', desc: 'Reach wave 10 on Nightmare.', check: s => s.wave >= 10 && s.diff === 3 },
+  { id: 'boons3', name: 'Blessed thrice', desc: 'Hold three boons in one run.', check: s => (s.boons || 0) >= 3 },
+  { id: 'warden', name: 'Warden slayer', desc: 'Destroy the Gate Warden.', check: s => s.warden === true },
+  { id: 'emp', name: 'Hard reboot', desc: 'Take an EMP hit and still clear the wave.', check: s => s.emp === true }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -854,6 +916,15 @@ function addRecord(mode, name, s, w, shipId) {
 function todaySeedKey() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+}
+/* ═══════════ daily mutators — one seeded twist per day ═══════════ */
+const MUTATORS = [
+  { id: 'glass', name: 'Glass Cannon', desc: 'One less hull, all guns +50%' },
+  { id: 'swarm', name: 'Swarm Protocol', desc: 'Every wave runs one ship heavier' },
+  { id: 'overkill', name: 'Overkill', desc: 'Hostile rounds +15% fast · score +25%' }
+];
+function todayMutator() {
+  return MUTATORS[hashStr('mut-' + todaySeedKey()) % MUTATORS.length];
 }
 /* ══════════════════════════════════════════════════════════════════════
    AUDIO — everything is synthesised at runtime. No files, no loading.
@@ -2670,6 +2741,66 @@ const BOSS_ART = {
     g.globalAlpha = 1;
 
     battleDamage(g, b, [[-22, 24, 11, .6], [26, -18, 10, 0]]);
+  },
+
+  /* GATE WARDEN — the thing that holds the অপার্থিব side of the gate.
+     Three shield arcs rotate around a core; shots between arcs are absorbed,
+     so you fight the rotation as much as the hull. */
+  gatewarden(g, b) {
+    const t = b.t || 0;
+    const flat = b.col === '#fff';
+    for (const sx of [-34, 0, 34]) {
+      g.save();
+      g.translate(sx, -52);
+      g.scale(6, -18);
+      g.fillStyle = vgrad(g, 'geng' + b.col, 0, 1, flat ? [
+        [0, '#fff'], [1, 'rgba(255,255,255,0)']
+      ] : [
+        [0, rgba(PAL.violet, .8)], [.45, rgba(PAL.violet, .3)], [1, rgba(PAL.violet, 0)]
+      ]);
+      g.beginPath();
+      g.moveTo(-1, 0); g.quadraticCurveTo(0, .8, 0, 1); g.quadraticCurveTo(0, .8, 1, 0);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+    /* star-shaped hull */
+    g.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * TAU - PI / 2;
+      const rr = i % 2 ? 66 : 42;
+      const x = Math.cos(a) * rr, y = Math.sin(a) * rr + 4;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath();
+    carapace(g, b, -62, 70);
+    seams(g, b, [[0, -40, 0, 48], [-46, 10, 46, 10]]);
+    /* rotating shield arcs — the whole fight */
+    for (let i = 0; i < 3; i++) {
+      const a = (b.shieldAng || 0) + i / 3 * TAU;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = rgba(PAL.violet, b.absorbT > 0 ? .95 : .6);
+      g.lineWidth = b.absorbT > 0 ? 5 : 3.5;
+      g.beginPath(); g.arc(0, 4, 86, a - .5, a + .5); g.stroke();
+      if (b.absorbT > 0) {
+        emitLocal(g, SPR.rare, 0, 4, 150, .28);
+      }
+      g.restore();
+    }
+    /* gate emitter crown */
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * TAU - PI / 2;
+      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 4.5, '#0a0412');
+      const k = .3 + .5 * Math.max(0, Math.sin(t * 3 + i * 1.25));
+      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 2, flat ? '#fff' : lit(PAL.violet, .4, k));
+    }
+    /* core eye */
+    g.save(); g.globalCompositeOperation = 'lighter';
+    emitLocal(g, SPR.rare, 0, 4, 70, .4 + .2 * Math.sin(t * 4));
+    g.restore();
+    disc(g, 0, 4, 10, flat ? '#fff' : dark(PAL.violet, .5));
+    eye(g, b, 0, 4, 5.5, flat ? '#fff' : PAL.rare);
+    battleDamage(g, b, [[-30, 26, 10, .4], [34, -16, 8, -.5], [0, 40, 9, .9]]);
   }
 };
 
@@ -2830,11 +2961,17 @@ function configurePlayer() {
   P.shield = h.startShield ? 1 : 0;
   P.shieldRegen = 0;
   P.overT = 0; P.dashT = 0; P.dashCd = 0; P.seekCd = 0;
+  P.rateMul = 1; P.dashMul = 1; P.magMul = 1; P.alloyMul = 1;
+  P.shieldRegenOn = false; P.boons = []; P.empT = 0;
   let lives = h.lives + (refit('plating') >= 3 ? 1 : 0) + (refit('plating') >= 5 ? 1 : 0);
   lives += D().lives;
+  if (GAME.mutator && GAME.mutator.id === 'glass') {
+    lives = Math.max(1, lives - 1);
+    P.dmg *= 1.5;
+  }
   GAME.lives = Math.max(1, lives);
 }
-const pickupRadius = () => 92 * (1 + refit('magnet') * .28);
+const pickupRadius = () => 92 * (1 + refit('magnet') * .28) * P.magMul;
 
 /* ─────────────────────────── weapons ─────────────────────────── */
 const WEAPONS = [
@@ -2851,7 +2988,7 @@ const MAX_WEAPON = WEAPONS.length - 1;
 function firePrimary() {
   const w = WEAPONS[clamp(P.weapon, 1, MAX_WEAPON)];
   const over = P.overT > 0;
-  P.fireCd = w.rate * (over ? .68 : 1);
+  P.fireCd = w.rate * (over ? .68 : 1) * P.rateMul;
   const dmg = w.dmg * P.dmg * (over ? 1.15 : 1);
   for (const [dx, ang] of w.lanes) {
     pb.push({
@@ -2952,13 +3089,14 @@ function updatePlayer(dt, move) {
   if (P.overT > 0) P.overT -= dt;
   if (P.dashCd > 0) P.dashCd -= dt;
   if (P.charges < P.maxCharges) {
-    P.dashCd -= dt * (1 + refit('thrusters') * .1);
-    if (P.dashCd <= 0) { P.charges++; P.dashCd = 1.55 * (1 - refit('thrusters') * .055); }
+    P.dashCd -= dt * (1 + refit('thrusters') * .1) * P.dashMul;
+    if (P.dashCd <= 0) { P.charges++; P.dashCd = 1.55 * (1 - refit('thrusters') * .055) / P.dashMul; }
   }
-  if (refit('capacitor') >= 5 && P.shield < P.shieldMax) {
+  if ((refit('capacitor') >= 5 || P.shieldRegenOn) && P.shield < P.shieldMax) {
     P.shieldRegen += dt;
     if (P.shieldRegen > 26) { P.shieldRegen = 0; P.shield = P.shieldMax; note('Shield rebuilt', 'good'); AU.shieldOn(); }
   }
+  if (P.empT > 0) P.empT -= dt;
 
   // engine trail
   P.trailT -= dt;
@@ -3051,7 +3189,8 @@ function hurtPlayer(src) {
 /* ─────────────────────────── scoring ─────────────────────────── */
 function multFor(c) { return c >= 40 ? 5 : c >= 24 ? 4 : c >= 13 ? 3 : c >= 5 ? 2 : 1; }
 function addScore(n, x, y, big) {
-  const v = Math.round(n * GAME.mult * P.scoreMul * D().score);
+  const v = Math.round(n * GAME.mult * P.scoreMul * D().score *
+    (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.25 : 1));
   GAME.score += v;
   if (x !== undefined && QUALITY.particles > .5) {
     float(x, y, '+' + v, big ? PAL.gold : (GAME.mult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
@@ -3155,7 +3294,7 @@ function collectPick(type) {
       else addScore(700, P.x, P.y - 26);
       AU.pickup(true); break;
     case 'alloy': {
-      const amt = 4 + Math.floor(GAME.wave * .7);
+      const amt = Math.round((4 + Math.floor(GAME.wave * .7)) * P.alloyMul);
       GAME.alloyRun += amt;
       float(P.x, P.y - 30, '+' + amt, PAL.gold, 12);
       AU.ui(); break;
@@ -3167,6 +3306,20 @@ function collectPick(type) {
 /* ─────────────────────────── collision ─────────────────────────── */
 function damageFoe(e, dmg, x, y, fromBomb) {
   if (e.dead || e.dying) return;
+  // Gate Warden's shield arcs: shots arriving between arcs are absorbed.
+  // Nova pulses ignore it — the pulse is a siege weapon.
+  if (e.boss && e.def && e.def.id === 'gatewarden' && !fromBomb && !e.dying) {
+    const hitAng = Math.atan2(y - e.y, x - e.x);
+    for (let i = 0; i < 3; i++) {
+      const arc = e.shieldAng + i / 3 * TAU;
+      if (Math.abs(angDiff(hitAng, arc)) < .52) {
+        e.absorbT = .2;
+        AU.armor();
+        part({ x, y, life: .2, size: 18, spr: SPR.rare });
+        return;
+      }
+    }
+  }
   if (e.shielded > 0 && !fromBomb) {
     e.shieldHit = .3;
     AU.armor();
@@ -3307,12 +3460,16 @@ const FOES = {
   orbiter: { hp: 4, r: 12, hit: 11, sc: 200, guns: true, cd: .9 },
   warden: { hp: 10, r: 16, hit: 14, sc: 320, guns: true, cd: 2.8, armored: true },
   minelayer: { hp: 7, r: 15, hit: 13, sc: 240, guns: true, cd: 2.2 },
-  carrier: { hp: 20, r: 26, hit: 23, sc: 520, guns: true, cd: 3.2, armored: true }
+  carrier: { hp: 20, r: 26, hit: 23, sc: 520, guns: true, cd: 3.2, armored: true },
+  ram: { hp: 9, r: 16, hit: 13, sc: 230, guns: false },
+  sniper: { hp: 5, r: 15, hit: 12, sc: 300, guns: true, cd: 3.6 },
+  shieldbreaker: { hp: 8, r: 17, hit: 14, sc: 340, guns: true, cd: 3.2, armored: true }
 };
 const FOE_LABEL = {
   drone: 'Drone', mini: 'Shard', striker: 'Striker', weaver: 'Weaver', splitter: 'Splitter',
   cruiser: 'Cruiser', lancer: 'Lancer', orbiter: 'Orbiter', warden: 'Warden',
-  minelayer: 'Minelayer', carrier: 'Carrier'
+  minelayer: 'Minelayer', carrier: 'Carrier',
+  ram: 'Ram', sniper: 'Sniper', shieldbreaker: 'Shieldbreaker'
 };
 
 /* The first few waves run gentler on purpose: slower rounds, longer gaps.
@@ -3332,7 +3489,8 @@ function spawnFoe(type, o) {
     state: 'enter', ang: PI / 2, spin: 0, dv: 0,
     guns: !!S.guns, cd: (S.cd || 2) * D().fireRate, fireT: rnd(.8, 2.1),
     burst: 0, bt: 0, armored: !!S.armored,
-    bspd: clamp(250 + GAME.wave * 6, 250, 420) * D().bulletSpd * earlySpeed(),
+    bspd: clamp(250 + GAME.wave * 6, 250, 420) * D().bulletSpd * earlySpeed() *
+      (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.15 : 1),
     swa: 26, swf: 1.5, tx: W / 2, ty: 110, sx: W / 2, sy: -60,
     diveAt: 0, forceDive: rnd(9, 14),
     shielded: 0, shieldHit: 0, elite: false, entered: false, offT: 0,
@@ -3416,6 +3574,21 @@ function updateBeams(dt) {
 /* ─────────────────── firing behaviour ─────────────────── */
 function gunControl(e, dt) {
   if (!P.alive || e.y < 8 || e.y > H - 90) { e.glow = 0; return; }
+  if (e.type === 'sniper') {
+    // the sight accumulates on its own clock, independent of the fire cooldown
+    e.lockNeed = e.lockNeed || 1.5;
+    e.lockT = (e.lockT || 0) + dt;
+    e.fireT -= dt;
+    if (e.lockT >= e.lockNeed && e.fireT <= 0) {
+      e.lockT = 0;
+      e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
+      foeShot(e, aimAt(e), e.bspd * 1.7, { r: 4, col: PAL.rare });
+      AU.foeShot('heavy');
+    } else if (e.lockT >= e.lockNeed && e.fireT > 0) {
+      e.lockT = e.lockNeed; // hold the lock while the barrel cycles
+    }
+    return;
+  }
   if (e.burst > 0) {
     e.bt -= dt; e.glow = 1;
     if (e.bt <= 0) {
@@ -3431,6 +3604,9 @@ function gunControl(e, dt) {
   switch (e.type) {
     case 'striker':
       fan(e, aimAt(e), e.elite ? 2 : 1, .18, e.bspd); break;
+    case 'sniper':
+      // lock-driven fire is handled above; nothing extra on the shared clock
+      break;
     case 'weaver':
       fan(e, aimAt(e), 3, .58, e.bspd * .94); break;
     case 'cruiser':
@@ -3453,6 +3629,20 @@ function gunControl(e, dt) {
       }
       fan(e, aimAt(e), 3, .5, e.bspd * .85);
       break;
+    case 'shieldbreaker': {
+      // EMP: an expanding ring that strips your systems instead of your hull
+      ring(e.x, e.y, { r: 10, vr: 460, life: .8, col: rgbOf(PAL.tech), w: 4 });
+      if (P.alive && hyp(P.x - e.x, P.y - e.y) < 240) {
+        P.dashCd = Math.max(P.dashCd, 1.55);
+        P.charges = 0;
+        P.empT = .3;
+        GAME.tookEmp = true;
+        if (P.shield > 0) { P.shield = 0; P.shieldRegen = 0; note('Shield suppressed', 'bad'); }
+        note('Systems scrambled', 'bad');
+        AU.shieldBreak(); chroma(.5); buzz(30);
+      }
+      break;
+    }
   }
   e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
   if (e.type !== 'lancer' && e.type !== 'minelayer') AU.foeShot();
@@ -3532,15 +3722,40 @@ function updateFoe(e, dt) {
     if (e.t > 48) leaveField(e);
   }
 
-  // wardens project cover onto everything nearby
-  if (e.type === 'warden' && !e.dying && e.hp > 0) {
-    for (const o of foes) {
-      // Wardens never cover each other — a mutually shielded pair would be
-      // unkillable and the wave would never resolve.
-      if (o === e || o.dead || o.boss || o.type === 'warden') continue;
-      if (hyp(o.x - e.x, o.y - e.y) < 150) o.shielded = .35;
+  /* RAM — telegraphs a furrow across the field, then commits to it. */
+  if (e.type === 'ram' && e.state === 'hold') {
+    e.chargeT = (e.chargeT == null ? 3 : e.chargeT) - dt;
+    if (e.chargeT > 0) {
+      if (e.chargeAng == null) {
+        // carve the furrow through where the pilot is now
+        e.chargeAng = Math.atan2(clamp(P.y, 60, H - 60) - e.y, clamp(P.x, 40, W - 40) - e.x);
+      }
+      if (e.guns) gunControl(e, dt);
+      if (QUALITY.particles > .4 && FX.chance(.5)) {
+        // embers along the announced furrow
+        const d = rnd(40, 420);
+        part({
+          x: e.x + Math.cos(e.chargeAng) * d, y: e.y + Math.sin(e.chargeAng) * d,
+          vx: rnd(-9, 9), vy: rnd(-9, 9), life: .3, size: rnd(5, 9), spr: SPR.foe, drag: 0
+        });
+      }
+    } else {
+      e.state = 'dive';
+      e.ang = e.chargeAng != null ? e.chargeAng : aimAt(e);
+      e.dv = 260;
+      AU.foeShot('heavy');
     }
   }
+      if (e.type === 'warden' && !e.dying && e.hp > 0) {
+        for (const o of foes) {
+          // Wardens never cover each other — a mutually shielded pair would be
+          // unkillable and the wave would never resolve.
+          if (o === e || o.dead || o.boss || o.type === 'warden') continue;
+          if (hyp(o.x - e.x, o.y - e.y) < 150) o.shielded = .35;
+        }
+      }
+      // the breaker suppresses PLAYER systems (see gunControl); it does not
+      // shield its friends — that is the warden's job
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -3688,6 +3903,54 @@ const BOSSES = [
       squadron({ type: 'orbiter', count: ph >= 3 ? 4 : 2, form: 'orbit' });
       if (ph === 3) squadron({ type: 'lancer', count: 2, form: 'anchor' });
     }
+  },
+  {
+    /* ═══ THE GATE WARDEN ═══ — cycle 4+. Rotating shield arcs: shots between
+       arcs are absorbed; you fight the rotation, and the arcs themselves. */
+    id: 'gatewarden', name: 'Gate Warden', art: 'gatewarden',
+    hp: 340, r: 80, hitR: 50, sc: 7600,
+    nodes: null,
+    enter(b) { b.ty = H * .26; b.shieldAng = 0; b.absorbT = 0; },
+    move(b, dt) {
+      b.shieldAng += dt * (b.phase >= 3 ? 1.05 : b.phase >= 2 ? .72 : .5);
+      if (b.absorbT > 0) b.absorbT -= dt;
+      b.x = W / 2 + Math.sin(b.t * .5) * (W * .5 - 160) * .5;
+      b.y = b.ty + Math.sin(b.t * .95) * 24;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 4;
+      if (mod === 1) {
+        // radial spike: a pulse flung outward through every gap at once
+        ringShot(b, ph >= 3 ? 22 : 16, b.shieldAng, (250 + ph * 18) * D().bulletSpd, { rad: 84, r: 5 });
+        b.absorbT = .22;
+        return 1.7;
+      }
+      if (mod === 2) {
+        // spiral ladder: tight double stream, one from each flank
+        for (let i = 0; i < 5; i++) {
+          const a = b.shieldAng * 2 + i * .3;
+          foeShot(b, a, 230 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI, 230 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+        }
+        return 1.9;
+      }
+      if (mod === 3 && ph >= 2) {
+        // gate surge: a beam from the core, guarded by a slowing fan
+        makeBeam(b, aimAt(b), { w: 16, charge: 1.05, fire: .85, sweep: (b.cycle % 8 === 0 ? 1 : -1) * .62 });
+        fan(b, aimAt(b) + PI, 5, .8, 220 * D().bulletSpd, { rad: 70 });
+        return 2.6;
+      }
+      // hunter volley: two aimed bursts from behind the arcs
+      fan(b, aimAt(b), ph >= 3 ? 7 : 5, .6, 300 * D().bulletSpd, { rad: 70, r: 5 });
+      b.absorbT = .18;
+      return 1.45;
+    },
+    onPhase(b, ph) {
+      squadron({ type: ph >= 2 ? 'shieldbreaker' : 'striker', count: 2, form: 'arc' });
+      if (ph === 3) squadron({ type: 'sniper', count: 2, form: 'orbit' });
+    }
   }
 ];
 
@@ -3699,6 +3962,7 @@ function spawnBoss(index, cycle) {
     r: def.r, hitR: def.hitR, sc: Math.round(def.sc * (1 + cycle * .4)),
     hp, maxHp: hp, phase: 1, cycle: 0, spin: 0, fireT: 2.2,
     glow: 0, arriving: true, charging: false, chargeX: W / 2,
+    shieldAng: 0, absorbT: 0,
     dieT: 0, exT: 0, phasesFired: {},
     nodes: def.nodes ? def.nodes.map(n => Object.assign({}, n, { hp: Math.round(n.hp * (1 + cycle * .5) * D().hp), maxHp: Math.round(n.hp * (1 + cycle * .5) * D().hp) })) : null
   });
@@ -3732,8 +3996,7 @@ function updateBoss(b, dt) {
   const frac = b.hp / b.maxHp;
   const want = frac <= .34 ? 3 : frac <= .67 ? 2 : 1;
   if (want > b.phase) {
-    b.phase = want;
-    if (!b.phasesFired[want]) {
+    b.phase = want;      if (!b.phasesFired[want]) {
       b.phasesFired[want] = true;
       b.def.onPhase(b, want);
       flash(.3); shake(12); AU.alarm();
@@ -3791,6 +4054,8 @@ function finishBossDeath(b) {
   flash(.75); shake(26); chroma(1); buzz([40, 60, 80]);
   AU.bomb();
   note('Capital ship destroyed', 'rare', '☠');
+  if (b.def.id === 'gatewarden') GAME.killedWarden = true;
+  offerBoons();
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -3829,16 +4094,22 @@ function buildWave(n) {
     if (n >= 8) pool.push('minelayer');
     if (n >= 9) pool.push('warden');
     if (n >= 12) pool.push('carrier');
+    if (n >= 10) pool.push('ram');
+    if (n >= 11) pool.push('sniper');
+    if (n >= 13) pool.push('shieldbreaker');
     const forms = ['vee', 'sweep', 'column', 'arc', 'pincer', 'orbit'];
     let t = .6;
     const groups = Math.min(8, 3 + Math.floor(n / 2));
     for (let i = 0; i < groups; i++) {
       const form = forms[(i + n) % forms.length];
       const type = R.pick(pool);
-      let count = Math.min(8, 3 + R.int(0, 2) + Math.floor(n / 5));
-      if (type === 'cruiser' || type === 'carrier' || type === 'warden') count = Math.min(3, 1 + Math.floor((n - 6) / 5));
+      let count = Math.min(8, 3 + R.int(0, 2) + Math.floor(n / 5) +
+        (GAME.mutator && GAME.mutator.id === 'swarm' ? 1 : 0));
+      if (type === 'cruiser' || type === 'carrier' || type === 'warden' || type === 'shieldbreaker') count = Math.min(3, 1 + Math.floor((n - 6) / 5));
       if (type === 'lancer') count = Math.min(3, 1 + Math.floor(n / 9));
       if (type === 'orbiter') count = Math.min(4, 2 + Math.floor(n / 10));
+      if (type === 'sniper') count = Math.min(3, 1 + Math.floor((n - 8) / 6));
+      if (type === 'ram') count = Math.min(4, 2 + Math.floor(n / 8));
       const elite = n >= 10 && R.chance(.16);
       at(t, type, Math.max(1, count), form, { side: i % 2 ? 1 : -1, elite });
       t += Math.max(3.1, 6.4 - n * .11);
@@ -3919,7 +4190,8 @@ function startWave(n) {
     isBoss ? 'Kill order · ' + codename(n) : 'Operation ' + codename(n),
     isBoss ? 'red' : ''
   );
-  $('sector').textContent = 'Operation ' + codename(n);
+  $('sector').textContent = 'Operation ' + codename(n) +
+    (GAME.mutator ? ' · ' + GAME.mutator.name : '');
   if (isBoss) { AU.alarm(); MUSIC.set('boss', .95); }
   else MUSIC.set('combat', clamp(.45 + n * .025, .45, .9));
   // a guaranteed early rack upgrade, so run one always feels like it grows
@@ -3933,6 +4205,8 @@ function updateDirector(dt) {
     while (DIRECTOR.queue.length && DIRECTOR.queue[0].t <= DIRECTOR.t && guard++ < 12) {
       squadron(DIRECTOR.queue.shift());
     }
+    // a wave resolves when no live hostile remains; strays that fled count
+    // as gone — a stalled wall must never hang the run
     const liveFoes = foes.some(e => !e.dead);
     if (!DIRECTOR.queue.length && !liveFoes && !boss && P.alive) {
       DIRECTOR.phase = 'rest';
@@ -4122,7 +4396,11 @@ function drawFoe(e) {
   ctx.save();
   ctx.translate(e.x, e.y);
   let tilt = 0;
-  if (e.state === 'dive') tilt = Math.cos(e.ang) * .42;
+  if (e.type === 'ram' && (e.state === 'hold' || e.state === 'enter')) {
+    // rams lock their wings on the charge target — a dead-giveaway tell
+    tilt = Math.cos(e.chargeAng || 0) * .9;
+  }
+  else if (e.state === 'dive') tilt = Math.cos(e.ang) * .42;
   else if (e.state === 'sweep') tilt = e.vx > 0 ? .2 : -.2;
   else if (e.state === 'hold') tilt = Math.cos(e.ht * e.swf + e.ph) * .09;
   else if (e.state === 'orbit') tilt = Math.sin(e.spin) * .3;
@@ -4130,6 +4408,20 @@ function drawFoe(e) {
   if (e.elite) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     emitLocal(ctx, SPR.rare, 0, 0, e.r * 3.4, .3 + .1 * Math.sin(e.t * 4));
+    ctx.restore();
+  }
+  // sniper sight: a laser-thin line that settles on you as the lock closes
+  if (e.type === 'sniper' && e.state === 'hold' && P.alive && !e.dying) {
+    const k = clamp((e.lockT || 0) / (e.lockNeed || 1.5), 0, 1);
+    const len = Math.max(W, H) * 1.4;
+    ctx.save();
+    ctx.globalAlpha = .22 + k * .5;
+    ctx.strokeStyle = k >= 1 ? PAL.rare : PAL.foe;
+    ctx.lineWidth = k >= 1 ? 2 : .8;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(e.x + Math.cos(aimAt(e)) * len, e.y + Math.sin(aimAt(e)) * len);
+    ctx.stroke();
     ctx.restore();
   }
   if (art) art(ctx, e);
@@ -4641,7 +4933,7 @@ function renderRoster() {
   box.dataset.built = '1';
   const rows = [];
   rows.push(['th', 'Hostiles']);
-  for (const k of ['drone', 'striker', 'weaver', 'splitter', 'cruiser', 'lancer', 'orbiter', 'warden', 'minelayer', 'carrier']) {
+  for (const k of ['drone', 'striker', 'weaver', 'splitter', 'cruiser', 'lancer', 'orbiter', 'warden', 'minelayer', 'carrier', 'ram', 'sniper', 'shieldbreaker']) {
     rows.push(['foe', k]);
   }
   rows.push(['th', 'Capital ships']);
@@ -4651,6 +4943,9 @@ function renderRoster() {
 
   const FOE_TEXT = {
     drone: 'Cheap and numerous. Holds formation, then commits to a dive.',
+    ram: 'Charges a burning furrow across the field, then turns inside it. The line it carves is the warning.',
+    sniper: 'A sight locks on from outside your range. Break the lock by breaking the line of sight — or the sniper.',
+    shieldbreaker: 'Its burst scrambles dash and pulse capacitors nearby. Kill it before it fires, or from far away.',
     striker: 'Fires aimed rounds. The muzzle lights up before it shoots.',
     weaver: 'Sweeps across the field throwing three-round spreads.',
     splitter: 'Breaks into two diving shards when it dies. Kill it with space around you.',
@@ -4664,7 +4959,8 @@ function renderRoster() {
   const BOSS_TEXT = {
     dreadnought: 'Two turret weak points worth extra. Break them to cut its beam phase short.',
     matriarch: 'Fires rings with a single gap. Find the gap early and hold it.',
-    tyrant: 'Four sweeping spokes and converging walls. Read the rotation, move with it.'
+    tyrant: 'Four sweeping spokes and converging walls. Read the rotation, move with it.',
+    gatewarden: 'Three rotating shield arcs drink anything between them. Fire through the gaps; the arcs slow as the phases fall.'
   };
   const PICK_TEXT = {
     gun: 'One more ordnance lane, up to six.',
@@ -4820,7 +5116,7 @@ function renderHangar() {
 /* ─────────────────── screen flow ─────────────────── */
 function showScreen(id, on) { const el = $(id); if (el) el.classList.toggle('on', on); }
 function closeAllScreens() {
-  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over'].forEach(id => showScreen(id, false));
+  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over', 's-boons'].forEach(id => showScreen(id, false));
 }
 function blurActive() { const a = document.activeElement; if (a && a.blur) a.blur(); }
 
@@ -4834,14 +5130,19 @@ function startRun(mode) {
   } else {
     R = makeRng((Math.random() * 4294967296) >>> 0);
     GAME.seedLabel = '';
+    // v3 daily fairness: cosmetic jitter re-seeds from the run RNG, so a
+    // daily seed cannot diverge across devices through FX randomness
+    FX.reseed(hashStr('fx-' + GAME.seedLabel + '-' + (GAME.runT | 0) + '-' + ((Math.random() * 1e9) | 0)));
   }
   clearAll();
+  GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
   Object.assign(GAME, {
     state: 'playing', paused: false, t: GAME.t, runT: 0,
     hitstop: 0, slowT: 0, slowV: 1, endT: 0,
     score: 0, shown: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
-    alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false
+    alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
+    boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false, mutator: null
   });
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : 'main')[0] || { s: 0 }).s;
   dropPity = 0;
@@ -4879,7 +5180,8 @@ function endRun() {
   const summary = {
     score: GAME.score, wave: GAME.wave, kills: GAME.kills, shots: GAME.shots,
     hits: GAME.hits, grazes: GAME.grazes, deaths: GAME.deaths, bosses: GAME.bosses,
-    maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff
+    maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
+    boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true
   };
   const newFeats = [];
   for (const f of FEATS) {
@@ -4940,11 +5242,12 @@ function refreshTitleMeta() {
   const h = hull();
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
-  $('dailySub').textContent = 'Seed ' + todaySeedKey();
+  $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name;
   $('regMeta').textContent = META.runs ? META.runs + ' runs flown' : 'Stored on this device';
 }
 function pauseRun() {
   if (GAME.state !== 'playing' || GAME.paused) return;
+  if ($('s-boons').classList.contains('on')) return; // the draft owns the field
   GAME.paused = true;
   $('pScore').textContent = padN(GAME.score, 7);
   $('pWave').textContent = pad2(Math.max(1, GAME.wave));
@@ -5457,6 +5760,7 @@ function runSelfTests() {
         ok(forms.has(s.form), 'wave ' + n + ' form ' + s.form);
       }
       eq(q.some(s => s.type === '@boss'), n % 5 === 0, 'boss on wave ' + n);
+      ok(!q.some(s => s.type === '@boss' && !s.form), 'boss entries carry a form');
     }
     R = saved;
   });
