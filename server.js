@@ -70,9 +70,145 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated  INTEGER NOT NULL
 );
 `);
+/* v3.3 migrations — idempotent column adds */
+function addCol(table, col, decl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+  if (!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
+}
+addCol('scores', 'run_t', 'REAL');
+addCol('scores', 'kills', 'INTEGER');
+addCol('scores', 'telemetry', 'TEXT');
+addCol('scores', 'verdict', 'TEXT DEFAULT \'verified\'');
+addCol('scores', 'run_hash', 'TEXT');
+
+/* ───────────────────── run provenance: verify before trust ─────────────────────
+   The sim lives on the client, so cheating is not preventable — it is
+   detectable. Runs arrive with checkpoint telemetry (one sample per wave,
+   boss, and death). The server replays the aggregate arc and rejects what
+   the game economy cannot produce. Two verdicts: verified, flagged. */
+const MAX_MULT = 5;
+function verifyRun(mode, diff, wave, score, runT, cps) {
+  const v = { verdict: 'verified', flags: [] };
+  const reject = why => { v.verdict = 'rejected'; v.flags.push(why); };
+  const flag = why => { if (v.verdict === 'verified') v.verdict = 'flagged'; v.flags.push(why); };
+
+  if (!Array.isArray(cps) || !cps.length) {
+    /* telemetry-less (legacy) submissions ride the coarse economy ceiling */
+    if (score > Math.max(1, wave) * 400000 + 750000) reject('implausible score for wave');
+    else flag('no telemetry');
+    return v;
+  }
+  if (cps.length > 400) { reject('telemetry overflow'); return v; }
+
+  /* shape + monotonicity: time, wave, score, kills, shots, hits, grazes
+     never go backwards; mult lives in [1,5] */
+  let prev = [0, 0, 0, 0, 0, 0, 0, 1];
+  for (let i = 0; i < cps.length; i++) {
+    const c = cps[i];
+    if (!Array.isArray(c) || c.length !== 8 || c.some(x => !Number.isFinite(x))) {
+      reject('malformed checkpoint'); return v;
+    }
+    if (c[0] < prev[0] + .4) { reject('checkpoint cadence'); return v; }
+    for (let j = 0; j < 6; j++) if (c[j] < prev[j]) { reject('non-monotonic ' + j); return v; }
+    if (c[7] < 1 || c[7] > MAX_MULT) { reject('mult out of range'); return v; }
+    if (c[5] > c[4]) { reject('hits exceed shots'); return v; }
+    prev = c;
+  }
+
+  const last = cps[cps.length - 1];
+  const tw = last[1], ts = last[2], tk = last[3], tsh = last[4], thi = last[5];
+  if (Math.abs(tw - wave) > 1) flag('final wave mismatch');
+  if (Math.abs(ts - score) > Math.max(500, score * .02)) flag('final score mismatch');
+  if (runT && Math.abs(runT - last[0]) > Math.max(3, last[0] * .12)) flag('runtime mismatch');
+
+  /* economy ceilings: score mass and kills per wave of depth. Derived from
+     the wave director's worst legal density, then doubled for boons. */
+  const w = Math.max(1, tw);
+  const scoreCap = w * 60000 + 120000;
+  if (ts > scoreCap) reject('score impossible for depth');
+  if (tk > tsh + w * 12 + 40) flag('kills exceed plausible hits');   // crashes earn kills too
+  if (thi > 0 && tsh > 0 && thi / tsh > .98 && tsh > 80) flag('suspicious accuracy');
+
+  /* sustained scoring velocity: elite play banks ~1-3k/s; hard cap 9k/s */
+  if (last[0] > 20 && ts / last[0] > 9000) reject('scoring velocity impossible');
+
+  /* wave time floors: clearing n waves needs at least ~4s each ( director
+     releases squads over ~25s; this floor only catches instant-depth cheats) */
+  if (last[0] < w * 4) reject('depth faster than possible');
+
+  return v;
+}
+
+/* replay detection: identical aggregate arc from one pilot within 24h */
+function runHash(userId, mode, score, wave, kills, runT, cps) {
+  const h = crypto.createHash('sha256');
+  h.update(userId + '|' + mode + '|' + score + '|' + wave + '|' + kills + '|' +
+    Math.round((runT || 0) * 10) + '|' + cps.length + '|' +
+    (cps.length ? Math.round(cps[cps.length - 1][4]) : 0));
+  return h.digest('hex').slice(0, 32);
+}
+function isReplay(hash) {
+  if (!hash) return false;
+  const row = db.prepare('SELECT created FROM scores WHERE run_hash = ? AND created > ? LIMIT 1')
+    .get(hash, now() - 86400000);
+  return !!row;
+}
+
+/* ───────────────────── weekly gauntlet: seasons ───────────────────── */
+function weekStart(ts) {
+  const d = new Date(ts);
+  const day = (d.getUTCDay() + 6) % 7;           // Monday = 0
+  d.setUTCDate(d.getUTCDate() - day);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+function seasonKey(ts) {
+  const d = new Date(ts);
+  const jan1 = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const week = Math.floor((weekStart(ts) - jan1) / 604800000) + 1;
+  return d.getUTCFullYear() + '-W' + pad2(week);
+}
+function seasonBoard(ts, userId) {
+  const start = weekStart(ts);
+  const ranked = db.prepare(`
+    WITH weekly AS (
+      SELECT s.user_id, s.score,
+        ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
+      FROM scores s WHERE s.mode = 'main' AND s.created >= ?
+        AND (s.verdict IS NULL OR s.verdict = 'verified')
+    )
+    SELECT u.name AS n, SUM(w.score) AS pts, COUNT(*) AS runs, MAX(w.score) AS best
+    FROM weekly w JOIN users u ON u.id = w.user_id
+    WHERE w.rn <= 5
+    GROUP BY w.user_id ORDER BY pts DESC LIMIT 10`).all(start);
+  let me = null;
+  if (userId) {
+    const row = db.prepare(`
+      WITH weekly AS (
+        SELECT s.user_id, s.score,
+          ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
+        FROM scores s WHERE s.mode = 'main' AND s.created >= ? AND s.user_id = ?
+          AND (s.verdict IS NULL OR s.verdict = 'verified')
+      )
+      SELECT SUM(score) AS pts, COUNT(*) AS runs, MAX(score) AS best FROM weekly WHERE rn <= 5`).get(start, userId);
+    if (row && row.runs > 0) {
+      const better = db.prepare(`
+        WITH weekly AS (
+          SELECT s.user_id, s.score,
+            ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
+          FROM scores s WHERE s.mode = 'main' AND s.created >= ?
+            AND (s.verdict IS NULL OR s.verdict = 'verified')
+        )
+        SELECT user_id, SUM(score) AS pts FROM weekly WHERE rn <= 5 GROUP BY user_id
+        HAVING pts > ?`).all(start, row.pts || 0);
+      me = { pts: row.pts, runs: row.runs, best: row.best, rank: better.length + 1 };
+    }
+  }
+  return { top: ranked, me };
+}
 
 /* ─────────────────────────── small helpers ─────────────────────────── */
 const now = () => Date.now();
+const pad2 = n => String(n).padStart(2, '0');
 const SESSION_DAYS = 30;
 const COOKIE = 'EF_SESSION';
 
@@ -311,22 +447,35 @@ async function handleApi(req, res, pathname, ip) {
     const wave = Math.floor(Number(body.wave) || 0);
     const diff = Math.floor(Number(body.diff) || 0);
     const ship = String(body.ship || 'vesper');
+    const runT = Number(body.runT) || 0;
+    const kills = Math.floor(Number(body.kills) || 0);
+    const cps = Array.isArray(body.cps) ? body.cps : [];
     if (!MODES.has(mode)) return bad(res, 'bad mode');
     if (!SHIPS.has(ship)) return bad(res, 'bad ship');
     if (!Number.isFinite(score) || score < 0 || score > 50000000) return bad(res, 'bad score');
     if (wave < 0 || wave > 999) return bad(res, 'bad wave');
     if (diff < 0 || diff > 3) return bad(res, 'bad diff');
-    /* sanity floor: scores must be plausible for the depth reached */
-    if (score > wave * 400000 + 750000) return bad(res, 'implausible score for wave', 422);
-    db.prepare('INSERT INTO scores (user_id, mode, score, wave, ship, diff, created) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(user.id, mode, score, wave, ship, diff, now());
-    const better = db.prepare('SELECT COUNT(*) AS n FROM scores WHERE mode = ? AND score > ?').get(mode, score);
+
+    /* provenance: verify the arc, catch replays, then store with a verdict */
+    const v = verifyRun(mode, diff, wave, score, runT, cps);
+    if (v.verdict === 'rejected') return send(res, 422, { ok: false, error: 'run rejected: ' + v.flags.join(', ') });
+    const hash = runHash(user.id, mode, score, wave, kills, runT, cps);
+    if (isReplay(hash)) return send(res, 422, { ok: false, error: 'run rejected: replay of an identical run' });
+
+    db.prepare(`INSERT INTO scores (user_id, mode, score, wave, ship, diff, created, run_t, kills, telemetry, verdict, run_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(user.id, mode, score, wave, ship, diff, now(), runT, kills,
+        JSON.stringify(cps).slice(0, 20000), v.verdict, hash);
+
+    const better = db.prepare(`SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s
+      WHERE s.mode = ? AND s.score > ? AND (s.verdict IS NULL OR s.verdict = 'verified')`).get(mode, score);
     const rank = Number(better.n) + 1;
     const top = db.prepare(`
-      SELECT u.name AS n, s.score AS s, s.wave AS w, s.ship, s.diff, s.created AS d
+      SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
       FROM scores s JOIN users u ON u.id = s.user_id
-      WHERE s.mode = ? ORDER BY s.score DESC, s.created ASC LIMIT 10`).all(mode);
-    return send(res, 200, { ok: true, rank, top });
+      WHERE s.mode = ? AND (s.verdict IS NULL OR s.verdict = 'verified')
+      GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
+    return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()) });
   }
 
   if (req.method === 'GET' && pathname === '/api/scores') {
@@ -336,7 +485,8 @@ async function handleApi(req, res, pathname, ip) {
     const topN = db.prepare(`
       SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
       FROM scores s JOIN users u ON u.id = s.user_id
-      WHERE s.mode = ? GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
+      WHERE s.mode = ? AND (s.verdict IS NULL OR s.verdict = 'verified')
+      GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
     let me = null;
     if (user) {
       const best = db.prepare('SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ?').get(mode, user.id);
@@ -348,6 +498,14 @@ async function handleApi(req, res, pathname, ip) {
       }
     }
     return send(res, 200, { ok: true, top: topN, me });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/season') {
+    const board = seasonBoard(now(), user ? user.id : null);
+    return send(res, 200, {
+      ok: true, season: seasonKey(now()), ends: weekStart(now()) + 604800000,
+      top: board.top, me: board.me
+    });
   }
 
   return bad(res, 'no such endpoint', 404);

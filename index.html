@@ -5249,6 +5249,30 @@ function syncHUD(dt) {
 }
 
 /* ─────────────────── boards, roster, feats ─────────────────── */
+/* ═══════════════════════════ run provenance ═══════════════════════ */
+/* Checkpoint telemetry: one honest sample per wave / boss / death, hash-
+   chainable by the server. Cheap, privacy-clean (aggregates only), and
+   it makes forged scores statistically indefensible. */
+const TELE = {
+  cps: [], lastT: -10, lastWave: -1,
+  reset() { this.cps.length = 0; this.lastT = -10; this.lastWave = -1; },
+  sample() {
+    this.lastT = GAME.runT; this.lastWave = GAME.wave;
+    const c = [Math.round(GAME.runT * 100) / 100, GAME.wave, GAME.score, GAME.kills,
+      GAME.shots, GAME.hits, GAME.grazes, GAME.mult];
+    /* cadence guard: force-samples closer than 0.45s replace the last one */
+    const n = this.cps.length;
+    if (n && c[0] - this.cps[n - 1][0] < .45) this.cps[n - 1] = c;
+    else this.cps.push(c);
+    if (this.cps.length > 380) this.cps.shift();
+  },
+  tick() {
+    if (GAME.state !== 'playing') return;
+    if (GAME.wave !== this.lastWave) return this.sample();   // wave / boss depth
+    if (GAME.runT - this.lastT >= 8) this.sample();          // heartbeat
+  }
+};
+
 /* ═══════════════════════════ command deck client ═══════════════════════ */
 /* Talks to the self-hosted backend (server.js) when it is reachable.
    Every path degrades silently to pure-local play — the game never
@@ -5341,12 +5365,16 @@ const NET = {
     } catch (e) { /* a malformed cloud profile must never break boot */ }
   },
 
-  /* submit a finished run; returns { rank } or null when offline/anonymous */
-  async submitScore(mode, score, wave, ship, diff) {
+  /* submit a finished run with its provenance; returns { rank, verdict } or null */
+  async submitScore(mode, score, wave, ship, diff, tele) {
     if (!this.on || !this.user) return null;
     try {
-      const j = await this.req('POST', '/api/scores', { mode, score, wave, ship, diff });
-      return { rank: j.rank, top: j.top };
+      const j = await this.req('POST', '/api/scores', {
+        mode, score, wave, ship, diff,
+        runT: tele ? tele.runT : 0, kills: tele ? tele.kills : 0,
+        cps: tele ? tele.cps : []
+      });
+      return { rank: j.rank, top: j.top, verdict: j.verdict, season: j.season };
     } catch (e) { return null; }
   },
 
@@ -5648,6 +5676,7 @@ function startRun(mode) {
   GAME.mode = mode || 'endless';
   GHOST.begin(mode === 'daily' ? 'daily' : 'main');
   GHOST.startRecord();
+  TELE.reset();
   if (GAME.mode === 'daily') {
     const key = todaySeedKey();
     R = makeRng(hashStr('emberfall-' + key));
@@ -5749,12 +5778,15 @@ function endRun() {
   if (q) $('pilot').value = DB.get('callsign', '');
   renderBoard($('ovBoard'), mode, null);
   /* verified worldwide posting — silent no-op when offline or anonymous */
-  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff).then(r => {
+  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff,
+    { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() }).then(r => {
     const el = $('ovRank');
     if (!el) return;
     if (r) {
       el.classList.remove('hidden');
-      el.innerHTML = '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + '</span>';
+      el.innerHTML = r.verdict === 'flagged'
+        ? '<b style="color:var(--amber)">Under review</b><span>logged · global rank #' + r.rank + ' pending verification</span>'
+        : '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + '</span>';
     } else el.classList.add('hidden');
   });
   showScreen('s-over', true);
@@ -6625,6 +6657,7 @@ let accumulator = 0, lastFrame = performance.now(), slowFrames = 0, qualityCheck
 function stepGame(dt) {
   GAME.runT += dt;
   if (GAME.state === 'playing' && P.alive) GHOST.tickRecord();
+  TELE.tick();
   const move = getMove();
   updatePlayer(dt, move);
   updateDirector(dt);

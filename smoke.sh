@@ -42,6 +42,29 @@ expect "login ok"          '"ok":true'                      -X POST "$BASE/api/l
 expect "logout"            '"ok":true'                      -X POST "$BASE/api/logout" -H 'X-Emberfall: command-deck'
 expect "me after logout"   '"user":null'                    "$BASE/api/me"
 
+say ""; say "── v3.3 provenance + seasons ──"
+# fresh pilot for the anti-cheat battery
+expect "ac2 register"      '"ok":true'                      -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Ace$R\",\"password\":\"hunter22\"}"
+# honest arc: 3 waves, ~45s, growing counters
+CPH='[[2.1,1,320,4,30,12,3,1],[12.4,2,940,11,72,31,8,2],[25.0,3,1880,19,118,54,15,2],[44.7,3,2410,24,151,66,21,2]]'
+expect "honest run verified" '"verdict":"verified"'           -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+# replay: identical arc again → rejected
+REPLAY="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}")"
+if printf '%s' "$REPLAY" | grep -q 'replay'; then ok "replay rejected"; else no "replay rejected  →  ${REPLAY:0:140}"; fi
+# cheat: impossible depth — 40 waves in 60s
+expect "depth cheat rejected" 'depth faster'                 -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":900000,\"wave\":40,\"ship\":\"vesper\",\"diff\":1,\"runT\":60,\"kills\":900,\"cps\":[[60,40,900000,900,4000,3900,300,5]]}"
+# cheat: score mass beyond the economy ceiling for 6 waves
+expect "mass cheat rejected"  'score impossible'             -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":5000000,\"wave\":6,\"ship\":\"vesper\",\"diff\":1,\"runT\":200,\"kills\":300,\"cps\":[[200,6,5000000,300,2000,1900,100,5]]}"
+# cheat: velocity — 3M in 90s
+expect "velocity rejected"    'velocity'                     -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":3000000,\"wave\":14,\"ship\":\"vesper\",\"diff\":1,\"runT\":90,\"kills\":800,\"cps\":[[90,14,3000000,800,5000,4900,400,5]]}"
+# tamper: monotonicity break inside the arc
+expect "non-monotonic rejected" 'non-monotonic'              -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":3000,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":50,\"kills\":20,\"cps\":[[10,1,900,8,50,20,2,1],[20,2,1500,12,90,40,5,2],[30,3,1400,16,110,50,8,2]]}"
+# flagged: final score disagrees with the arc tail
+expect "mismatch flagged"     '"verdict":"flagged"'          -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":9000,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+# seasons
+expect "season endpoint"      '"season":"'                   "$BASE/api/season"
+expect "season has structure" '"ends":'                      "$BASE/api/season"
+
 say ""
-say "── $PASS passed, $FAIL failed ──────────────────────"
+say "── $PASS passed, $FAIL failed ─────────────────────"
 [ "$FAIL" -eq 0 ]
