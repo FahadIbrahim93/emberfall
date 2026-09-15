@@ -1,4 +1,4 @@
-# EMBERFALL v3.1 — Orbital Intercept
+# EMBERFALL v3.2 — Orbital Intercept
 
 A single-file, zero-dependency orbital intercept shooter. Everything — art, music, sound — is generated procedurally at runtime. No build step, no assets to download, no network needed after first paint.
 
@@ -25,10 +25,39 @@ Then open `http://localhost:8080` — the game registers its service worker and 
 
 It's one HTML file plus an optional `sw.js`. Any static host works: GitHub Pages, Netlify, Vercel, Cloudflare Pages, an S3 bucket — upload and go.
 
+## Command Deck — accounts, cloud saves, worldwide boards (optional)
+
+The game is complete offline. Add the self-hosted backend and it gains a real
+account system, cloud saves, and server-verified global leaderboards — with
+**zero npm dependencies** (Node ≥ 22, built-in SQLite):
+
+```bash
+node server.js            # http://localhost:8123 — serves game + API
+bash smoke.sh             # 17 API tests, all green
+```
+
+- **Auth:** callsign + password, scrypt-hashed, per-user salt, constant-time compare
+- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite cookies, 30-day expiry
+- **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP
+- **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
+- **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, global rank on every finished run
+- **Deployment:** one process, one origin — any Node host (Fly.io, Railway, a VPS, `node server.js` behind nginx). The SQLite file is the whole database.
+
+When no server is present the client probes `/api/health` once, fails silently,
+and stays 100% local — the exact same game, stored in the browser.
+
 ## Verification
 
 - Open `index.html?selftest` — the built-in test suite runs and reports in a panel (bottom right). Everything should read **PASS**.
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v3.2 — "Command Deck"
+
+- **Account system:** register/sign-in in Settings → Command deck; session persists across reloads; sign out keeps local progress
+- **Worldwide boards:** new Global tab on the title screen — server-verified top 10 per mode plus your own rank
+- **Verified runs:** every finished run posts to the deck (when signed in) and shows its global rank on the game-over screen
+- **Cloud saves:** alloy, hulls, refits, feats and settings follow the pilot between devices, with stale-copy protection in both directions
+- **Update-proof shell:** service worker now ships updates immediately (network-first) and never caches the API
 
 ## What's new in v3.1 — "Momentum"
 
