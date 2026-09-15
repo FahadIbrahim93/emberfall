@@ -57,6 +57,7 @@ and stays 100% local — the exact same game, stored in the browser.
 - **Anti-cheat engine:** rejects impossible depth, impossible score mass, impossible scoring velocity, non-monotonic tampering, malformed arcs, and 24h replays — 27/27 adversarial test battery
 - **Graduated verdicts:** `verified` ranks; `flagged` (marginal) is stored pending review; rejected runs never touch the ladder
 - **Weekly Gauntlet:** Monday-UTC seasons; your best five verified runs of the week score the ladder, with live countdown and your rank
+- **Friend duels:** send today's daily-run ghost to any pilot on the deck — they race your crimson phantom, and beating it is confirmed server-side
 - **Boards clean up:** global ladders now show verified runs only
 
 ## What's new in v3.2 — "Command Deck"
