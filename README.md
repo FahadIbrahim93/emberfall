@@ -1,4 +1,4 @@
-# EMBERFALL v3.2 — Orbital Intercept
+# EMBERFALL v3.3 — Orbital Intercept
 
 A single-file, zero-dependency orbital intercept shooter. Everything — art, music, sound — is generated procedurally at runtime. No build step, no assets to download, no network needed after first paint.
 
@@ -50,6 +50,14 @@ and stays 100% local — the exact same game, stored in the browser.
 
 - Open `index.html?selftest` — the built-in test suite runs and reports in a panel (bottom right). Everything should read **PASS**.
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v3.3 — "Provenance"
+
+- **Run provenance:** every run records checkpoint telemetry (one honest sample per wave/boss/heartbeat) and the server verifies the arc before trusting the score
+- **Anti-cheat engine:** rejects impossible depth, impossible score mass, impossible scoring velocity, non-monotonic tampering, malformed arcs, and 24h replays — 27/27 adversarial test battery
+- **Graduated verdicts:** `verified` ranks; `flagged` (marginal) is stored pending review; rejected runs never touch the ladder
+- **Weekly Gauntlet:** Monday-UTC seasons; your best five verified runs of the week score the ladder, with live countdown and your rank
+- **Boards clean up:** global ladders now show verified runs only
 
 ## What's new in v3.2 — "Command Deck"
 

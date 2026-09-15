@@ -2,7 +2,7 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v3.2.1';
+const CACHE = 'emberfall-v3.3';
 const CORE = ['./', './index.html'];
 
 self.addEventListener('install', e => {
