@@ -509,11 +509,22 @@ body.needrotate #rotate{display:grid}
         <button class="tab on" data-tab="scores">Runs</button>
         <button class="tab" data-tab="roster">Threats</button>
         <button class="tab" data-tab="feats">Feats</button>
+        <button class="tab" data-tab="global">Global</button>
       </div>
       <style id="boardModeStyle"></style>
         <div id="tab-scores"></div>
         <div id="tab-roster" class="roster hidden"></div>
         <div id="tab-feats" class="hidden"></div>
+        <div id="tab-global" class="hidden">
+          <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
+          <div id="globalBody" class="hidden">
+            <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — top pilots, server-verified</p>
+            <div id="globalBoard"></div>
+            <div id="globalYou" class="hidden"></div>
+            <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
+              Sign in from Settings to post scores worldwide.</p>
+          </div>
+        </div>
       </div>
     </aside>
   </div>
@@ -620,6 +631,29 @@ body.needrotate #rotate{display:grid}
           <button data-v="60">60</button><button data-v="120">120</button>
         </div></div>
     </div>
+    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
+      <div class="opt full">
+        <label id="lAcct">Command deck <span id="acctStat" style="color:var(--dimmer);letter-spacing:.08em">local mode</span></label>
+        <div id="acctFields" style="display:grid;gap:8px">
+          <input id="acctName" maxlength="16" placeholder="CALLSIGN" spellcheck="false" autocomplete="username"
+            style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;text-transform:uppercase;outline:none;color:var(--ink)">
+          <input id="acctPass" type="password" maxlength="128" placeholder="PASSWORD (6+ chars)" autocomplete="current-password"
+            style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
+          <div class="pair">
+            <button class="btn key" id="btnAcctGo">Sign in</button>
+            <button class="btn" id="btnAcctNew">Create account</button>
+          </div>
+          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">One account, any device. Cloud-saves your
+            hangar and alloy, posts verified runs to the worldwide board. Stored only on this command deck.</p>
+        </div>
+        <div id="acctSigned" class="hidden">
+          <div class="pair">
+            <button class="btn warn" id="btnAcctOut">Sign out</button>
+          </div>
+          <p class="empty" style="padding:6px 0 0;text-align:left">Progress syncs automatically while you fly.</p>
+        </div>
+      </div>
+    </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
       <button class="btn ghost" id="btnFull">Fullscreen</button>
@@ -642,6 +676,7 @@ body.needrotate #rotate{display:grid}
       <div class="stat pay"><span>Alloy earned</span><b id="ovAlloy">0</b></div>
     </div>
     <div id="unlocks"></div>
+    <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
       <button class="btn key" id="btnRegister">Save</button>
@@ -665,7 +700,7 @@ body.needrotate #rotate{display:grid}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.1 — single-file orbital intercept shooter, Momentum
+   EMBERFALL v3.2 — single-file orbital intercept shooter, Command Deck
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -838,7 +873,7 @@ function loadMeta() {
   if (s.refits) for (const r of REFITS) META.refits[r.id] = clamp(+s.refits[r.id] || 0, 0, r.max);
   if (s.feats && typeof s.feats === 'object') META.feats = s.feats;
 }
-function saveMeta() { DB.set('meta', META); }
+function saveMeta() { DB.set('meta', META); DB.set('meta.updated', Date.now()); }
 const refit = id => META.refits[id] || 0;
 const hull = () => HULLS.find(h => h.id === META.ship) || HULLS[0];
 
@@ -5214,6 +5249,153 @@ function syncHUD(dt) {
 }
 
 /* ─────────────────── boards, roster, feats ─────────────────── */
+/* ═══════════════════════════ command deck client ═══════════════════════ */
+/* Talks to the self-hosted backend (server.js) when it is reachable.
+   Every path degrades silently to pure-local play — the game never
+   blocks, never errors, and never requires the network. */
+const NET = {
+  on: false, user: null, probed: false,
+  hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
+
+  async probe() {
+    if (this.probed) return this.on;
+    this.probed = true;
+    try {
+      const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 2500);
+      const r = await fetch('/api/health', { signal: ctl.signal, cache: 'no-store' });
+      clearTimeout(kill);
+      if (!r.ok) return false;
+      const j = await r.json();
+      this.on = !!(j && j.ok);
+      if (this.on) await this.whoami();
+    } catch (e) { this.on = false; }
+    if (this.on) this.pushProfile();          // converge any local changes made offline
+    return this.on;
+  },
+
+  async req(method, path, body) {
+    const r = await fetch(path, {
+      method, headers: this.hdrs, credentials: 'same-origin',
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new Error(j.error || ('http ' + r.status));
+    return j;
+  },
+
+  async whoami() {
+    try {
+      const j = await this.req('GET', '/api/me');
+      this.user = j.user || null;
+      if (j.user && j.profile) this.mergeProfile(j.profile);
+      return this.user;
+    } catch (e) { this.user = null; return null; }
+  },
+
+  async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
+  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) this.mergeProfile(j.profile); return j; },
+  async logout() {
+    try { await this.req('POST', '/api/logout'); } catch (e) { }
+    this.user = null;
+  },
+
+  /* cloud save: push local meta+cfg, adopt server copy if it is newer.
+     The server is the tiebreaker on equal timestamps? No — local wins
+     ties, because the local copy includes the live session's changes. */
+  async pushProfile() {
+    if (!this.on || !this.user) return;
+    try {
+      const stamp = DB.get('meta.updated', 0) || Date.now() - 1;
+      const j = await this.req('PUT', '/api/profile', {
+        meta: META, cfg: CFG, updated: stamp
+      });
+      if (j.conflicted && j.profile) this.mergeProfile(j.profile);
+    } catch (e) { /* offline progress stays local; retried next visit */ }
+  },
+
+  mergeProfile(profile) {
+    try {
+      const srv = profile.data || {};
+      const localT = DB.get('meta.updated', 0);
+      if ((profile.updated || 0) <= localT) return;   // local is newer or equal
+      if (srv.meta && typeof srv.meta === 'object') {
+        const sMeta = srv.meta;
+        META.alloy = Math.max(META.alloy, +sMeta.alloy || 0);
+        META.runs = Math.max(META.runs, +sMeta.runs || 0);
+        META.totalKills = Math.max(META.totalKills, +sMeta.totalKills || 0);
+        META.bestWave = Math.max(META.bestWave, +sMeta.bestWave || 0);
+        if (Array.isArray(sMeta.owned)) for (const id of sMeta.owned) {
+          if (HULLS.some(h => h.id === id) && !META.owned.includes(id)) META.owned.push(id);
+        }
+        if (sMeta.ship && META.owned.includes(sMeta.ship)) META.ship = sMeta.ship;
+        if (sMeta.refits) for (const r of REFITS) {
+          META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
+        }
+        if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
+        saveMeta();
+      }
+      if (srv.cfg && typeof srv.cfg === 'object') {
+        for (const k in CFG) if (k in srv.cfg) CFG[k] = srv.cfg[k];
+        saveCfg();
+      }
+    } catch (e) { /* a malformed cloud profile must never break boot */ }
+  },
+
+  /* submit a finished run; returns { rank } or null when offline/anonymous */
+  async submitScore(mode, score, wave, ship, diff) {
+    if (!this.on || !this.user) return null;
+    try {
+      const j = await this.req('POST', '/api/scores', { mode, score, wave, ship, diff });
+      return { rank: j.rank, top: j.top };
+    } catch (e) { return null; }
+  },
+
+  async fetchBoard(mode) {
+    if (!this.on) return null;
+    try {
+      const j = await this.req('GET', '/api/scores?mode=' + encodeURIComponent(mode));
+      return j;
+    } catch (e) { return null; }
+  },
+
+  /* render into the title screen Global tab */
+  async renderGlobal() {
+    const status = $('globalStatus'), body = $('globalBody');
+    if (!status) return;
+    await this.probe();
+    if (!this.on) {
+      status.textContent = 'Command deck offline — playing in local mode.\nHost server.js to enable accounts and worldwide boards.';
+      body.classList.add('hidden');
+      return;
+    }
+    status.textContent = 'Linked to command deck' + (this.user ? ' · signed in as ' + this.user.name : '');
+    body.classList.remove('hidden');
+    const j = await this.fetchBoard(boardMode());
+    const box = $('globalBoard');
+    if (!j || !j.top || !j.top.length) {
+      box.innerHTML = '<div class="empty">No worldwide runs yet.<br>Be the first. Make it count.</div>';
+    } else {
+      box.innerHTML = j.top.map((r, i) => {
+        const h = HULLS.find(x => x.id === r.ship);
+        const mine = this.user && r.n === this.user.name;
+        return '<div class="row' + (mine ? ' me' : '') + '">' +
+          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="nm">' + esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<span class="sc">' + padN(r.s, 7) + '</span>' +
+          '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
+      }).join('');
+    }
+    const you = $('globalYou');
+    if (j && j.me) {
+      you.classList.remove('hidden');
+      you.innerHTML = '<div class="row me"><span class="rk">#' + j.me.rank + '</span>' +
+        '<span class="nm">' + esc(j.me.name) + '</span>' +
+        '<span class="sc">' + padN(j.me.s, 7) + '</span><span class="wv">you</span></div>';
+    } else you.classList.add('hidden');
+    $('globalSignin').classList.toggle('hidden', !!this.user);
+  }
+};
+
 function renderBoard(el, mode, highlight) {
   const list = loadBoard(mode);
   if (!list.length) {
@@ -5329,10 +5511,11 @@ function renderFeats() {
 }
 function switchTab(name) {
   $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
-  ['scores', 'roster', 'feats'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
+  ['scores', 'roster', 'feats', 'global'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
   if (name === 'roster') renderRoster();
   if (name === 'feats') renderFeats();
   if (name === 'scores') renderBoard($('tab-scores'), boardMode(), null);
+  if (name === 'global') NET.renderGlobal();
 }
 
 /* ─────────────────── hangar ─────────────────── */
@@ -5565,6 +5748,15 @@ function endRun() {
   $('entryRow').classList.toggle('hidden', !q);
   if (q) $('pilot').value = DB.get('callsign', '');
   renderBoard($('ovBoard'), mode, null);
+  /* verified worldwide posting — silent no-op when offline or anonymous */
+  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff).then(r => {
+    const el = $('ovRank');
+    if (!el) return;
+    if (r) {
+      el.classList.remove('hidden');
+      el.innerHTML = '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + '</span>';
+    } else el.classList.add('hidden');
+  });
   showScreen('s-over', true);
   if (q && matchMedia('(pointer:fine)').matches) $('pilot').focus();
   else $('btnAgain').focus();
@@ -5638,8 +5830,36 @@ function saveCallsign() {
 let setReturn = 'title';
 function openSettings(from) {
   setReturn = from;
+  paintAccount();
+  NET.probe().then(paintAccount);
   showScreen('s-set', true);
   $('btnSetClose').focus();
+}
+/* ── command deck account panel (settings) ── */
+function paintAccount() {
+  const on = NET.on, u = NET.user;
+  $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
+  $('acctFields').classList.toggle('hidden', !on || !!u);
+  $('acctSigned').classList.toggle('hidden', !on || !u);
+}
+async function acctGo(isNew) {
+  const name = $('acctName').value.trim();
+  const pass = $('acctPass').value;
+  if (!NET.on) { note('No command deck reachable', 'bad'); return; }
+  if (!name || !pass) { note('Callsign and password, pilot', 'bad'); return; }
+  const btn = isNew ? $('btnAcctNew') : $('btnAcctGo');
+  btn.disabled = true;
+  try {
+    if (isNew) await NET.register(name, pass); else await NET.login(name, pass);
+    $('acctPass').value = '';
+    note('Linked · welcome, ' + NET.user.name, 'good');
+    paintAccount();
+    NET.pushProfile();   // lift local progress to the deck right away
+    AU.pickup();
+  } catch (e) {
+    note(String((e && e.message) || e).slice(0, 60), 'bad');
+  }
+  btn.disabled = false;
 }
 function closeSettings() {
   showScreen('s-set', false);
@@ -5972,6 +6192,9 @@ bindClick('btnInstall', () => {
   deferredInstall.userChoice.finally(() => { deferredInstall = null; $('btnInstall').classList.add('hidden'); });
   AU.ui();
 });
+bindClick('btnAcctGo', () => acctGo(false));
+bindClick('btnAcctNew', () => acctGo(true));
+bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
@@ -6292,6 +6515,25 @@ function runSelfTests() {
     GAME.lives = savedLives; GAME.state = savedState;
     R = savedR;
   });
+  T('cloud profile merge converges and rejects stale', () => {
+    const snap = JSON.stringify(META), savedT = DB.get('meta.updated', 0);
+    META.alloy = 100; META.owned = ['vesper']; META.ship = 'vesper';
+    META.refits = { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 };
+    META.feats = {};
+    DB.set('meta.updated', 1000);
+    NET.mergeProfile({ updated: 500, data: { meta: { alloy: 9999 } } });
+    eq(META.alloy, 100, 'stale server profile is ignored');
+    NET.mergeProfile({ updated: 2000, data: { meta: {
+      alloy: 555, owned: ['vesper', 'halcyon'], refits: { plating: 2 },
+      feats: { tfx: 1 }, ship: 'halcyon'
+    } } });
+    eq(META.alloy, 555, 'alloy raised to cloud value');
+    ok(META.owned.includes('halcyon'), 'cloud hull unlocked');
+    eq(META.refits.plating, 2, 'cloud refit merged');
+    ok(META.feats.tfx, 'cloud feat merged');
+    eq(META.ship, 'halcyon', 'ship follows cloud');
+    Object.assign(META, JSON.parse(snap)); DB.set('meta.updated', savedT); saveMeta();
+  });
   T('quality presets degrade in order', () => {
     const a = qualityFor(0), b = qualityFor(1), c = qualityFor(2);
     ok(a.maxParticles < b.maxParticles && b.maxParticles < c.maxParticles, 'particle budget climbs');
@@ -6366,6 +6608,7 @@ function boot() {
   renderBoard($('tab-scores'), 'main', null);
   refreshTitleMeta();
   installManifest();
+  NET.probe().then(() => { paintAccount(); refreshTitleMeta(); });
   P.x = W / 2; P.y = H * .82;
   INPUT.aimX = P.x; INPUT.aimY = P.y;
   ATTRACT.x = W / 2; ATTRACT.y = H * .68;
