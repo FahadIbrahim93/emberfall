@@ -80,6 +80,26 @@ addCol('scores', 'kills', 'INTEGER');
 addCol('scores', 'telemetry', 'TEXT');
 addCol('scores', 'verdict', 'TEXT DEFAULT \'verified\'');
 addCol('scores', 'run_hash', 'TEXT');
+db.exec(`
+CREATE TABLE IF NOT EXISTS challenges (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_name  TEXT NOT NULL,
+  day      TEXT NOT NULL,
+  score    INTEGER NOT NULL,
+  wave     INTEGER NOT NULL,
+  ship     TEXT NOT NULL,
+  ghost    TEXT NOT NULL,
+  created  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chal_target ON challenges(to_name, day);
+CREATE TABLE IF NOT EXISTS beats (
+  challenge_id INTEGER NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created      INTEGER NOT NULL,
+  PRIMARY KEY (challenge_id, user_id)
+);
+`);
 
 /* ───────────────────── run provenance: verify before trust ─────────────────────
    The sim lives on the client, so cheating is not preventable — it is
@@ -302,10 +322,10 @@ function readBody(req, cap = 16384) {
     req.on('error', reject);
   });
 }
-async function readJson(req, res) {
+async function readJson(req, res, cap = 16384) {
   const ct = (req.headers['content-type'] || '');
   if (!ct.includes('application/json')) { bad(res, 'expected JSON body'); return null; }
-  try { return JSON.parse(await readBody(req)); }
+  try { return JSON.parse(await readBody(req, cap)); }
   catch (e) { bad(res, e.message === 'payload too large' ? 'payload too large' : 'bad JSON'); return null; }
 }
 
@@ -508,6 +528,73 @@ async function handleApi(req, res, pathname, ip) {
       ok: true, season: seasonKey(now()), ends: weekStart(now()) + 604800000,
       top: board.top, me: board.me
     });
+  }
+
+  /* ── duels: same-day daily ghost, challenged pilot races it ── */
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function utcToday() {
+    const d = new Date();
+    return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+  }
+
+  if (req.method === 'POST' && pathname === '/api/challenges') {
+    if (!user) return bad(res, 'sign in first', 401);
+    if (!rateLimit(ip, 'chal:' + user.id, 12, 60000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res, 262144); if (!body) return;
+    const to = String(body.to || '').trim();
+    const day = String(body.day || '');
+    const score = Math.floor(Number(body.score) || 0);
+    const wave = Math.floor(Number(body.wave) || 1);
+    const ship = String(body.ship || 'vesper');
+    const ghost = body.ghost;
+    if (!NAME_RE.test(to)) return bad(res, 'challenge a valid callsign');
+    if (to.toLowerCase() === user.name.toLowerCase()) return bad(res, 'you cannot duel yourself');
+    if (!DAY_RE.test(day) || day !== utcToday()) return bad(res, 'duels are for today\'s run only');
+    if (!SHIPS.has(ship)) return bad(res, 'bad ship');
+    if (score <= 0 || score > 50000000) return bad(res, 'bad score');
+    if (!ghost || !Array.isArray(ghost.frames) || !ghost.frames.length) return bad(res, 'ghost required');
+    if (ghost.frames.length > 11000) return bad(res, 'ghost too long');
+    const gjson = JSON.stringify({ score, ship, frames: ghost.frames });
+    if (gjson.length > 220000) return bad(res, 'ghost too large');
+    const target = db.prepare('SELECT id FROM users WHERE name_lower = ?').get(to.toLowerCase());
+    if (!target) return bad(res, 'no such pilot on this deck', 404);
+    const info = db.prepare('INSERT INTO challenges (from_id, to_name, day, score, wave, ship, ghost, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(user.id, to.toLowerCase(), day, score, wave, ship, gjson, now());
+    return send(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/challenges') {
+    if (!user) return bad(res, 'sign in first', 401);
+    const today = utcToday();
+    const rows = db.prepare(`
+      SELECT c.id, c.day, c.score, c.wave, c.ship, c.created, u.name AS from_name,
+        (SELECT COUNT(*) FROM beats b WHERE b.challenge_id = c.id AND b.user_id = ?) AS beaten
+      FROM challenges c JOIN users u ON u.id = c.from_id
+      WHERE c.to_name = ? AND c.day = ? ORDER BY c.created DESC LIMIT 12`).all(user.id, user.name.toLowerCase(), today);
+    return send(res, 200, { ok: true, day: today, list: rows });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/challenges/ghost') {
+    if (!user) return bad(res, 'sign in first', 401);
+    const url = new URL(req.url, 'http://x');
+    const id = Math.floor(Number(url.searchParams.get('id')) || 0);
+    const row = db.prepare('SELECT id, to_name, ghost FROM challenges WHERE id = ?').get(id);
+    if (!row || row.to_name !== user.name.toLowerCase()) return bad(res, 'no such duel', 404);
+    try { return send(res, 200, { ok: true, ghost: JSON.parse(row.ghost) }); }
+    catch (e) { return bad(res, 'duel ghost corrupted'); }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/challenges/beat') {
+    if (!user) return bad(res, 'sign in first', 401);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res); if (!body) return;
+    const id = Math.floor(Number(body.id) || 0);
+    const row = db.prepare('SELECT id, to_name FROM challenges WHERE id = ?').get(id);
+    if (!row || row.to_name !== user.name.toLowerCase()) return bad(res, 'no such duel', 404);
+    db.prepare('INSERT OR IGNORE INTO beats (challenge_id, user_id, created) VALUES (?, ?, ?)').run(id, user.id, now());
+    const n = db.prepare('SELECT COUNT(*) AS n FROM beats WHERE challenge_id = ?').get(id);
+    return send(res, 200, { ok: true, beaten: Number(n.n) > 0 });
   }
 
   return bad(res, 'no such endpoint', 404);

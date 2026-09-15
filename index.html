@@ -525,6 +525,10 @@ body.needrotate #rotate{display:grid}
               <div id="seasonYou" class="hidden"></div>
               <p class="empty" style="text-align:left;padding:4px 0 10px">Best five runs this week count. Verified runs only.</p>
             </div>
+            <div id="duelBox" class="hidden">
+              <div class="side-head"><h3>Duels</h3><span>today's run</span></div>
+              <div id="duelList" style="display:grid;gap:6px"></div>
+            </div>
             <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — top pilots, server-verified</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
@@ -689,6 +693,10 @@ body.needrotate #rotate{display:grid}
       <button class="btn key" id="btnRegister">Save</button>
     </div>
     <div id="ovBoard" style="margin-bottom:20px"></div>
+    <div class="entry hidden" id="duelRow">
+      <input id="duelTo" maxlength="16" placeholder="CHALLENGE A PILOT" spellcheck="false" autocomplete="off" aria-label="Pilot to challenge">
+      <button class="btn" id="btnDuel" style="text-align:center">Send duel</button>
+    </div>
     <div class="pair">
       <button class="btn key" id="btnAgain">Fly again</button>
       <button class="btn" id="btnToHangar">Hangar</button>
@@ -4805,6 +4813,25 @@ function drawPlayerShip() {
       ctx.restore();
     }
   }
+  /* duel rival: crimson phantom flying the challenged run */
+  if (GHOST.rival && GAME.state === 'playing' && CFG.ghost) {
+    const f = Math.min(GHOST.rivalFrame || 0, GHOST.rival.frames.length - 1);
+    const rf = GHOST.rival.frames[f];
+    if (rf) {
+      const [rx, ry] = rf.split(',');
+      ctx.save();
+      ctx.globalAlpha = .38;
+      ctx.translate(+rx, +ry);
+      ctx.scale(.92, .92);
+      const rart = HULL_ART[GHOST.rival.ship] || HULL_ART.vesper;
+      rart(ctx, { thrust: 1, boost: false, t: GAME.t });
+      ctx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      emitLocal(ctx, SPR.foe, +rx, +ry, 40, .14 + .05 * Math.sin(GAME.t * 5));
+      ctx.restore();
+    }
+  }
   if (!P.alive) return;
   const blink = P.inv > 0 && Math.sin(GAME.t * 32) > 0;
   // dash afterimages — past positions echo the hull, fading fast
@@ -5428,6 +5455,60 @@ const NET = {
     } else you.classList.add('hidden');
   },
 
+  /* ── duels: send today's best ghost to another pilot ── */
+  async sendDuel(to, ghost) {
+    if (!this.on || !this.user) return null;
+    try {
+      return await this.req('POST', '/api/challenges', {
+        to, day: todaySeedKey(), score: ghost.score, wave: 1,
+        ship: ghost.ship, ghost: { frames: ghost.frames }
+      });
+    } catch (e) { return { error: String((e && e.message) || e) }; }
+  },
+
+  async inbox() {
+    if (!this.on || !this.user) return null;
+    try { return await this.req('GET', '/api/challenges'); } catch (e) { return null; }
+  },
+
+  async fetchGhost(id) {
+    if (!this.on) return null;
+    try { return await this.req('GET', '/api/challenges/ghost?id=' + id); } catch (e) { return null; }
+  },
+
+  async beatDuel(id) {
+    if (!this.on) return null;
+    try { return await this.req('POST', '/api/challenges/beat', { id }); } catch (e) { return null; }
+  },
+
+  async renderDuels() {
+    const box = $('duelBox');
+    if (!box) return;
+    const j = await this.inbox();
+    if (!j || !j.list || !j.list.length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const bd = $('duelList');
+    bd.innerHTML = '';
+    for (const c of j.list) {
+      const row = document.createElement('button');
+      row.className = 'up';
+      row.style.textAlign = 'left';
+      row.innerHTML = '<span><b style="letter-spacing:.16em">' + esc(c.from_name) +
+        ' challenges you</b><p style="font-size:.62rem;color:var(--dim);margin-top:3px">Today\'s run · ' +
+        fmt(c.score) + ' pts · W' + pad2(c.wave || 1) +
+        (c.beaten ? ' · <span style="color:var(--mint)">BEATEN</span>' : ' · open') + '</p></span>';
+      row.onclick = async () => {
+        AU.ui();
+        const g = await this.fetchGhost(c.id);
+        if (!g || !g.ghost) { note('Duel ghost unavailable', 'bad'); return; }
+        DB.set('ghost.rival', { score: c.score, ship: g.ghost.ship, frames: g.ghost.frames, duelId: c.id });
+        note('Rival ghost armed — fly Today\'s run', 'good');
+        toTitle();
+      };
+      bd.appendChild(row);
+    }
+  },
+
   /* render into the title screen Global tab */
   async renderGlobal() {
     const status = $('globalStatus'), body = $('globalBody');
@@ -5441,6 +5522,7 @@ const NET = {
     status.textContent = 'Linked to command deck' + (this.user ? ' · signed in as ' + this.user.name : '');
     body.classList.remove('hidden');
     this.renderSeason();
+    this.renderDuels();
     const j = await this.fetchBoard(boardMode());
     const box = $('globalBoard');
     if (!j || !j.top || !j.top.length) {
@@ -5720,6 +5802,15 @@ function startRun(mode) {
   GHOST.begin(mode === 'daily' ? 'daily' : 'main');
   GHOST.startRecord();
   TELE.reset();
+  /* arm a rival ghost if a duel for today's run is pending */
+  GHOST.rival = null; GHOST.rivalFrame = 0;
+  if (GAME.mode === 'daily') {
+    const rv = DB.get('ghost.rival', null);
+    if (rv && CFG.ghost && !rv.beaten && rv.day === todaySeedKey() &&
+      Array.isArray(rv.frames) && rv.frames.length) {
+      GHOST.rival = { frames: rv.frames, ship: rv.ship, duelId: rv.duelId || null };
+    }
+  }
   if (GAME.mode === 'daily') {
     const key = todaySeedKey();
     R = makeRng(hashStr('emberfall-' + key));
@@ -5739,11 +5830,12 @@ function startRun(mode) {
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
-    ghostBeat: false, rushCleared: false, rushClock: 0
+    ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
   GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : GAME.mode === 'rush' ? 'rush' : 'main')[0] || { s: 0 }).s;
   GAME.ghostBeat = false;
+  GAME.rivalBeat = false;
   dropPity = 0;
   DIRECTOR.wave = 0; DIRECTOR.queue = []; DIRECTOR.phase = 'idle';
   DIRECTOR.t = 0; DIRECTOR.restT = 0; DIRECTOR.bossCycle = -1;
@@ -5786,7 +5878,7 @@ function endRun() {
     hits: GAME.hits, grazes: GAME.grazes, deaths: GAME.deaths, bosses: GAME.bosses,
     maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
     boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true,
-    ghostBeat: GAME.ghostBeat === true, rush: GAME.rushCleared === true
+    ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true
   };
   const newFeats = [];
   for (const f of FEATS) {
@@ -5819,6 +5911,10 @@ function endRun() {
   const q = qualifiesIn(loadBoard(mode), GAME.score, 8);
   $('entryRow').classList.toggle('hidden', !q);
   if (q) $('pilot').value = DB.get('callsign', '');
+  /* duels are only for the daily — same seed everywhere makes it fair */
+  const dg = DB.get('ghost.daily', null);
+  $('duelRow').classList.toggle('hidden',
+    !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
   renderBoard($('ovBoard'), mode, null);
   /* verified worldwide posting — silent no-op when offline or anonymous */
   NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff,
@@ -6281,6 +6377,17 @@ bindClick('btnAbort', () => { GAME.paused = false; toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
 bindClick('btnToHangar', () => toHangar());
 bindClick('btnRegister', () => saveCallsign());
+bindClick('btnDuel', async () => {
+  const dg = DB.get('ghost.daily', null);
+  const to = ($('duelTo').value || '').trim();
+  if (!dg || !to) { note('Callsign to challenge, pilot', 'bad'); return; }
+  const btn = $('btnDuel'); btn.disabled = true;
+  const r = await NET.sendDuel(to, dg);
+  btn.disabled = false;
+  if (r && r.error) note(r.error.slice(0, 52), 'bad');
+  else if (r && r.ok) { note('Duel sent to ' + to, 'good'); $('duelTo').value = ''; AU.pickup(); }
+  else note('Command deck unreachable', 'bad');
+});
 bindClick('btnSetClose', () => { AU.ui(); closeSettings(); });
 bindClick('btnFull', () => toggleFullscreen());
 bindClick('stClose', () => { $('st').classList.add('hidden'); });
@@ -6705,6 +6812,20 @@ function stepGame(dt) {
   GAME.runT += dt;
   if (GAME.state === 'playing' && P.alive) GHOST.tickRecord();
   TELE.tick();
+  /* duel race: the rival flies 60 positions per sim-second, regardless of
+     display rate; outlast the whole recording to beat it */
+  if (GHOST.rival && GAME.state === 'playing') {
+    GHOST.rivalFrame = Math.floor(GAME.runT * 60);
+    if (GHOST.rivalFrame >= GHOST.rival.frames.length &&
+      !GAME.rivalBeat && P.alive) {
+      GAME.rivalBeat = true;
+      const rv = DB.get('ghost.rival', null);
+      if (rv) { rv.beaten = true; DB.set('ghost.rival', rv); }
+      if (GHOST.rival.duelId) NET.beatDuel(GHOST.rival.duelId);
+      note('Duel beaten — rival notified', 'good');
+      AU.pickup();
+    }
+  }
   const move = getMove();
   updatePlayer(dt, move);
   updateDirector(dt);

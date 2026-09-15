@@ -65,6 +65,22 @@ expect "mismatch flagged"     '"verdict":"flagged"'          -X POST "$BASE/api/
 expect "season endpoint"      '"season":"'                   "$BASE/api/season"
 expect "season has structure" '"ends":'                      "$BASE/api/season"
 
+say ""; say "── v3.3 duels ──"
+# Ace$R sends a duel to Pilot$R; Pilot$R logs in, fetches inbox + ghost, marks beaten
+GH="\"ghost\":{\"frames\":[\"250,500\",\"252,498\",\"249,495\"]}"
+DSEND="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/challenges" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"to\":\"Pilot$R\",\"day\":\"$(date -u +%F)\",\"score\":777,\"wave\":2,\"ship\":\"vesper\",$GH}")"
+if printf '%s' "$DSEND" | grep -q '"id":'; then ok "duel sent"; else no "duel sent  →  ${DSEND:0:140}"; fi
+expect "self-duel rejected"   'yourself'                     -X POST "$BASE/api/challenges" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"to\":\"Ace$R\",\"day\":\"$(date -u +%F)\",\"score\":1,\"ship\":\"vesper\",$GH}"
+expect "stale-day rejected"   'today'                        -X POST "$BASE/api/challenges" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"to\":\"Pilot$R\",\"day\":\"2020-01-01\",\"score\":1,\"ship\":\"vesper\",$GH}"
+expect "logout again"         '"ok":true'                    -X POST "$BASE/api/logout" -H 'X-Emberfall: command-deck'
+expect "login as target"      '"ok":true'                    -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
+INBOX="$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/challenges")"
+if printf '%s' "$INBOX" | grep -q "Ace${R}"; then ok "inbox shows duel"; else no "inbox shows duel  →  ${INBOX:0:140}"; fi
+CID=$(printf '%s' "$INBOX" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+GHOSTJ="$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/challenges/ghost?id=$CID")"
+if printf '%s' "$GHOSTJ" | grep -q '"frames"'; then ok "ghost delivered"; else no "ghost delivered  →  ${GHOSTJ:0:140}"; fi
+expect "duel marked beaten"   '"beaten":true'                -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID}"
+
 say ""
 say "── $PASS passed, $FAIL failed ─────────────────────"
 [ "$FAIL" -eq 0 ]
