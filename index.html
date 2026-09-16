@@ -807,7 +807,6 @@ function hashStr(s) {
 let R = makeRng((Math.random() * 4294967296) >>> 0);
 const FX = makeRng((Math.random() * 4294967296) >>> 0);
 const rnd = (a, b) => FX.range(a, b);
-const pickFx = a => FX.pick(a);
 
 /* ─────────────────────────── storage ─────────────────────────── */
 const DB = {
@@ -2462,18 +2461,26 @@ function logSighting(kind, paid) {
    Each tier carries variant lines and the picker never repeats a tier's
    last line, so a string of quiet runs doesn't read as a broken record. */
 const whisperLast = {};
+/* no-repeat line picker — never serves the same string twice in a row
+   (shared by the sky whisper and the game-over headline) */
+function pickLine(key, lines) {
+  let i = FX.int(0, lines.length - 1);
+  if (lines.length > 1 && lines[i] === whisperLast[key]) i = (i + 1) % lines.length;
+  whisperLast[key] = lines[i];
+  return lines[i];
+}
+/* one color per sky kind — the edge pointers, the whisper tints, and the
+   Sky log rows all read this table, so a recolor is a one-line change */
+const SKY_RGB = { comet: '255,180,84', golden: '255,214,110', fleet: '155,107,255', pyre: '255,150,70', silent: '120,131,156' };
 function skyWhisper() {
   const near = (ev, t) => !ev.on && ev.next > 0 && ev.next <= t;
   let lines, rgb;
-  if (near(comet, 8))       { rgb = '255,180,84';  lines = ['The sky was silent — a comet was seconds away.', 'The sky was silent — a wish was seconds from arriving.']; }
-  else if (near(comet, 20)) { rgb = '255,180,84';  lines = ['The sky was silent — a comet was almost due.', 'The sky was silent — a wish was still inbound.']; }
-  else if (near(fleet, 35)) { rgb = '155,107,255'; lines = ['The sky was silent — a graveyard fleet was drawing near.', 'The sky was silent — the war-dead were drawing near.']; }
-  else if (near(pyre, 45))  { rgb = '255,150,70';  lines = ['The sky was silent — something was falling somewhere.', 'The sky was silent — somewhere, a ship came down.']; }
-  else                      { rgb = '120,131,156'; lines = ['The sky was silent.', 'The stars kept their distance.', 'The heavens held their breath.', 'No word from the deep.']; }
-  let i = FX.int(0, lines.length - 1);
-  if (lines.length > 1 && i === whisperLast[rgb]) i = (i + 1) % lines.length;   // never the same line twice in a row
-  whisperLast[rgb] = i;
-  return { text: lines[i], rgb };
+  if (near(comet, 8))       { rgb = SKY_RGB.comet;  lines = ['The sky was silent — a comet was seconds away.', 'The sky was silent — a wish was seconds from arriving.']; }
+  else if (near(comet, 20)) { rgb = SKY_RGB.comet;  lines = ['The sky was silent — a comet was almost due.', 'The sky was silent — a wish was still inbound.']; }
+  else if (near(fleet, 35)) { rgb = SKY_RGB.fleet;  lines = ['The sky was silent — a graveyard fleet was drawing near.', 'The sky was silent — the war-dead were drawing near.']; }
+  else if (near(pyre, 45))  { rgb = SKY_RGB.pyre;   lines = ['The sky was silent — something was falling somewhere.', 'The sky was silent — somewhere, a ship came down.']; }
+  else                      { rgb = SKY_RGB.silent; lines = ['The sky was silent.', 'The stars kept their distance.', 'The heavens held their breath.', 'No word from the deep.']; }
+  return { text: pickLine(rgb, lines), rgb };
 }
 function pyreTick() {
   const now = performance.now() / 1000;
@@ -2846,13 +2853,6 @@ function gradFor(g, key, make) {
 function vgrad(g, key, y0, y1, stops) {
   return gradFor(g, key, c => {
     const gr = c.createLinearGradient(0, y0, 0, y1);
-    for (const s of stops) gr.addColorStop(s[0], s[1]);
-    return gr;
-  });
-}
-function xgrad(g, key, x0, x1, stops) {
-  return gradFor(g, key, c => {
-    const gr = c.createLinearGradient(x0, 0, x1, 0);
     for (const s of stops) gr.addColorStop(s[0], s[1]);
     return gr;
   });
@@ -6154,8 +6154,8 @@ function drawSkyPointers() {
   if (GAME.state !== 'playing' || GAME.paused) return;
   if (comet.on) skyPointer(comet.x, comet.y,
     comet.gold ? rgbOf(PAL.gold) : '255,224,178');
-  if (fleet.on) skyPointer(fleet.x, fleet.y, rgbOf(PAL.ally));
-  if (pyre.on) skyPointer(pyre.x, pyre.y, '255,150,70');   // ember
+  if (fleet.on) skyPointer(fleet.x, fleet.y, SKY_RGB.fleet);
+  if (pyre.on) skyPointer(pyre.x, pyre.y, SKY_RGB.pyre);
 }
 
 let fpsEMA = 60;
@@ -6740,8 +6740,8 @@ function renderSkyLog() {
   const KIND = {
     comet: ['Comet', 'var(--amber)'],
     golden: ['Golden comet', 'var(--gold)'],
-    fleet: ['Graveyard fleet', 'rgb(155,107,255)'],
-    pyre: ['Falling pyre', 'rgb(255,150,70)']
+    fleet: ['Graveyard fleet', 'rgb(' + SKY_RGB.fleet + ')'],
+    pyre: ['Falling pyre', 'rgb(' + SKY_RGB.pyre + ')']
   };
   const when = t => {
     const d = new Date(t), days = (Date.now() - t) / 864e5;
@@ -7053,12 +7053,7 @@ function endRun() {
   /* the closing line — variant narrator lines keyed by how the run ended,
      never repeating the last one. Cause beats poetry: school completions,
      cleared rushes, and grind deaths each get their own register. */
-  const whisperOf = arr => {
-    let i = FX.int(0, arr.length - 1);
-    if (arr.length > 1 && arr[i] === whisperOf.last) i = (i + 1) % arr.length;
-    whisperOf.last = arr[i];
-    return arr[i];
-  };
+  const whisperOf = arr => pickLine('headline', arr);
   let headline, eyebrow;
   if (GAME.school) {
     headline = 'School complete';
