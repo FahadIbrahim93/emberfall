@@ -990,9 +990,9 @@ const FEATS = [
   { id: 'emp', name: 'Hard reboot', desc: 'Take an EMP hit and still clear the wave.', check: s => s.emp === true },
   { id: 'ghost', name: 'Haunted', desc: 'Beat your own daily ghost.', check: s => s.ghostBeat === true },
   { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true },
-  { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5 },
-  { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1 },
-  { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1 }
+  { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5, prog: () => [META.sky.comets, 5] },
+  { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1, prog: () => [META.sky.golden, 1] },
+  { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -6187,10 +6187,14 @@ function renderFeats() {
   box.innerHTML = '<div class="empty" style="padding:0 0 12px">' + done + ' of ' + FEATS.length + ' earned</div>' +
     FEATS.map(f => {
       const got = !!META.feats[f.id];
+      // career feats can carry prog(): [current, goal] straight from the
+      // same counters their check reads — progress lives with the feat
+      const prog = !got && f.prog ? f.prog() : null;
       return '<div class="row" style="grid-template-columns:1fr auto">' +
         '<span class="nm" style="' + (got ? 'color:var(--ink)' : 'color:var(--dimmer)') + '">' +
         esc(f.name) + '<br><span style="font-size:.62rem;color:var(--dim)">' + esc(f.desc) + '</span></span>' +
-        '<span class="sc" style="' + (got ? '' : 'color:var(--dimmer)') + '">' + (got ? 'done' : '—') + '</span></div>';
+        '<span class="sc" style="' + (got ? '' : prog ? 'color:var(--gold)' : 'color:var(--dimmer)') + '">' +
+        (got ? 'done' : prog ? prog[0] + '/' + prog[1] : '—') + '</span></div>';
     }).join('');
 }
 function switchTab(name) {
