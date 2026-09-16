@@ -710,7 +710,10 @@ body.needrotate #rotate{display:grid}
       <div class="stat pay"><span>Alloy earned</span><b id="ovAlloy">0</b></div>
     </div>
     <div id="unlocks"></div>
-    <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
+    <div id="ovAssist" class="unlock hidden" style="border-color:rgba(125,255,184,.4);background:rgba(125,255,184,.08)">
+    <b>Flight assist</b><span id="ovAssistTxt"></span>
+  </div>
+  <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
       <button class="btn key" id="btnRegister">Save</button>
@@ -829,6 +832,40 @@ const DIFF = [
 const D = () => DIFF[clamp(CFG.diff, 0, 4)];
 const isCozy = () => !!(D().cozy || CFG.cozy);
 
+/* ═══ dynamic difficulty assist — a quiet tailwind, never a hand ═══
+   Fall three times on the same wave (endless runs) and hostile fire
+   gently stands down: slower guns, slower bullets, thinner walls.
+   Clearing the wave retires the streak. Silent in play — the run
+   summary owns the confession. Dailies and rush stay untouched. */
+const DDA = {
+  on: false, hitThisRun: false, easing: 0, note: false, noteWave: 0,
+  arm() {
+    this.on = GAME.mode === 'endless';
+    this.hitThisRun = false; this.easing = 0; this.note = false; this.noteWave = 0;
+  },
+  fall(wave) {
+    if (!this.on) return;
+    if (META.dd.wave !== wave) { META.dd.wave = wave; META.dd.falls = 0; }
+    META.dd.falls++;
+    this.hitThisRun = true;
+    saveMeta();
+  },
+  clear(wave) {
+    if (META.dd.wave === wave) { META.dd.wave = 0; META.dd.falls = 0; saveMeta(); }
+  },
+  target() {   // pure — the battery tests this
+    if (!this.on || !this.hitThisRun || META.dd.falls < 3) return 0;
+    return clamp((META.dd.falls - 2) / 3, 0, 1);
+  },
+  update(dt) {
+    this.easing = damp(this.easing, this.target(), 1.2, dt);
+    if (!this.note && this.easing > .2) { this.note = true; this.noteWave = GAME.wave; }
+  },
+  clockMul() { return 1 + this.easing * .22; },   // hostile guns cycle up to 22% slower
+  spdMul()   { return 1 - this.easing * .15; },   // hostile bullets up to 15% slower
+  capMul()   { return 1 - this.easing * .25; }    // wave groups up to 25% thinner
+};
+
 /* ─────────────────────────── palettes ─────────────────────────── */
 /* Each palette keeps hostile / friendly / tech channels perceptually
    separable, so the colourblind modes are real remaps, not hue rotations. */
@@ -900,7 +937,8 @@ const META = {
   alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
-  sky: { comets: 0, golden: 0, fleets: 0 }
+  sky: { comets: 0, golden: 0, fleets: 0 },
+  dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
 };
 function loadMeta() {
   const s = DB.get('meta', null);
@@ -919,6 +957,10 @@ function loadMeta() {
   META.ship = META.owned.includes(s.ship) ? s.ship : 'vesper';
   if (s.refits) for (const r of REFITS) META.refits[r.id] = clamp(+s.refits[r.id] || 0, 0, r.max);
   if (s.feats && typeof s.feats === 'object') META.feats = s.feats;
+  if (s.dd && typeof s.dd === 'object') {
+    META.dd.wave = +s.dd.wave || 0;
+    META.dd.falls = +s.dd.falls || 0;
+  }
 }
 function saveMeta() { DB.set('meta', META); DB.set('meta.updated', Date.now()); }
 const refit = id => META.refits[id] || 0;
@@ -3914,7 +3956,7 @@ function hurtPlayer(src) {
     return;
   }
   GAME.lives--; GAME.deaths++;
-  GAME.combo = 0; GAME.mult = 1; GAME.comboT = 0;
+  DDA.fall(GAME.wave);   // repeated falls on one wave quietly ease the pressure
   P.weapon = Math.max(1, P.weapon - 1);
   P.alive = false;
   explode(P.x, P.y, 'ally', 1.9);
@@ -4246,9 +4288,9 @@ function spawnFoe(type, o) {
     artScale: SHIP_SCALE,   // drawFoe scales the chassis by this — r/hitR must match
     t: 0, et: 0, ht: 0, ph: rnd(0, TAU), flash: 0, glow: 0,
     state: 'enter', ang: PI / 2, spin: 0, dv: 0,
-    guns: !!S.guns, cd: (S.cd || 2) * D().fireRate, fireT: rnd(.8, 2.1),
+    guns: !!S.guns, cd: (S.cd || 2) * D().fireRate * DDA.clockMul(), fireT: rnd(.8, 2.1),
     burst: 0, bt: 0, armored: !!S.armored,
-    bspd: clamp(250 + GAME.wave * 6, 250, 420) * D().bulletSpd * earlySpeed() *
+    bspd: clamp(250 + GAME.wave * 6, 250, 420) * D().bulletSpd * earlySpeed() * DDA.spdMul() *
       (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.15 : 1),
     swa: 26, swf: 1.5, tx: W / 2, ty: 110, sx: W / 2, sy: -60,
     diveAt: 0, forceDive: rnd(9, 14),
@@ -4870,6 +4912,7 @@ function buildWave(n) {
       const type = R.pick(pool);
       let count = Math.min(8, 3 + R.int(0, 2) + Math.floor(n / 5) +
         (GAME.mutator && GAME.mutator.id === 'swarm' ? 1 : 0));
+      count = Math.max(1, Math.round(count * DDA.capMul()));   // assist: thinner walls, never empty
       if (type === 'cruiser' || type === 'carrier' || type === 'warden' || type === 'shieldbreaker') count = Math.min(3, 1 + Math.floor((n - 6) / 5));
       if (type === 'lancer') count = Math.min(3, 1 + Math.floor(n / 9));
       if (type === 'orbiter') count = Math.min(4, 2 + Math.floor(n / 10));
@@ -5050,6 +5093,7 @@ function updateDirector(dt) {
     if (!DIRECTOR.queue.length && !liveFoes && !boss && P.alive) {
       DIRECTOR.phase = 'rest';
       DIRECTOR.restT = 2.4;
+      DDA.clear(DIRECTOR.wave);   // wave survived — the streak retires
       const bonus = 260 * DIRECTOR.wave;
       GAME.score += bonus;
       GAME.alloyRun += 12 + DIRECTOR.wave * 3;
@@ -6387,6 +6431,7 @@ function startRun(mode) {
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
+  DDA.arm();
   GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : GAME.mode === 'rush' ? 'rush' : 'main')[0] || { s: 0 }).s;
   GAME.ghostBeat = false;
@@ -6454,6 +6499,11 @@ function endRun() {
   $('ovGraze').textContent = fmt(GAME.grazes);
   $('ovAlloy').textContent = fmt(earned);
   $('ovFlag').classList.toggle('hidden', !GAME.bestFlagged);
+  /* the assist owns its confession: shown only when it actually eased
+     something this run, with the wave where it kicked in */
+  $('ovAssist').classList.toggle('hidden', !(DDA.on && DDA.note));
+  if (DDA.on && DDA.note) $('ovAssistTxt').textContent =
+    'The hostiles eased up after wave ' + DDA.noteWave + '. Fly the corridor at your pace.';
   $('overEyebrow').textContent = GAME.mode === 'daily' ? 'Daily run complete'
     : GAME.mode === 'rush' ? 'Boss rush — ' + fmt(Math.round(GAME.rushClock)) + 's'
     : 'Signal lost';
@@ -7564,6 +7614,7 @@ function stepGame(dt) {
   updateWorld(dt);
   collide();
   updateThreat(dt);
+  DDA.update(dt);
   if (GAME.comboT > 0) {
     GAME.comboT -= dt;
   if (GAME.grazeHeat > 0) GAME.grazeHeat = Math.max(0, GAME.grazeHeat - dt / 3);
