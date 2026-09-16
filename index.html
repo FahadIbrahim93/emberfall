@@ -808,11 +808,11 @@ const D = () => DIFF[clamp(CFG.diff, 0, 3)];
    separable, so the colourblind modes are real remaps, not hue rotations. */
 const PALETTES = [  {
     // Ember — the house look
-    name: 'Ember', gradeSat: 1.08, gradeCon: 1.04, gradeBri: 1, gradeHue: 0,
+    name: 'Ember', gradeSat: 1.06, gradeCon: 1.05, gradeBri: .98, gradeHue: 0,
     hull: '#ff8a2b', hullLit: '#ffd9a8', ally: '#ffb454',
     foe: '#ff2e55', foeDeep: '#8e0f26', foeLit: '#ffb8c4',
     tech: '#35e0ff', good: '#7dffb8', rare: '#9b6bff', gold: '#ffd166',
-    neb: [[38, 62, 112], [150, 52, 30]]
+    neb: [[32, 52, 104], [88, 42, 84]]
   },  {
     // High contrast
     name: 'High contrast', gradeSat: 1.05, gradeCon: 1.12, gradeBri: 1.02, gradeHue: 0,
@@ -1546,17 +1546,19 @@ function bloomComposite() {
     bctx2.filter = 'blur(2px)';
     bctx2.drawImage(bloomCv, 0, 0, w2, h2);
     bctx2.filter = 'none';
+    /* restrained two-stage bloom: tight core at low alpha, whisper of halo.
+       Glow should rim bright things, not replace them. */
     ctx.filter = 'blur(' + (3.5 / BLOOM_DIV * 3).toFixed(1) + 'px)';
-    ctx.globalAlpha = .9;
+    ctx.globalAlpha = .5;
     ctx.drawImage(bloomCv, 0, 0, W, H);
     ctx.filter = 'blur(' + (14 / BLOOM_DIV * 3).toFixed(1) + 'px)';
-    ctx.globalAlpha = .6;
+    ctx.globalAlpha = .28;
     ctx.drawImage(bloomCv2, 0, 0, W, H);
     ctx.filter = 'none';
   } else {
-    ctx.globalAlpha = .92;
+    ctx.globalAlpha = .55;
     ctx.drawImage(bloomCv, 0, 0, W, H);
-    ctx.globalAlpha = .5;
+    ctx.globalAlpha = .28;
     ctx.drawImage(bloomCv, 0, 0, W, H);
   }
   ctx.restore();
@@ -1727,8 +1729,8 @@ function updateBackdrop(dt) {
   }
 }
 function drawBackdrop(t) {
-  // nebula drift
-  ctx.globalAlpha = .62;
+  // nebula drift — cool and deep, a hint rather than a haze
+  ctx.globalAlpha = .44;
   ctx.drawImage(nebA, W * .14 - 300, ((t * 7) % (H + 760)) - 620, 640, 640);
   ctx.drawImage(nebB, W * .72 - 320, ((t * 4.5 + H * .55) % (H + 860)) - 700, 740, 740);
   ctx.globalAlpha = 1;
@@ -4855,7 +4857,9 @@ function drawPlayerShip() {
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  emit(P.boost ? SPR.tech : SPR.hull, P.x, P.y + 12, 30 + Math.sin(GAME.t * 22) * 5, .6);
+  /* engine signature: a cool, tight ember — was a 30px additive sun that
+     fed the bloom into a screen-wide washout */
+  emit(P.boost ? SPR.tech : SPR.hull, P.x, P.y + 12, (P.boost ? 22 : 15) + Math.sin(GAME.t * 22) * 3, .34);
 
   if (P.muzzleT > 0) {
     const a = P.muzzleT / .055;
@@ -4867,7 +4871,7 @@ function drawPlayerShip() {
       ctx.fillStyle = 'rgba(255,240,205,' + a + ')';
       poly(ctx, [[0, -s * 2.3], [s * .55, 0], [0, s * 2.3], [-s * .55, 0]]);
       ctx.fill(); ctx.restore();
-      emit(SPR.hull, P.x + dx * .9, P.y - 17, 24, a * .85);
+      emit(SPR.hull, P.x + dx * .9, P.y - 17, 12, a * .5);
     }
     ctx.restore();
   }
