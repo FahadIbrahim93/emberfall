@@ -1566,7 +1566,7 @@ function bloomComposite() {
 }
 
 /* ═══════════════════ backdrop: nebula, planet, debris ═══════════════════ */
-let nebA, nebB, planet, dust = [], derelicts = [];
+let nebA, nebB, planet, moon, dust = [], derelicts = [];
 
 /* v3: dead capitals drifting through the deep — vector silhouettes rendered
    once to an offscreen canvas, so they cost nothing per frame. */
@@ -1620,38 +1620,80 @@ function buildBackdrop() {
   nebA = mk(PAL.neb[0].join(','), 512);
   nebB = mk(PAL.neb[1].join(','), 512);
 
-  // the yard's home world, hanging off-screen-ish for scale
-  const ps = 700;
-  planet = document.createElement('canvas'); planet.width = planet.height = ps;
-  const p = planet.getContext('2d');
-  const cx = ps / 2, cy = ps / 2, r = ps / 2 - 6;
-  const body = p.createRadialGradient(cx - r * .35, cy - r * .4, r * .05, cx, cy, r);
-  body.addColorStop(0, 'rgba(58,78,118,.95)');
-  body.addColorStop(.45, 'rgba(24,34,60,.92)');
-  body.addColorStop(1, 'rgba(6,9,18,.95)');
-  p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.fillStyle = body; p.fill();
-  // banding
-  p.save(); p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.clip();
-  for (let i = 0; i < 26; i++) {
-    const y = cy - r + (i / 26) * r * 2;
-    p.fillStyle = 'rgba(120,160,220,' + (.012 + Math.random() * .026).toFixed(3) + ')';
-    p.fillRect(cx - r, y, r * 2, r * rnd(.02, .07));
-  }
-  // city lights on the dark side
-  for (let i = 0; i < 140; i++) {
-    const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r;
-    const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
-    if (x < cx + r * .1) continue;
-    p.fillStyle = 'rgba(255,190,120,' + rnd(.12, .5).toFixed(2) + ')';
-    p.fillRect(x, y, rnd(1, 2.4), rnd(1, 2));
-  }
-  p.restore();
-  // atmosphere rim lit from the same side as the nebula
-  const rim = p.createRadialGradient(cx, cy, r * .86, cx, cy, r * 1.05);
-  rim.addColorStop(0, 'rgba(90,150,235,0)');
-  rim.addColorStop(.72, 'rgba(100,165,255,.2)');
-  rim.addColorStop(1, 'rgba(100,165,255,0)');
-  p.beginPath(); p.arc(cx, cy, r * 1.05, 0, TAU); p.fillStyle = rim; p.fill();
+  /* ─── planetary theatre: a ringed gas giant + a rust moon. Built once
+     to offscreen canvases; drawn as dark, rim-lit silhouettes so the
+     scene gains huge depth without gaining brightness. ─── */
+  const buildPlanet = (ps, o) => {
+    const c = document.createElement('canvas'); c.width = c.height = ps;
+    const p = c.getContext('2d');
+    const cx = ps / 2, cy = ps / 2, r = ps / 2 - 6;
+    const ringHalf = back => {
+      if (!o.ring) return;
+      p.save();
+      p.translate(cx, cy); p.rotate(-.42); p.scale(1, .3);
+      p.lineWidth = r * .17;
+      p.strokeStyle = 'rgba(' + o.ring + ',' + (back ? .3 : .44) + ')';
+      p.beginPath(); p.arc(0, 0, r * 1.42, back ? PI : 0, back ? TAU : PI); p.stroke();
+      p.lineWidth = r * .05;
+      p.strokeStyle = 'rgba(' + o.ring + ',' + (back ? .42 : .6) + ')';
+      p.beginPath(); p.arc(0, 0, r * 1.64, back ? PI : 0, back ? TAU : PI); p.stroke();
+      p.restore();
+    };
+    ringHalf(true);                                   // far side of the rings
+    const lx = cx - r * .38, ly = cy - r * .42;       // sun is upper-left
+    const body = p.createRadialGradient(lx, ly, r * .05, cx, cy, r * 1.02);
+    body.addColorStop(0, 'rgba(' + o.lit + ',.96)');
+    body.addColorStop(.5, 'rgba(' + o.base + ',.94)');
+    body.addColorStop(1, 'rgba(' + o.dark + ',.97)');
+    p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.fillStyle = body; p.fill();
+    p.save(); p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.clip();
+    if (o.bands) for (let i = 0; i < 30; i++) {
+      const y = cy - r + (i / 30) * r * 2;
+      p.fillStyle = 'rgba(' + o.lit + ',' + (.012 + Math.random() * .03).toFixed(3) + ')';
+      p.fillRect(cx - r, y, r * 2, r * rnd(.02, .07));
+    }
+    if (o.storms) for (let i = 0; i < 7; i++) {       // cyclone blotches
+      const a = rnd(0, TAU), d = rnd(.2, .8) * r;
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * .8;
+      p.fillStyle = 'rgba(' + (Math.random() < .5 ? o.lit : o.dark) + ',' + rnd(.05, .12).toFixed(2) + ')';
+      p.beginPath(); p.ellipse(x, y, r * rnd(.06, .16), r * rnd(.03, .07), rnd(0, TAU), 0, TAU); p.fill();
+    }
+    if (o.craters) for (let i = 0; i < 11; i++) {
+      const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r * .92;
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
+      const cr = r * rnd(.04, .11);
+      p.fillStyle = 'rgba(' + o.dark + ',.5)';
+      p.beginPath(); p.arc(x, y, cr, 0, TAU); p.fill();
+      p.strokeStyle = 'rgba(' + o.lit + ',.3)'; p.lineWidth = 1.2;
+      p.beginPath(); p.arc(x, y, cr, -2.6, -.6); p.stroke();
+    }
+    if (o.lights) for (let i = 0; i < 150; i++) {     // city lights, dark side
+      const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r;
+      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
+      if (x < cx + r * .12) continue;
+      p.fillStyle = 'rgba(255,196,128,' + rnd(.12, .5).toFixed(2) + ')';
+      p.fillRect(x, y, rnd(1, 2.4), rnd(1, 2));
+    }
+    p.restore();
+    // atmosphere rim + lit-side crescent
+    const rim = p.createRadialGradient(cx, cy, r * .96, cx, cy, r * 1.06);
+    rim.addColorStop(0, 'rgba(' + o.rim + ',0)');
+    rim.addColorStop(.75, 'rgba(' + o.rim + ',.22)');
+    rim.addColorStop(1, 'rgba(' + o.rim + ',0)');
+    p.beginPath(); p.arc(cx, cy, r * 1.06, 0, TAU); p.fillStyle = rim; p.fill();
+    p.strokeStyle = 'rgba(' + o.lit + ',.3)'; p.lineWidth = 2.2;
+    p.beginPath(); p.arc(cx, cy, r - 1.4, -2.6, -.4); p.stroke();
+    ringHalf(false);                                  // near side of the rings
+    return c;
+  };
+  planet = buildPlanet(1000, {
+    lit: '126,164,218', base: '33,49,88', dark: '7,11,24',
+    rim: '100,165,255', ring: '172,192,228', bands: true, storms: true, lights: true
+  });
+  moon = buildPlanet(420, {
+    lit: '204,148,110', base: '92,60,50', dark: '18,12,14',
+    rim: '255,170,120', craters: true
+  });
 
   dust = [];
   if (QUALITY.debris) {
@@ -1746,10 +1788,17 @@ function drawBackdrop(t) {
   }
   ctx.globalAlpha = 1;
 
-  // planet, parked low-left, very slowly climbing
-  const py = H * 1.18 - ((t * 1.4) % (H * 2.6));
-  ctx.globalAlpha = .55;
-  ctx.drawImage(planet, -W * .28, py, 700, 700);
+  // the gas giant — huge, low-left, climbing with glacial parallax
+  const ps = Math.max(760, Math.min(W, H) * 1.4);
+  const py = H * 1.24 - ((t * 1.1) % (H * 3.4));
+  ctx.globalAlpha = .8;
+  ctx.drawImage(planet, -ps * .32, py - ps * .3, ps, ps);
+  ctx.globalAlpha = 1;
+  // the moon — smaller, faster, drifting across the upper right
+  const ms = ps * .24;
+  const my = ((t * 9 + H * .18) % (H + ms * 2.4)) - ms * 1.2;
+  ctx.globalAlpha = .78;
+  ctx.drawImage(moon, W * .8 - ms / 2, my, ms, ms);
   ctx.globalAlpha = 1;
 
   // debris silhouettes
@@ -4836,13 +4885,13 @@ function drawPlayerShip() {
   }
   if (!P.alive) return;
   const blink = P.inv > 0 && Math.sin(GAME.t * 32) > 0;
-  // dash afterimages — past positions echo the hull, fading fast
+  // dash afterimages — a slim hull echo, not a fireball
   if ((P.dashT > 0 || P.boost) && QUALITY.particles > .6) {
     P.ghostT = (P.ghostT || 0) - 1 / 60;
     if (P.ghostT <= 0) {
-      P.ghostT = .028;
+      P.ghostT = .05;
       part({
-        x: P.x, y: P.y, vx: 0, vy: 0, life: .3, size: 46,
+        x: P.x, y: P.y + 8, vx: 0, vy: 0, life: .22, size: 22,
         spr: SPR.hull, mode: 'glow', drag: 0
       });
     }
@@ -4985,7 +5034,7 @@ function drawBeams() {
       ctx.lineWidth = w * .2;
       ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.ex, b.ey); ctx.stroke();
       ctx.restore();
-      emit(SPR.foe, b.x, b.y, 70, .8);
+      emit(SPR.foe, b.x, b.y, 38, .55);
       if (QUALITY.particles > .5 && FX.chance(.7)) {
         const d = rnd(40, Math.max(W, H));
         part({
