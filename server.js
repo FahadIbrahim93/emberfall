@@ -494,7 +494,7 @@ async function handleApi(req, res, pathname, ip) {
     if (!SHIPS.has(ship)) return bad(res, 'bad ship');
     if (!Number.isFinite(score) || score < 0 || score > 50000000) return bad(res, 'bad score');
     if (wave < 0 || wave > 999) return bad(res, 'bad wave');
-    if (diff < 0 || diff > 3) return bad(res, 'bad diff');
+    if (diff < 0 || diff > 4) return bad(res, 'bad diff');
 
     /* provenance: verify the arc, catch replays, then store with a verdict */
     const v = verifyRun(mode, diff, wave, score, runT, cps);

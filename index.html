@@ -611,8 +611,9 @@ body.needrotate #rotate{display:grid}
       <div class="opt"><label id="lSfx">Effects</label><input type="range" id="rSfx" min="0" max="100" aria-labelledby="lSfx"></div>
       <div class="opt full"><label>Difficulty</label>
         <div class="seg" id="segDiff">
-          <button data-v="0">Cadet</button><button data-v="1" class="on">Pilot</button>
-          <button data-v="2">Ace</button><button data-v="3">Nightmare</button>
+          <button data-v="0" class="on">Cozy</button><button data-v="1">Cadet</button>
+          <button data-v="2">Pilot</button>
+          <button data-v="3">Ace</button><button data-v="4">Nightmare</button>
         </div></div>
       <div class="opt full"><label>Visual style</label>
         <div class="seg" id="segPal">
@@ -803,10 +804,11 @@ const DB = {
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CFG = {
   master: 80, music: 58, sfx: 85,
-  diff: 1, pal: 0, quality: 3,
+  diff: 0, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
-  hitbox: false, autofire: false, haptics: true, fps: false, fpscap: 0,
-  touchLeft: false, touchBig: false, ghost: true, outline: false
+  hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
+  touchLeft: false, touchBig: false, ghost: true, outline: true,
+  cozy: false /* Cozy mode — slower, sparser hostiles, same rules. */
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -815,12 +817,14 @@ function loadCfg() {
 function saveCfg() { DB.set('cfg', CFG); }
 
 const DIFF = [
+  { name: 'Cozy', bulletSpd: .74, fireRate: 1.8, hp: .78, spawn: .72, score: .7, lives: 1, grace: 1.9, cozy: true },
   { name: 'Cadet', bulletSpd: .82, fireRate: 1.35, hp: .82, spawn: .85, score: .8, lives: 1, grace: 1.5 },
   { name: 'Pilot', bulletSpd: 1, fireRate: 1, hp: 1, spawn: 1, score: 1, lives: 0, grace: 1 },
   { name: 'Ace', bulletSpd: 1.14, fireRate: .8, hp: 1.22, spawn: 1.18, score: 1.35, lives: 0, grace: .8 },
   { name: 'Nightmare', bulletSpd: 1.3, fireRate: .64, hp: 1.5, spawn: 1.4, score: 1.9, lives: -1, grace: .62 }
 ];
-const D = () => DIFF[clamp(CFG.diff, 0, 3)];
+const D = () => DIFF[clamp(CFG.diff, 0, 4)];
+const isCozy = () => !!(D().cozy || CFG.cozy);
 
 /* ─────────────────────────── palettes ─────────────────────────── */
 /* Each palette keeps hostile / friendly / tech channels perceptually
@@ -829,28 +833,28 @@ const PALETTES = [  {
     // Ember — the house look
     name: 'Ember', gradeSat: 1.06, gradeCon: 1.05, gradeBri: .98, gradeHue: 0,
     hull: '#ff8a2b', hullLit: '#ffd9a8', ally: '#ffb454',
-    foe: '#ff2e55', foeDeep: '#8e0f26', foeLit: '#ffb8c4',
+    foe: '#ff5c7a', foeDeep: '#9e1430', foeLit: '#ffe3ea',
     tech: '#35e0ff', good: '#7dffb8', rare: '#9b6bff', gold: '#ffd166',
     neb: [[32, 52, 104], [88, 42, 84]]
   },  {
     // High contrast
     name: 'High contrast', gradeSat: 1.05, gradeCon: 1.12, gradeBri: 1.02, gradeHue: 0,
     hull: '#ffffff', hullLit: '#ffffff', ally: '#ffe600',
-    foe: '#ff1744', foeDeep: '#5a0012', foeLit: '#ffffff',
+    foe: '#ff4d6f', foeDeep: '#6b0a20', foeLit: '#ffffff',
     tech: '#00e5ff', good: '#00ff88', rare: '#d500f9', gold: '#ffe600',
     neb: [[20, 24, 48], [60, 12, 20]]
   },  {
     // Deuteranopia — drop red/green opposition, lean blue vs orange
     name: 'Deuteranopia', gradeSat: 1.02, gradeCon: 1.05, gradeBri: 1.01, gradeHue: 6,
     hull: '#ffb000', hullLit: '#ffe6b0', ally: '#ffd166',
-    foe: '#4d6bff', foeDeep: '#101f6b', foeLit: '#c3ccff',
+    foe: '#6f8dff', foeDeep: '#16247e', foeLit: '#e2e8ff',
     tech: '#00d9ff', good: '#ffe066', rare: '#b088ff', gold: '#ffd166',
     neb: [[30, 40, 96], [90, 70, 18]]
   },  {
     // Tritanopia — avoid blue/yellow confusion, lean magenta vs teal
     name: 'Tritanopia', gradeSat: 1.04, gradeCon: 1.03, gradeBri: 1.01, gradeHue: -4,
     hull: '#00e0c0', hullLit: '#c9fff6', ally: '#5ef2d6',
-    foe: '#ff2e8a', foeDeep: '#71063c', foeLit: '#ffc2de',
+    foe: '#ff5c9c', foeDeep: '#83104a', foeLit: '#ffd9ea',
     tech: '#7ad3ff', good: '#9dffd9', rare: '#ff8ae0', gold: '#ffa8d8',
     neb: [[18, 58, 86], [96, 16, 56]]
   }
@@ -1542,6 +1546,13 @@ function hexRgb(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 const rgbOf = hex => hexRgb(hex).join(',');
+
+/* Ship scale — one dial for ship presence. Applies to both sides (fair),
+   feeds the COLLISION radii too, so what you see is what you clip. */
+const SHIP_SCALE = 1.3;
+/* Hostile fire reads bigger too — not fair-for-fair (radius is generous),
+   it is so incoming fire is NEVER the thing you strain to see. */
+const SHOT_SCALE = 1.18;
 
 let SPR = {};
 function buildSprites() {
@@ -3674,7 +3685,7 @@ function configurePlayer() {
   P.art = h.id;
   P.dmg = h.dmg * (1 + refit('ordnance') * .07);
   P.speed = h.speed * (1 + refit('thrusters') * .045);
-  P.r = 5 * h.hitbox;
+  P.r = 5 * h.hitbox * SHIP_SCALE;   // player hitbox scales with ship presence — same fairness rule as hostiles
   P.grazeMul = h.grazeMul;
   P.scoreMul = h.scoreMul;
   P.maxCharges = h.dash + (refit('capacitor') >= 3 ? 1 : 0);
@@ -4211,7 +4222,8 @@ function spawnFoe(type, o) {
   const hp = Math.max(1, Math.round(S.hp * scale * D().hp));
   const e = Object.assign({
     type, boss: false, x: W / 2, y: -60, vx: 0, vy: 0,
-    hp, maxHp: hp, r: S.r, hitR: S.hit, sc: S.sc, col: PAL.foe,
+    hp, maxHp: hp, r: S.r * SHIP_SCALE, hitR: S.hit * SHIP_SCALE, sc: S.sc, col: PAL.foe,
+    artScale: SHIP_SCALE,   // drawFoe scales the chassis by this — r/hitR must match
     t: 0, et: 0, ht: 0, ph: rnd(0, TAU), flash: 0, glow: 0,
     state: 'enter', ang: PI / 2, spin: 0, dv: 0,
     guns: !!S.guns, cd: (S.cd || 2) * D().fireRate, fireT: rnd(.8, 2.1),
@@ -4241,7 +4253,7 @@ function foeShot(e, ang, spd, opt) {
   fb.push({
     x: e.x + Math.cos(ang) * rad, y: e.y + Math.sin(ang) * rad,
     vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
-    r: opt.r || 4.5, grazed: false, kind: opt.kind || 'orb',
+    r: (opt.r || 4.5) * SHOT_SCALE, grazed: false, kind: opt.kind || 'orb',
     t: 0, ang, spin: opt.spin || 0, col: opt.col || PAL.foe,
     life: opt.life || 9, hold: opt.hold || 0
   });
@@ -4305,7 +4317,7 @@ function gunControl(e, dt) {
     // the sight accumulates on its own clock, independent of the fire cooldown
     e.lockNeed = e.lockNeed || 1.5;
     e.lockT = (e.lockT || 0) + dt;
-    e.fireT -= dt;
+    e.fireT -= dt * (isCozy() ? 1.45 : 1);   // cozy: the lock needs longer to bite
     if (e.lockT >= e.lockNeed && e.fireT <= 0) {
       e.lockT = 0;
       e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
@@ -4324,7 +4336,7 @@ function gunControl(e, dt) {
     }
     return;
   }
-  e.fireT -= dt;
+  e.fireT -= dt * (isCozy() ? 1.45 : 1);   // cozy: hostile guns cycle slower
   e.glow = e.fireT < .35 ? 1 - Math.max(0, e.fireT) / .35 : 0;
   if (e.fireT > 0) return;
 
@@ -4687,7 +4699,8 @@ function spawnBoss(index, cycle) {
   const hp = Math.round(def.hp * (1 + cycle * .55) * (1 + GAME.wave * .035) * D().hp);
   const b = spawnFoe('cruiser', {
     x: W / 2, y: -190, state: 'boss', boss: true, def,
-    r: def.r, hitR: def.hitR, sc: Math.round(def.sc * (1 + cycle * .4)),
+    r: def.r * SHIP_SCALE, hitR: def.hitR, sc: Math.round(def.sc * (1 + cycle * .4)),
+    artScale: SHIP_SCALE * 1.15,   // capitals get an extra presence boost
     hp, maxHp: hp, phase: 1, cycle: 0, spin: 0, fireT: 2.2,
     glow: 0, arriving: true, charging: false, chargeX: W / 2,
     shieldAng: 0, absorbT: 0,
@@ -4748,7 +4761,7 @@ function updateBoss(b, dt) {
     }
   }
   if (!P.alive) { b.glow = 0; return; }
-  b.fireT -= dt;
+  b.fireT -= dt * (isCozy() ? 1.4 : 1);   // cozy: capitals telegraph longer
   b.glow = b.fireT < .45 ? 1 - Math.max(0, b.fireT) / .45 : 0;
   if (b.fireT <= 0) {
     b.fireT = b.def.attack(b) * D().fireRate;
@@ -5191,6 +5204,7 @@ function drawFoe(e) {
   // capitals spawn on the cruiser chassis, so the boss art has to be picked
   // off the def rather than off e.type
   const art = (e.boss && e.def && BOSS_ART[e.def.art]) || FOE_ART[e.type];
+  const scale = e.artScale || SHIP_SCALE;
   // warp-in: a hostile materialising reads as light before it reads as a ship
   if (e.state === 'enter' && e.et < .6 && QUALITY.particles > .4) {
     const k = 1 - e.et / .6;
@@ -5202,6 +5216,7 @@ function drawFoe(e) {
   }
   ctx.save();
   ctx.translate(e.x, e.y);
+  ctx.scale(scale, scale);   // ships bigger — hitboxes scale with them
   let tilt = 0;
   if (e.type === 'ram' && (e.state === 'hold' || e.state === 'enter')) {
     // rams lock their wings on the charge target — a dead-giveaway tell
@@ -5217,17 +5232,20 @@ function drawFoe(e) {
     emitLocal(ctx, SPR.rare, 0, 0, e.r * 3.4, .3 + .1 * Math.sin(e.t * 4));
     ctx.restore();
   }
-  // sniper sight: a laser-thin line that settles on you as the lock closes
+  // sniper sight: a laser-thin line that settles on you as the lock closes.
+  // Must be drawn OUTSIDE the ship transform: this context is translated
+  // AND scaled, so absolute coords inside it point past the real target.
   if (e.type === 'sniper' && e.state === 'hold' && P.alive && !e.dying) {
     const k = clamp((e.lockT || 0) / (e.lockNeed || 1.5), 0, 1);
     const len = Math.max(W, H) * 1.4;
     ctx.save();
+    ctx.translate(e.x, e.y);            // back to screen space, no scale
     ctx.globalAlpha = .22 + k * .5;
     ctx.strokeStyle = k >= 1 ? PAL.rare : PAL.foe;
-    ctx.lineWidth = k >= 1 ? 2 : .8;
+    ctx.lineWidth = k >= 1 ? 2.2 : 1;
     ctx.beginPath();
-    ctx.moveTo(e.x, e.y);
-    ctx.lineTo(e.x + Math.cos(aimAt(e)) * len, e.y + Math.sin(aimAt(e)) * len);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(aimAt(e)) * len, Math.sin(aimAt(e)) * len);
     ctx.stroke();
     ctx.restore();
   }
@@ -5350,7 +5368,7 @@ function drawPlayerShip() {
   ctx.save();
   ctx.translate(P.x, P.y);
   ctx.rotate(P.bank * .48);
-  ctx.scale(1 - Math.abs(P.bank) * .16, 1);
+  ctx.scale(SHIP_SCALE * (1 - Math.abs(P.bank) * .16), SHIP_SCALE);
   if (blink) ctx.globalAlpha = .38;
   const art = HULL_ART[P.art] || HULL_ART.vesper;
   art(ctx, { thrust: P.thrust, boost: P.boost, t: P.t });
@@ -5359,12 +5377,12 @@ function drawPlayerShip() {
 
   /* engine signature: a cool, tight ember — was a 30px additive sun that
      fed the bloom into a screen-wide washout */
-  emit(P.boost ? SPR.tech : SPR.hull, P.x, P.y + 12, (P.boost ? 22 : 15) + Math.sin(GAME.t * 22) * 3, .34);
+  emit(P.boost ? SPR.tech : SPR.hull, P.x, P.y + 12 * SHIP_SCALE, (P.boost ? 26 : 18) + Math.sin(GAME.t * 22) * 3, .34);
 
   if (P.muzzleT > 0) {
     const a = P.muzzleT / .055;
     const w = WEAPONS[clamp(P.weapon, 1, MAX_WEAPON)];
-    ctx.save(); ctx.translate(P.x, P.y - 16);
+    ctx.save(); ctx.translate(P.x, P.y - 16 * SHIP_SCALE);
     for (const [dx] of w.lanes) {
       ctx.save(); ctx.translate(dx * .9, 0); ctx.rotate(rnd(0, TAU));
       const s = (4 + Math.random() * 5) * a;
@@ -5387,15 +5405,15 @@ function drawPlayerShip() {
 function drawShield(x, y) {
   ctx.save(); ctx.translate(x, y);
   ctx.globalCompositeOperation = 'lighter';
-  emitLocal(ctx, SPR.tech, 0, 0, 78, .2);
+  emitLocal(ctx, SPR.tech, 0, 0, 96, .2);
   ctx.strokeStyle = 'rgba(' + rgbOf(PAL.tech) + ',.5)';
   ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(0, 0, 25, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, 30, 0, TAU); ctx.stroke();
   const a0 = GAME.t * 2.3;
   ctx.strokeStyle = 'rgba(' + rgbOf(PAL.tech) + ',.9)';
   ctx.lineWidth = 2;
   for (let i = 0; i < 3; i++) {
-    ctx.beginPath(); ctx.arc(0, 0, 28.5, a0 + i * TAU / 3, a0 + i * TAU / 3 + .95); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 34.5, a0 + i * TAU / 3, a0 + i * TAU / 3 + .95); ctx.stroke();
   }
   ctx.restore();
 }
@@ -5404,18 +5422,19 @@ function drawBullets() {
   // hostile fire first so player shots read on top
   for (const b of fb) {
     const rgb = b.kind === 'seek' ? rgbOf(PAL.rare) : rgbOf(b.col || PAL.foe);
-    emit(b.kind === 'seek' ? SPR.rare : SPR.foe, b.x, b.y, b.r * 4.4, .85);
+    emit(b.kind === 'seek' ? SPR.rare : SPR.foe, b.x, b.y, b.r * 4.4, .9);
     // high-vis mode: a dark rim between glow and core. On bright backdrops
     // the dark ring is what the eye tracks, and it costs one stroke.
     if (CFG.outline) {
-      ctx.strokeStyle = 'rgba(5,8,16,.6)';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .82, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(5,8,16,.75)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .9, 0, TAU); ctx.stroke();
     }
-    ctx.fillStyle = PAL.foeLit;
-    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .5, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(' + rgb + ',.9)';
-    ctx.lineWidth = 1.2;
+    // white-hot core: hostile fire must be the FIRST thing you see
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .55, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(' + rgb + ',.95)';
+    ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
   }
   for (const b of pb) {
