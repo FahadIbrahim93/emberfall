@@ -1242,6 +1242,18 @@ const AU = {
       type: 'triangle', f0: f, dur: .5, vol: .08, t0: t + i * .09, verb: .6
     }));
   },
+  /* comet sighting — a soft celestial chime: a slow rising arpeggio with
+     long decays and heavy reverb, felt more than heard. No duck: it is
+     ambience, not a combat event. */
+  sight() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sine', f0: 523.25, dur: 2.4, vol: .035, t0: t, verb: .7 });
+    [1046.5, 1318.5, 1568].forEach((f, i) => this.tone({
+      type: 'sine', f0: f, dur: 1.4, vol: .05, t0: t + .26 + i * .26, verb: .7
+    }));
+    this.tone({ type: 'triangle', f0: 2093, dur: 2.2, vol: .02, t0: t + 1.05, verb: .8 });
+  },
   ui() { if (this.gate('ui', 45)) return; this.tone({ type: 'square', f0: 1250, dur: .03, vol: .04 }); },
   uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); },
 
@@ -1863,7 +1875,7 @@ function cometTick() {
       };
       c.puffs.coolRGB = rgbOf(PAL.tech);
       if (GAME.state === 'playing') {                     // sighting is an event
-        try { note('Comet sighted — make a wish', 'rare'); AU.pickup(); } catch (e) { }
+        try { note('Comet sighted — make a wish', 'rare'); AU.sight(); } catch (e) { }
       }
     }
     return;
