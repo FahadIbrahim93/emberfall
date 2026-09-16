@@ -5944,6 +5944,36 @@ function drawCursor() {
   ctx.stroke();
 }
 
+/* ═══ sky pointers — a quiet chevron at the frame edge while a comet or
+   graveyard fleet is offscreen, so you know where to look. Subtle by
+   design: low alpha, small, breathing; and it only exists while the
+   event itself is outside the frame — the moment it's visible, it
+   speaks for itself. ═══ */
+function skyPointer(x, y, rgb) {
+  const m = 26;                                  // sit just inside the frame
+  const px = clamp(x, m, W - m), py = clamp(y, m, H - m);
+  if (px === x && py === y) return;              // onscreen — no help needed
+  const ang = Math.atan2(y - py, x - px);        // point at the event, outward
+  const breathe = .5 + .5 * Math.sin(GAME.t * 2.2);
+  ctx.save();
+  ctx.globalAlpha = .34 + .14 * breathe;
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+  ctx.strokeStyle = 'rgba(' + rgb + ',.9)';
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();                               // open chevron toward the event
+  ctx.moveTo(-7, -6); ctx.lineTo(1, 0); ctx.lineTo(-7, 6);
+  ctx.stroke();
+  ctx.restore();
+}
+function drawSkyPointers() {
+  if (GAME.state !== 'playing' || GAME.paused) return;
+  if (comet.on) skyPointer(comet.x, comet.y,
+    comet.gold ? rgbOf(PAL.gold) : '255,224,178');
+  if (fleet.on) skyPointer(fleet.x, fleet.y, rgbOf(PAL.ally));
+}
+
 let fpsEMA = 60;
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -5977,6 +6007,7 @@ function render() {
     drawNova();
     drawFloats();
     drawCursor();
+    drawSkyPointers();
   }
   ctx.restore();
 
