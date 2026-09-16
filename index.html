@@ -2165,7 +2165,7 @@ function cometTick() {
   if (!c.on) {
     c.next -= dt;
     if (c.next <= 0) {
-      const pick = FX.int(0, 4), j = rnd(.22, .5);        // diagonal + jitter
+      const pick = FX.int(0, 3), j = rnd(.22, .5);        // diagonal + jitter (int is INCLUSIVE — 4 was out of range, 1 in 5 comets went invisible NaN)
       const ang = [j, PI - j, -j, PI + j][pick];
       c.gold = FX.chance(.11);                             // the true sky event
       c.x = (pick === 0 || pick === 2) ? -60 : W + 60;
@@ -2191,25 +2191,30 @@ function cometTick() {
            reward up to ×2, so the pilots who earned it are the ones flying
            through the bullet curtain when the comet broke. */
         try {
-          const heat = clamp(GAME.grazeHeat || 0, 0, 1);
-          const style = 1 + heat;                          // ×1 … ×2
-          const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style);
-          GAME.alloyRun += bonus;
-          if (c.gold) GAME.goldSighted = true;
-          float(c.x, c.y + 24,
-            '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer'),
-            c.gold ? '#ffd166' : PAL.gold, c.gold ? 15 : 12);
-          note(c.gold
-            ? 'A GOLDEN comet — wish big · +' + bonus + ' alloy'
-            : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
-          if (c.gold) AU.golden(); else AU.sight();
+          if (!GAME.school) {                              // school runs are practice: sky drama plays, nothing is paid
+            const heat = clamp(GAME.grazeHeat || 0, 0, 1); // ×1 … ×2 style multiplier
+            const style = 1 + heat;
+            const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style);
+            GAME.alloyRun += bonus;
+            if (c.gold) GAME.goldSighted = true;
+            float(c.x, c.y + 24,
+              '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer'),
+              c.gold ? '#ffd166' : PAL.gold, c.gold ? 15 : 12);
+            note(c.gold
+              ? 'A GOLDEN comet — wish big · +' + bonus + ' alloy'
+              : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
+            if (c.gold) AU.golden(); else AU.sight();
+          }
         } catch (e) { }
       }
     }
     return;
   }
   c.x += c.vx * dt; c.y += c.vy * dt; c.life -= dt;
-  if (c.life <= 0 || c.x < -180 || c.x > W + 180 || c.y < -180 || c.y > H + 180) c.on = false;
+  if (c.life <= 0) c.on = false;
+  else if (!isFinite(c.x + c.y + c.vx + c.vy)) c.on = false;   // NaN hardening: a broken comet must never block the schedule
+  else if ((c.vx > 0 && c.x - c.tail > W + 180) || (c.vx < 0 && c.x + c.tail < -180) ||
+           (c.vy > 0 && c.y - c.tail > H + 180) || (c.vy < 0 && c.y + c.tail < -180)) c.on = false;   // fully out of frame, tail included
 }
 /* soft radial stamp — the comet is built from layered puffs of this, so
    every edge fades to nothing (the old flat wedges + bloom read as a bar) */
