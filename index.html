@@ -1620,79 +1620,120 @@ function buildBackdrop() {
   nebA = mk(PAL.neb[0].join(','), 512);
   nebB = mk(PAL.neb[1].join(','), 512);
 
-  /* ─── planetary theatre: a ringed gas giant + a rust moon. Built once
-     to offscreen canvases; drawn as dark, rim-lit silhouettes so the
-     scene gains huge depth without gaining brightness. ─── */
+  /* ─── planetary theatre: a ringed gas giant + a rust moon. Built once to
+     offscreen canvases with a real rendering chain: base sphere → surface
+     detail (bands, storms, mare, power-law craters with rim highlights) →
+     MULTIPLY lighting pass (true terminator — the sphere reads as a sphere)
+     → additive atmosphere on the lit limb → occluded ring halves. ─── */
   const buildPlanet = (ps, o) => {
     const c = document.createElement('canvas'); c.width = c.height = ps;
     const p = c.getContext('2d');
-    const cx = ps / 2, cy = ps / 2, r = ps / 2 - 6;
+    const cx = ps / 2, cy = ps / 2, r = ps / 2 - 8;
+    const LA = -2.35;                       // light arrives from the upper left
     const ringHalf = back => {
       if (!o.ring) return;
-      p.save();
-      p.translate(cx, cy); p.rotate(-.42); p.scale(1, .3);
-      p.lineWidth = r * .17;
-      p.strokeStyle = 'rgba(' + o.ring + ',' + (back ? .3 : .44) + ')';
-      p.beginPath(); p.arc(0, 0, r * 1.42, back ? PI : 0, back ? TAU : PI); p.stroke();
-      p.lineWidth = r * .05;
-      p.strokeStyle = 'rgba(' + o.ring + ',' + (back ? .42 : .6) + ')';
-      p.beginPath(); p.arc(0, 0, r * 1.64, back ? PI : 0, back ? TAU : PI); p.stroke();
+      p.save(); p.translate(cx, cy); p.rotate(-.38); p.scale(1, .27);
+      for (const [rr, w, a] of [[1.26, .15, .3], [1.42, .09, .52], [1.56, .05, .44],
+        [1.66, .13, .26], [1.86, .06, .15]]) {
+        p.lineWidth = r * w;
+        p.strokeStyle = 'rgba(' + o.ring + ',' + (a * (back ? .5 : .95)).toFixed(2) + ')';
+        p.beginPath(); p.arc(0, 0, r * rr, back ? PI : 0, back ? TAU : 0); p.stroke();
+      }
       p.restore();
     };
-    ringHalf(true);                                   // far side of the rings
-    const lx = cx - r * .38, ly = cy - r * .42;       // sun is upper-left
-    const body = p.createRadialGradient(lx, ly, r * .05, cx, cy, r * 1.02);
-    body.addColorStop(0, 'rgba(' + o.lit + ',.96)');
-    body.addColorStop(.5, 'rgba(' + o.base + ',.94)');
-    body.addColorStop(1, 'rgba(' + o.dark + ',.97)');
+    ringHalf(true);                         // far side, dimmed
+    // base sphere
+    const body = p.createRadialGradient(
+      cx + Math.cos(LA) * r * .4, cy + Math.sin(LA) * r * .4, r * .05, cx, cy, r);
+    body.addColorStop(0, 'rgb(' + o.lit + ')');
+    body.addColorStop(.55, 'rgb(' + o.base + ')');
+    body.addColorStop(1, 'rgb(' + o.dark + ')');
     p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.fillStyle = body; p.fill();
     p.save(); p.beginPath(); p.arc(cx, cy, r, 0, TAU); p.clip();
-    if (o.bands) for (let i = 0; i < 30; i++) {
-      const y = cy - r + (i / 30) * r * 2;
-      p.fillStyle = 'rgba(' + o.lit + ',' + (.012 + Math.random() * .03).toFixed(3) + ')';
-      p.fillRect(cx - r, y, r * 2, r * rnd(.02, .07));
+    // gas-giant belts: wavy translucent bands in alternating tones
+    if (o.bandCols) {
+      const cols = o.bandCols;
+      for (let i = 0; i < cols.length; i++) {
+        const y0 = cy - r + (i / cols.length) * 2 * r;
+        const h = (2 * r / cols.length) * rnd(.7, 1.7);
+        const amp = r * rnd(.012, .04);
+        p.fillStyle = 'rgba(' + cols[i] + ',' + rnd(.12, .26).toFixed(2) + ')';
+        p.beginPath(); p.moveTo(cx - r, y0);
+        for (let s = 0; s <= 10; s++) p.lineTo(cx - r + (s / 10) * 2 * r, y0 + Math.sin(s * 1.7 + i * 2.4) * amp);
+        for (let s = 10; s >= 0; s--) p.lineTo(cx - r + (s / 10) * 2 * r, y0 + h + Math.sin(s * 1.3 + i) * amp * .8);
+        p.closePath(); p.fill();
+      }
+      // one grand storm — concentric ovals, tilted
+      const sx = cx + r * .24, sy = cy + r * .2;
+      for (let i = 4; i >= 1; i--) {
+        p.fillStyle = 'rgba(' + (i % 2 ? o.stormA : o.stormB) + ',' + (.14 + i * .04).toFixed(2) + ')';
+        p.beginPath(); p.ellipse(sx, sy, r * .24 * i / 4, r * .13 * i / 4, -.18, 0, TAU); p.fill();
+      }
     }
-    if (o.storms) for (let i = 0; i < 7; i++) {       // cyclone blotches
-      const a = rnd(0, TAU), d = rnd(.2, .8) * r;
-      const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * .8;
-      p.fillStyle = 'rgba(' + (Math.random() < .5 ? o.lit : o.dark) + ',' + rnd(.05, .12).toFixed(2) + ')';
-      p.beginPath(); p.ellipse(x, y, r * rnd(.06, .16), r * rnd(.03, .07), rnd(0, TAU), 0, TAU); p.fill();
+    // mare / cloud mottling — two-tone soft patches
+    for (let i = 0; i < 26; i++) {
+      const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r * .95;
+      p.fillStyle = 'rgba(' + (Math.random() < .5 ? o.mareA : o.mareB) + ',' + rnd(.05, .12).toFixed(2) + ')';
+      p.beginPath();
+      p.ellipse(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r * rnd(.08, .3), r * rnd(.05, .16), rnd(0, TAU), 0, TAU);
+      p.fill();
     }
-    if (o.craters) for (let i = 0; i < 11; i++) {
-      const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r * .92;
+    // craters: power-law sizes — many small, few large — each with a dark
+    // floor, a sun-facing rim highlight, and an inner shadow on the far side
+    if (o.craters) for (let i = 0; i < 26; i++) {
+      const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r * .96;
       const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
-      const cr = r * rnd(.04, .11);
-      p.fillStyle = 'rgba(' + o.dark + ',.5)';
-      p.beginPath(); p.arc(x, y, cr, 0, TAU); p.fill();
-      p.strokeStyle = 'rgba(' + o.lit + ',.3)'; p.lineWidth = 1.2;
-      p.beginPath(); p.arc(x, y, cr, -2.6, -.6); p.stroke();
+      const cr = r * (Math.pow(Math.random(), 2.2) * .13 + .012);
+      const fg = p.createRadialGradient(x - cr * .2, y - cr * .2, cr * .1, x, y, cr);
+      fg.addColorStop(0, 'rgba(0,0,0,.4)'); fg.addColorStop(1, 'rgba(0,0,0,.06)');
+      p.fillStyle = fg; p.beginPath(); p.arc(x, y, cr, 0, TAU); p.fill();
+      p.strokeStyle = 'rgba(' + o.lit + ',.34)'; p.lineWidth = Math.max(1, cr * .16);
+      p.beginPath(); p.arc(x, y, cr * .92, LA - 1.1, LA + 1.1); p.stroke();
+      p.strokeStyle = 'rgba(0,0,0,.38)'; p.lineWidth = Math.max(1, cr * .2);
+      p.beginPath(); p.arc(x, y, cr * .68, LA + PI - 1, LA + PI + 1); p.stroke();
     }
-    if (o.lights) for (let i = 0; i < 150; i++) {     // city lights, dark side
+    if (o.lights) for (let i = 0; i < 150; i++) {   // city lights on the night side
       const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r;
       const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
       if (x < cx + r * .12) continue;
       p.fillStyle = 'rgba(255,196,128,' + rnd(.12, .5).toFixed(2) + ')';
       p.fillRect(x, y, rnd(1, 2.4), rnd(1, 2));
     }
+    // LIGHTING PASS — a multiply gradient from the light limb to the far
+    // limb. Everything below shades together: real terminator, real sphere.
+    const lg = p.createRadialGradient(
+      cx + Math.cos(LA) * r * .8, cy + Math.sin(LA) * r * .8, r * .1,
+      cx + Math.cos(LA) * r * .2, cy + Math.sin(LA) * r * .2, r * 1.95);
+    lg.addColorStop(0, 'rgba(255,252,246,1)');
+    lg.addColorStop(.38, 'rgba(206,212,228,1)');
+    lg.addColorStop(.72, 'rgba(66,74,96,1)');
+    lg.addColorStop(1, 'rgba(12,14,24,1)');
+    p.globalCompositeOperation = 'multiply';
+    p.fillStyle = lg; p.fillRect(0, 0, ps, ps);
+    p.globalCompositeOperation = 'source-over';
     p.restore();
-    // atmosphere rim + lit-side crescent
-    const rim = p.createRadialGradient(cx, cy, r * .96, cx, cy, r * 1.06);
-    rim.addColorStop(0, 'rgba(' + o.rim + ',0)');
-    rim.addColorStop(.75, 'rgba(' + o.rim + ',.22)');
+    // atmosphere — additive glow, strongest on the lit limb
+    p.globalCompositeOperation = 'lighter';
+    const rim = p.createRadialGradient(
+      cx + Math.cos(LA) * r * .9, cy + Math.sin(LA) * r * .9, r * .2,
+      cx, cy, r * 1.08);
+    rim.addColorStop(0, 'rgba(' + o.rim + ',.34)');
+    rim.addColorStop(.6, 'rgba(' + o.rim + ',.1)');
     rim.addColorStop(1, 'rgba(' + o.rim + ',0)');
-    p.beginPath(); p.arc(cx, cy, r * 1.06, 0, TAU); p.fillStyle = rim; p.fill();
-    p.strokeStyle = 'rgba(' + o.lit + ',.3)'; p.lineWidth = 2.2;
-    p.beginPath(); p.arc(cx, cy, r - 1.4, -2.6, -.4); p.stroke();
-    ringHalf(false);                                  // near side of the rings
+    p.beginPath(); p.arc(cx, cy, r * 1.08, 0, TAU); p.fillStyle = rim; p.fill();
+    p.globalCompositeOperation = 'source-over';
+    ringHalf(false);                        // near side, drawn over the limb
     return c;
   };
-  planet = buildPlanet(1000, {
-    lit: '126,164,218', base: '33,49,88', dark: '7,11,24',
-    rim: '100,165,255', ring: '172,192,228', bands: true, storms: true, lights: true
+  planet = buildPlanet(1100, {
+    lit: '168,196,236', base: '36,54,98', dark: '8,12,26', rim: '130,180,255',
+    ring: '190,205,235', bandCols: ['56,84,140', '30,48,92', '120,150,200',
+      '22,36,74', '88,112,168', '40,60,110', '140,164,210'],
+    stormA: '150,180,230', stormB: '26,40,84', lights: true, mareA: '24,38,74', mareB: '96,124,176'
   });
-  moon = buildPlanet(420, {
-    lit: '204,148,110', base: '92,60,50', dark: '18,12,14',
-    rim: '255,170,120', craters: true
+  moon = buildPlanet(560, {
+    lit: '226,178,138', base: '110,74,60', dark: '20,14,16', rim: '255,190,140',
+    mareA: '60,40,38', mareB: '150,110,84', craters: true
   });
 
   dust = [];
@@ -1788,17 +1829,29 @@ function drawBackdrop(t) {
   }
   ctx.globalAlpha = 1;
 
+  // the distant sun — a tight glare that justifies the light direction
+  const sunX = W * .05, sunY = H * .08;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const gg = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 64);
+  gg.addColorStop(0, 'rgba(255,244,224,.42)');
+  gg.addColorStop(.3, 'rgba(255,244,224,.09)');
+  gg.addColorStop(1, 'rgba(255,244,224,0)');
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sunX, sunY, 64, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,244,224,.1)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sunX - 110, sunY); ctx.lineTo(sunX + 110, sunY);
+  ctx.moveTo(sunX, sunY - 110); ctx.lineTo(sunX, sunY + 110); ctx.stroke();
+  ctx.restore();
   // the gas giant — huge, low-left, climbing with glacial parallax
-  const ps = Math.max(760, Math.min(W, H) * 1.4);
-  const py = H * 1.24 - ((t * 1.1) % (H * 3.4));
-  ctx.globalAlpha = .8;
-  ctx.drawImage(planet, -ps * .32, py - ps * .3, ps, ps);
+  const ps = Math.max(900, Math.min(W, H) * 1.5);
+  const py = H * 1.06 - ((t * 1.15) % (H * 3.2));
+  ctx.globalAlpha = .92;
+  ctx.drawImage(planet, -ps * .44, py - ps * .5, ps, ps);
   ctx.globalAlpha = 1;
-  // the moon — smaller, faster, drifting across the upper right
-  const ms = ps * .24;
-  const my = ((t * 9 + H * .18) % (H + ms * 2.4)) - ms * 1.2;
-  ctx.globalAlpha = .78;
-  ctx.drawImage(moon, W * .8 - ms / 2, my, ms, ms);
+  // the moon — upper right, on its own faster lane
+  const ms = Math.max(130, Math.min(W, H) * .3);
+  const my = -ms * 1.3 + ((t * 6.5 + H * .3) % (H + ms * 3));
+  ctx.globalAlpha = .9;
+  ctx.drawImage(moon, W * .78 - ms / 2, my, ms, ms);
   ctx.globalAlpha = 1;
 
   // debris silhouettes
