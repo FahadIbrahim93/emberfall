@@ -156,6 +156,9 @@ body.noscan #scan,body.nograin #grain{display:none}
 .note.good{color:var(--mint);border-color:var(--mint)}
 .note.bad{color:var(--crimson);border-color:var(--crimson)}
 .note.rare{color:var(--violet);border-color:var(--violet)}
+.note.codex{color:var(--ink);border-color:var(--aether);max-width:340px;white-space:normal;line-height:1.5;padding:8px 12px}
+.note.codex b{display:block;color:var(--aether);letter-spacing:.22em;margin:0 0 3px}
+.note.codex span{font-size:.6rem;letter-spacing:.06em;color:var(--dim)}
 @keyframes noteIn{from{transform:translateX(22px);opacity:0}}
 @keyframes noteOut{to{transform:translateX(22px);opacity:0}}
 
@@ -1134,6 +1137,7 @@ const META = {
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   sky: { comets: 0, golden: 0, fleets: 0 },
   school: false,             // flight school completed — the +120 pays once
+  codex: {},                 // hostiles met at least once — first-sight cards shown
   dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
 };
 function loadMeta() {
@@ -1153,6 +1157,7 @@ function loadMeta() {
   META.ship = META.owned.includes(s.ship) ? s.ship : 'vesper';
   if (s.refits) for (const r of REFITS) META.refits[r.id] = clamp(+s.refits[r.id] || 0, 0, r.max);
   if (s.feats && typeof s.feats === 'object') META.feats = s.feats;
+  if (s.codex && typeof s.codex === 'object') META.codex = s.codex;
   META.school = !!s.school;
   if (s.dd && typeof s.dd === 'object') {
     META.dd.wave = +s.dd.wave || 0;
@@ -4468,6 +4473,56 @@ const FOE_LABEL = {
   minelayer: 'Minelayer', carrier: 'Carrier',
   ram: 'Ram', sniper: 'Sniper', shieldbreaker: 'Shieldbreaker'
 };
+/* one-line threat doctrine — the single source the in-game codex cards and
+   the Registry's Threats tab both read */
+const FOE_TIPS = {
+  drone: 'Cheap and numerous. Holds formation, then commits to a dive.',
+  ram: 'Charges a burning furrow across the field, then turns inside it. The line it carves is the warning.',
+  sniper: 'A sight locks on from outside your range. Break the lock by breaking the line of sight — or the sniper.',
+  shieldbreaker: 'Its burst scrambles dash and pulse capacitors nearby. Kill it before it fires, or from far away.',
+  striker: 'Fires aimed rounds. The muzzle lights up before it shoots.',
+  weaver: 'Sweeps across the field throwing three-round spreads.',
+  splitter: 'Breaks into two diving shards when it dies. Kill it with space around you.',
+  cruiser: 'Armoured burst platform with a visible health strip.',
+  lancer: 'Charges a beam along a dashed warning line. Cross the line, not the beam.',
+  orbiter: 'Circles you at range and never stops shooting. Deal with it early.',
+  warden: 'Projects cover onto everything near it. Nothing nearby takes damage until it is gone.',
+  minelayer: 'Seeds drifting mines that scatter on contact or timeout.',
+  carrier: 'Launches drones on a loop. Treat it as a spawner, not a fighter.'
+};
+const BOSS_TIPS = {
+  dreadnought: 'Two turret weak points worth extra. Break them to cut its beam phase short.',
+  matriarch: 'Fires rings with a single gap. Find the gap early and hold it.',
+  tyrant: 'Four sweeping spokes and converging walls. Read the rotation, move with it.',
+  gatewarden: 'Three rotating shield arcs drink anything between them. Fire through the gaps; the arcs slow as the phases fall.'
+};
+
+/* ═══ codex — a threat card on first sight, so learning never leaves the run ═══ */
+const CODEX = {
+  mute: false,   // selftest harness sets this — no cards while probing AI
+  show(id, name, text) {
+    if (this.mute || this.seen[id] || !text) return;
+    this.seen[id] = 1;
+    const feed = $('feed');
+    if (!feed) return;
+    if (feed.children.length > 4) feed.removeChild(feed.firstChild);
+    const d = document.createElement('div');
+    d.className = 'note codex';
+    const b = document.createElement('b');
+    b.textContent = 'CODEX · ' + name;
+    const s = document.createElement('span');
+    s.textContent = text;
+    d.appendChild(b); d.appendChild(s);
+    feed.appendChild(d);
+    setTimeout(() => d.remove(), 6600);
+    AU.ui();
+    if (GAME.state === 'playing') saveMeta();
+  },
+  seen: null,   // alias for META.codex — assigned at init below
+};
+/* CODEX reads through to the persisted codex map (META.codex) so the
+   cloud merge and loadMeta updates flow into it with no copy step. */
+Object.defineProperty(CODEX, 'seen', { get() { return META.codex; } });
 
 /* The first few waves run gentler on purpose: slower rounds, longer gaps.
    Without this an unrefitted player never lives to see the first capital
@@ -4476,6 +4531,7 @@ const earlyEase = () => GAME.wave <= 2 ? 1.4 : GAME.wave <= 4 ? 1.14 : 1;
 const earlySpeed = () => GAME.wave <= 2 ? .84 : GAME.wave <= 4 ? .93 : 1;
 
 function spawnFoe(type, o) {
+  if (type !== 'mini') CODEX.show(type, FOE_LABEL[type] || type, FOE_TIPS[type]);
   const S = FOES[type];
   const scale = 1 + (GAME.wave - 1) * .075;
   const hp = Math.max(1, Math.round(S.hp * scale * D().hp));
@@ -4970,6 +5026,7 @@ function spawnBoss(index, cycle) {
   boss = b;
   const box = $('bossBox');
   box.classList.remove('hidden');
+  CODEX.show('boss:' + def.id, def.name, BOSS_TIPS[def.id]);
   $('bossName').textContent = def.name + (cycle > 0 ? ' · Mk ' + (cycle + 1) : '');
   $('bossPips').innerHTML = '<i class="on"></i><i class="on"></i><i class="on"></i>';
   return b;
@@ -6184,6 +6241,8 @@ const NET = {
           META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
         }
         if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
+        if (sMeta.codex && typeof sMeta.codex === 'object')
+          META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
         saveMeta();
       }
       if (srv.cfg && typeof srv.cfg === 'object') {
@@ -6370,27 +6429,8 @@ function renderRoster() {
   rows.push(['th', 'Salvage']);
   for (const k of ['gun', 'shield', 'over', 'pulse', 'hull', 'alloy']) rows.push(['pick', k]);
 
-  const FOE_TEXT = {
-    drone: 'Cheap and numerous. Holds formation, then commits to a dive.',
-    ram: 'Charges a burning furrow across the field, then turns inside it. The line it carves is the warning.',
-    sniper: 'A sight locks on from outside your range. Break the lock by breaking the line of sight — or the sniper.',
-    shieldbreaker: 'Its burst scrambles dash and pulse capacitors nearby. Kill it before it fires, or from far away.',
-    striker: 'Fires aimed rounds. The muzzle lights up before it shoots.',
-    weaver: 'Sweeps across the field throwing three-round spreads.',
-    splitter: 'Breaks into two diving shards when it dies. Kill it with space around you.',
-    cruiser: 'Armoured burst platform with a visible health strip.',
-    lancer: 'Charges a beam along a dashed warning line. Cross the line, not the beam.',
-    orbiter: 'Circles you at range and never stops shooting. Deal with it early.',
-    warden: 'Projects cover onto everything near it. Nothing nearby takes damage until it is gone.',
-    minelayer: 'Seeds drifting mines that scatter on contact or timeout.',
-    carrier: 'Launches drones on a loop. Treat it as a spawner, not a fighter.'
-  };
-  const BOSS_TEXT = {
-    dreadnought: 'Two turret weak points worth extra. Break them to cut its beam phase short.',
-    matriarch: 'Fires rings with a single gap. Find the gap early and hold it.',
-    tyrant: 'Four sweeping spokes and converging walls. Read the rotation, move with it.',
-    gatewarden: 'Three rotating shield arcs drink anything between them. Fire through the gaps; the arcs slow as the phases fall.'
-  };
+  const FOE_TEXT = FOE_TIPS;   // shared doctrine — also powers the in-run codex cards
+  const BOSS_TEXT = BOSS_TIPS;
   const PICK_TEXT = {
     gun: 'One more ordnance lane, up to six.',
     shield: 'Absorbs a single hit and rebuilds with the right refit.',
@@ -7493,6 +7533,9 @@ function kickOutbox() {
 }
 
 function runSelfTests() {
+  CODEX.mute = true;   // probes spawn hostiles — no first-sight cards, no meta writes
+  DB.set('meta.preTest', JSON.stringify({ codex: META.codex }));
+  const prevCodex = META.codex; META.codex = {};   // fresh sighting table for boundary tests
   const out = [];
   const T = (name, fn) => {
     try { fn(); out.push([name, true, '']); }
@@ -7721,6 +7764,7 @@ function runSelfTests() {
     eq(inView(10, 10, 40), true);
   });
 
+  META.codex = prevCodex;   // probes must not pollute the pilot's sighting record
   const pass = out.every(o => o[1]);
   $('stSum').textContent = out.filter(o => o[1]).length + ' of ' + out.length + ' passing';
   $('stList').innerHTML = out.map(([n, p, e]) =>
