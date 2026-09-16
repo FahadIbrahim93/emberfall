@@ -397,6 +397,10 @@ body.needrotate #rotate{display:grid}
 #stSum{margin:8px 0 10px;letter-spacing:.14em;color:var(--dim)}
 
 @media (max-width:900px){
+  /* five-tab Registry strip: taller tap cells (29px failed the ~44px touch
+     guideline) and tighter tracking so 'Threats' clears the 48px cells that
+     a 320px phone's 240px panel allows — measured, not guessed */
+  .tab{padding:13px 2px;letter-spacing:.12em}
   .title-grid{grid-template-columns:1fr;gap:26px;padding:calc(56px + var(--sat)) 18px calc(90px + var(--sab))}
   #s-title{align-content:start}
   .side{max-height:none}
@@ -3915,7 +3919,7 @@ const BOSS_ART = {
       g.fillStyle = vgrad(g, 'geng' + b.col, 0, 1, flat ? [
         [0, '#fff'], [1, 'rgba(255,255,255,0)']
       ] : [
-        [0, rgba(PAL.violet, .8)], [.45, rgba(PAL.violet, .3)], [1, rgba(PAL.violet, 0)]
+        [0, rgba(PAL.rare, .8)], [.45, rgba(PAL.rare, .3)], [1, rgba(PAL.rare, 0)]
       ]);
       g.beginPath();
       g.moveTo(-1, 0); g.quadraticCurveTo(0, .8, 0, 1); g.quadraticCurveTo(0, .8, 1, 0);
@@ -3938,7 +3942,7 @@ const BOSS_ART = {
       const a = (b.shieldAng || 0) + i / 3 * TAU;
       g.save();
       g.globalCompositeOperation = 'lighter';
-      g.strokeStyle = rgba(PAL.violet, b.absorbT > 0 ? .95 : .6);
+      g.strokeStyle = rgba(PAL.rare, b.absorbT > 0 ? .95 : .6);
       g.lineWidth = b.absorbT > 0 ? 5 : 3.5;
       g.beginPath(); g.arc(0, 4, 86, a - .5, a + .5); g.stroke();
       if (b.absorbT > 0) {
@@ -3951,13 +3955,13 @@ const BOSS_ART = {
       const a = i / 5 * TAU - PI / 2;
       disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 4.5, '#0a0412');
       const k = .3 + .5 * Math.max(0, Math.sin(t * 3 + i * 1.25));
-      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 2, flat ? '#fff' : lit(PAL.violet, .4, k));
+      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 2, flat ? '#fff' : lit(PAL.rare, .4, k));
     }
     /* core eye */
     g.save(); g.globalCompositeOperation = 'lighter';
     emitLocal(g, SPR.rare, 0, 4, 70, .4 + .2 * Math.sin(t * 4));
     g.restore();
-    disc(g, 0, 4, 10, flat ? '#fff' : dark(PAL.violet, .5));
+    disc(g, 0, 4, 10, flat ? '#fff' : dark(PAL.rare, .5));
     eye(g, b, 0, 4, 5.5, flat ? '#fff' : PAL.rare);
     battleDamage(g, b, [[-30, 26, 10, .4], [34, -16, 8, -.5], [0, 40, 9, .9]]);
   }
@@ -6624,7 +6628,6 @@ function renderBoard(el, mode, highlight) {
 function renderRoster() {
   const box = $('tab-roster');
   if (box.dataset.built) return;
-  box.dataset.built = '1';
   const rows = [];
   rows.push(['th', 'Hostiles']);
   for (const k of ['drone', 'striker', 'weaver', 'splitter', 'cruiser', 'lancer', 'orbiter', 'warden', 'minelayer', 'carrier', 'ram', 'sniper', 'shieldbreaker']) {
@@ -6687,6 +6690,7 @@ function renderRoster() {
     box.appendChild(c);
     box.appendChild(d);
   }
+  box.dataset.built = '1';   // only after a complete build — a mid-render crash must be retryable
 }
 function renderFeats() {
   const box = $('tab-feats');
