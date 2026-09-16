@@ -1135,7 +1135,7 @@ const META = {
   alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
-  sky: { comets: 0, golden: 0, fleets: 0 },
+  sky: { comets: 0, golden: 0, fleets: 0, pyres: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
   dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
@@ -1151,6 +1151,7 @@ function loadMeta() {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
     META.sky.fleets = +s.sky.fleets || 0;
+META.sky.pyres = +s.sky.pyres || 0;
   }
   if (Array.isArray(s.owned)) META.owned = s.owned.filter(id => HULLS.some(h => h.id === id));
   if (!META.owned.includes('vesper')) META.owned.push('vesper');
@@ -1526,6 +1527,16 @@ const AU = {
       type: 'sine', f0: f, dur: 1.6, vol: .055, t0: t + .22 + i * .2, verb: .75
     }));
     this.tone({ type: 'triangle', f0: 3296, dur: 2.4, vol: .02, t0: t + 1.0, verb: .8 });
+  },
+  /* the pyre — a warship dies somewhere out there: one deep sub rumble
+     with a slow dark decay and a distant debris crackle. Felt more than
+     heard. */
+  pyre() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sine', f0: 58, f1: 24, dur: 3.4, vol: .26, t0: t, verb: .5 });
+    this.tone({ type: 'triangle', f0: 112, f1: 40, dur: 2.2, vol: .1, t0: t + .12, verb: .55 });
+    this.hiss({ dur: 2.6, f0: 340, f1: 90, vol: .05, t0: t + .3 });
   },
   ui() { if (this.gate('ui', 45)) return; this.tone({ type: 'square', f0: 1250, dur: .03, vol: .04 }); },
   uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); },
@@ -2372,6 +2383,113 @@ function fleetTick() {
   }
   f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt;
   if (f.life <= 0) f.on = false;
+}
+/* ─── the pyre — fifth sky event, and the rarest. Every ~7 minutes a
+   warship dies somewhere in the corridor and its hulk falls burning
+   through the sky: steep downward transit, tumbling, shedding ember
+   fragments that gutter and die mid-air. Own wall clock (pause and
+   respawn safe, like every sky event). Zero per-frame cost beyond a
+   handful of drawImage calls. ─── */
+function pyreWreck() {
+  const w = Math.round(rnd(70, 120)), h = Math.round(w * rnd(.3, .42));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.translate(w / 2, h / 2);
+  // broken hull cut-out — same silhouette language as the graveyard fleet
+  x.fillStyle = '#05080f';
+  x.strokeStyle = 'rgba(190,205,235,.3)';            // rim catches the sun
+  x.lineWidth = 1.2;
+  x.beginPath();
+  x.moveTo(-w * .5, -h * .08); x.lineTo(-w * .18, -h * .3); x.lineTo(w * .16, -h * .06);
+  x.lineTo(w * .3, -h * .3); x.lineTo(w * .5, 0); x.lineTo(w * .3, h * .22);
+  x.lineTo(-w * .2, h * .3); x.lineTo(-w * .42, h * .14);
+  x.closePath(); x.fill(); x.stroke();
+  // torn superstructure
+  for (let i = 0; i < 3; i++) {
+    const bx = -w * .3 + i * w * rnd(.18, .28), bw = w * rnd(.06, .1);
+    x.fillRect(bx, -h * .38, bw, h * rnd(.2, .34));
+    x.strokeRect(bx, -h * .38, bw, h * .24);
+  }
+  return c;
+}
+const pyre = { on: false, next: 40, last: 0, x: 0, y: 0, vx: 0, vy: 0, dur: 1, life: 0, rot: 0, rotA: 0, img: null, frags: [], glow: null };
+function pyreTick() {
+  const now = performance.now() / 1000;
+  const dt = Math.min(.1, now - (pyre.last || now)); pyre.last = now;
+  const p = pyre;
+  if (!p.on) {
+    p.next -= dt;
+    if (p.next <= 0) {
+      p.img = pyreWreck();
+      p.x = rnd(W * .2, W * .8); p.y = -90;         // falls from the top of the sky
+      const sp = rnd(46, 78);                        // ~10–17s to cross
+      p.vx = rnd(-1, 1) * 18; p.vy = sp;
+      p.rotA = rnd(-.55, -.22) * (p.vx < 0 ? -1 : 1); // tumbles as it falls
+      p.rot = rnd(0, TAU);
+      p.dur = rnd(10, 17); p.life = p.dur;
+      p.frags = Array.from({ length: FX.int(5, 8) }, () => ({
+        t: rnd(1.5, p.dur * .55),                    // shed through the fall
+        ox: rnd(-.45, .45), oy: rnd(-.35, .35),      // offset on the wreck, as ×img size
+        vx: rnd(-26, 26), vy: rnd(30, 90),           // kicked out, falls behind
+        r: rnd(1, 2.4), life: rnd(2.5, 4.5), seed: rnd(0, TAU)
+      }));
+      if (!p.glow) p.glow = cometPuff('255,150,70');
+      p.on = true;
+      p.next = 420 + rnd(-90, 90);                   // next pyre in ~7 min
+      if (GAME.state === 'playing') {                // career sky log
+        META.sky.pyres++;
+        saveMeta();
+      }
+      if (GAME.state === 'playing') {                // sighting is an event
+        note('A burning hulk falls through the sky — someone lost a ship out there', 'rare');
+        AU.pyre();
+      }
+    }
+    return;
+  }
+  p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rotA * dt; p.life -= dt;
+  for (const fr of p.frags) {
+    if (fr.t > 0) { fr.t -= dt; continue; }
+    fr.x = (fr.x ?? p.x + fr.ox * p.img.width) + fr.vx * dt;
+    fr.y = (fr.y ?? p.y + fr.oy * p.img.height) + fr.vy * dt;
+    fr.vy += 34 * dt;                                // fragments fall behind
+    fr.life -= dt;
+  }
+  if (p.life <= 0 || p.y > H + 140) p.on = false;
+}
+function drawPyre(t) {
+  const p = pyre;
+  if (!p.on || !p.img) return;
+  const a = Math.min(1, (p.dur - p.life) * 1.4, p.life * .9);   // ease in/out
+  if (a <= 0) return;
+  const burn = .5 + .5 * Math.sin(t * 3.1);
+  // ember fragments first, so the wreck reads in front of its own debris
+  for (const fr of p.frags) {
+    if (fr.t > 0 || fr.life <= 0) continue;
+    const g = Math.max(0, Math.min(1, fr.life / 3));            // gutter to black
+    const tw = .5 + .5 * Math.sin(t * 7 + fr.seed);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = a * g * (.55 + .3 * tw);
+    const s = fr.r * 7;
+    ctx.drawImage(p.glow, fr.x - s / 2, fr.y - s / 2, s, s);
+    ctx.globalAlpha = a * g;
+    ctx.fillStyle = '#ffc06a';
+    ctx.fillRect(fr.x - fr.r / 2, fr.y - fr.r / 2, fr.r, fr.r);
+    ctx.restore();
+  }
+  // the burning hulk — silhouette with a fire halo licking off its back
+  ctx.save();
+  ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = a * (.5 + .22 * burn);
+  const gs = p.img.width * (1.5 + .18 * burn);
+  ctx.drawImage(p.glow, -gs / 2 + p.img.width * .12, -gs / 2 + p.img.height * .18, gs, gs);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = a;
+  ctx.drawImage(p.img, -p.img.width / 2, -p.img.height / 2);
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 let warp = 0; // 0..1, how stretched the starfield is
 /* v3: palette grading — one GPU-composited CSS filter on the canvas.
@@ -5972,6 +6090,7 @@ function drawSkyPointers() {
   if (comet.on) skyPointer(comet.x, comet.y,
     comet.gold ? rgbOf(PAL.gold) : '255,224,178');
   if (fleet.on) skyPointer(fleet.x, fleet.y, rgbOf(PAL.ally));
+  if (pyre.on) skyPointer(pyre.x, pyre.y, '255,150,70');   // ember
 }
 
 let fpsEMA = 60;
@@ -5989,8 +6108,10 @@ function render() {
 
   cometTick();
   fleetTick();
+  pyreTick();
   drawBackdrop(GAME.t);
   drawComet(GAME.t);
+  drawPyre(GAME.t);
   SCHOOL.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
@@ -6272,7 +6393,7 @@ const NET = {
           META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
         }
         if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
-        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets'])
+        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets', 'pyres'])
           META.sky[k] = Math.max(META.sky[k] || 0, +sMeta.sky[k] || 0);   // sky career counters travel with the account
         if (sMeta.codex && typeof sMeta.codex === 'object')
           META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
@@ -7695,7 +7816,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9, pyres: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
