@@ -1725,15 +1725,27 @@ function buildBackdrop() {
     ringHalf(false);                        // near side, drawn over the limb
     return c;
   };
+  /* skies are composed from the palette's own channels — the giant rides
+     the tech channel, the moon the ally channel — so every visual style
+     gets a matching sky, and High contrast gets a harder value range. */
+  const chan = hex => rgbOf(hex).split(',').map(Number);
+  const mixc = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',');
+  const T = chan(PAL.tech), A = chan(PAL.ally), WH = [246, 250, 255],
+    DK = [8, 12, 26], DK2 = [20, 14, 16];
+  const hc = PAL.name === 'High contrast';
+  const kl = hc ? .82 : .55, kb = hc ? .9 : .78;
   planet = buildPlanet(1100, {
-    lit: '168,196,236', base: '36,54,98', dark: '8,12,26', rim: '130,180,255',
-    ring: '190,205,235', bandCols: ['56,84,140', '30,48,92', '120,150,200',
-      '22,36,74', '88,112,168', '40,60,110', '140,164,210'],
-    stormA: '150,180,230', stormB: '26,40,84', lights: true, mareA: '24,38,74', mareB: '96,124,176'
+    lit: mixc(T, WH, kl), base: mixc(T, DK, kb), dark: mixc(DK, [0, 0, 0], hc ? .6 : 0),
+    rim: mixc(T, WH, .3), ring: mixc(T, WH, .45),
+    bandCols: [mixc(T, WH, .3), mixc(T, DK, kb), mixc(T, WH, kl),
+      mixc(T, DK, .92), mixc(T, WH, .12), mixc(T, DK, .85), mixc(T, WH, .4)],
+    stormA: mixc(T, WH, .38), stormB: mixc(T, DK, .94),
+    lights: true, mareA: mixc(T, DK, .88), mareB: mixc(T, WH, .18)
   });
   moon = buildPlanet(1200, {
-    lit: '226,178,138', base: '110,74,60', dark: '20,14,16', rim: '255,190,140',
-    mareA: '60,40,38', mareB: '150,110,84', craters: true, craterN: 64
+    lit: mixc(A, WH, hc ? .7 : .42), base: mixc(A, DK2, .66), dark: DK2,
+    rim: mixc(A, WH, .3), mareA: mixc(A, DK2, .8), mareB: mixc(A, WH, .22),
+    craters: true, craterN: 64
   });
 
   dust = [];
