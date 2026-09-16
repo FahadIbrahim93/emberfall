@@ -665,6 +665,25 @@ body.needrotate #rotate{display:grid}
         </div>
       </div>
     </div>
+    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
+      <div class="opt full">
+        <label id="lLan">Play on the go <span id="lanStat" style="color:var(--dimmer);letter-spacing:.08em">this device only</span></label>
+        <div id="lanBox" class="hidden" style="display:grid;gap:8px">
+          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">This command deck is reachable from any device on
+            the same Wi-Fi. Open one of these on your phone — progress, boards and duels follow your account.</p>
+          <div id="lanUrls" style="display:grid;gap:6px"></div>
+          <div class="pair">
+            <button class="btn" id="btnLanCopy">Copy first address</button>
+            <button class="btn ghost" id="btnLanHow">How it works</button>
+          </div>
+          <p class="empty hidden" id="lanHow" style="padding:2px 0;text-align:left;line-height:1.8">The deck binds all network
+            interfaces, so your phone and this machine just need the same Wi-Fi. Same account on both — start a run on the
+            couch, finish it in the garden. A proper public deployment removes the same-network requirement entirely.</p>
+        </div>
+        <p class="empty hidden" id="lanSolo" style="padding:2px 0;text-align:left;line-height:1.8">No command deck detected —
+          launch <b>node server.js</b> to open multiplayer-ready play across your devices.</p>
+      </div>
+    </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
       <button class="btn ghost" id="btnFull">Fullscreen</button>
@@ -5580,7 +5599,13 @@ const NET = {
       body: body === undefined ? undefined : JSON.stringify(body)
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) throw new Error(j.error || ('http ' + r.status));
+    if (!r.ok || j.ok === false) {
+      // status rides the error so callers can tell definitive rejections
+      // (422 — never retry) from transient failures (offline, 429, 5xx)
+      const err = new Error(j.error || ('http ' + r.status));
+      err.status = r.status;
+      throw err;
+    }
     return j;
   },
 
@@ -5588,13 +5613,13 @@ const NET = {
     try {
       const j = await this.req('GET', '/api/me');
       this.user = j.user || null;
-      if (j.user && j.profile) this.mergeProfile(j.profile);
+      if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); }
       return this.user;
     } catch (e) { this.user = null; return null; }
   },
 
   async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
-  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) this.mergeProfile(j.profile); return j; },
+  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) this.mergeProfile(j.profile); kickOutbox(); return j; },
   async logout() {
     try { await this.req('POST', '/api/logout'); } catch (e) { }
     this.user = null;
@@ -5643,16 +5668,14 @@ const NET = {
   },
 
   /* submit a finished run with its provenance; returns { rank, verdict } or null */
-  async submitScore(mode, score, wave, ship, diff, tele) {
+  async  submitScore(mode, score, wave, ship, diff, tele) {
     if (!this.on || !this.user) return null;
-    try {
-      const j = await this.req('POST', '/api/scores', {
-        mode, score, wave, ship, diff,
-        runT: tele ? tele.runT : 0, kills: tele ? tele.kills : 0,
-        cps: tele ? tele.cps : []
-      });
-      return { rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe };
-    } catch (e) { return null; }
+    // no catch: callers need the error status to decide queue vs drop
+    return this.req('POST', '/api/scores', {
+      mode, score, wave, ship, diff,
+      runT: tele ? tele.runT : 0, kills: tele ? tele.kills : 0,
+      cps: tele ? tele.cps : []
+    }).then(j => ({ rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe }));
   },
 
   async fetchBoard(mode) {
@@ -6159,9 +6182,17 @@ function endRun() {
   $('duelRow').classList.toggle('hidden',
     !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
   renderBoard($('ovBoard'), mode, null);
-  /* verified worldwide posting — silent no-op when offline or anonymous */
-  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff,
-    { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() }).then(r => {
+  /* verified worldwide posting. Posted now when possible; otherwise the
+     run lands in the OUTBOX and drains automatically once the deck is
+     reachable again — a dropped connection never eats a verified score. */
+  const tele = { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() };
+  const ovRankEl = $('ovRank');
+  const paintQueued = () => {
+    if (!ovRankEl) return;
+    ovRankEl.classList.remove('hidden');
+    ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
+  };
+  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele).then(r => {
     const el = $('ovRank');
     if (!el) return;
     if (r) {
@@ -6169,10 +6200,26 @@ function endRun() {
       const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
         ? ' · gauntlet #' + r.seasonMe.rank
         : '';
-      el.innerHTML = r.verdict === 'flagged'
+      el.innerHTML = r.verdict === 'rejected'
+        ? '<b style="color:var(--crimson)">Not verified</b><span>this run could not be verified — it does not rank</span>'
+        : r.verdict === 'flagged'
         ? '<b style="color:var(--amber)">Under review</b><span>logged · global rank #' + r.rank + seasonLine + '</span>'
         : '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + seasonLine + '</span>';
-    } else el.classList.add('hidden');
+    } else {
+      if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave), ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
+      else el.classList.add('hidden');
+    }
+  }).catch(err => {
+    // queue on transient failures (offline, 5xx, throttling); a definitive
+    // 422 rejection is shown honestly and NOT queued — retrying it would
+    // just burn the same verdict
+    if (NET.user && !(err && err.status === 422)) {
+      OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave), ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps });
+      paintQueued();
+    } else if (err && err.status === 422 && ovRankEl) {
+      ovRankEl.classList.remove('hidden');
+      ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not verified</b><span>this run could not be verified — it does not rank</span>';
+    }
   });
   showScreen('s-over', true);
   if (q && matchMedia('(pointer:fine)').matches) $('pilot').focus();
@@ -6259,6 +6306,41 @@ function paintAccount() {
   $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
   $('acctFields').classList.toggle('hidden', !on || !!u);
   $('acctSigned').classList.toggle('hidden', !on || !u);
+  paintLan();
+}
+/* LAN play — the on-the-go story before a public deployment: the deck
+   answers on every interface, so any device on the same Wi-Fi can open
+   the game with full account/boards/duels. Addresses come from the deck
+   itself (/api/lan), the phone just needs the URL. */
+let lanCache = null;
+async function paintLan() {
+  const on = NET.on;
+  $('lanBox').classList.toggle('hidden', !on);
+  $('lanSolo').classList.toggle('hidden', on);
+  if (!on) { $('lanStat').textContent = 'this device only'; return; }
+  $('lanStat').textContent = 'deck open to your Wi-Fi';
+  try {
+    if (!lanCache) lanCache = await (await fetch('/api/lan')).json();
+    const box = $('lanUrls');
+    box.innerHTML = '';
+    (lanCache.addresses || []).slice(0, 3).forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'btn ghost';
+      b.style.textAlign = 'left';
+      b.style.fontSize = '.66rem';
+      b.style.letterSpacing = '.08em';
+      b.textContent = 'http://' + a + ':8123';
+      b.onclick = () => {
+        navigator.clipboard.writeText(b.textContent)
+          .then(() => note('Copied — open it on your phone', 'good'))
+          .catch(() => note(b.textContent, '', ''));
+      };
+      box.appendChild(b);
+    });
+    if (!(lanCache.addresses || []).length) {
+      box.innerHTML = '<p class="empty" style="padding:2px 0;text-align:left">No LAN address found — connect this machine to a Wi-Fi network.</p>';
+    }
+  } catch (e) { /* non-fatal */ }
 }
 async function acctGo(isNew) {
   const name = $('acctName').value.trim();
@@ -6613,6 +6695,15 @@ bindClick('btnInstall', () => {
 bindClick('btnAcctGo', () => acctGo(false));
 bindClick('btnAcctNew', () => acctGo(true));
 bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
+bindClick('btnLanCopy', () => {
+  const first = document.querySelector('#lanUrls .btn');
+  if (!first) return;
+  navigator.clipboard.writeText(first.textContent)
+    .then(() => note('Copied — open it on your phone', 'good'))
+    .catch(() => note(first.textContent, '', ''));
+  AU.ui();
+});
+bindClick('btnLanHow', () => { $('lanHow').classList.toggle('hidden'); AU.ui(); });
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
@@ -6731,13 +6822,34 @@ function makeIcon(size) {
 }
 function installManifest() {
   try {
+    if (document.querySelector('link[rel=manifest]')) return;   // idempotent
     const icon = makeIcon(256);
+    const iconMask = makeIcon(512);
+    // a generated promo card for platform install UIs that want a wide shot
+    const promo = document.createElement('canvas');
+    promo.width = 1280; promo.height = 720;
+    const pg = promo.getContext('2d');
+    pg.fillStyle = '#03050b'; pg.fillRect(0, 0, 1280, 720);
+    const bg = pg.createRadialGradient(640, 460, 40, 640, 460, 640);
+    bg.addColorStop(0, 'rgba(255,138,43,.34)'); bg.addColorStop(1, 'rgba(255,138,43,0)');
+    pg.fillStyle = bg; pg.fillRect(0, 0, 1280, 720);
+    pg.save(); pg.translate(560, 430); pg.scale(4.4, 4.4);
+    HULL_ART.vesper(pg, { thrust: 1, boost: false, t: 0 }); pg.restore();
+    pg.fillStyle = '#eef2fb'; pg.font = '700 64px Michroma, sans-serif';
+    pg.textAlign = 'center'; pg.fillText('EMBERFALL', 640, 180);
+    pg.fillStyle = '#ff8a2b'; pg.font = '500 26px "Chakra Petch", sans-serif';
+    pg.fillText('ORBITAL INTERCEPT', 640, 226);
+    const promoURL = promo.toDataURL('image/png');
     const manifest = {
       name: 'EMBERFALL', short_name: 'EMBERFALL',
       description: 'An orbital intercept shooter that runs offline.',
       start_url: location.href, display: 'fullscreen', orientation: 'any',
       background_color: '#03050b', theme_color: '#03050b',
-      icons: icon ? [{ src: icon, sizes: '256x256', type: 'image/png', purpose: 'any' }] : []
+      icons: icon ? [
+        { src: icon, sizes: '256x256', type: 'image/png', purpose: 'any' },
+        { src: iconMask, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+      ] : [],
+      screenshots: [{ src: promoURL, sizes: '1280x720', type: 'image/png' }]
     };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
     const link = document.createElement('link');
@@ -6757,6 +6869,75 @@ function installManifest() {
 /* ══════════════════════════════════════════════════════════════════════
    SELF-TESTS — pure logic only, so they are safe to run any time
    ══════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   OUTBOX — finished runs always survive. A score that cannot post right
+   now (offline, rate-limited, deck down) is queued durably in localStorage
+   and drained automatically whenever the deck is reachable again — online
+   or freshly signed-in. Verified scores are never lost to a dropped
+   connection, and stale runs are never resurrected: anything older than
+   3 days (or that would finish the daily of a day already closed) is
+   dropped at drain time so the ladder stays honest.
+   ══════════════════════════════════════════════════════════════════════ */
+const OUTBOX = {
+  MAX: 10, MAX_AGE: 3 * 864e5,
+  load() { const q = DB.get('outbox', []); return Array.isArray(q) ? q : []; },
+  save(q) { DB.set('outbox', q.slice(-this.MAX)); },
+  /* pure: which queued entries may still post — freshness cap, and no
+     posting a daily after its day has rotated out. Tested in selftests. */
+  fresh(q) {
+    const now = Date.now();
+    return q.filter(e => now - e.at <= this.MAX_AGE &&
+      !(e.mode === 'daily' && e.day && e.day !== todaySeedKey()));
+  },
+  queue(entry) {
+    const q = this.load();
+    q.push({
+      mode: entry.mode, score: entry.score, wave: entry.wave, ship: entry.ship,
+      diff: entry.diff, runT: entry.runT, kills: entry.kills, cps: entry.cps,
+      day: entry.mode === 'daily' ? todaySeedKey() : null,
+      at: Date.now()
+    });
+    this.save(q);
+  },
+  drainIfPossible() {
+    let q = this.load();
+    if (!q.length || !NET.on || !NET.user) return Promise.resolve(0);
+    // stale guard: too-old runs, and daily runs whose day has rotated out
+    // (a daily posted a day late would pollute a ladder nobody raced)
+    q = this.fresh(q);
+    this.save(q);
+    if (!q.length) return Promise.resolve(0);
+    const head = q[0];
+    return NET.submitScore(head.mode, head.score, head.wave, head.ship, head.diff,
+      { runT: head.runT, kills: head.kills, cps: head.cps })
+      .then(r => {
+        const rest = this.load().filter(e => e.at !== head.at);
+        this.save(rest);
+        try {
+          note(r.verdict === 'rejected'
+            ? 'Queued run could not be verified — discarded'
+            : 'Recovered — queued run posted · rank #' + r.rank,
+            r.verdict === 'rejected' ? 'bad' : 'good');
+        } catch (e) { }
+        return 1 + this.drainIfPossible();
+      })
+      .catch(err => {
+        // definitive server rejection (422): drop the head, never retry it
+        if (err && (err.status === 422 || err.status === 400)) {
+          this.save(this.load().filter(e => e.at !== head.at));
+          try { note('Queued run could not be verified — discarded', 'bad'); } catch (e) { }
+          return 1 + this.drainIfPossible();
+        }
+        return 0;                            // transient — try again later
+      });
+  }
+};
+let outboxTimer = 0;
+function kickOutbox() {
+  clearTimeout(outboxTimer);
+  outboxTimer = setTimeout(() => { OUTBOX.drainIfPossible().then(n => { if (n > 0) kickOutbox(); }); }, 2500);
+}
+
 function runSelfTests() {
   const out = [];
   const T = (name, fn) => {
@@ -6782,6 +6963,18 @@ function runSelfTests() {
     const k = todaySeedKey();
     eq(hashStr('emberfall-' + k), hashStr('emberfall-' + k));
     ok(/^\d{4}-\d{2}-\d{2}$/.test(k), 'key shape');
+  });
+  T('outbox freshness filter', () => {
+    const now = Date.now(), k = todaySeedKey();
+    const q = [
+      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE + 6e4 },      // fresh
+      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE - 6e4 },      // too old
+      { mode: 'daily', day: k, at: now - 6e4 },                          // today's daily
+      { mode: 'daily', day: '2001-01-01', at: now - 6e4 }                // rotated-out daily
+    ];
+    const f = OUTBOX.fresh(q);
+    eq(f.length, 2, 'kept');
+    eq(f[0].at, q[0].at); eq(f[1].day, k);
   });
   T('combo tiers', () => {
     [0, 1, 4].forEach(c => eq(multFor(c), 1));
@@ -7038,6 +7231,10 @@ function boot() {
   refreshTitleMeta();
   installManifest();
   NET.probe().then(() => { paintAccount(); refreshTitleMeta(); });
+  // on-the-go resilience: drain the outbox when connectivity returns,
+  // and retry gently every 2 min in case the deck came back unattended
+  addEventListener('online', kickOutbox);
+  setInterval(() => { if (OUTBOX.load().length) kickOutbox(); }, 120000);
   P.x = W / 2; P.y = H * .82;
   INPUT.aimX = P.x; INPUT.aimY = P.y;
   ATTRACT.x = W / 2; ATTRACT.y = H * .68;

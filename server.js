@@ -25,6 +25,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const os = require('node:os');
 const { DatabaseSync } = require('node:sqlite');
 
 const PORT = Number(process.env.PORT || (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : 0)) || 8123;
@@ -384,6 +385,24 @@ async function handleApi(req, res, pathname, ip) {
   /* ---- public ---- */
   if (req.method === 'GET' && pathname === '/api/health') {
     return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now() });
+  }
+
+  /* LAN play helper — the on-the-go story for phones before a public deploy.
+     The deck already binds 0.0.0.0, so any device on the same Wi-Fi can play
+     against this server; this endpoint just answers the one hard part
+     ("what do I type on my phone?"). Internal ranges only; no host header
+     echo — the client substitutes its own. */
+  if (req.method === 'GET' && pathname === '/api/lan') {
+    const candidates = [];
+    for (const list of Object.values(os.networkInterfaces())) {
+      for (const ni of list || []) {
+        if (ni.family !== 'IPv4' || ni.internal) continue;
+        if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ni.address)) {
+          candidates.push(ni.address);
+        }
+      }
+    }
+    return send(res, 200, { ok: true, port: PORT, addresses: candidates });
   }
 
   if (req.method === 'POST' && pathname === '/api/register') {
