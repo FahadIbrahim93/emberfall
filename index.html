@@ -7865,7 +7865,7 @@ function kickOutbox() {
 
 function runSelfTests() {
   CODEX.mute = true;   // probes spawn hostiles — no first-sight cards, no meta writes
-  DB.set('meta.preTest', JSON.stringify({ codex: META.codex }));
+  DB.set('meta.preTest', JSON.stringify(META));   // FULL profile snapshot — probes must never write into the pilot's real progression
   const prevCodex = META.codex; META.codex = {};   // fresh sighting table for boundary tests
   const out = [];
   const T = (name, fn) => {
@@ -8092,13 +8092,51 @@ function runSelfTests() {
     ok(a.maxParticles < b.maxParticles && b.maxParticles < c.maxParticles, 'particle budget climbs');
     ok(a.scale <= b.scale && b.scale <= c.scale, 'resolution climbs');
   });
+  T('persistence: skyLog merge union dedupes and interleaves', () => {
+    const snap = JSON.stringify(META.skyLog);
+    META.skyLog = [
+      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },
+      { k: 'fleet', w: 4, d: 1, a: 0, t: 2000, m: 'endless' }
+    ];
+    NET.mergeProfile({ updated: 9e12, data: { meta: { skyLog: [
+      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },        // duplicate — must be dropped
+      { k: 'golden', w: 5, d: 2, a: 250, t: 1500, m: 'daily' },        // interleave by time
+      { k: 'pyre', w: 6, d: 1, a: 0, t: 3000, m: 'endless' }
+    ] } } });
+    eq(META.skyLog.length, 4, 'union keeps 4 unique entries');
+    eq(META.skyLog.map(e => e.t).join(','), '1000,1500,2000,3000', 'sorted chronologically');
+    META.skyLog = JSON.parse(snap);
+  });
+  T('persistence: streak fields merge max-style and migrate from old saves', () => {
+    const s0 = META.sky.streakCur, b0 = META.sky.streakBest;
+    NET.mergeProfile({ updated: 9e12, data: { meta: { sky: { comets: 99, golden: 1, fleets: 1, pyres: 1, streakCur: 7, streakBest: 9 } } } });
+    eq(META.sky.streakCur, 7, 'current streak takes the cloud max (live device may be ahead)');
+    eq(META.sky.streakBest, 9, 'best streak takes the cloud max');
+    eq(META.sky.comets, 99, 'comets max-merged alongside');
+    // legacy save without streak fields must load to zeros, not NaN
+    loadMeta();
+    ok(Number.isFinite(META.sky.streakCur) && Number.isFinite(META.sky.streakBest), 'legacy save migrates to finite zeros');
+    META.sky.streakCur = s0; META.sky.streakBest = b0;
+  });
+  T('persistence: skyLog legacy save loads to empty, 60-cap holds on load', () => {
+    const flood = Array.from({ length: 80 }, (_, i) => ({ k: 'comet', w: 1, d: 1, a: 0, t: i, m: 'endless' }));
+    DB.set('meta', Object.assign({}, DB.get('meta', {}), { skyLog: flood }));
+    loadMeta();
+    eq(META.skyLog.length, 60, 'a flooded legacy archive truncates to the newest 60 on load');
+    eq(META.skyLog[59].t, 79, 'newest kept, oldest dropped');
+  });
   T('viewport cull rejects NaN', () => {
     eq(inView(NaN, NaN, 40), false);
     eq(inView(NaN, 100, 40), false);
     eq(inView(10, 10, 40), true);
   });
 
-  META.codex = prevCodex;   // probes must not pollute the pilot's sighting record
+  /* wholesale restore — the suite mutates alloy, counters, logs and feats;
+     the pilot's real profile must survive the run untouched */
+  const pre = DB.get('meta.preTest', null);
+  DB.del('meta.preTest');
+  if (pre) { for (const k of Object.keys(META)) delete META[k]; Object.assign(META, JSON.parse(pre)); }
+  saveMeta();
   const pass = out.every(o => o[1]);
   $('stSum').textContent = out.filter(o => o[1]).length + ' of ' + out.length + ' passing';
   $('stList').innerHTML = out.map(([n, p, e]) =>
