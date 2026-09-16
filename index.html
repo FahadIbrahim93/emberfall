@@ -2458,14 +2458,22 @@ function logSighting(kind, paid) {
 }
 /* the silent-sky whisper — when nothing appeared, say so, and tint it by
    what nearly did. The schedulers keep wall-clock countdowns, so a run
-   that ended seconds before a comet's arrival can be told the truth. */
+   that ended seconds before a comet's arrival can be told the truth.
+   Each tier carries variant lines and the picker never repeats a tier's
+   last line, so a string of quiet runs doesn't read as a broken record. */
+const whisperLast = {};
 function skyWhisper() {
   const near = (ev, t) => !ev.on && ev.next > 0 && ev.next <= t;
-  if (near(comet, 8))  return { text: 'The sky was silent — a comet was seconds away.',           rgb: '255,180,84' };
-  if (near(comet, 20)) return { text: 'The sky was silent — a comet was almost due.',             rgb: '255,180,84' };
-  if (near(fleet, 35)) return { text: 'The sky was silent — a graveyard fleet was drawing near.', rgb: '155,107,255' };
-  if (near(pyre, 45))  return { text: 'The sky was silent — something was falling somewhere.',    rgb: '255,150,70' };
-  return { text: 'The sky was silent.', rgb: '120,131,156' };
+  let lines, rgb;
+  if (near(comet, 8))       { rgb = '255,180,84';  lines = ['The sky was silent — a comet was seconds away.', 'The sky was silent — a wish was seconds from arriving.']; }
+  else if (near(comet, 20)) { rgb = '255,180,84';  lines = ['The sky was silent — a comet was almost due.', 'The sky was silent — a wish was still inbound.']; }
+  else if (near(fleet, 35)) { rgb = '155,107,255'; lines = ['The sky was silent — a graveyard fleet was drawing near.', 'The sky was silent — the war-dead were drawing near.']; }
+  else if (near(pyre, 45))  { rgb = '255,150,70';  lines = ['The sky was silent — something was falling somewhere.', 'The sky was silent — somewhere, a ship came down.']; }
+  else                      { rgb = '120,131,156'; lines = ['The sky was silent.', 'The stars kept their distance.', 'The heavens held their breath.', 'No word from the deep.']; }
+  let i = FX.int(0, lines.length - 1);
+  if (lines.length > 1 && i === whisperLast[rgb]) i = (i + 1) % lines.length;   // never the same line twice in a row
+  whisperLast[rgb] = i;
+  return { text: lines[i], rgb };
 }
 function pyreTick() {
   const now = performance.now() / 1000;
