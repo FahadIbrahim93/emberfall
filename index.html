@@ -1624,27 +1624,41 @@ function buildBackdrop() {
      offscreen canvases with a real rendering chain: base sphere → surface
      detail (bands, storms, mare, power-law craters with rim highlights) →
      MULTIPLY lighting pass (true terminator — the sphere reads as a sphere)
-     → additive atmosphere on the lit limb → occluded ring halves. ─── */
+     → additive atmosphere on the lit limb → occluded ring halves.
+
+     The bake is split into three layers so parts of the sky can live:
+       surf — colour + surface detail (banded belts, grand storm, craters)
+       shade — the multiply lighting pass, alone on transparent black
+       glow  — the additive atmosphere
+     drawBackdrop composites surf < shade(multiply) < glow(lighter) and
+     strokes the ring halves live, so the giant's storm creeps and its
+     rings turn — barely-perceptible drifts that reward long runs. ─── */
+  const LA_SKY = -2.35;                   // light arrives from the upper left
   const buildPlanet = (ps, o) => {
-    const c = document.createElement('canvas'); c.width = c.height = ps;
-    const p = c.getContext('2d');
+    const mk = () => {
+      const c = document.createElement('canvas'); c.width = c.height = ps;
+      return c;
+    };
+    const surf = mk(), sh = mk(), glow = mk();
+    const p = surf.getContext('2d');
     const cx = ps / 2, cy = ps / 2, r = ps / 2 - 8;
-    const LA = -2.35;                       // light arrives from the upper left
-    const ringHalf = back => {
+    const ringHalf = (g, back, tt) => {   // live layer: stroked each frame.
+      // The whole ring plane rocks ±2.6° over ~10 min — drift you feel more
+      // than see, and occlusion stays correct because the far/near halves
+      // are still the same param-space arcs under a slightly different tilt.
       if (!o.ring) return;
-      p.save(); p.translate(cx, cy); p.rotate(-.38); p.scale(1, .27);
+      g.save(); g.translate(cx, cy); g.rotate(-.38 + Math.sin((tt || 0) * .0105) * .045); g.scale(1, .27);
       for (const [rr, w, a] of [[1.26, .15, .3], [1.42, .09, .52], [1.56, .05, .44],
         [1.66, .13, .26], [1.86, .06, .15]]) {
-        p.lineWidth = r * w;
-        p.strokeStyle = 'rgba(' + o.ring + ',' + (a * (back ? .5 : .95)).toFixed(2) + ')';
-        p.beginPath(); p.arc(0, 0, r * rr, back ? PI : 0, back ? TAU : 0); p.stroke();
+        g.lineWidth = r * w;
+        g.strokeStyle = 'rgba(' + o.ring + ',' + (a * (back ? .5 : .95)).toFixed(2) + ')';
+        g.beginPath(); g.arc(0, 0, r * rr, back ? PI : 0, back ? TAU : 0); g.stroke();
       }
-      p.restore();
+      g.restore();
     };
-    ringHalf(true);                         // far side, dimmed
     // base sphere
     const body = p.createRadialGradient(
-      cx + Math.cos(LA) * r * .4, cy + Math.sin(LA) * r * .4, r * .05, cx, cy, r);
+      cx + Math.cos(LA_SKY) * r * .4, cy + Math.sin(LA_SKY) * r * .4, r * .05, cx, cy, r);
     body.addColorStop(0, 'rgb(' + o.lit + ')');
     body.addColorStop(.55, 'rgb(' + o.base + ')');
     body.addColorStop(1, 'rgb(' + o.dark + ')');
@@ -1663,12 +1677,21 @@ function buildBackdrop() {
         for (let s = 10; s >= 0; s--) p.lineTo(cx - r + (s / 10) * 2 * r, y0 + h + Math.sin(s * 1.3 + i) * amp * .8);
         p.closePath(); p.fill();
       }
-      // one grand storm — concentric ovals, tilted
-      const sx = cx + r * .24, sy = cy + r * .2;
+    }
+    // one grand storm — concentric ovals, tilted. Painted straight onto
+    // a STORM-ONLY layer above the surface (the shade pass in drawBackdrop
+    // lights it like everything else): the backdrop re-draws it at a
+    // creeping yaw, so the oval visibly wheels around the planet over
+    // minutes while the baked belts stay still beneath it.
+    let stormC = null;
+    if (o.storm) {
+      const st = mk(); const q = st.getContext('2d');
+      q.translate(cx, cy);
       for (let i = 4; i >= 1; i--) {
-        p.fillStyle = 'rgba(' + (i % 2 ? o.stormA : o.stormB) + ',' + (.14 + i * .04).toFixed(2) + ')';
-        p.beginPath(); p.ellipse(sx, sy, r * .24 * i / 4, r * .13 * i / 4, -.18, 0, TAU); p.fill();
+        q.fillStyle = 'rgba(' + (i % 2 ? o.stormA : o.stormB) + ',' + (.16 + i * .05).toFixed(2) + ')';
+        q.beginPath(); q.ellipse(r * .24, r * .2, r * .24 * i / 4, r * .13 * i / 4, -.18, 0, TAU); q.fill();
       }
+      stormC = st;
     }
     // mare / cloud mottling — two-tone soft patches
     for (let i = 0; i < 26; i++) {
@@ -1688,9 +1711,9 @@ function buildBackdrop() {
       fg.addColorStop(0, 'rgba(0,0,0,.4)'); fg.addColorStop(1, 'rgba(0,0,0,.06)');
       p.fillStyle = fg; p.beginPath(); p.arc(x, y, cr, 0, TAU); p.fill();
       p.strokeStyle = 'rgba(' + o.lit + ',.34)'; p.lineWidth = Math.max(1, cr * .16);
-      p.beginPath(); p.arc(x, y, cr * .92, LA - 1.1, LA + 1.1); p.stroke();
+      p.beginPath(); p.arc(x, y, cr * .92, LA_SKY - 1.1, LA_SKY + 1.1); p.stroke();
       p.strokeStyle = 'rgba(0,0,0,.38)'; p.lineWidth = Math.max(1, cr * .2);
-      p.beginPath(); p.arc(x, y, cr * .68, LA + PI - 1, LA + PI + 1); p.stroke();
+      p.beginPath(); p.arc(x, y, cr * .68, LA_SKY + PI - 1, LA_SKY + PI + 1); p.stroke();
     }
     if (o.lights) for (let i = 0; i < 150; i++) {   // city lights on the night side
       const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r;
@@ -1699,31 +1722,32 @@ function buildBackdrop() {
       p.fillStyle = 'rgba(255,196,128,' + rnd(.12, .5).toFixed(2) + ')';
       p.fillRect(x, y, rnd(1, 2.4), rnd(1, 2));
     }
-    // LIGHTING PASS — a multiply gradient from the light limb to the far
-    // limb. Everything below shades together: real terminator, real sphere.
-    const lg = p.createRadialGradient(
-      cx + Math.cos(LA) * r * .8, cy + Math.sin(LA) * r * .8, r * .1,
-      cx + Math.cos(LA) * r * .2, cy + Math.sin(LA) * r * .2, r * 1.95);
+    // LIGHTING PASS — the same multiply gradient from the light limb to
+    // the far limb, but alone on a transparent canvas (black keeps RGB,
+    // alpha carries the sphere mask). Composited with 'multiply' it shades
+    // whatever surface sits beneath — including the creeping storm.
+    const q = sh.getContext('2d');
+    const lg = q.createRadialGradient(
+      cx + Math.cos(LA_SKY) * r * .8, cy + Math.sin(LA_SKY) * r * .8, r * .1,
+      cx + Math.cos(LA_SKY) * r * .2, cy + Math.sin(LA_SKY) * r * .2, r * 1.95);
     lg.addColorStop(0, 'rgba(255,252,246,1)');
     lg.addColorStop(.38, 'rgba(206,212,228,1)');
     lg.addColorStop(.72, 'rgba(66,74,96,1)');
     lg.addColorStop(1, 'rgba(12,14,24,1)');
-    p.globalCompositeOperation = 'multiply';
-    p.fillStyle = lg; p.fillRect(0, 0, ps, ps);
-    p.globalCompositeOperation = 'source-over';
-    p.restore();
+    q.beginPath(); q.arc(cx, cy, r, 0, TAU); q.clip();
+    q.fillStyle = lg; q.fillRect(0, 0, ps, ps);
+    p.restore();                       // close the surface clip
     // atmosphere — additive glow, strongest on the lit limb
-    p.globalCompositeOperation = 'lighter';
-    const rim = p.createRadialGradient(
-      cx + Math.cos(LA) * r * .9, cy + Math.sin(LA) * r * .9, r * .2,
+    const w = glow.getContext('2d');
+    w.globalCompositeOperation = 'lighter';
+    const rim = w.createRadialGradient(
+      cx + Math.cos(LA_SKY) * r * .9, cy + Math.sin(LA_SKY) * r * .9, r * .2,
       cx, cy, r * 1.08);
     rim.addColorStop(0, 'rgba(' + o.rim + ',.34)');
     rim.addColorStop(.6, 'rgba(' + o.rim + ',.1)');
     rim.addColorStop(1, 'rgba(' + o.rim + ',0)');
-    p.beginPath(); p.arc(cx, cy, r * 1.08, 0, TAU); p.fillStyle = rim; p.fill();
-    p.globalCompositeOperation = 'source-over';
-    ringHalf(false);                        // near side, drawn over the limb
-    return c;
+    w.beginPath(); w.arc(cx, cy, r * 1.08, 0, TAU); w.fillStyle = rim; w.fill();
+    return { surf, shade: sh, glow, storm: stormC, ring: ringHalf };
   };
   /* skies are composed from the palette's own channels — the giant rides
      the tech channel, the moon the ally channel — so every visual style
@@ -1739,7 +1763,7 @@ function buildBackdrop() {
     rim: mixc(T, WH, .3), ring: mixc(T, WH, .45),
     bandCols: [mixc(T, WH, .3), mixc(T, DK, kb), mixc(T, WH, kl),
       mixc(T, DK, .92), mixc(T, WH, .12), mixc(T, DK, .85), mixc(T, WH, .4)],
-    stormA: mixc(T, WH, .38), stormB: mixc(T, DK, .94),
+    storm: true, stormA: mixc(T, WH, .38), stormB: mixc(T, DK, .94),
     lights: true, mareA: mixc(T, DK, .88), mareB: mixc(T, WH, .18)
   });
   moon = buildPlanet(1200, {
@@ -1853,11 +1877,31 @@ function drawBackdrop(t) {
   ctx.beginPath(); ctx.moveTo(sunX - 110, sunY); ctx.lineTo(sunX + 110, sunY);
   ctx.moveTo(sunX, sunY - 110); ctx.lineTo(sunX, sunY + 110); ctx.stroke();
   ctx.restore();
-  // the gas giant — huge, low-left, climbing with glacial parallax
+  // the gas giant — huge, low-left, climbing with glacial parallax.
+  // Composite: rings(far) < surface < storm < shade(multiply) < atmosphere
+  // < rings(near). The storm layer re-draws at a creeping yaw (~1 rev per
+  // 25 min) and the ring plane rocks ±2.6° over ~10 min — barely-perceptible
+  // drifts that reward long runs. Zero extra offscreen work per frame.
   const ps = Math.max(900, Math.min(W, H) * 1.5);
   const py = H * 1.06 - ((t * 1.15) % (H * 3.2));
+  const px = -ps * .44;
   ctx.globalAlpha = .92;
-  ctx.drawImage(planet, -ps * .44, py - ps * .5, ps, ps);
+  planet.ring(ctx, true, t);              // far half
+  ctx.drawImage(planet.surf, px, py);
+  if (planet.storm) {                     // grand storm, creeping around the disc
+    ctx.save();
+    ctx.translate(px + ps / 2, py + ps / 2);
+    ctx.rotate(t * .0042);
+    ctx.drawImage(planet.storm, -ps / 2, -ps / 2);
+    ctx.restore();
+  }
+  const pl = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(planet.shade, px, py);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(planet.glow, px, py);
+  ctx.globalCompositeOperation = pl;
+  planet.ring(ctx, false, t);             // near half
   ctx.globalAlpha = 1;
   // the moon — a hemisphere arcing across the top third of the arena.
   // Only its lower limb enters the frame; it hangs there in slow majesty,
@@ -1866,7 +1910,12 @@ function drawBackdrop(t) {
   const mx = W * .56 + Math.sin(t * .021) * W * .05;
   const my = H * .36 - ms + Math.sin(t * .043) * H * .012;
   ctx.globalAlpha = .95;
-  ctx.drawImage(moon, mx - ms / 2, my, ms, ms);
+  ctx.drawImage(moon.surf, mx - ms / 2, my, ms, ms);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.drawImage(moon.shade, mx - ms / 2, my, ms, ms);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(moon.glow, mx - ms / 2, my, ms, ms);
+  ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
 
   // debris silhouettes
