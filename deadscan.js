@@ -1,74 +1,104 @@
 #!/usr/bin/env node
-/* deadscan.js — anti-bloat scanner for EMBERFALL (inline core + js/*.js modules).
-   Extracts every inline <script> payload and every module, finds declarations
-   whose name has no other reference anywhere in that universe (word-boundary,
-   whole-corpus), and lists CSS classes that appear nowhere in markup, JS or
-   modules. String-indirection safe: DOM ids/classes and eval-ish use still
-   count as references. */
+/* deadscan.js — repo-wide dead-code scanner for EMBERFALL.
 
-   CI mode: `node deadscan.js --check` exits 1 when TRUE-positive dead
-   symbols exist. Known false positives ($/$$ single-char identifiers the
-   word-boundary regex cannot tokenize, and font-provider URL fragments in
-   CSS) live on an allowlist so the battery stays green by default. */
-const fs = require('fs');const html = fs.readFileSync('index.html', 'utf8');
+   Corpora, each scanned independently (a symbol is dead when its whole-corpus
+   word-boundary reference count is 1 — i.e. only its own declaration):
+     client — every inline <script> payload in index.html + every js/*.js module
+     server — server.js
+     shell  — smoke.sh + check.sh POSIX functions (name() { ... })
 
-/* Symbol universe = every inline <script> payload + every js/*.js module
-   (post-split, code referenced only across the file boundary must count). */
-const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(s => s.trim());
-const modFiles = fs.existsSync('js')
-  ? fs.readdirSync('js').filter(f => f.endsWith('.js')).map(f => 'js/' + f)
-  : [];
-const modSrcs = modFiles.map(f => fs.readFileSync(f, 'utf8'));
-const script = inline.concat(modSrcs).join('\n');
+   CSS classes declared in index.html's <style> count as dead when they appear
+   nowhere in markup, JS or modules.
 
-/* reviewed 2026-09-17: not dead — '$'/'$$' are the DOM helpers and the
-   regex cannot match a bare sigil with \b; every other past finding was
-   either deleted or is allowlisted here with its reason */
+   String-indirection safe: DOM ids/classes, eval-ish use and same-corpus names
+   all count as references. We prefer false negatives over false positives,
+   because --check fails CI.
+
+   CI mode: `node deadscan.js --check` exits 1 when true-positive dead code
+   exists. Known false positives live on the allowlists below, each with its
+   reason and review date. */
+const fs = require('fs');
+
+/* reviewed 2026-09-17: not dead — '$'/'$$' are the DOM helpers and the regex
+   cannot match a bare sigil with \b */
 const JS_ALLOW = new Set(['$', '$$']);
+/* CSS "dead classes" that are font-provider URL fragments, never findings */
+const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3']);
 
-/* ── JS symbols ── */
-const declRe = /(?:^|\n)((?:async\s+)?function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=)/g;
-const decls = new Map();                       // name -> first decl line
-const lines = script.split('\n');
+const dead = [];
+const counts = {};
 let m;
-while ((m = declRe.exec(script))) {
-  const name = m[2] || m[3];
-  const lineNo = script.slice(0, m.index).split('\n').length;
-  if (!decls.has(name)) decls.set(name, { line: lineNo, kind: m[2] ? 'fn' : 'var' });
-}
-// declared-but-never-referenced-elsewhere: word-boundary count === 1
-const deadJS = [];
-for (const [name, info] of decls) {
-  if (JS_ALLOW.has(name)) continue;
-  const n = (script.match(new RegExp('\\b' + name.replace(/\$/g, '\\$') + '\\b', 'g')) || []).length;
-  if (n <= 1) deadJS.push({ name, n, ...info });
+
+function scanJS(corpus, srcs) {
+  const script = srcs.join('\n');
+  const declRe = /(?:^|\n)((?:async\s+)?function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=)/g;
+  const decls = new Map();                    // name -> kind
+  while ((m = declRe.exec(script))) {
+    const name = m[2] || m[3];
+    if (!decls.has(name)) decls.set(name, m[2] ? 'fn' : 'var');
+  }
+  counts[corpus] = decls.size;
+  for (const [name, kind] of decls) {
+    if (JS_ALLOW.has(name)) continue;
+    const n = (script.match(new RegExp('\\b' + name.replace(/\$/g, '\\$') + '\\b', 'g')) || []).length;
+    if (n <= 1) dead.push({ corpus, name, kind });
+  }
 }
 
-/* ── CSS classes ── */
+/* ── client ── */
+const html = fs.readFileSync('index.html', 'utf8');
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x => x[1]).filter(s => s.trim());
+const modSrcs = fs.existsSync('js')
+  ? fs.readdirSync('js').filter(f => f.endsWith('.js')).map(f => fs.readFileSync('js/' + f, 'utf8'))
+  : [];
+scanJS('client', inline.concat(modSrcs));
+
+/* ── server ── */
+scanJS('server', [fs.readFileSync('server.js', 'utf8')]);
+
+/* ── shell: POSIX function definitions name() { ── */
+const shellFiles = ['smoke.sh', 'check.sh'].filter(f => fs.existsSync(f));
+const shellSrc = shellFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+const shellFns = new Set();
+const fnRe = /(?:^|\n)[ \t]*([A-Za-z_][\w-]*)\s*\(\)\s*\{/g;
+while ((m = fnRe.exec(shellSrc))) shellFns.add(m[1]);
+counts.shell = shellFns.size;
+for (const name of shellFns) {
+  const n = (shellSrc.match(new RegExp('\\b' + name + '\\b', 'g')) || []).length;
+  if (n <= 1) dead.push({ corpus: 'shell', name, kind: 'fn' });
+}
+
+/* ── CSS ── */
 const classRe = /\.([a-zA-Z][\w-]*)/g;
 const cssBlock = html.slice(0, html.indexOf('</style>'));
 const cssClasses = new Set();
 while ((m = classRe.exec(cssBlock))) cssClasses.add(m[1]);
-// strip <style> from the searchable body so class names in CSS don't self-count;
-// module sources count too — post-split, renderers in js/*.js carry class names
+// searchable body = markup+JS after the style block plus module sources, so
+// class names living in CSS don't self-count and module renderers do count
 const body = html.slice(html.indexOf('</style>') + 8) + '\n' + modSrcs.join('\n');
+counts.css = cssClasses.size;
 const deadCSS = [...cssClasses].filter(c => !new RegExp('\\b' + c + '\\b').test(body));
 
-console.log('── dead JS symbols (' + deadJS.length + ' of ' + decls.size + ' scanned) ──');
-deadJS.sort((a, b) => a.line - b.line).forEach(d =>
-  console.log(String(d.line).padStart(5) + '  ' + d.kind.padEnd(3) + ' ' + d.name));
-console.log('── dead CSS classes (' + deadCSS.length + ' of ' + cssClasses.size + ') ──');
-console.log(deadCSS.sort().join(', '));
-
-/* CSS "dead classes" include font-provider URL fragments (googleapis,
-   gstatic, w3, org, com, media) — never treat them as findings */
-const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3']);
-const deadCSSReal = deadCSS.filter(c => !CSS_NOISE.has(c));
+/* report */
+const order = { client: 0, server: 1, shell: 2 };
+dead.sort((a, b) => order[a.corpus] - order[b.corpus] || (a.name < b.name ? -1 : 1));
+console.log('── corpus sizes: ' + counts.client + ' client symbols, ' +
+  counts.server + ' server symbols, ' + counts.shell + ' shell fns, ' +
+  counts.css + ' css classes ──');
+if (dead.length) {
+  console.log('── dead symbols ──');
+  dead.forEach(d => console.log('  ' + d.corpus.padEnd(7) + d.kind.padEnd(4) + d.name));
+}
+if (deadCSS.length) console.log('── dead CSS classes: ' + deadCSS.sort().join(', '));
 
 if (process.argv.includes('--check')) {
-  if (deadJS.length || deadCSSReal.length) {
-    console.error('DEAD CODE: ' + deadJS.map(d => d.name).concat(deadCSSReal).join(', '));
+  const names = dead.map(d => d.corpus + ':' + d.name).concat(deadCSSReal().map(c => 'css:' + c));
+  if (names.length) {
+    console.error('DEAD CODE: ' + names.join(', '));
     process.exit(1);
   }
-  console.log('deadscan --check: clean (' + decls.size + ' symbols, ' + cssClasses.size + ' classes)');
+  console.log('deadscan --check: clean (' + counts.client + ' client, ' +
+    counts.server + ' server, ' + counts.shell + ' shell, ' + counts.css + ' css)');
 }
+
+function deadCSSReal() { return deadCSS.filter(c => !CSS_NOISE.has(c)); }
