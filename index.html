@@ -1875,14 +1875,17 @@ function cometTick() {
       };
       c.puffs.coolRGB = rgbOf(PAL.tech);
       if (GAME.state === 'playing') {                     // sighting is an event
-        /* stargazer bonus — sky drama feeds the economy. Wave-scaled so it
-           stays a garnish (≈ an alloy pickup or two), banked into the run's
-           alloy, celebrated at the comet itself where you spotted it. */
+        /* stargazer bonus — sky drama feeds the economy, and STYLE pays:
+           grazeHeat (decays ~3s after your last near-miss) multiplies the
+           reward up to ×2, so the pilots who earned it are the ones flying
+           through the bullet curtain when the comet broke. */
         try {
-          const bonus = 15 + GAME.wave * 2;
+          const heat = clamp(GAME.grazeHeat || 0, 0, 1);
+          const style = 1 + heat;                          // ×1 … ×2
+          const bonus = Math.round((15 + GAME.wave * 2) * style);
           GAME.alloyRun += bonus;
-          float(c.x, c.y + 24, '+' + bonus + ' · stargazer', PAL.gold, 12);
-          note('Comet sighted — make a wish · +' + bonus + ' alloy', 'rare');
+          float(c.x, c.y + 24, '+' + bonus + (heat > .6 ? ' · blazing stargazer' : ' · stargazer'), PAL.gold, 12);
+          note('Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
           AU.sight();
         } catch (e) { }
       }
@@ -4080,6 +4083,7 @@ function collide() {
     if (!b.grazed && d2 < grazeR * grazeR) {
       b.grazed = true;
       GAME.grazes++;
+      GAME.grazeHeat = 3;                 // you are flying close to the fire
       addScore(Math.round(12 * P.grazeMul));
       GAME.comboT = Math.max(GAME.comboT, 1.4);
       AU.graze();
@@ -6292,6 +6296,7 @@ function startRun(mode) {
     score: 0, shown: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
+    grazeHeat: 0,
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
@@ -7472,6 +7477,7 @@ function stepGame(dt) {
   updateThreat(dt);
   if (GAME.comboT > 0) {
     GAME.comboT -= dt;
+  if (GAME.grazeHeat > 0) GAME.grazeHeat = Math.max(0, GAME.grazeHeat - dt / 3);
     if (GAME.comboT <= 0 && GAME.combo > 0) { GAME.combo = 0; GAME.mult = 1; }
   }
   if (GAME.lives <= 0 && GAME.state === 'playing') {
