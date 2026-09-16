@@ -1680,7 +1680,7 @@ function buildBackdrop() {
     }
     // craters: power-law sizes — many small, few large — each with a dark
     // floor, a sun-facing rim highlight, and an inner shadow on the far side
-    if (o.craters) for (let i = 0; i < 26; i++) {
+    if (o.craters) for (let i = 0; i < (o.craterN || 26); i++) {
       const a = rnd(0, TAU), d = Math.sqrt(Math.random()) * r * .96;
       const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
       const cr = r * (Math.pow(Math.random(), 2.2) * .13 + .012);
@@ -1731,9 +1731,9 @@ function buildBackdrop() {
       '22,36,74', '88,112,168', '40,60,110', '140,164,210'],
     stormA: '150,180,230', stormB: '26,40,84', lights: true, mareA: '24,38,74', mareB: '96,124,176'
   });
-  moon = buildPlanet(560, {
+  moon = buildPlanet(1200, {
     lit: '226,178,138', base: '110,74,60', dark: '20,14,16', rim: '255,190,140',
-    mareA: '60,40,38', mareB: '150,110,84', craters: true
+    mareA: '60,40,38', mareB: '150,110,84', craters: true, craterN: 64
   });
 
   dust = [];
@@ -1847,11 +1847,14 @@ function drawBackdrop(t) {
   ctx.globalAlpha = .92;
   ctx.drawImage(planet, -ps * .44, py - ps * .5, ps, ps);
   ctx.globalAlpha = 1;
-  // the moon — upper right, on its own faster lane
-  const ms = Math.max(130, Math.min(W, H) * .3);
-  const my = -ms * 1.3 + ((t * 6.5 + H * .3) % (H + ms * 3));
-  ctx.globalAlpha = .9;
-  ctx.drawImage(moon, W * .78 - ms / 2, my, ms, ms);
+  // the moon — a hemisphere arcing across the top third of the arena.
+  // Only its lower limb enters the frame; it hangs there in slow majesty,
+  // drifting a few percent over minutes. Behind the HUD, ahead of the stars.
+  const ms = Math.min(W, H) * 2.45;
+  const mx = W * .56 + Math.sin(t * .021) * W * .05;
+  const my = H * .36 - ms + Math.sin(t * .043) * H * .012;
+  ctx.globalAlpha = .95;
+  ctx.drawImage(moon, mx - ms / 2, my, ms, ms);
   ctx.globalAlpha = 1;
 
   // debris silhouettes
