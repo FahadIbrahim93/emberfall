@@ -516,12 +516,14 @@ body.needrotate #rotate{display:grid}
         <button class="tab on" data-tab="scores">Runs</button>
         <button class="tab" data-tab="roster">Threats</button>
         <button class="tab" data-tab="feats">Feats</button>
+        <button class="tab" data-tab="sky">Sky</button>
         <button class="tab" data-tab="global">Global</button>
       </div>
       <style id="boardModeStyle"></style>
         <div id="tab-scores"></div>
         <div id="tab-roster" class="roster hidden"></div>
         <div id="tab-feats" class="hidden"></div>
+        <div id="tab-sky" class="hidden"></div>
         <div id="tab-global" class="hidden">
           <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
           <div id="globalBody" class="hidden">
@@ -1141,6 +1143,7 @@ const META = {
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
+  skyLog: [],                // sky archive: every sighting {k, w, d, a, t, m}, newest kept
   dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
 };
 function loadMeta() {
@@ -1162,6 +1165,7 @@ META.sky.pyres = +s.sky.pyres || 0;
   if (s.refits) for (const r of REFITS) META.refits[r.id] = clamp(+s.refits[r.id] || 0, 0, r.max);
   if (s.feats && typeof s.feats === 'object') META.feats = s.feats;
   if (s.codex && typeof s.codex === 'object') META.codex = s.codex;
+  if (Array.isArray(s.skyLog)) META.skyLog = s.skyLog.slice(-60);
   META.school = !!s.school;
   if (s.dd && typeof s.dd === 'object') {
     META.dd.wave = +s.dd.wave || 0;
@@ -2179,6 +2183,7 @@ function cometTick() {
       c.ang = ang; c.tail = Math.max(W, H) * (c.gold ? rnd(.44, .54) : rnd(.3, .42));
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
+      c.paid = 0;                                         // spawn resets the ledger — a school comet must not log the previous sighting's pay
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
       if (GAME.state === 'playing') {                     // career sky log
         META.sky.comets++;
@@ -2215,8 +2220,10 @@ function cometTick() {
               ? 'A GOLDEN comet — wish big · +' + bonus + ' alloy'
               : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : '') + (chart > 1 ? ' ★' : ''), 'rare');
             if (c.gold) AU.golden(); else AU.sight();
+            c.paid = bonus;
           }
         } catch (e) { }
+        if (GAME.state === 'playing') logSighting(c.gold ? 'golden' : 'comet', c.paid);   // the archive keeps facts: paid 0 on school runs
       }
     }
     return;
@@ -2393,6 +2400,7 @@ function fleetTick() {
       if (GAME.state === 'playing') {                // career sky log
         META.sky.fleets++;
         GAME.skyRun.fleets++;
+        logSighting('fleet', 0);
         saveMeta();
       }
     }
@@ -2430,6 +2438,17 @@ function pyreWreck() {
   return c;
 }
 const pyre = { on: false, next: 40, last: 0, x: 0, y: 0, vx: 0, vy: 0, dur: 1, life: 0, rot: 0, rotA: 0, img: null, frags: [], glow: null };
+/* the sky archive — every sighting recorded across sessions: kind, wave,
+   difficulty, alloy it paid, when, which mode. Capped at 60 entries
+   (newest kept), persisted with the profile, cloud-merged as a union. */
+function logSighting(kind, paid) {
+  META.skyLog.push({
+    k: kind, w: Math.max(1, GAME.wave), d: CFG.diff,
+    a: paid || 0, t: Date.now(),
+    m: GAME.school ? 'school' : (GAME.mode || 'endless')
+  });
+  if (META.skyLog.length > 60) META.skyLog.splice(0, META.skyLog.length - 60);
+}
 function pyreTick() {
   const now = performance.now() / 1000;
   const dt = Math.min(.1, now - (pyre.last || now)); pyre.last = now;
@@ -2456,6 +2475,7 @@ function pyreTick() {
       if (GAME.state === 'playing') {                // career sky log
         META.sky.pyres++;
         GAME.skyRun.pyres++;
+        logSighting('pyre', 0);
         saveMeta();
       }
       if (GAME.state === 'playing') {                // sighting is an event
@@ -6416,6 +6436,16 @@ const NET = {
           META.sky[k] = Math.max(META.sky[k] || 0, +sMeta.sky[k] || 0);   // sky career counters travel with the account
         if (sMeta.codex && typeof sMeta.codex === 'object')
           META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
+        if (Array.isArray(sMeta.skyLog)) {
+          // sky archive: union by timestamp+kind so merged devices interleave
+          const seen = new Set(META.skyLog.map(e => e.t + ':' + e.k));
+          for (const e of sMeta.skyLog) {
+            const key = (e && e.t) + ':' + (e && e.k);
+            if (!seen.has(key)) { META.skyLog.push(e); seen.add(key); }
+          }
+          META.skyLog.sort((a, b) => a.t - b.t);
+          if (META.skyLog.length > 60) META.skyLog.splice(0, META.skyLog.length - 60);
+        }
         saveMeta();
       }
       if (srv.cfg && typeof srv.cfg === 'object') {
@@ -6674,11 +6704,46 @@ function renderFeats() {
         '<span class="sc" style="' + (got ? '' : 'color:var(--dimmer)') + '">' + (got ? 'done' : '—') + '</span></div>';
     }).join('');
 }
+/* the Registry's Sky tab — the archive, newest first, with the career
+   totals re-derived from the log so the ledger always sums honestly */
+function renderSkyLog() {
+  const box = $('tab-sky');
+  /* explicit newest-first sort: appends are chronological and the merge
+     sorts, but a skewed device clock must not scramble the ledger */
+  const rows = META.skyLog.slice().sort((a, b) => b.t - a.t);
+  const KIND = {
+    comet: ['Comet', 'var(--amber)'],
+    golden: ['Golden comet', 'var(--gold)'],
+    fleet: ['Graveyard fleet', 'rgb(155,107,255)'],
+    pyre: ['Falling pyre', 'rgb(255,150,70)']
+  };
+  const when = t => {
+    const d = new Date(t), days = (Date.now() - t) / 864e5;
+    if (days < 1) return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    if (days < 7) return Math.ceil(days) + 'd ago';
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  };
+  const head = '<div class="empty" style="padding:0 0 12px">' +
+    META.sky.comets + ' comets · ' + META.sky.golden + ' golden · ' +
+    META.sky.fleets + ' fleets · ' + META.sky.pyres + ' pyres' +
+    ' — newest 60 kept</div>';
+  if (!rows.length) { box.innerHTML = head + '<div class="empty">The sky has been quiet. It will not stay that way.</div>'; return; }
+  box.innerHTML = head + rows.map(e => {
+    const kind = KIND[e.k] || KIND.comet;
+    return '<div class="row" style="grid-template-columns:1fr auto auto">' +
+      '<span class="nm" style="color:' + kind[1] + '">' + kind[0] +
+      ' <span style="color:var(--dimmer);font-size:.6rem">W' + pad2(e.w) + ' · ' +
+      ((DIFF[e.d] || DIFF[1]).name) + (e.m && e.m !== 'endless' ? ' · ' + e.m : '') + '</span></span>' +
+      '<span class="wv">' + when(e.t) + '</span>' +
+      '<span class="sc">' + (e.a ? '+' + fmt(e.a) : '—') + '</span></div>';   // school/pyre/fleet paid nothing — an honest dash
+  }).join('');
+}
 function switchTab(name) {
   $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
-  ['scores', 'roster', 'feats', 'global'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
+  ['scores', 'roster', 'feats', 'sky', 'global'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
   if (name === 'roster') renderRoster();
   if (name === 'feats') renderFeats();
+  if (name === 'sky') renderSkyLog();
   if (name === 'scores') renderBoard($('tab-scores'), boardMode(), null);
   if (name === 'global') NET.renderGlobal();
 }
