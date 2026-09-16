@@ -1140,7 +1140,7 @@ const META = {
   alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
-  sky: { comets: 0, golden: 0, fleets: 0, pyres: 0 },
+  sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
   skyLog: [],                // sky archive: every sighting {k, w, d, a, t, m}, newest kept
@@ -1157,7 +1157,9 @@ function loadMeta() {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
     META.sky.fleets = +s.sky.fleets || 0;
-META.sky.pyres = +s.sky.pyres || 0;
+    META.sky.pyres = +s.sky.pyres || 0;
+    META.sky.streakCur = +s.sky.streakCur || 0;
+    META.sky.streakBest = +s.sky.streakBest || 0;
   }
   if (Array.isArray(s.owned)) META.owned = s.owned.filter(id => HULLS.some(h => h.id === id));
   if (!META.owned.includes('vesper')) META.owned.push('vesper');
@@ -1248,7 +1250,8 @@ const FEATS = [
   { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5, prog: () => [META.sky.comets, 5] },
   { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1, prog: () => [META.sky.golden, 1] },
   { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] },
-  { id: 'serialwish', name: 'Serial wisher', desc: 'Bank 10 comet bonuses — earns the STAR CHART: every comet pays +50% alloy, forever.', check: s => s.sky && s.sky.comets >= 10, prog: () => [META.sky.comets, 10] }
+  { id: 'serialwish', name: 'Serial wisher', desc: 'Bank 10 comet bonuses — earns the STAR CHART: every comet pays +50% alloy, forever.', check: s => s.sky && s.sky.comets >= 10, prog: () => [META.sky.comets, 10] },
+  { id: 'skystreak', name: 'Sky-touched', desc: 'Sight a comet in 5 consecutive runs.', check: s => s.sky && (s.sky.streakBest || 0) >= 5, prog: () => [Math.min(META.sky.streakBest || 0, 5), 5] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -6432,7 +6435,7 @@ const NET = {
           META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
         }
         if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
-        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets', 'pyres'])
+        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets', 'pyres', 'streakCur', 'streakBest'])
           META.sky[k] = Math.max(META.sky[k] || 0, +sMeta.sky[k] || 0);   // sky career counters travel with the account
         if (sMeta.codex && typeof sMeta.codex === 'object')
           META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
@@ -6952,6 +6955,14 @@ function endRun() {
   META.alloy += earned;
   if (!GAME.school) META.runs++;
   META.totalKills += GAME.kills;
+  /* the comet streak — consecutive COMPLETED runs with a sighting.
+     Practice runs are invisible: they neither extend nor break it. */
+  if (!GAME.school) {
+    if (GAME.skyRun.comets > 0) {
+      META.sky.streakCur++;
+      META.sky.streakBest = Math.max(META.sky.streakBest, META.sky.streakCur);
+    } else META.sky.streakCur = 0;
+  }
 
   const summary = {
     score: GAME.score, wave: GAME.wave, kills: GAME.kills, shots: GAME.shots,
@@ -7913,7 +7924,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, streakBest: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
