@@ -6990,17 +6990,27 @@ function endRun() {
   $('ovGraze').textContent = fmt(GAME.grazes);
   $('ovAlloy').textContent = fmt(earned);
   $('ovFlag').classList.toggle('hidden', !GAME.bestFlagged);
-  /* the sky watch — what the heavens did during this run, and what it paid */
+  /* the sky watch — what the heavens did during this run, and what it paid.
+     Sightings get the violet band; a truly silent sky gets a rare gray
+     whisper (regular runs only — school summaries stay clean). */
   {
     const s = GAME.skyRun;
     const parts = [];
     if (s.comets) parts.push(s.comets + (s.comets === 1 ? ' comet' : ' comets') + (s.goldens ? ' (' + s.goldens + ' golden)' : ''));
     if (s.fleets) parts.push(s.fleets + (s.fleets === 1 ? ' fleet' : ' fleets'));
     if (s.pyres) parts.push(s.pyres + (s.pyres === 1 ? ' pyre' : ' pyres'));
-    /* school runs are practice — a clean summary, the sky watched nothing */
-    const show = parts.length > 0 && !GAME.school;
-    $('ovSky').classList.toggle('hidden', !show);
-    if (show) $('ovSkyTxt').textContent = parts.join(' · ') + ' — ' + fmt(s.alloy) + ' alloy from the sky';
+    const el = $('ovSky');
+    if (GAME.school) el.classList.add('hidden');               // practice runs never speak of the sky
+    else if (parts.length) {
+      el.classList.remove('hidden');
+      el.querySelector('b').style.color = '';                  // default violet for real sightings
+      $('ovSkyTxt').textContent = parts.join(' · ') +
+        (s.alloy ? ' — ' + fmt(s.alloy) + ' alloy from the sky' : '');   // fleets alone paid nothing; don't say "0 alloy"
+    } else {
+      el.classList.remove('hidden');                           // the rare gray whisper
+      el.querySelector('b').style.color = 'var(--dimmer)';
+      $('ovSkyTxt').textContent = 'The sky was silent.';
+    }
   }
   /* the assist owns its confession: shown only when it actually eased
      something this run, with the wave where it kicked in */
