@@ -892,7 +892,8 @@ const REFITS = [
 const META = {
   alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
-  feats: {}, runs: 0, totalKills: 0, bestWave: 0
+  feats: {}, runs: 0, totalKills: 0, bestWave: 0,
+  sky: { comets: 0, golden: 0, fleets: 0 }
 };
 function loadMeta() {
   const s = DB.get('meta', null);
@@ -901,6 +902,11 @@ function loadMeta() {
   META.runs = +s.runs || 0;
   META.totalKills = +s.totalKills || 0;
   META.bestWave = +s.bestWave || 0;
+  if (s.sky && typeof s.sky === 'object') {
+    META.sky.comets = +s.sky.comets || 0;
+    META.sky.golden = +s.sky.golden || 0;
+    META.sky.fleets = +s.sky.fleets || 0;
+  }
   if (Array.isArray(s.owned)) META.owned = s.owned.filter(id => HULLS.some(h => h.id === id));
   if (!META.owned.includes('vesper')) META.owned.push('vesper');
   META.ship = META.owned.includes(s.ship) ? s.ship : 'vesper';
@@ -980,7 +986,8 @@ const FEATS = [
   { id: 'emp', name: 'Hard reboot', desc: 'Take an EMP hit and still clear the wave.', check: s => s.emp === true },
   { id: 'ghost', name: 'Haunted', desc: 'Beat your own daily ghost.', check: s => s.ghostBeat === true },
   { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true },
-  { id: 'wish', name: 'Wish granted', desc: 'Spot a golden comet.', check: s => s.gold === true }
+  { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5 },
+  { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1 }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1883,6 +1890,11 @@ function cometTick() {
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
+      if (GAME.state === 'playing') {                     // career sky log
+        META.sky.comets++;
+        if (c.gold) META.sky.golden++;
+        saveMeta();
+      }
       c.puffs = c.gold
         ? { warm: cometPuff('255,214,110'), cool: cometPuff('255,186,86'), core: cometPuff('255,248,226'), coolRGB: '255,214,110' }
         : { warm: cometPuff('255,224,178'), cool: cometPuff(rgbOf(PAL.tech)), core: cometPuff('255,250,242') };
@@ -2076,6 +2088,10 @@ function fleetTick() {
       f.ember = FX.chance(.6) ? FX.int(0, kinds.length - 1) : -1;
       f.on = true;
       f.next = 240 + rnd(-60, 60);                   // next fleet in ~4 min
+      if (GAME.state === 'playing') {                // career sky log
+        META.sky.fleets++;
+        saveMeta();
+      }
     }
     return;
   }
@@ -6375,7 +6391,8 @@ function endRun() {
     maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
     boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true,
     ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
-    gold: GAME.goldSighted === true
+    gold: GAME.goldSighted === true,
+    sky: META.sky
   };
   const newFeats = [];
   for (const f of FEATS) {
@@ -7294,7 +7311,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
