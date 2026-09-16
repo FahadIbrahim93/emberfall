@@ -1,4 +1,4 @@
-# EMBERFALL v3.3 — Orbital Intercept
+# EMBERFALL v3.4 — Orbital Intercept
 
 A single-file, zero-dependency orbital intercept shooter. Everything — art, music, sound — is generated procedurally at runtime. No build step, no assets to download, no network needed after first paint.
 

@@ -539,7 +539,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.3</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.4</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -734,7 +734,7 @@ body.needrotate #rotate{display:grid}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.3 — single-file orbital intercept shooter, Provenance
+   EMBERFALL v3.4 — single-file orbital intercept shooter, Provenance
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -1856,6 +1856,9 @@ function cometTick() {
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
+      if (GAME.state === 'playing') {                     // sighting is an event
+        try { note('Comet sighted — make a wish', 'rare'); AU.pickup(); } catch (e) { }
+      }
     }
     return;
   }
@@ -5016,15 +5019,32 @@ function drawFoe(e) {
 
   emit(SPR.foe, e.x, e.y - e.r * .5, e.boss ? e.r * 1.4 : e.r * 1.1, e.boss ? .45 : .3);
 
-  // v3: drop light onto the field under big ships — a glow pool, not a lamp
+  // light pool under big ships — a soft radial falloff that fades to
+  // nothing (a flat additive ellipse reads as a hard red disc at boss scale)
   if (e.boss || e.r >= 20) {
+    const fury = e.boss && !e.dying && e.hp / e.maxHp < .25;
+    const rx = e.r * (fury ? 2.1 : 1.9), a = (e.boss ? .1 : .06) * (fury ? 1.35 : 1);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = rgba(e.col, e.boss ? .1 : .07);
-    ctx.beginPath();
-    ctx.ellipse(e.x, e.y + e.r * .8, e.r * 2.6, e.r * 1.1, 0, 0, TAU);
-    ctx.fill();
+    ctx.translate(e.x, e.y + e.r * .7);
+    ctx.scale(1, .42);
+    const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    pg.addColorStop(0, rgba(e.col, a));
+    pg.addColorStop(.55, rgba(e.col, a * .4));
+    pg.addColorStop(1, rgba(e.col, 0));
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(0, 0, rx, 0, TAU); ctx.fill();
     ctx.restore();
+    // fury: a wounded capital pulses a warning ring as it burns
+    if (fury) {
+      const k = .5 + .5 * Math.sin(e.t * 6);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(e.col, .12 + k * .22);
+      ctx.lineWidth = 2 + k * 1.5;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 5 + k * 4, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
   }
 
   if (e.shielded > 0) {
@@ -6911,6 +6931,7 @@ const OUTBOX = {
     return NET.submitScore(head.mode, head.score, head.wave, head.ship, head.diff,
       { runT: head.runT, kills: head.kills, cps: head.cps })
       .then(r => {
+        if (!r) return 0;                      // deck vanished mid-drain — retry later
         const rest = this.load().filter(e => e.at !== head.at);
         this.save(rest);
         try {
