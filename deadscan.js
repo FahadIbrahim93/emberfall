@@ -1,17 +1,25 @@
 #!/usr/bin/env node
-/* deadscan.js — anti-bloat scanner for EMBERFALL's single-file codebase.
-   Extracts the <script> payload from index.html, finds declarations whose
-   name has no other reference (word-boundary, whole-file), and lists CSS
-   classes that appear nowhere in markup or JS. String-indirection safe:
-   DOM ids/classes and eval-ish use still count as references.
+/* deadscan.js — anti-bloat scanner for EMBERFALL (inline core + js/*.js modules).
+   Extracts every inline <script> payload and every module, finds declarations
+   whose name has no other reference anywhere in that universe (word-boundary,
+   whole-corpus), and lists CSS classes that appear nowhere in markup, JS or
+   modules. String-indirection safe: DOM ids/classes and eval-ish use still
+   count as references. */
 
    CI mode: `node deadscan.js --check` exits 1 when TRUE-positive dead
    symbols exist. Known false positives ($/$$ single-char identifiers the
    word-boundary regex cannot tokenize, and font-provider URL fragments in
    CSS) live on an allowlist so the battery stays green by default. */
-const fs = require('fs');
-const html = fs.readFileSync('index.html', 'utf8');
-const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
+const fs = require('fs');const html = fs.readFileSync('index.html', 'utf8');
+
+/* Symbol universe = every inline <script> payload + every js/*.js module
+   (post-split, code referenced only across the file boundary must count). */
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(s => s.trim());
+const modFiles = fs.existsSync('js')
+  ? fs.readdirSync('js').filter(f => f.endsWith('.js')).map(f => 'js/' + f)
+  : [];
+const modSrcs = modFiles.map(f => fs.readFileSync(f, 'utf8'));
+const script = inline.concat(modSrcs).join('\n');
 
 /* reviewed 2026-09-17: not dead — '$'/'$$' are the DOM helpers and the
    regex cannot match a bare sigil with \b; every other past finding was
@@ -41,8 +49,9 @@ const classRe = /\.([a-zA-Z][\w-]*)/g;
 const cssBlock = html.slice(0, html.indexOf('</style>'));
 const cssClasses = new Set();
 while ((m = classRe.exec(cssBlock))) cssClasses.add(m[1]);
-// strip <style> from the searchable body so class names in CSS don't self-count
-const body = html.slice(html.indexOf('</style>') + 8);
+// strip <style> from the searchable body so class names in CSS don't self-count;
+// module sources count too — post-split, renderers in js/*.js carry class names
+const body = html.slice(html.indexOf('</style>') + 8) + '\n' + modSrcs.join('\n');
 const deadCSS = [...cssClasses].filter(c => !new RegExp('\\b' + c + '\\b').test(body));
 
 console.log('── dead JS symbols (' + deadJS.length + ' of ' + decls.size + ' scanned) ──');
