@@ -1856,6 +1856,12 @@ function cometTick() {
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
+      c.puffs = {                                          // soft stamps, palette-aware
+        warm: cometPuff('255,224,178'),
+        cool: cometPuff(rgbOf(PAL.tech)),
+        core: cometPuff('255,250,242')
+      };
+      c.puffs.coolRGB = rgbOf(PAL.tech);
       if (GAME.state === 'playing') {                     // sighting is an event
         try { note('Comet sighted — make a wish', 'rare'); AU.pickup(); } catch (e) { }
       }
@@ -1865,46 +1871,87 @@ function cometTick() {
   c.x += c.vx * dt; c.y += c.vy * dt; c.life -= dt;
   if (c.life <= 0 || c.x < -180 || c.x > W + 180 || c.y < -180 || c.y > H + 180) c.on = false;
 }
+/* soft radial stamp — the comet is built from layered puffs of this, so
+   every edge fades to nothing (the old flat wedges + bloom read as a bar) */
+function cometPuff(rgb) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  rg.addColorStop(0, 'rgba(' + rgb + ',1)');
+  rg.addColorStop(.4, 'rgba(' + rgb + ',.45)');
+  rg.addColorStop(1, 'rgba(' + rgb + ',0)');
+  g.fillStyle = rg; g.fillRect(0, 0, 64, 64);
+  return c;
+}
 function drawComet(t) {
   const c = comet;
-  if (!c.on) return;
-  const a = Math.min(1, (c.dur - c.life) * .8, c.life * 1.2) * .9;   // ease in/out
-  const ta = Math.atan2(c.y - H * .08, c.x - W * .05);   // tail: away from the sun
+  if (!c.on || !c.puffs) return;
+  const a = Math.min(1, (c.dur - c.life) * .8, c.life * 1.2);   // ease in/out
+  if (a <= 0) return;
+  // tail axis: anti-sunward, blended toward anti-velocity so the tail
+  // feels like it LAGS behind the body, with a slow solar-wind flap
+  const sunAx = Math.atan2(c.y - H * .08, c.x - W * .05);
+  const velAx = Math.atan2(c.vy, c.vx);
+  const ax = sunAx + angDiff(velAx, sunAx) * .35;
   const L = c.tail;
   ctx.save();
-  ctx.translate(c.x, c.y); ctx.rotate(ta);
+  ctx.translate(c.x, c.y); ctx.rotate(ax);
   ctx.globalCompositeOperation = 'lighter';
-  // dust tail — broad, warm, gently curved
-  let g = ctx.createLinearGradient(0, 0, L, 0);
-  g.addColorStop(0, 'rgba(255,236,200,' + (.34 * a).toFixed(3) + ')');
-  g.addColorStop(.25, 'rgba(255,214,160,' + (.16 * a).toFixed(3) + ')');
-  g.addColorStop(1, 'rgba(255,214,160,0)');
-  ctx.fillStyle = g;
+  const wob = Math.sin(t * .9 + c.seed);
+  // dust tail — broad, warm: puffs widen and curve away, fading to nothing
+  for (let i = 0; i < 11; i++) {
+    const s = (i + 1) / 11;
+    const w = 20 + s * 115;
+    const dx = s * L * .78, dy = s * s * L * .075 + wob * s * 6;
+    ctx.globalAlpha = Math.max(0, a * .17 * (1 - s) * (1 - s * .35));
+    ctx.drawImage(c.puffs.warm, dx - w / 2, dy - w / 2, w, w);
+  }
+  // ion tail — straighter, cooler, flapping in the solar wind
+  const flap = s2 => Math.sin(s2 * 5.2 - t * 2.1 + c.seed) * L * .018 * s2;
+  for (let i = 0; i < 13; i++) {
+    const s = (i + 1) / 13;
+    const w = 10 + s * 42;
+    const dx = s * L * .88, dy = -s * s * L * .03 + flap(s) * 2;
+    ctx.globalAlpha = Math.max(0, a * .2 * (1 - s));
+    ctx.drawImage(c.puffs.cool, dx - w / 2, dy - w / 2, w, w);
+  }
+  // striations — faint filaments inside the ion tail
+  ctx.strokeStyle = 'rgba(' + c.puffs.coolRGB + ',1)';
+  ctx.lineWidth = 1.1;
+  for (let k = -1; k <= 1; k++) {
+    ctx.globalAlpha = a * .1;
+    ctx.beginPath();
+    for (let i2 = 0; i2 <= 8; i2++) {
+      const s = i2 / 8;
+      const dx = s * L * .85, dy = -s * s * L * .03 + flap(s) * 2 + k * (2 + s * 10);
+      if (i2 === 0) ctx.moveTo(dx, dy); else ctx.lineTo(dx, dy);
+    }
+    ctx.stroke();
+  }
+  // dust grains — sparks riding the dust curve, twinkling
+  ctx.fillStyle = 'rgba(255,232,196,1)';
+  for (let i = 0; i < 8; i++) {
+    const s = .2 + (i / 8) * .75;
+    const tw = .5 + .5 * Math.sin(t * 7 + i * 2.3 + c.seed);
+    ctx.globalAlpha = Math.max(0, a * .3 * tw * (1 - s));
+    ctx.fillRect(s * L * .78 + Math.sin(i * 9.7) * 8, s * s * L * .075 + wob * s * 6 + Math.cos(i * 5.1) * 8, 1.6, 1.6);
+  }
+  // coma — layered: faint cool halo, warm glow, brilliant core
+  ctx.globalAlpha = a * .5;
+  ctx.drawImage(c.puffs.cool, -30, -30, 60, 60);
+  ctx.globalAlpha = a * .8;
+  ctx.drawImage(c.puffs.warm, -17, -17, 34, 34);
+  ctx.globalAlpha = a;
+  ctx.drawImage(c.puffs.core, -8, -8, 16, 16);
+  // bow shock — a faint compression arc on the sunward side
+  const sunLocal = sunAx - ax;
+  ctx.globalAlpha = a * .16;
+  ctx.strokeStyle = 'rgba(' + c.puffs.coolRGB + ',1)';
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(6, -3);
-  ctx.quadraticCurveTo(L * .5, -L * .05, L, -L * .02);
-  ctx.lineTo(L, L * .03);
-  ctx.quadraticCurveTo(L * .5, L * .075, 6, 3);
-  ctx.closePath(); ctx.fill();
-  // ion tail — thinner, cooler, split slightly off-axis (real comets carry two)
-  g = ctx.createLinearGradient(0, 0, L * .8, 0);
-  g.addColorStop(0, 'rgba(150,220,255,' + (.4 * a).toFixed(3) + ')');
-  g.addColorStop(1, 'rgba(150,220,255,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(4, -2);
-  ctx.quadraticCurveTo(L * .45, -L * .085, L * .8, -L * .1);
-  ctx.lineTo(L * .8, -L * .055);
-  ctx.quadraticCurveTo(L * .45, -L * .02, 4, 2);
-  ctx.closePath(); ctx.fill();
-  // nucleus — a bright seed with a soft coma
-  const ng = ctx.createRadialGradient(0, 0, 0, 0, 0, 13);
-  ng.addColorStop(0, 'rgba(255,248,230,' + (.9 * a).toFixed(3) + ')');
-  ng.addColorStop(.35, 'rgba(255,226,180,' + (.4 * a).toFixed(3) + ')');
-  ng.addColorStop(1, 'rgba(255,226,180,0)');
-  ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,245,' + ((.65 + .3 * Math.sin(t * 9 + c.seed)) * a).toFixed(3) + ')';
-  ctx.beginPath(); ctx.arc(0, 0, 2.1, 0, TAU); ctx.fill();
+  ctx.arc(Math.cos(sunLocal) * 6, Math.sin(sunLocal) * 6, 13, sunLocal - 1.1, sunLocal + 1.1);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 let warp = 0; // 0..1, how stretched the starfield is
