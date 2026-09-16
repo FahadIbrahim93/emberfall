@@ -1219,9 +1219,9 @@ function takeBoon(b) {
 /* ─────────────────────────── feats (achievements) ─────────────────────────── */
 const FEATS = [
   { id: 'first', name: 'First contact', desc: 'Finish a run.', check: s => true },
-  { id: 'w5', name: 'Gatecrasher', desc: 'Reach wave 5.', check: s => s.wave >= 5 },
-  { id: 'w10', name: 'Deep range', desc: 'Reach wave 10.', check: s => s.wave >= 10 },
-  { id: 'w20', name: 'Long dark', desc: 'Reach wave 20.', check: s => s.wave >= 20 },
+  { id: 'w5', name: 'Gatecrasher', desc: 'Reach wave 5.', check: s => s.wave >= 5, prog: () => [Math.min(META.bestWave, 5), 5] },
+  { id: 'w10', name: 'Deep range', desc: 'Reach wave 10.', check: s => s.wave >= 10, prog: () => [Math.min(META.bestWave, 10), 10] },
+  { id: 'w20', name: 'Long dark', desc: 'Reach wave 20.', check: s => s.wave >= 20, prog: () => [Math.min(META.bestWave, 20), 20] },
   { id: 'boss1', name: 'Dreadnought down', desc: 'Kill any capital ship.', check: s => s.bosses >= 1 },
   { id: 'boss3', name: 'Three hulls short', desc: 'Kill three capital ships in one run.', check: s => s.bosses >= 3 },
   { id: 'combo25', name: 'Chain reaction', desc: 'Hold a ×5 combo.', check: s => s.maxMult >= 5 },
@@ -1231,7 +1231,7 @@ const FEATS = [
   { id: 'nobomb', name: 'Cold nerve', desc: 'Reach wave 8 without firing a pulse.', check: s => s.wave >= 8 && s.bombsUsed === 0 },
   { id: 'score100k', name: 'Six figures', desc: 'Score 100,000 in one run.', check: s => s.score >= 100000 },
   { id: 'wraith', name: 'অপার্থিব', desc: 'Reach wave 10 flying the Wraith.', check: s => s.wave >= 10 && s.ship === 'wraith' },
-  { id: 'nightmare', name: 'Nightmare fuel', desc: 'Reach wave 10 on Nightmare.', check: s => s.wave >= 10 && s.diff === 3 },
+  { id: 'nightmare', name: 'Nightmare fuel', desc: 'Reach wave 10 on Nightmare.', check: s => s.wave >= 10 && s.diff === 4 },   // diff 3 is Ace since Cozy joined the ladder
   { id: 'boons3', name: 'Blessed thrice', desc: 'Hold three boons in one run.', check: s => (s.boons || 0) >= 3 },
   { id: 'warden', name: 'Warden slayer', desc: 'Destroy the Gate Warden.', check: s => s.warden === true },
   { id: 'emp', name: 'Hard reboot', desc: 'Take an EMP hit and still clear the wave.', check: s => s.emp === true },
@@ -6272,6 +6272,8 @@ const NET = {
           META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
         }
         if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
+        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets'])
+          META.sky[k] = Math.max(META.sky[k] || 0, +sMeta.sky[k] || 0);   // sky career counters travel with the account
         if (sMeta.codex && typeof sMeta.codex === 'object')
           META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
         saveMeta();
@@ -6519,14 +6521,17 @@ function renderFeats() {
   box.innerHTML = '<div class="empty" style="padding:0 0 12px">' + done + ' of ' + FEATS.length + ' earned</div>' +
     FEATS.map(f => {
       const got = !!META.feats[f.id];
-      // career feats can carry prog(): [current, goal] straight from the
-      // same counters their check reads — progress lives with the feat
+      // career feats carry prog(): [current, goal] straight from the same
+      // counters their check reads — progress lives with the feat
       const prog = !got && f.prog ? f.prog() : null;
+      if (prog) prog[0] = Math.min(prog[0], prog[1]);   // 2/1 reads wrong — clamp at the goal
+      const sub = prog
+        ? '<span style="color:var(--gold)">' + prog[0] + '/' + prog[1] + '</span> · ' + esc(f.desc)
+        : esc(f.desc);
       return '<div class="row" style="grid-template-columns:1fr auto">' +
         '<span class="nm" style="' + (got ? 'color:var(--ink)' : 'color:var(--dimmer)') + '">' +
-        esc(f.name) + '<br><span style="font-size:.62rem;color:var(--dim)">' + esc(f.desc) + '</span></span>' +
-        '<span class="sc" style="' + (got ? '' : prog ? 'color:var(--gold)' : 'color:var(--dimmer)') + '">' +
-        (got ? 'done' : prog ? prog[0] + '/' + prog[1] : '—') + '</span></div>';
+        esc(f.name) + '<br><span style="font-size:.62rem;color:var(--dim)">' + sub + '</span></span>' +
+        '<span class="sc" style="' + (got ? '' : 'color:var(--dimmer)') + '">' + (got ? 'done' : '—') + '</span></div>';
     }).join('');
 }
 function switchTab(name) {
@@ -7690,7 +7695,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
@@ -7769,18 +7774,21 @@ function runSelfTests() {
     const snap = JSON.stringify(META), savedT = DB.get('meta.updated', 0);
     META.alloy = 100; META.owned = ['vesper']; META.ship = 'vesper';
     META.refits = { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 };
-    META.feats = {};
+    META.feats = {}; META.sky = { comets: 0, golden: 0, fleets: 0 };
     DB.set('meta.updated', 1000);
     NET.mergeProfile({ updated: 500, data: { meta: { alloy: 9999 } } });
     eq(META.alloy, 100, 'stale server profile is ignored');
     NET.mergeProfile({ updated: 2000, data: { meta: {
       alloy: 555, owned: ['vesper', 'halcyon'], refits: { plating: 2 },
-      feats: { tfx: 1 }, ship: 'halcyon'
+      feats: { tfx: 1 }, ship: 'halcyon',
+      sky: { comets: 7, golden: 2, fleets: 3 }
     } } });
     eq(META.alloy, 555, 'alloy raised to cloud value');
     ok(META.owned.includes('halcyon'), 'cloud hull unlocked');
     eq(META.refits.plating, 2, 'cloud refit merged');
     ok(META.feats.tfx, 'cloud feat merged');
+    eq(META.sky.comets, 7, 'cloud sky comets merged');
+    eq(META.sky.golden, 2, 'cloud sky golden merged');
     eq(META.ship, 'halcyon', 'ship follows cloud');
     Object.assign(META, JSON.parse(snap)); DB.set('meta.updated', savedT); saveMeta();
   });
