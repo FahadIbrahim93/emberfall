@@ -7050,9 +7050,32 @@ function endRun() {
   $('ovAssist').classList.toggle('hidden', !(DDA.on && DDA.note));
   if (DDA.on && DDA.note) $('ovAssistTxt').textContent =
     'The hostiles eased up after wave ' + DDA.noteWave + '. Fly the corridor at your pace.';
-  $('overEyebrow').textContent = GAME.mode === 'daily' ? 'Daily run complete'
-    : GAME.mode === 'rush' ? 'Boss rush — ' + fmt(Math.round(GAME.rushClock)) + 's'
-    : 'Signal lost';
+  /* the closing line — variant narrator lines keyed by how the run ended,
+     never repeating the last one. Cause beats poetry: school completions,
+     cleared rushes, and grind deaths each get their own register. */
+  const whisperOf = arr => {
+    let i = FX.int(0, arr.length - 1);
+    if (arr.length > 1 && arr[i] === whisperOf.last) i = (i + 1) % arr.length;
+    whisperOf.last = arr[i];
+    return arr[i];
+  };
+  let headline, eyebrow;
+  if (GAME.school) {
+    headline = 'School complete';
+    eyebrow = 'Flight school';
+  } else if (GAME.mode === 'rush') {
+    headline = GAME.rushCleared ? 'The gauntlet falls' : 'The gauntlet holds';
+    eyebrow = 'Boss rush — ' + fmt(Math.round(GAME.rushClock)) + 's';
+  } else {
+    eyebrow = GAME.mode === 'daily' ? 'Daily run complete' : 'Signal lost';
+    headline = whisperOf(GAME.wave >= 10
+      ? ['The corridor goes quiet', 'Deep range, deeper silence', 'The long dark takes you']
+      : GAME.mode === 'daily'
+        ? ['The seed is spent', 'Run complete', 'Gauntlet concluded']
+        : ['Hull destroyed', 'The hull gives out', 'Lost in the ember-fall', 'The corridor claims another']);
+  }
+  $('overH').textContent = headline;
+  $('overEyebrow').textContent = eyebrow;
 
   const ub = $('unlocks');
   ub.innerHTML = newFeats.map(f =>
