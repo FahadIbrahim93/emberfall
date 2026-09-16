@@ -1875,7 +1875,16 @@ function cometTick() {
       };
       c.puffs.coolRGB = rgbOf(PAL.tech);
       if (GAME.state === 'playing') {                     // sighting is an event
-        try { note('Comet sighted — make a wish', 'rare'); AU.sight(); } catch (e) { }
+        /* stargazer bonus — sky drama feeds the economy. Wave-scaled so it
+           stays a garnish (≈ an alloy pickup or two), banked into the run's
+           alloy, celebrated at the comet itself where you spotted it. */
+        try {
+          const bonus = 15 + GAME.wave * 2;
+          GAME.alloyRun += bonus;
+          float(c.x, c.y + 24, '+' + bonus + ' · stargazer', PAL.gold, 12);
+          note('Comet sighted — make a wish · +' + bonus + ' alloy', 'rare');
+          AU.sight();
+        } catch (e) { }
       }
     }
     return;
