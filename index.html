@@ -717,6 +717,9 @@ body.needrotate #rotate{display:grid}
     <div id="ovAssist" class="unlock hidden" style="border-color:rgba(125,255,184,.4);background:rgba(125,255,184,.08)">
     <b>Flight assist</b><span id="ovAssistTxt"></span>
   </div>
+  <div id="ovSky" class="unlock hidden" style="border-color:rgba(155,107,255,.4);background:rgba(155,107,255,.08)">
+    <b>Sky watch</b><span id="ovSkyTxt"></span>
+  </div>
   <div id="ovSchool" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)"></div>
   <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
@@ -2180,6 +2183,8 @@ function cometTick() {
       if (GAME.state === 'playing') {                     // career sky log
         META.sky.comets++;
         if (c.gold) META.sky.golden++;
+        GAME.skyRun.comets++;                             // per-run log for the summary
+        if (c.gold) GAME.skyRun.goldens++;
         saveMeta();
       }
       c.puffs = c.gold
@@ -2201,6 +2206,7 @@ function cometTick() {
             const chart = META.sky.comets >= 10 ? 1.5 : 1;
             const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style * chart);
             GAME.alloyRun += bonus;
+            GAME.skyRun.alloy += bonus;                    // the summary itemizes what the sky paid
             if (c.gold) GAME.goldSighted = true;
             float(c.x, c.y + 24,
               '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer') + (chart > 1 ? ' ★' : ''),
@@ -2386,6 +2392,7 @@ function fleetTick() {
       f.next = 240 + rnd(-60, 60);                   // next fleet in ~4 min
       if (GAME.state === 'playing') {                // career sky log
         META.sky.fleets++;
+        GAME.skyRun.fleets++;
         saveMeta();
       }
     }
@@ -2448,6 +2455,7 @@ function pyreTick() {
       p.next = 420 + rnd(-90, 90);                   // next pyre in ~7 min
       if (GAME.state === 'playing') {                // career sky log
         META.sky.pyres++;
+        GAME.skyRun.pyres++;
         saveMeta();
       }
       if (GAME.state === 'playing') {                // sighting is an event
@@ -4024,7 +4032,8 @@ const GAME = {
   t: 0, runT: 0, hitstop: 0, slowT: 0, slowV: 1, overT: 0, endT: 0,
   score: 0, shown: 0, best: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
   kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
-  alloyRun: 0, wave: 0, lives: 3, intensity: .25, threat: 0
+  alloyRun: 0, wave: 0, lives: 3, intensity: .25, threat: 0,
+  skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, alloy: 0 }
 };
 
 const foes = [], pb = [], fb = [], picks = [], rings = [], floats = [], beams = [], mines = [];
@@ -6833,6 +6842,7 @@ function startRun(mode) {
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
     grazeHeat: 0, goldSighted: false, school: false,
+    skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, alloy: 0 },
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
@@ -6904,6 +6914,18 @@ function endRun() {
   $('ovGraze').textContent = fmt(GAME.grazes);
   $('ovAlloy').textContent = fmt(earned);
   $('ovFlag').classList.toggle('hidden', !GAME.bestFlagged);
+  /* the sky watch — what the heavens did during this run, and what it paid */
+  {
+    const s = GAME.skyRun;
+    const parts = [];
+    if (s.comets) parts.push(s.comets + (s.comets === 1 ? ' comet' : ' comets') + (s.goldens ? ' (' + s.goldens + ' golden)' : ''));
+    if (s.fleets) parts.push(s.fleets + (s.fleets === 1 ? ' fleet' : ' fleets'));
+    if (s.pyres) parts.push(s.pyres + (s.pyres === 1 ? ' pyre' : ' pyres'));
+    /* school runs are practice — a clean summary, the sky watched nothing */
+    const show = parts.length > 0 && !GAME.school;
+    $('ovSky').classList.toggle('hidden', !show);
+    if (show) $('ovSkyTxt').textContent = parts.join(' · ') + ' — ' + fmt(s.alloy) + ' alloy from the sky';
+  }
   /* the assist owns its confession: shown only when it actually eased
      something this run, with the wave where it kicked in */
   $('ovAssist').classList.toggle('hidden', !(DDA.on && DDA.note));
