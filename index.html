@@ -979,7 +979,8 @@ const FEATS = [
   { id: 'warden', name: 'Warden slayer', desc: 'Destroy the Gate Warden.', check: s => s.warden === true },
   { id: 'emp', name: 'Hard reboot', desc: 'Take an EMP hit and still clear the wave.', check: s => s.emp === true },
   { id: 'ghost', name: 'Haunted', desc: 'Beat your own daily ghost.', check: s => s.ghostBeat === true },
-  { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true }
+  { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true },
+  { id: 'wish', name: 'Wish granted', desc: 'Spot a golden comet.', check: s => s.gold === true }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1253,6 +1254,19 @@ const AU = {
       type: 'sine', f0: f, dur: 1.4, vol: .05, t0: t + .26 + i * .26, verb: .7
     }));
     this.tone({ type: 'triangle', f0: 2093, dur: 2.2, vol: .02, t0: t + 1.05, verb: .8 });
+  },
+  /* golden comet — a brighter, fuller fanfare: an E-major-add9 rising
+     figure with bell partials over a deep root. Unmistakably bigger than
+     the plain sighting chime. */
+  golden() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sine', f0: 329.63, dur: 3.0, vol: .03, t0: t + .08, verb: .7 });
+    this.tone({ type: 'sine', f0: 659.25, dur: 2.6, vol: .045, t0: t, verb: .75 });
+    [1318.5, 1648.1, 1975.5, 2637].forEach((f, i) => this.tone({
+      type: 'sine', f0: f, dur: 1.6, vol: .055, t0: t + .22 + i * .2, verb: .75
+    }));
+    this.tone({ type: 'triangle', f0: 3296, dur: 2.4, vol: .02, t0: t + 1.0, verb: .8 });
   },
   ui() { if (this.gate('ui', 45)) return; this.tone({ type: 'square', f0: 1250, dur: .03, vol: .04 }); },
   uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); },
@@ -1860,20 +1874,19 @@ function cometTick() {
     if (c.next <= 0) {
       const pick = FX.int(0, 4), j = rnd(.22, .5);        // diagonal + jitter
       const ang = [j, PI - j, -j, PI + j][pick];
+      c.gold = FX.chance(.11);                             // the true sky event
       c.x = (pick === 0 || pick === 2) ? -60 : W + 60;
       c.y = pick < 2 ? rnd(H * .05, H * .3) : rnd(H * .62, H * .85);
       const sp = Math.max(W, H) / rnd(24, 40);            // crossing in 24–40s
       c.vx = Math.cos(ang) * sp; c.vy = Math.sin(ang) * sp;
-      c.ang = ang; c.tail = Math.max(W, H) * rnd(.3, .42);
+      c.ang = ang; c.tail = Math.max(W, H) * (c.gold ? rnd(.44, .54) : rnd(.3, .42));
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
-      c.puffs = {                                          // soft stamps, palette-aware
-        warm: cometPuff('255,224,178'),
-        cool: cometPuff(rgbOf(PAL.tech)),
-        core: cometPuff('255,250,242')
-      };
-      c.puffs.coolRGB = rgbOf(PAL.tech);
+      c.puffs = c.gold
+        ? { warm: cometPuff('255,214,110'), cool: cometPuff('255,186,86'), core: cometPuff('255,248,226'), coolRGB: '255,214,110' }
+        : { warm: cometPuff('255,224,178'), cool: cometPuff(rgbOf(PAL.tech)), core: cometPuff('255,250,242') };
+      if (!c.gold) c.puffs.coolRGB = rgbOf(PAL.tech);
       if (GAME.state === 'playing') {                     // sighting is an event
         /* stargazer bonus — sky drama feeds the economy, and STYLE pays:
            grazeHeat (decays ~3s after your last near-miss) multiplies the
@@ -1882,11 +1895,16 @@ function cometTick() {
         try {
           const heat = clamp(GAME.grazeHeat || 0, 0, 1);
           const style = 1 + heat;                          // ×1 … ×2
-          const bonus = Math.round((15 + GAME.wave * 2) * style);
+          const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style);
           GAME.alloyRun += bonus;
-          float(c.x, c.y + 24, '+' + bonus + (heat > .6 ? ' · blazing stargazer' : ' · stargazer'), PAL.gold, 12);
-          note('Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
-          AU.sight();
+          if (c.gold) GAME.goldSighted = true;
+          float(c.x, c.y + 24,
+            '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer'),
+            c.gold ? '#ffd166' : PAL.gold, c.gold ? 15 : 12);
+          note(c.gold
+            ? 'A GOLDEN comet — wish big · +' + bonus + ' alloy'
+            : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
+          if (c.gold) AU.golden(); else AU.sight();
         } catch (e) { }
       }
     }
@@ -1922,21 +1940,22 @@ function drawComet(t) {
   ctx.translate(c.x, c.y); ctx.rotate(ax);
   ctx.globalCompositeOperation = 'lighter';
   const wob = Math.sin(t * .9 + c.seed);
+  const G = c.gold;
   // dust tail — broad, warm: puffs widen and curve away, fading to nothing
   for (let i = 0; i < 11; i++) {
     const s = (i + 1) / 11;
-    const w = 20 + s * 115;
+    const w = 20 + s * (G ? 150 : 115);
     const dx = s * L * .78, dy = s * s * L * .075 + wob * s * 6;
-    ctx.globalAlpha = Math.max(0, a * .17 * (1 - s) * (1 - s * .35));
+    ctx.globalAlpha = Math.max(0, a * (G ? .23 : .17) * (1 - s) * (1 - s * .35));
     ctx.drawImage(c.puffs.warm, dx - w / 2, dy - w / 2, w, w);
   }
   // ion tail — straighter, cooler, flapping in the solar wind
   const flap = s2 => Math.sin(s2 * 5.2 - t * 2.1 + c.seed) * L * .018 * s2;
   for (let i = 0; i < 13; i++) {
     const s = (i + 1) / 13;
-    const w = 10 + s * 42;
+    const w = 10 + s * (G ? 56 : 42);
     const dx = s * L * .88, dy = -s * s * L * .03 + flap(s) * 2;
-    ctx.globalAlpha = Math.max(0, a * .2 * (1 - s));
+    ctx.globalAlpha = Math.max(0, a * (G ? .26 : .2) * (1 - s));
     ctx.drawImage(c.puffs.cool, dx - w / 2, dy - w / 2, w, w);
   }
   // striations — faint filaments inside the ion tail
@@ -1953,20 +1972,29 @@ function drawComet(t) {
     ctx.stroke();
   }
   // dust grains — sparks riding the dust curve, twinkling
-  ctx.fillStyle = 'rgba(255,232,196,1)';
-  for (let i = 0; i < 8; i++) {
-    const s = .2 + (i / 8) * .75;
-    const tw = .5 + .5 * Math.sin(t * 7 + i * 2.3 + c.seed);
-    ctx.globalAlpha = Math.max(0, a * .3 * tw * (1 - s));
-    ctx.fillRect(s * L * .78 + Math.sin(i * 9.7) * 8, s * s * L * .075 + wob * s * 6 + Math.cos(i * 5.1) * 8, 1.6, 1.6);
+  ctx.fillStyle = G ? 'rgba(255,226,150,1)' : 'rgba(255,232,196,1)';
+  for (let i = 0; i < (G ? 14 : 8); i++) {
+    const s = .2 + ((i * 1.3) % 8) / 8 * .75;
+    const tw = .5 + .5 * Math.sin(t * (G ? 9 : 7) + i * 2.3 + c.seed);
+    ctx.globalAlpha = Math.max(0, a * (G ? .42 : .3) * tw * (1 - s));
+    const gs = G ? 2.2 : 1.6;
+    ctx.fillRect(s * L * .78 + Math.sin(i * 9.7) * (G ? 14 : 8), s * s * L * .075 + wob * s * 6 + Math.cos(i * 5.1) * (G ? 14 : 8), gs, gs);
   }
   // coma — layered: faint cool halo, warm glow, brilliant core
-  ctx.globalAlpha = a * .5;
-  ctx.drawImage(c.puffs.cool, -30, -30, 60, 60);
+  ctx.globalAlpha = a * (G ? .62 : .5);
+  ctx.drawImage(c.puffs.cool, G ? -38 : -30, G ? -38 : -30, G ? 76 : 60, G ? 76 : 60);
   ctx.globalAlpha = a * .8;
   ctx.drawImage(c.puffs.warm, -17, -17, 34, 34);
   ctx.globalAlpha = a;
   ctx.drawImage(c.puffs.core, -8, -8, 16, 16);
+  if (G) {   // golden corona — four rotating glints around the nucleus
+    for (let i = 0; i < 4; i++) {
+      const ga = t * 1.6 + i * TAU / 4;
+      const gx = Math.cos(ga) * 22, gy = Math.sin(ga) * 13;
+      ctx.globalAlpha = a * (.5 + .3 * Math.sin(t * 5 + i * 2));
+      ctx.drawImage(c.puffs.core, gx - 6, gy - 6, 12, 12);
+    }
+  }
   // bow shock — a faint compression arc on the sunward side
   const sunLocal = sunAx - ax;
   ctx.globalAlpha = a * .16;
@@ -6296,7 +6324,7 @@ function startRun(mode) {
     score: 0, shown: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
-    grazeHeat: 0,
+    grazeHeat: 0, goldSighted: false,
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
@@ -6346,7 +6374,8 @@ function endRun() {
     hits: GAME.hits, grazes: GAME.grazes, deaths: GAME.deaths, bosses: GAME.bosses,
     maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
     boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true,
-    ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true
+    ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
+    gold: GAME.goldSighted === true
   };
   const newFeats = [];
   for (const f of FEATS) {
@@ -7265,7 +7294,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 3, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
