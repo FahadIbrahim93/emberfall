@@ -1240,7 +1240,8 @@ const FEATS = [
   { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true },
   { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5, prog: () => [META.sky.comets, 5] },
   { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1, prog: () => [META.sky.golden, 1] },
-  { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] }
+  { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] },
+  { id: 'serialwish', name: 'Serial wisher', desc: 'Bank 10 comet bonuses — earns the STAR CHART: every comet pays +50% alloy, forever.', check: s => s.sky && s.sky.comets >= 10, prog: () => [META.sky.comets, 10] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -2194,15 +2195,19 @@ function cometTick() {
           if (!GAME.school) {                              // school runs are practice: sky drama plays, nothing is paid
             const heat = clamp(GAME.grazeHeat || 0, 0, 1); // ×1 … ×2 style multiplier
             const style = 1 + heat;
-            const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style);
+            /* STAR CHART — the 10-wish milestone perk: META.sky.comets was
+               already incremented above, so the sighting that EARNS the perk
+               pays at ×1.5 in the same breath. Applies to goldens too. */
+            const chart = META.sky.comets >= 10 ? 1.5 : 1;
+            const bonus = Math.round((15 + GAME.wave * 2) * (c.gold ? 10 : 1) * style * chart);
             GAME.alloyRun += bonus;
             if (c.gold) GAME.goldSighted = true;
             float(c.x, c.y + 24,
-              '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer'),
+              '+' + bonus + (c.gold ? ' · GOLDEN COMET' : heat > .6 ? ' · blazing stargazer' : ' · stargazer') + (chart > 1 ? ' ★' : ''),
               c.gold ? '#ffd166' : PAL.gold, c.gold ? 15 : 12);
             note(c.gold
               ? 'A GOLDEN comet — wish big · +' + bonus + ' alloy'
-              : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : ''), 'rare');
+              : 'Comet sighted — make a wish · +' + bonus + ' alloy' + (heat > .6 ? ' (blazing!)' : '') + (chart > 1 ? ' ★' : ''), 'rare');
             if (c.gold) AU.golden(); else AU.sight();
           }
         } catch (e) { }
@@ -7821,7 +7826,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 9, golden: 9, fleets: 9, pyres: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
