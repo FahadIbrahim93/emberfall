@@ -1975,6 +1975,82 @@ function drawComet(t) {
   ctx.globalAlpha = 1;
   ctx.restore();
 }
+/* ─── the graveyard fleet — fourth sky event. Every ~4 minutes a battle
+   line of dead warships drifts across the moon's limb on its own wall
+   clock (like the comet: sightings survive pause and respawn). Built from
+   silhouette canvases — near-black hulls, one sunlit rim stroke, sparse
+   survivors' windows — so they read as cut-outs against the moon's
+   brightness. One hull per fleet may carry a dying reactor ember. ─── */
+function fleetHull(kind) {
+  const w = Math.round(rnd(150, 300) * (kind === 'cap' ? 1.7 : kind === 'escort' ? .7 : 1));
+  const h = Math.round(w * rnd(.22, .34));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d');
+  x.translate(w / 2, h / 2);
+  // hull cut-out
+  x.fillStyle = '#05080f';
+  x.strokeStyle = 'rgba(190,205,235,.32)';           // rim catches the sun
+  x.lineWidth = 1.2;
+  x.beginPath();
+  if (kind === 'carrier') {                          // long deck, offset island
+    x.moveTo(-w * .5, 0); x.lineTo(-w * .42, -h * .16); x.lineTo(w * .3, -h * .22);
+    x.lineTo(w * .5, 0); x.lineTo(w * .28, h * .18); x.lineTo(-w * .38, h * .14);
+  } else if (kind === 'cap') {                       // broken battleship: split stern
+    x.moveTo(-w * .5, -h * .1); x.lineTo(-w * .2, -h * .3); x.lineTo(w * .1, -h * .05);
+    x.lineTo(w * .22, -h * .34); x.lineTo(w * .5, -h * .06); x.lineTo(w * .4, h * .12);
+    x.lineTo(-w * .3, h * .2);
+  } else {                                           // escort: simple dagger
+    x.moveTo(-w * .5, 0); x.lineTo(-w * .2, -h * .3); x.lineTo(w * .42, -h * .12);
+    x.lineTo(w * .5, 0); x.lineTo(w * .3, h * .22); x.lineTo(-w * .3, h * .18);
+  }
+  x.closePath(); x.fill(); x.stroke();
+  // superstructure blocks, still outlined against the light
+  x.fillStyle = '#05080f';
+  for (let i = 0; i < 3; i++) {
+    const bx = -w * .3 + i * w * rnd(.2, .3), bw = w * rnd(.07, .12);
+    x.fillRect(bx, -h * .34, bw, h * rnd(.18, .3));
+    x.strokeRect(bx, -h * .34, bw, h * .22);
+  }
+  // survivors' windows — most dead, a few still lit
+  for (let i = 0; i < 12; i++) {
+    if (FX.chance(.5)) continue;
+    x.fillStyle = 'rgba(255,190,120,' + rnd(.15, .4).toFixed(2) + ')';
+    x.fillRect(-w * .4 + rnd(0, w * .8), rnd(-h * .18, h * .14), 1.8, 1.2);
+  }
+  return c;
+}
+const fleet = { on: false, next: 55, last: 0, x: 0, y: 0, vx: 0, vy: 0, dur: 1, life: 0, ships: [], ember: -1 };
+function fleetTick() {
+  const now = performance.now() / 1000;
+  const dt = Math.min(.1, now - (fleet.last || now)); fleet.last = now;
+  const f = fleet;
+  if (!f.on) {
+    f.next -= dt;
+    if (f.next <= 0) {
+      const dir = FX.chance(.5) ? 1 : -1;            // cross either way
+      const y = rnd(H * .06, H * .3);                // ride the moon's limb band
+      f.x = dir > 0 ? -340 : W + 340;
+      f.y = y;
+      f.vx = dir * rnd(9, 15); f.vy = rnd(-2.5, 2.5);
+      f.dur = rnd(50, 75); f.life = f.dur;
+      const kinds = ['cap', 'carrier', 'escort', 'escort', 'escort'];
+      f.ships = kinds.map((k, i) => ({
+        img: fleetHull(k),
+        // battle line: staggered echelon, escorts out front
+        ox: -i * rnd(90, 130) * dir + rnd(-24, 24),
+        oy: (i % 2 ? 1 : -1) * rnd(14, 44) + rnd(-10, 10),
+        rot: rnd(-.05, .05),
+        a: rnd(.55, .85)
+      }));
+      f.ember = FX.chance(.6) ? FX.int(0, kinds.length - 1) : -1;
+      f.on = true;
+      f.next = 240 + rnd(-60, 60);                   // next fleet in ~4 min
+    }
+    return;
+  }
+  f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt;
+  if (f.life <= 0) f.on = false;
+}
 let warp = 0; // 0..1, how stretched the starfield is
 /* v3: palette grading — one GPU-composited CSS filter on the canvas.
    The canvas is hardware-composited on every platform, so this costs
@@ -2078,6 +2154,38 @@ function drawBackdrop(t) {
   ctx.drawImage(moon.glow, mx - ms / 2, my, ms, ms);
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
+
+  // the graveyard fleet — every few minutes a line of dead warships drifts
+  // across the moon's limb. Rendered as near-black cut-outs with a single
+  // rim stroke lit by the sun, so they read as silhouettes AGAINST the
+  // moon's brightness, not ships floating in front of it. A few survivors'
+  // windows still glow; one hull may carry a dying reactor's ember.
+  if (fleet.on) {
+    const fc = fleet;
+    const fa = Math.min(1, (fc.dur - fc.life) * .5, fc.life * .5);   // slow ease
+    for (const sh of fc.ships) {
+      const sx = fc.x + sh.ox, sy = fc.y + sh.oy;
+      ctx.save();
+      ctx.translate(sx, sy); ctx.rotate(sh.rot);
+      ctx.globalAlpha = fa * sh.a;
+      ctx.drawImage(sh.img, -sh.img.width / 2, -sh.img.height / 2);
+      ctx.restore();
+    }
+    if (fc.ember >= 0 && fc.ember < fc.ships.length) {
+      const sh = fc.ships[fc.ember];
+      const k = .5 + .5 * Math.sin(t * 2.1 + fc.x);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const ex = fc.x + sh.ox, ey = fc.y + sh.oy;
+      const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 10);
+      eg.addColorStop(0, 'rgba(255,120,60,' + (.3 * fa * (.5 + k * .5)).toFixed(3) + ')');
+      eg.addColorStop(1, 'rgba(255,120,60,0)');
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.arc(ex, ey, 10, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // debris silhouettes
   ctx.strokeStyle = 'rgba(150,170,210,.5)';
@@ -5465,6 +5573,7 @@ function render() {
   if (CAM.shake > .1) ctx.translate(CAM.ox, CAM.oy);
 
   cometTick();
+  fleetTick();
   drawBackdrop(GAME.t);
   drawComet(GAME.t);
 
