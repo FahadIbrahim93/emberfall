@@ -495,6 +495,7 @@ body.needrotate #rotate{display:grid}
       <div class="menu title-menu">
         <button class="btn key" id="btnLaunch">Launch intercept<span class="sub" id="launchSub">Endless · escalating waves</span></button>
         <button class="btn" id="btnHangar">Hangar<span class="sub" id="hangarSub">Hulls and refits</span></button>
+        <button class="btn" id="btnSchool">Flight school<span class="sub" id="schoolSub">Three drills · +120 alloy once</span></button>
         <button class="btn" id="btnDaily">Today's run<span class="sub" id="dailySub">One seed, everyone the same</span></button>
       <button class="btn" id="btnRush">Boss rush<span class="sub" id="rushSub">Four capitals, no warm-up</span></button>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub">Add EMBERFALL to your home screen</span></button>
@@ -713,6 +714,7 @@ body.needrotate #rotate{display:grid}
     <div id="ovAssist" class="unlock hidden" style="border-color:rgba(125,255,184,.4);background:rgba(125,255,184,.08)">
     <b>Flight assist</b><span id="ovAssistTxt"></span>
   </div>
+  <div id="ovSchool" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)"></div>
   <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
@@ -832,6 +834,199 @@ const DIFF = [
 const D = () => DIFF[clamp(CFG.diff, 0, 4)];
 const isCozy = () => !!(D().cozy || CFG.cozy);
 
+/* ═══ flight school — three timed drills, paid once ═══
+   Rides the real sim (player physics, dash, pulse, foeShot) with the
+   endless director parked. Two true drills with hostile fire plus a
+   movement certification. Pays 120 alloy on first completion. */
+const SCHOOL = {
+  active: false, drill: 0, t: 0, hits: 0, sub: '',
+  DRILLS: [
+    {
+      key: 'move', name: 'FLIGHT BASICS', goal: 'Move through every ring, then reach the pads',
+      time: 30,
+      setup(S) {
+        S.ringsWanted = 8; S.hits = 0;
+        S.rings = Array.from({ length: 8 }, (_, i) => ({
+          x: W * (.18 + .64 * (i % 4) / 3), y: 110 + (i >> 2) * 90 + (i % 2) * 26,
+          got: false
+        }));
+      },
+      tick(S, dt) {
+        for (const r of S.rings) {
+          if (r.got) continue;
+          if (hyp(P.x - r.x, P.y - r.y) < 30) {
+            r.got = true;
+            AU.graze();
+            float(r.x, r.y, '✓', PAL.good, 16);
+          }
+        }
+        if (!S.pad && S.rings.every(r => r.got)) {
+          S.pad = { x: W / 2, y: H * .45 };
+          announce('Rings complete', 'Return to the pad');
+          AU.uiBig();
+        }
+        if (S.pad && hyp(P.x - S.pad.x, P.y - S.pad.y) < 34) return true;
+        return false;
+      },
+      draw(S) {
+        for (const r of S.rings) {
+          if (r.got) continue;
+          const d = hyp(P.x - r.x, P.y - r.y);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(' + rgbOf(PAL.tech) + ',' + (d < 90 ? .95 : .55) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(r.x, r.y, 24, 0, TAU); ctx.stroke();
+          if (d < 90) {
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(r.x, r.y, 30 + Math.sin(GAME.t * 6) * 4, 0, TAU); ctx.stroke();
+          }
+          ctx.restore();
+        }
+        if (S.pad) {
+          const pulse = .5 + .5 * Math.sin(GAME.t * 5);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(' + rgbOf(PAL.gold) + ',' + (.5 + .4 * pulse) + ')';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.arc(S.pad.x, S.pad.y, 30 + pulse * 6, 0, TAU); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    },
+    {
+      key: 'dodge', name: 'BULLET DANCE', goal: 'Dodge the curtain — graze for style, survive the clock',
+      time: 18,
+      setup(S) {
+        S.hits = 0; S.grazes0 = GAME.grazes; S.curtain = 0; S.last = 0;
+      },
+      tick(S, dt) {
+        S.curtain -= dt;
+        if (S.curtain <= 0) {
+          S.curtain = .8;
+          S.last++;
+          const fromLeft = S.last % 2 === 1;
+          const y = 90 + (S.last * 37) % (H * .4);
+          for (let i = 0; i < 9; i++)
+            foeShot({ x: fromLeft ? -20 : W + 20, y, r: 20 },
+              (fromLeft ? 0 : PI) + (i - 4) * .075, 205, { r: 4.2 });
+        }
+        return S.t >= this.time;
+      },
+      draw(S) {
+        const left = Math.max(0, 18 - S.t);
+        ctx.save();
+        ctx.font = '600 11px "Chakra Petch"'; ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(238,242,251,.75)';
+        ctx.fillText(Math.ceil(left) + 's — hold the line', W / 2, 66);
+        ctx.restore();
+      }
+    },
+    {
+      key: 'pulse', name: 'NOVA RELEASE', goal: 'Absorb the ring, then break it with your pulse',
+      time: 45,
+      setup(S) {
+        S.hits = 0; S.state = 'absorb'; S.wave = null; S.ang = 0;
+      },
+      tick(S, dt) {
+        if (S.state === 'absorb') {
+          S.ang += dt * .8;
+          if (S.t > 2 && !S.wave) {
+            S.wave = true;
+            for (let i = 0; i < 24; i++)
+              foeShot({ x: W / 2, y: H * .42, r: 24 }, i / 24 * TAU, 130, { r: 4.6, hold: 1 });
+            announce('Ring incoming', 'Pulse through it');
+          }
+          // done = ring fired, its bullets cleared (nova eats them), bomb spent.
+          // Robust to pulse timing — the old novaWave-lifetime check could
+          // stall permanently if the pulse landed before the ring closed.
+          if (S.wave && P.bombs === 0 && fb.length === 0) { S.state = 'done'; return true; }
+          if (GAME.bombsUsed === 0 && S.t > this.time * .6) {
+            note('Pulse into the ring — E or the PULSE button', 'rare');
+            S.t = this.time * .45;   // keep hinting; never time out mid-lesson
+          }
+          return false;
+        }
+        return true;
+      },
+      draw(S) {
+        const cx = W / 2, cy = H * .42;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(' + rgbOf(PAL.rare) + ',.8)';
+        ctx.lineWidth = 1.6;
+        for (let i = 0; i < 3; i++) {
+          const a = S.ang + i * TAU / 3;
+          ctx.beginPath(); ctx.arc(cx, cy, 150, a, a + .9); ctx.stroke();
+        }
+        if (!S.wave) {
+          ctx.font = '600 11px "Chakra Petch"'; ctx.textAlign = 'center';
+          ctx.fillStyle = 'rgba(155,107,255,.9)';
+          ctx.fillText(P.bombs > 0 ? 'Press E (or PULSE) when the ring closes' : 'No pulse — dodge out and survive', cx, cy - 170);
+        }
+        ctx.restore();
+      }
+    }
+  ],
+  begin() {
+    startRun('endless');
+    GAME.school = true;   // practice run: no ghost, no ladder, no post
+    this.drill = 0; this.hits = 0;
+    DIRECTOR.phase = 'rest'; DIRECTOR.restT = 9999;
+    foes.length = 0; fb.length = 0; picks.length = 0;
+    P.bombs = 1;
+    note('Flight school · Move with drag or WASD');
+    this.enter();
+  },
+  enter() {
+    this.active = true;   // re-armed here so the drill→drill transition survives end()'s disarm
+    const d = this.DRILLS[this.drill];
+    d.setup(this);
+    this.t = 0;
+    announce(d.name, d.goal);
+    AU.uiBig();
+  },
+  end(win) {
+    const d = this.DRILLS[this.drill];
+    this.active = false;
+    if (win && this.drill < this.DRILLS.length - 1) {
+      this.drill++;
+      P.bombs = 1; P.charges = P.maxCharges;
+      fb.length = 0;
+      note('Drill complete — next: ' + this.DRILLS[this.drill].name, 'good');
+      this.enter();
+      return;
+    }
+    if (win) {
+      if (!META.school) {
+        META.school = true; saveMeta();
+        GAME.alloyRun += 120;
+        this.payBand = 'Flight school complete — 120 alloy banked to your account.';
+        AU.unlock();
+      } else {
+        this.payBand = 'Drills clean. The corridor remembers.';
+      } 
+      announce('SCHOOL COMPLETE', 'Welcome to the corridor', '');
+      AU.waveClear();
+      GAME.endT = 2.2;   // ride the normal run-end cinematics into the summary
+    } else {
+      announce('DRILL FAILED', d.name + ' — try again from the menu', 'red');
+      AU.gameOver();
+      GAME.endT = 2.2;
+    }
+  },
+  tick(dt) {
+    if (!this.active || GAME.state !== 'playing' || GAME.paused) return;
+    this.t += dt;
+    const d = this.DRILLS[this.drill];
+    if (GAME.lives <= 0) { this.end(false); return; }
+    if (this.t >= d.time && d.key !== 'dodge') { this.end(false); return; }
+    if (d.tick(this, dt)) this.end(true);
+  },
+  draw() {
+    if (!this.active || GAME.state !== 'playing') return;
+    const d = this.DRILLS[this.drill];
+    if (d.draw) d.draw(this);
+  }
+};
+
 /* ═══ dynamic difficulty assist — a quiet tailwind, never a hand ═══
    Fall three times on the same wave (endless runs) and hostile fire
    gently stands down: slower guns, slower bullets, thinner walls.
@@ -938,6 +1133,7 @@ const META = {
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   sky: { comets: 0, golden: 0, fleets: 0 },
+  school: false,             // flight school completed — the +120 pays once
   dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
 };
 function loadMeta() {
@@ -957,6 +1153,7 @@ function loadMeta() {
   META.ship = META.owned.includes(s.ship) ? s.ship : 'vesper';
   if (s.refits) for (const r of REFITS) META.refits[r.id] = clamp(+s.refits[r.id] || 0, 0, r.max);
   if (s.feats && typeof s.feats === 'object') META.feats = s.feats;
+  META.school = !!s.school;
   if (s.dd && typeof s.dd === 'object') {
     META.dd.wave = +s.dd.wave || 0;
     META.dd.falls = +s.dd.falls || 0;
@@ -5707,6 +5904,7 @@ function render() {
   fleetTick();
   drawBackdrop(GAME.t);
   drawComet(GAME.t);
+  SCHOOL.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
     drawAttract();
@@ -6427,7 +6625,7 @@ function startRun(mode) {
     score: 0, shown: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
-    grazeHeat: 0, goldSighted: false,
+    grazeHeat: 0, goldSighted: false, school: false,
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
@@ -6455,7 +6653,7 @@ function startRun(mode) {
 }
 
 function endRun() {
-  GHOST.saveIfBest(GAME.mode === 'daily' ? 'daily' : 'main', GAME.score);
+  if (!GAME.school) GHOST.saveIfBest(GAME.mode === 'daily' ? 'daily' : 'main', GAME.score);
   GHOST.end();
   GAME.state = 'over';
   $('hud').classList.add('hidden');
@@ -6470,7 +6668,7 @@ function endRun() {
   const bonusMul = 1 + refit('fortune') * .05;
   const earned = Math.round((GAME.alloyRun + GAME.score / 140 + GAME.wave * 6) * bonusMul);
   META.alloy += earned;
-  META.runs++;
+  if (!GAME.school) META.runs++;
   META.totalKills += GAME.kills;
 
   const summary = {
@@ -6523,9 +6721,20 @@ function endRun() {
   $('duelRow').classList.toggle('hidden',
     !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
   renderBoard($('ovBoard'), mode, null);
+  /* school runs are practice: a clean summary, nothing more — no rank,
+     no post, no outbox. The +120 is the whole contract. */
+  const isSchool = GAME.school === true;
+  if (isSchool) {
+    $('ovRank').classList.add('hidden');
+    $('overEyebrow').textContent = 'Flight school';
+    $('ovSchool').classList.remove('hidden');
+    $('ovSchool').innerHTML = '<b>School report</b><span>' +
+      (SCHOOL.payBand ? esc(SCHOOL.payBand) : 'Drills logged. The corridor awaits.') + '</span>';
+  }
   /* verified worldwide posting. Posted now when possible; otherwise the
      run lands in the OUTBOX and drains automatically once the deck is
      reachable again — a dropped connection never eats a verified score. */
+  if (!isSchool) {
   const tele = { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() };
   const ovRankEl = $('ovRank');
   const paintQueued = () => {
@@ -6562,6 +6771,7 @@ function endRun() {
       ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not verified</b><span>this run could not be verified — it does not rank</span>';
     }
   });
+  }
   showScreen('s-over', true);
   if (q && matchMedia('(pointer:fine)').matches) $('pilot').focus();
   else $('btnAgain').focus();
@@ -6592,6 +6802,7 @@ function refreshTitleMeta() {
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name;
+  $('schoolSub').textContent = META.school ? 'Drills complete · replay anytime' : 'Three drills · +120 alloy once';
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
   $('regMeta').textContent = (META.runs
@@ -6962,6 +7173,7 @@ async function keepAwake(on) {
 function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
 bindClick('btnLaunch', () => startRun('endless'));
 bindClick('btnDaily', () => startRun('daily'));
+bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
@@ -7615,13 +7827,14 @@ function stepGame(dt) {
   collide();
   updateThreat(dt);
   DDA.update(dt);
+  SCHOOL.tick(dt);
   if (GAME.comboT > 0) {
     GAME.comboT -= dt;
   if (GAME.grazeHeat > 0) GAME.grazeHeat = Math.max(0, GAME.grazeHeat - dt / 3);
     if (GAME.comboT <= 0 && GAME.combo > 0) { GAME.combo = 0; GAME.mult = 1; }
   }
-  if (GAME.lives <= 0 && GAME.state === 'playing') {
-    GAME.endT -= dt;
+  if (GAME.state === 'playing' && (GAME.lives <= 0 || GAME.endT > 0)) {
+    GAME.endT = Math.max(0, GAME.endT - dt);
     if (GAME.endT <= 0) endRun();
   }
 }
