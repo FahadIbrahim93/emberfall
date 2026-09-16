@@ -20,6 +20,11 @@ expect() {
 
 trap 'rm -f "$JAR"' EXIT
 
+# ── static hygiene gate — runs before the API battery, no server needed.
+# Fails the battery when true-positive dead code appears in index.html.
+say "── dead code scan ──"
+if node deadscan.js --check; then ok "deadscan clean"; else no "deadscan found dead code"; fi
+
 R=$RANDOM$RANDOM
 expect "health"            '"ok":true'                      "$BASE/api/health"
 expect "static index"      'EMBERFALL'                      "$BASE/"
