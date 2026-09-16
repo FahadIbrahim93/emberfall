@@ -341,20 +341,23 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 /* touch controls */
 #touch{position:fixed;inset:0;z-index:7;pointer-events:none;display:none}
 body.touchmode #touch{display:block}
-#stick{position:absolute;width:118px;height:118px;border-radius:50%;
+#stick{position:absolute;width:var(--tstick,118px);height:var(--tstick,118px);border-radius:50%;
   border:1px solid rgba(255,138,43,.3);background:rgba(8,13,26,.3);opacity:0;transition:opacity .16s}
 #stick.on{opacity:1}
-#stick i{position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;
+#stick i{position:absolute;top:50%;left:50%;width:var(--tknob,44px);height:var(--tknob,44px);
+  margin:calc(0px - var(--tknob,44px)/2) 0 0 calc(0px - var(--tknob,44px)/2);
   border-radius:50%;background:rgba(255,138,43,.28);border:1px solid var(--ember)}
-.tbtn{position:absolute;pointer-events:auto;width:74px;height:74px;border-radius:50%;
+.tbtn{position:absolute;pointer-events:auto;width:var(--tbtn,74px);height:var(--tbtn,74px);border-radius:50%;
   border:1px solid var(--line);background:rgba(8,13,26,.62);color:var(--aether);
   display:grid;place-items:center;font-size:.55rem;letter-spacing:.14em;
   backdrop-filter:blur(4px);transition:transform .1s,background .1s}
 .tbtn:active{transform:scale(.9);background:rgba(53,224,255,.22)}
 .tbtn.cool{opacity:.35}
 .tbtn b{display:block;font-size:.9rem;font-family:Michroma,sans-serif;margin-bottom:2px}
-#bDash{right:calc(22px + var(--sar));bottom:calc(122px + var(--sab))}
-#bBomb{right:calc(106px + var(--sar));bottom:calc(46px + var(--sab));color:var(--violet);
+/* action buttons: positions derive from the button size itself, so any
+   scale (base, bigbtns, future) re-flows without per-size rules */
+#bDash{right:calc(24px + var(--sar));bottom:calc(56px + var(--tbtn,74px) + var(--sab))}
+#bBomb{right:calc(40px + var(--tbtn,74px) + var(--sar));bottom:calc(46px + var(--sab));color:var(--violet);
   border-color:rgba(155,107,255,.4)}
 #bBomb:active{background:rgba(155,107,255,.22)}
 
@@ -366,14 +369,14 @@ body.touchmode .gauge{width:118px}
 body.touchmode #feed{max-width:52vw}
 
 /* v3: left-handed + large-button touch layouts */
-body.touchmode.lefty #bDash{right:auto;left:calc(22px + var(--sal))}
-body.touchmode.lefty #bBomb{right:auto;left:calc(106px + var(--sal))}
+body.touchmode.lefty #bDash{right:auto;left:calc(24px + var(--sal))}
+body.touchmode.lefty #bBomb{right:auto;left:calc(40px + var(--tbtn,74px) + var(--sal))}
 body.touchmode.lefty .br{left:auto;right:calc(20px + var(--sar));align-items:flex-end}
 body.touchmode.lefty .tags{justify-content:flex-end}
 body.touchmode.lefty #stick{left:auto}
-body.touchmode.bigbtns .tbtn{width:96px;height:96px;font-size:.68rem}
-body.touchmode.bigbtns #bDash{bottom:calc(136px + var(--sab))}
-body.touchmode.bigbtns #bBomb{right:calc(122px + var(--sar));bottom:calc(42px + var(--sab))}
+/* large-button layout: just overrides the dial — geometry re-derives */
+body.touchmode.bigbtns{--tbtn:118px}
+body.touchmode.bigbtns .tbtn{font-size:.68rem}
 
 /* rotate nudge */
 #rotate{position:fixed;inset:0;z-index:14;display:none;place-items:center;background:var(--void);
@@ -1554,6 +1557,22 @@ const SHIP_SCALE = 1.3;
 /* Hostile fire reads bigger too — not fair-for-fair (radius is generous),
    it is so incoming fire is NEVER the thing you strain to see. */
 const SHOT_SCALE = 1.18;
+
+/* Touch sizing — derived from the same presence dial as the ships, so on a
+   phone the controls match what you see on the field. Applied as CSS custom
+   properties; the stick drag math reads the same numbers. One source. */
+const TOUCH = {
+  stick: Math.round(118 * SHIP_SCALE),
+  knob: Math.round(44 * SHIP_SCALE),
+  btn: Math.round(74 * SHIP_SCALE),
+  apply() {
+    const s = document.documentElement.style;
+    s.setProperty('--tstick', this.stick + 'px');
+    s.setProperty('--tknob', this.knob + 'px');
+    s.setProperty('--tbtn', this.btn + 'px');
+  }
+};
+TOUCH.apply();
 
 let SPR = {};
 function buildSprites() {
@@ -6787,8 +6806,8 @@ function onTouchStart(e) {
   INPUT.shipOX = P.x; INPUT.shipOY = P.y;
   INPUT.aimX = P.x; INPUT.aimY = P.y;
   const s = $('stick');
-  s.style.left = (e.clientX - 59) + 'px';
-  s.style.top = (e.clientY - 59) + 'px';
+  s.style.left = (e.clientX - TOUCH.stick / 2) + 'px';
+  s.style.top = (e.clientY - TOUCH.stick / 2) + 'px';
   s.classList.add('on');
   try { cv.setPointerCapture(e.pointerId); } catch (err) { }
 }
@@ -6798,7 +6817,7 @@ cv.addEventListener('pointermove', e => {
   INPUT.aimX = clamp(INPUT.shipOX + dx * 1.45, 16, W - 16);
   INPUT.aimY = clamp(INPUT.shipOY + dy * 1.45, 40, H - 20);
   const knob = $('stick').firstElementChild;
-  const l = hyp(dx, dy), cap = 44;
+  const l = hyp(dx, dy), cap = TOUCH.knob;
   const kx = l > cap ? dx / l * cap : dx, ky = l > cap ? dy / l * cap : dy;
   knob.style.transform = 'translate(' + kx + 'px,' + ky + 'px)';
 }, { passive: true });
