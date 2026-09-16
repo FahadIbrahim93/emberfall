@@ -2456,6 +2456,17 @@ function logSighting(kind, paid) {
   });
   if (META.skyLog.length > 60) META.skyLog.splice(0, META.skyLog.length - 60);
 }
+/* the silent-sky whisper — when nothing appeared, say so, and tint it by
+   what nearly did. The schedulers keep wall-clock countdowns, so a run
+   that ended seconds before a comet's arrival can be told the truth. */
+function skyWhisper() {
+  const near = (ev, t) => !ev.on && ev.next > 0 && ev.next <= t;
+  if (near(comet, 8))  return { text: 'The sky was silent — a comet was seconds away.',           rgb: '255,180,84' };
+  if (near(comet, 20)) return { text: 'The sky was silent — a comet was almost due.',             rgb: '255,180,84' };
+  if (near(fleet, 35)) return { text: 'The sky was silent — a graveyard fleet was drawing near.', rgb: '155,107,255' };
+  if (near(pyre, 45))  return { text: 'The sky was silent — something was falling somewhere.',    rgb: '255,150,70' };
+  return { text: 'The sky was silent.', rgb: '120,131,156' };
+}
 function pyreTick() {
   const now = performance.now() / 1000;
   const dt = Math.min(.1, now - (pyre.last || now)); pyre.last = now;
@@ -7006,14 +7017,24 @@ function endRun() {
     const el = $('ovSky');
     if (GAME.school) el.classList.add('hidden');               // practice runs never speak of the sky
     else if (parts.length) {
+      /* sightings: the violet band. Styles set explicitly — a previous
+         whisper's tint must never bleed into this run's band. */
       el.classList.remove('hidden');
-      el.querySelector('b').style.color = '';                  // default violet for real sightings
+      el.style.borderColor = 'rgba(155,107,255,.4)';
+      el.style.background = 'rgba(155,107,255,.08)';
+      el.querySelector('b').style.color = '';
+      $('ovSkyTxt').style.color = '';
       $('ovSkyTxt').textContent = parts.join(' · ') +
         (s.alloy ? ' — ' + fmt(s.alloy) + ' alloy from the sky' : '');   // fleets alone paid nothing; don't say "0 alloy"
     } else {
-      el.classList.remove('hidden');                           // the rare gray whisper
+      /* the rare whisper — tinted by what nearly appeared */
+      const w = skyWhisper();
+      el.classList.remove('hidden');
+      el.style.borderColor = 'rgba(' + w.rgb + ',.35)';
+      el.style.background = 'rgba(' + w.rgb + ',.07)';
       el.querySelector('b').style.color = 'var(--dimmer)';
-      $('ovSkyTxt').textContent = 'The sky was silent.';
+      $('ovSkyTxt').style.color = 'rgba(' + w.rgb + ',.85)';
+      $('ovSkyTxt').textContent = w.text;
     }
   }
   /* the assist owns its confession: shown only when it actually eased
