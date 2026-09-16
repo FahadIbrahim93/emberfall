@@ -991,7 +991,8 @@ const FEATS = [
   { id: 'ghost', name: 'Haunted', desc: 'Beat your own daily ghost.', check: s => s.ghostBeat === true },
   { id: 'rush', name: 'Rush hourly', desc: 'Clear the boss rush.', check: s => s.rush === true },
   { id: 'wish', name: 'Wish granted', desc: 'Bank 5 comet bonuses across your career.', check: s => s.sky && s.sky.comets >= 5 },
-  { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1 }
+  { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1 },
+  { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1 }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
