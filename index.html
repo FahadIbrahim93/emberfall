@@ -508,7 +508,7 @@ body.needrotate #rotate{display:grid}
         <button class="btn" id="btnSchool">Flight school<span class="sub" id="schoolSub">Three drills · +120 alloy once</span></button>
         <button class="btn" id="btnDaily">Today's run<span class="sub" id="dailySub">One seed, everyone the same</span></button>
       <button class="btn" id="btnRush">Boss rush<span class="sub" id="rushSub">Four capitals, no warm-up</span></button>
-        <button class="btn hidden" id="btnInstall">Install app<span class="sub">Add EMBERFALL to your home screen</span></button>
+        <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
         <button class="btn ghost" id="btnSettings">Settings</button>
       </div>
       <p class="creds">
@@ -6267,6 +6267,26 @@ bindClick('btnInstall', () => {
   deferredInstall.prompt();
   deferredInstall.userChoice.finally(() => { deferredInstall = null; $('btnInstall').classList.add('hidden'); });
   AU.ui();
+});
+/* installed: retire the offer immediately (the button was Chrome's only
+   path to it) and tell the pilot where the game now lives */
+addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  const b = $('btnInstall');
+  if (b) b.classList.add('hidden');
+  note('EMBERFALL installed — find it on your home screen', 'good');
+});
+/* iOS Safari never fires beforeinstallprompt — those pilots get the
+   manual recipe instead. Hidden again on standalone launches (the app
+   is already installed there); the click plays the UI sound only, since
+   the recipe text IS the feature. */
+addEventListener('load', () => {
+  if (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
+  if (!/iP(hone|ad|od)/.test(navigator.userAgent) || window.MSStream) return;
+  const b = $('btnInstall'), sub = $('installSubTxt');
+  if (sub) sub.textContent = 'In Safari: Share → Add to Home Screen';
+  if (b) b.onclick = () => AU.ui();
+  if (b) b.classList.remove('hidden');
 });
 bindClick('btnAcctGo', () => acctGo(false));
 bindClick('btnAcctNew', () => acctGo(true));
