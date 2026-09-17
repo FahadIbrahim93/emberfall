@@ -70,7 +70,10 @@ for (const name of shellFns) {
 
 /* ── CSS ── */
 const classRe = /\.([a-zA-Z][\w-]*)/g;
-const cssBlock = html.slice(0, html.indexOf('</style>'));
+/* window = the <style> block ONLY (head markup can sit before it and must not
+   leak in — 'icons/icon-192.png' would read as a fake '.png' class) */
+const cssBlock = html.slice(html.indexOf('<style>') + 7, html.indexOf('</style>'))
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 const cssClasses = new Set();
 while ((m = classRe.exec(cssBlock))) cssClasses.add(m[1]);
 // searchable body = markup+JS after the style block plus module sources, so

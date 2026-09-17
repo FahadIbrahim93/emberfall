@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
 <title>EMBERFALL — Orbital Intercept</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
@@ -6374,70 +6377,10 @@ bindSegment('segPal', 'pal', v => {
 bindSegment('segQ', 'quality', () => applyQuality());
 bindSegment('segCap', 'fpscap', () => { });
 
-/* ══════════════════════════════════════════════════════════════════════
-   PWA: a manifest and icon generated in-page, so the single file installs
-   ══════════════════════════════════════════════════════════════════════ */
-function makeIcon(size) {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const g = c.getContext('2d');
-  g.fillStyle = '#03050b'; g.fillRect(0, 0, size, size);
-  const grd = g.createRadialGradient(size / 2, size * .62, 0, size / 2, size * .62, size * .6);
-  grd.addColorStop(0, 'rgba(255,138,43,.55)');
-  grd.addColorStop(1, 'rgba(255,138,43,0)');
-  g.fillStyle = grd; g.fillRect(0, 0, size, size);
-  g.save();
-  g.translate(size / 2, size * .56);
-  g.scale(size / 74, size / 74);
-  HULL_ART.vesper(g, { thrust: 1, boost: false, t: 0 });
-  g.restore();
-  try { return c.toDataURL('image/png'); } catch (e) { return null; }
-}
-function installManifest() {
-  try {
-    if (document.querySelector('link[rel=manifest]')) return;   // idempotent
-    const icon = makeIcon(256);
-    const iconMask = makeIcon(512);
-    // a generated promo card for platform install UIs that want a wide shot
-    const promo = document.createElement('canvas');
-    promo.width = 1280; promo.height = 720;
-    const pg = promo.getContext('2d');
-    pg.fillStyle = '#03050b'; pg.fillRect(0, 0, 1280, 720);
-    const bg = pg.createRadialGradient(640, 460, 40, 640, 460, 640);
-    bg.addColorStop(0, 'rgba(255,138,43,.34)'); bg.addColorStop(1, 'rgba(255,138,43,0)');
-    pg.fillStyle = bg; pg.fillRect(0, 0, 1280, 720);
-    pg.save(); pg.translate(560, 430); pg.scale(4.4, 4.4);
-    HULL_ART.vesper(pg, { thrust: 1, boost: false, t: 0 }); pg.restore();
-    pg.fillStyle = '#eef2fb'; pg.font = '700 64px Michroma, sans-serif';
-    pg.textAlign = 'center'; pg.fillText('EMBERFALL', 640, 180);
-    pg.fillStyle = '#ff8a2b'; pg.font = '500 26px "Chakra Petch", sans-serif';
-    pg.fillText('ORBITAL INTERCEPT', 640, 226);
-    const promoURL = promo.toDataURL('image/png');
-    const manifest = {
-      name: 'EMBERFALL', short_name: 'EMBERFALL',
-      description: 'An orbital intercept shooter that runs offline.',
-      start_url: location.href, display: 'fullscreen', orientation: 'any',
-      background_color: '#03050b', theme_color: '#03050b',
-      icons: icon ? [
-        { src: icon, sizes: '256x256', type: 'image/png', purpose: 'any' },
-        { src: iconMask, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-      ] : [],
-      screenshots: [{ src: promoURL, sizes: '1280x720', type: 'image/png' }]
-    };
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-    const link = document.createElement('link');
-    link.rel = 'manifest'; link.href = URL.createObjectURL(blob);
-    document.head.appendChild(link);
-    if (icon) {
-      const ai = document.createElement('link');
-      ai.rel = 'apple-touch-icon'; ai.href = icon;
-      document.head.appendChild(ai);
-      const fav = document.createElement('link');
-      fav.rel = 'icon'; fav.href = makeIcon(64) || icon;
-      document.head.appendChild(fav);
-    }
-  } catch (e) { }
-}
+/* PWA: the manifest and icons are static files — manifest.webmanifest and
+   icons/, linked in <head>. A blob: manifest can never satisfy install
+   criteria, so the old runtime generator is gone; tools/genicons.js is the
+   whole asset pipeline if the emblem ever changes. */
 
 /* ══════════════════════════════════════════════════════════════════════
    SELF-TESTS — pure logic only, so they are safe to run any time
@@ -6779,7 +6722,6 @@ function boot() {
   GAME.best = (loadBoard('main')[0] || { s: 0 }).s;
   renderBoard($('tab-scores'), 'main', null);
   refreshTitleMeta();
-  installManifest();
   NET.probe().then(() => { paintAccount(); refreshTitleMeta(); });
   // on-the-go resilience: drain the outbox when connectivity returns,
   // and retry gently every 2 min in case the deck came back unattended
