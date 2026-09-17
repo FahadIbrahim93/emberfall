@@ -366,7 +366,19 @@ function serveStatic(req, res, urlPath) {
     } else if (file.endsWith('sw.js')) {
       headers['Cache-Control'] = 'no-cache';
     } else {
-      headers['Cache-Control'] = 'public, max-age=3600';
+      /* ETag revalidation, not TTL caching: 'no-cache' forces a conditional
+         request every time, the hash decides 304 vs 200 — unchanged files
+         cost bytes, changed files ALWAYS arrive fresh. A max-age TTL here
+         once pinned stale modules for an hour and even re-poisoned the
+         service worker's background refresh with the same stale copy. */
+      const etag = 'W/"' + crypto.createHash('sha1').update(buf).digest('hex').slice(0, 16) + '"';
+      if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, { ETag: etag });
+        res.end();
+        return;
+      }
+      headers['Cache-Control'] = 'no-cache';
+      headers['ETag'] = etag;
     }
     res.writeHead(200, headers);
     res.end(buf);

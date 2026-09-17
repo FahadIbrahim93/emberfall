@@ -381,10 +381,18 @@ function renderSkyLog() {
     if (days < 7) return Math.ceil(days) + 'd ago';
     return (d.getMonth() + 1) + '/' + d.getDate();
   };
+  /* the live streak is the audit's most-engaging stat — show it in the sky
+     career header, amber while alive, gray once broken, absent for new pilots */
+  const cur = META.sky.streakCur || 0, best = META.sky.streakBest || 0;
+  const streak = (cur > 0 || best > 0)
+    ? '<br><span style="color:' + (cur > 0 ? 'var(--amber)' : 'var(--dimmer)') + '">comet streak ' +
+      (cur > 0 ? cur + ' alive' : 'none') + '</span>' +
+      '<span style="color:var(--dimmer)"> · best ' + best + '</span>'
+    : '';
   const head = '<div class="empty" style="padding:0 0 12px">' +
     META.sky.comets + ' comets · ' + META.sky.golden + ' golden · ' +
     META.sky.fleets + ' fleets · ' + META.sky.pyres + ' pyres' +
-    ' — newest 60 kept</div>';
+    ' — newest 60 kept' + streak + '</div>';
   if (!rows.length) { box.innerHTML = head + '<div class="empty">The sky has been quiet. It will not stay that way.</div>'; return; }
   box.innerHTML = head + rows.map(e => {
     const kind = KIND[e.k] || KIND.comet;

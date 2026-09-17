@@ -2,7 +2,7 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v3.5';
+const CACHE = 'emberfall-v3.6';
 const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
@@ -33,15 +33,19 @@ self.addEventListener('fetch', e => {
           return res;
         }).catch(() => caches.match(e.request, { ignoreSearch: true }))
           .then(hit => hit || caches.match('./'))
-      : caches.match(e.request, { ignoreSearch: true }).then(hit => hit ||
-          fetch(e.request).then(res => {
+      : caches.match(e.request, { ignoreSearch: true }).then(hit => {
+          /* stale-while-revalidate: the cached copy answers instantly, the
+             network refreshes it behind the response — module fixes reach
+             players on their next load without a SW version bump */
+          const net = fetch(e.request).then(res => {
             if (res.ok) {
               const copy = res.clone();
               caches.open(CACHE).then(c => c.put(e.request, copy));
             }
             return res;
-          })
-        )
+          }).catch(() => null);
+          return hit || net.then(r => r || Response.error());
+        })
     ).catch(() => fetch(e.request))
   );
 });
