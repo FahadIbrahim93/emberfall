@@ -24,7 +24,7 @@ trap 'rm -f "$JAR"' EXIT
 # Fails the battery when true-positive dead code appears anywhere in the repo:
 # client (inline payload + js/*.js), server.js, shell functions, CSS classes.
 say "── dead code scan (repo-wide) ──"
-if node deadscan.js --check; then ok "deadscan clean"; else no "deadscan found dead code"; fi
+if node deadscan.js --check; then ok "deadscan clean (dead code + load order)"; else no "deadscan: dead code or load-order violation"; fi
 
 R=$RANDOM$RANDOM
 expect "health"            '"ok":true'                      "$BASE/api/health"

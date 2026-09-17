@@ -82,6 +82,109 @@ const body = html.slice(html.indexOf('</style>') + 8) + '\n' + modSrcs.join('\n'
 counts.css = cssClasses.size;
 const deadCSS = [...cssClasses].filter(c => !new RegExp('\\b' + c + '\\b').test(body));
 
+/* ── load-order guard ────────────────────────────────────────────────
+   js/*.js modules load BEFORE the inline core (classic scripts, shared
+   globals — the file:// contract). A top-level statement in a module
+   that isn't a declaration would run before inline-core symbols exist
+   and throw at load. Modules may only DECLARE at depth 0; bodies may
+   reference anything (deferred execution). Also verifies the script
+   tags appear in index.html in module order, before the inline core. */
+function stripJs(src) {
+  let out = '', i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? n : e + 2; continue; }
+    if (c === "'" || c === '"') {
+      out += c; i++;
+      while (i < n && src[i] !== c) { if (src[i] === '\\') i++; if (src[i] === '\n') out += '\n'; i++; }
+      out += c; i++; continue;
+    }
+    if (c === '`') {
+      out += '`'; i++;
+      let td = 0;
+      while (i < n && (src[i] !== '`' || td > 0)) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === '$' && src[i + 1] === '{') { td++; i += 2; continue; }
+        if (td > 0 && src[i] === '}') { td--; i++; continue; }
+        if (src[i] === '\n') out += '\n';
+        i++;
+      }
+      out += '`'; i++; continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+const loadOrderFails = [];
+if (fs.existsSync('js')) {
+  /* module order comes from the tags in index.html, not fs.readdir
+     (which is alphabetical and would false-fail) */
+  const mods = [...html.matchAll(/js\/[\w.-]+\.js/g)].map(m => m[0].slice(3))
+    .filter((f, i, a) => a.indexOf(f) === i && fs.existsSync('js/' + f));
+  /* symbols the inline core declares — modules load first, so any LIVE
+     (outside every function body) reference to one of these is a
+     load-order crash: top-level statements AND top-level initializers
+     run before the core exists. Function bodies are deferred and safe. */
+  const coreDecls = new Set();
+  const declRe2 = /(?:^|\n)(?:(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*))/g;
+  for (const src of inline) {
+    let mm;
+    while ((mm = declRe2.exec(src))) coreDecls.add(mm[1] || mm[2]);
+  }
+  /* context walk over comment/string-stripped source. Brace states:
+     'fn' = function body (deferred — core refs allowed), 'blk' = control/
+     class block, 'obj' = object literal (keys aren't references). A '('
+     right after `function NAME` marks a param list (bindings, not refs).
+     A word preceded by '.' is property access, not a global read. */
+  const isFnHeader = back => {
+    if (/=>\s*$/.test(back)) return true;
+    const kw = back.match(/([A-Za-z_$][\w$]*)\s*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*$/);
+    return !!kw && !/^(if|for|while|switch|catch|with|return|do|else|typeof|new)$/.test(kw[1]);
+  };
+  const isObjHeader = back =>
+    /[=(,:[&|?+\-*/%!~^]|\b(return|typeof|case|in|of|new|delete|void|instanceof|await)\s*$/.test(back);
+  for (const f of mods) {
+    const src = stripJs(fs.readFileSync('js/' + f, 'utf8'));
+    const braces = [];                  // 'fn' | 'blk' | 'obj'
+    const parens = [];                  // true = param list of a function decl
+    const wordRe = /[A-Za-z_$][\w$]*/g;
+    let last = 0, w;
+    const live = () => !braces.includes('fn');
+    while ((w = wordRe.exec(src))) {
+      for (let i = last; i < w.index; i++) {
+        if (src[i] === '(') parens.push(/function\s+[​A-Za-z_$][\w$]*\s*$/.test(src.slice(Math.max(0, i - 60), i)));
+        else if (src[i] === ')') parens.pop();
+        else if (src[i] === '{') {
+          const back = src.slice(Math.max(0, i - 300), i);
+          braces.push(isFnHeader(back) ? 'fn' : (isObjHeader(back) ? 'obj' : 'blk'));
+        } else if (src[i] === '}') braces.pop();
+      }
+      last = w.index + w[0].length;
+      if (!coreDecls.has(w[0]) || !live() || parens.includes(true)) continue;
+      if (src[w.index - 1] === '.') continue;                 // property access
+      if (braces[braces.length - 1] === 'obj') {              // object keys & methods
+        let j = w.index + w[0].length;
+        while (src[j] === ' ') j++;
+        if (src[j] === ':' || src[j] === '(') continue;
+      }
+      loadOrderFails.push(f + ': live reference to core symbol ' + w[0]);
+    }
+  }
+  /* tag order: every module must appear in index.html, in load order,
+     before the first tag-less <script> (the inline core) */
+  let lastPos = -1;
+  for (const f of mods) {
+    const pos = html.indexOf('js/' + f);
+    if (pos < lastPos) loadOrderFails.push('index.html: js/' + f + ' loads out of order');
+    lastPos = pos;
+  }
+  const corePos = html.search(/<script>/);
+  if (corePos >= 0 && lastPos > corePos)
+    loadOrderFails.push('index.html: a module tag sits after the inline core');
+}
+
 /* report */
 const order = { client: 0, server: 1, shell: 2 };
 dead.sort((a, b) => order[a.corpus] - order[b.corpus] || (a.name < b.name ? -1 : 1));
@@ -94,10 +197,13 @@ if (dead.length) {
 }
 if (deadCSS.length) console.log('── dead CSS classes: ' + deadCSS.sort().join(', '));
 
+if (loadOrderFails.length) console.log('── load-order ──\n  ' + loadOrderFails.join('\n  '));
+
 if (process.argv.includes('--check')) {
   const names = dead.map(d => d.corpus + ':' + d.name).concat(deadCSSReal().map(c => 'css:' + c));
-  if (names.length) {
-    console.error('DEAD CODE: ' + names.join(', '));
+  if (names.length || loadOrderFails.length) {
+    if (loadOrderFails.length) console.error('LOAD ORDER: ' + loadOrderFails.join(' | '));
+    if (names.length) console.error('DEAD CODE: ' + names.join(', '));
     process.exit(1);
   }
   console.log('deadscan --check: clean (' + counts.client + ' client, ' +
