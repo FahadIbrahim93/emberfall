@@ -260,6 +260,16 @@ const AU = {
     this.tone({ type: 'triangle', f0: 112, f1: 40, dur: 2.2, vol: .1, t0: t + .12, verb: .55 });
     this.hiss({ dur: 2.6, f0: 340, f1: 90, vol: .05, t0: t + .3 });
   },
+  /* the relief convoy — a passing salute: a warm root under two rising
+     notes a fifth apart. Understated where the comet sparkles — hope,
+     not spectacle. */
+  convoy() {
+    if (!this.ready) return;
+    const t = this.ctx.currentTime;
+    this.tone({ type: 'sine', f0: 196, dur: 1.8, vol: .05, t0: t, verb: .6 });
+    this.tone({ type: 'triangle', f0: 392, dur: 1.2, vol: .05, t0: t + .18, verb: .65 });
+    this.tone({ type: 'triangle', f0: 587.33, dur: 1.4, vol: .045, t0: t + .38, verb: .65 });
+  },
   ui() { if (this.gate('ui', 45)) return; this.tone({ type: 'square', f0: 1250, dur: .03, vol: .04 }); },
   uiBig() { this.tone({ type: 'square', f0: 700, f1: 1400, dur: .1, vol: .06 }); },
 

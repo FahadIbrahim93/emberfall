@@ -175,15 +175,15 @@ function drawComet(t) {
    silhouette canvases — near-black hulls, one sunlit rim stroke, sparse
    survivors' windows — so they read as cut-outs against the moon's
    brightness. One hull per fleet may carry a dying reactor ember. ─── */
-function fleetHull(kind) {
+function fleetHull(kind, rim, alive) {
   const w = Math.round(rnd(150, 300) * (kind === 'cap' ? 1.7 : kind === 'escort' ? .7 : 1));
   const h = Math.round(w * rnd(.22, .34));
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const x = c.getContext('2d');
   x.translate(w / 2, h / 2);
-  // hull cut-out
+  // hull cut-out — the graveyard wears a cold rim; the convoy gets a mint one
   x.fillStyle = '#05080f';
-  x.strokeStyle = 'rgba(190,205,235,.32)';           // rim catches the sun
+  x.strokeStyle = rim || 'rgba(190,205,235,.32)';
   x.lineWidth = 1.2;
   x.beginPath();
   if (kind === 'carrier') {                          // long deck, offset island
@@ -205,10 +205,13 @@ function fleetHull(kind) {
     x.fillRect(bx, -h * .34, bw, h * rnd(.18, .3));
     x.strokeRect(bx, -h * .34, bw, h * .22);
   }
-  // survivors' windows — most dead, a few still lit
+  // survivors' windows — most dead in the graveyard; a living crew keeps
+  // nearly every port lit (the convoy reads as ALIVE against the moon)
   for (let i = 0; i < 12; i++) {
-    if (FX.chance(.5)) continue;
-    x.fillStyle = 'rgba(255,190,120,' + rnd(.15, .4).toFixed(2) + ')';
+    if (FX.chance(alive ? .15 : .5)) continue;
+    x.fillStyle = alive
+      ? 'rgba(200,255,225,' + rnd(.3, .55).toFixed(2) + ')'
+      : 'rgba(255,190,120,' + rnd(.15, .4).toFixed(2) + ')';
     x.fillRect(-w * .4 + rnd(0, w * .8), rnd(-h * .18, h * .14), 1.8, 1.2);
   }
   return c;
@@ -277,6 +280,74 @@ function pyreWreck() {
   return c;
 }
 const pyre = { on: false, next: 40, last: 0, x: 0, y: 0, vx: 0, vy: 0, dur: 1, life: 0, rot: 0, rotA: 0, img: null, frags: [], glow: null };
+/* ═══ the relief convoy — sixth sky event, and the first friendly one.
+   Every ~3.5 minutes a supply convoy of escort hulls crosses mid-sky:
+   white-running lights in tight formation, reactor glows warm — proof
+   the corridor still connects to somewhere. Zero pay: the war effort is
+   its own reward, and the feed line carries the story. Built by reusing
+   fleetHull with friendly dressing (mint rim, lit ports). ═══ */
+const convoy = { on: false, next: 70, last: 0, x: 0, y: 0, vx: 0, vy: 0, dur: 1, life: 0, ships: [] };
+function convoyTick() {
+  const now = performance.now() / 1000;
+  const dt = Math.min(.1, now - (convoy.last || now)); convoy.last = now;
+  const c = convoy;
+  if (!c.on) {
+    c.next -= dt;
+    if (c.next <= 0) {
+      const dir = FX.chance(.5) ? 1 : -1;
+      c.x = dir > 0 ? -300 : W + 300;
+      c.y = rnd(H * .18, H * .42);                       // mid-sky — distinct band from the fleet's limb ride
+      c.vx = dir * rnd(16, 24); c.vy = rnd(-1.5, 1.5);   // brisker than the graveyard's drift
+      c.dur = rnd(38, 55); c.life = c.dur;
+      const kinds = ['carrier', 'escort', 'escort', 'escort', 'escort'];
+      c.ships = kinds.map((k, i) => ({
+        img: fleetHull(k, 'rgba(125,255,184,.4)', true),  // mint rim, living ports
+        // tight defensive box: carrier lead, escorts echeloned close
+        ox: i * rnd(70, 95) * dir,
+        oy: (i % 2 ? 1 : -1) * rnd(8, 22),
+        rot: rnd(-.02, .02),
+        a: rnd(.6, .8)
+      }));
+      c.on = true;
+      c.next = 210 + rnd(-50, 50);                       // next convoy in ~3.5 min
+      if (GAME.state === 'playing') {                    // career sky log
+        sightRecord('escort', 0);
+        note('A relief convoy slips past — the corridor still connects', 'good');
+        AU.convoy();
+      }
+    }
+    return;
+  }
+  c.x += c.vx * dt; c.y += c.vy * dt; c.life -= dt;
+  if (c.life <= 0) c.on = false;
+}
+/* the convoy draws itself here rather than in the inline core — every
+   piece of convoy behavior in one file, beside the other sky events */
+function drawConvoy() {
+  const c = convoy;
+  if (!c.on) return;
+  const a = Math.min(1, (c.dur - c.life) * .7, c.life * .9);   // ease in/out
+  if (a <= 0) return;
+  for (const sh of c.ships) {
+    ctx.save();
+    ctx.translate(c.x + sh.ox, c.y + sh.oy);
+    ctx.rotate(sh.rot);
+    ctx.globalAlpha = a * sh.a;
+    ctx.drawImage(sh.img, -sh.img.width / 2, -sh.img.height / 2);
+    /* white running lights — one strobing, two steady. The graveyard has
+       its ember; the convoy's signature is living light. */
+    ctx.globalCompositeOperation = 'lighter';
+    const strobe = (Math.sin(GAME.t * 6) > .2) ? .8 : .1;
+    ctx.globalAlpha = a * sh.a * .8 * strobe;
+    ctx.fillStyle = '#e8f6ff';
+    const hw = sh.img.width / 2;
+    ctx.fillRect(-hw + 4, -1.5, 3, 3);                   // stern strobe
+    ctx.globalAlpha = a * sh.a * .55;
+    ctx.fillRect(hw - 7, -1.5, 3, 3);                    // bow steady
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
 /* the sky archive — every sighting recorded across sessions: kind, wave,
    difficulty, alloy it paid, when, which mode. Capped at 60 entries
    (newest kept), persisted with the profile, cloud-merged as a union. */
@@ -315,7 +386,8 @@ const SKY_EVENTS = {
   comet:  { name: 'Comet',           rgb: '255,180,84',  career: 'comets', run: 'comets' },
   golden: { name: 'Golden comet',    rgb: '255,214,110', career: 'golden', run: 'goldens' },
   fleet:  { name: 'Graveyard fleet', rgb: '155,107,255', career: 'fleets', run: 'fleets' },
-  pyre:   { name: 'Falling pyre',    rgb: '255,150,70',  career: 'pyres',  run: 'pyres' }
+  pyre:   { name: 'Falling pyre',    rgb: '255,150,70',  career: 'pyres',  run: 'pyres' },
+  escort: { name: 'Relief convoy',   rgb: '125,255,184', career: 'escorts', run: 'escorts' }
 };
 const SKY_RGB = { silent: '120,131,156' };   // 'silent' is a mood, not an event
 for (const k in SKY_EVENTS) SKY_RGB[k] = SKY_EVENTS[k].rgb;
@@ -334,6 +406,7 @@ function skyWhisper() {
   if (near(comet, 8))       { rgb = SKY_RGB.comet;  lines = ['The sky was silent — a comet was seconds away.', 'The sky was silent — a wish was seconds from arriving.']; }
   else if (near(comet, 20)) { rgb = SKY_RGB.comet;  lines = ['The sky was silent — a comet was almost due.', 'The sky was silent — a wish was still inbound.']; }
   else if (near(fleet, 35)) { rgb = SKY_RGB.fleet;  lines = ['The sky was silent — a graveyard fleet was drawing near.', 'The sky was silent — the war-dead were drawing near.']; }
+  else if (near(convoy, 40)) { rgb = SKY_RGB.escort; lines = ['The sky was silent — running lights crossed somewhere above.', 'The sky was silent — a convoy was nearly due.']; }
   else if (near(pyre, 45))  { rgb = SKY_RGB.pyre;   lines = ['The sky was silent — something was falling somewhere.', 'The sky was silent — somewhere, a ship came down.']; }
   else                      { rgb = SKY_RGB.silent; lines = ['The sky was silent.', 'The stars kept their distance.', 'The heavens held their breath.', 'No word from the deep.']; }
   return { text: pickLine(rgb, lines), rgb };

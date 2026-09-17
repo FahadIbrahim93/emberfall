@@ -90,7 +90,7 @@ const NET = {
           META.refits[r.id] = Math.max(META.refits[r.id] || 0, clamp(+sMeta.refits[r.id] || 0, 0, r.max));
         }
         if (sMeta.feats) for (const k in sMeta.feats) if (!META.feats[k]) META.feats[k] = sMeta.feats[k];
-        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets', 'pyres', 'streakCur', 'streakBest'])
+        if (sMeta.sky && typeof sMeta.sky === 'object') for (const k of ['comets', 'golden', 'fleets', 'pyres', 'escorts', 'streakCur', 'streakBest'])
           META.sky[k] = Math.max(META.sky[k] || 0, +sMeta.sky[k] || 0);   // sky career counters travel with the account
         if (sMeta.codex && typeof sMeta.codex === 'object')
           META.codex = Object.assign({}, sMeta.codex, META.codex);   // seen is seen — union wins
@@ -390,6 +390,7 @@ function renderSkyLog() {
   const head = '<div class="empty" style="padding:0 0 12px">' +
     META.sky.comets + ' comets · ' + META.sky.golden + ' golden · ' +
     META.sky.fleets + ' fleets · ' + META.sky.pyres + ' pyres' +
+    (META.sky.escorts ? ' · ' + META.sky.escorts + (META.sky.escorts === 1 ? ' convoy' : ' convoys') : '') +
     ' — newest 60 kept' + streak + '</div>';
   if (!rows.length) { box.innerHTML = head + '<div class="empty">The sky has been quiet. It will not stay that way.</div>'; return; }
   box.innerHTML = head + rows.map(e => {

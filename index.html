@@ -1149,7 +1149,7 @@ const META = {
   alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
-  sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, streakCur: 0, streakBest: 0 },
+  sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
   skyLog: [],                // sky archive: every sighting {k, w, d, a, t, m}, newest kept
@@ -1167,6 +1167,7 @@ function loadMeta() {
     META.sky.golden = +s.sky.golden || 0;
     META.sky.fleets = +s.sky.fleets || 0;
     META.sky.pyres = +s.sky.pyres || 0;
+    META.sky.escorts = +s.sky.escorts || 0;
     META.sky.streakCur = +s.sky.streakCur || 0;
     META.sky.streakBest = +s.sky.streakBest || 0;
   }
@@ -1260,7 +1261,8 @@ const FEATS = [
   { id: 'bigwish', name: 'Wish big', desc: 'Spot a golden comet.', check: s => s.sky && s.sky.golden >= 1, prog: () => [META.sky.golden, 1] },
   { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] },
   { id: 'serialwish', name: 'Serial wisher', desc: 'Bank 10 comet bonuses — earns the STAR CHART: every comet pays +50% alloy, forever.', check: s => s.sky && s.sky.comets >= 10, prog: () => [META.sky.comets, 10] },
-  { id: 'skystreak', name: 'Sky-touched', desc: 'Sight a comet in 5 consecutive runs.', check: s => s.sky && (s.sky.streakBest || 0) >= 5, prog: () => [Math.min(META.sky.streakBest || 0, 5), 5] }
+  { id: 'skystreak', name: 'Sky-touched', desc: 'Sight a comet in 5 consecutive runs.', check: s => s.sky && (s.sky.streakBest || 0) >= 5, prog: () => [Math.min(META.sky.streakBest || 0, 5), 5] },
+  { id: 'escort', name: 'Escort service', desc: 'Watch a relief convoy cross mid-run.', check: s => s.sky && (s.sky.escorts || 0) >= 1, prog: () => [META.sky.escorts || 0, 1] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -3227,7 +3229,7 @@ const GAME = {
   score: 0, shown: 0, best: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
   kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
   alloyRun: 0, wave: 0, lives: 3, intensity: .25, threat: 0,
-  skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, alloy: 0 }
+  skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 }
 };
 
 const foes = [], pb = [], fb = [], picks = [], rings = [], floats = [], beams = [], mines = [];
@@ -5304,6 +5306,7 @@ function drawSkyPointers() {
     comet.gold ? rgbOf(PAL.gold) : '255,224,178');
   if (fleet.on) skyPointer(fleet.x, fleet.y, SKY_RGB.fleet);
   if (pyre.on) skyPointer(pyre.x, pyre.y, SKY_RGB.pyre);
+  if (convoy.on) skyPointer(convoy.x, convoy.y, SKY_RGB.escort);
 }
 
 let fpsEMA = 60;
@@ -5322,9 +5325,11 @@ function render() {
   cometTick();
   fleetTick();
   pyreTick();
+  convoyTick();
   drawBackdrop(GAME.t);
   drawComet(GAME.t);
   drawPyre(GAME.t);
+  drawConvoy();
   SCHOOL.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
@@ -5590,7 +5595,7 @@ function startRun(mode) {
     kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
     grazeHeat: 0, goldSighted: false, school: false,
-    skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, alloy: 0 },
+    skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 },
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
@@ -5679,6 +5684,7 @@ function endRun() {
     if (s.comets) parts.push(s.comets + (s.comets === 1 ? ' comet' : ' comets') + (s.goldens ? ' (' + s.goldens + ' golden)' : ''));
     if (s.fleets) parts.push(s.fleets + (s.fleets === 1 ? ' fleet' : ' fleets'));
     if (s.pyres) parts.push(s.pyres + (s.pyres === 1 ? ' pyre' : ' pyres'));
+    if (s.escorts) parts.push(s.escorts + (s.escorts === 1 ? ' convoy' : ' convoys'));
     const el = $('ovSky');
     if (GAME.school) el.classList.add('hidden');               // practice runs never speak of the sky
     else if (parts.length) {
@@ -6533,7 +6539,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, streakBest: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
     ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
@@ -6667,6 +6673,27 @@ function runSelfTests() {
     loadMeta();
     eq(META.skyLog.length, 60, 'a flooded legacy archive truncates to the newest 60 on load');
     eq(META.skyLog[59].t, 79, 'newest kept, oldest dropped');
+  });
+  T('SKY_EVENTS extension: escort convoy records through the single owner', () => {
+    const keeper = { sky: META.sky, skyLog: META.skyLog, saveMeta };
+    let saved = 0;
+    try {
+      GAME.skyRun = { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 };
+      META.sky = { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 };
+      META.skyLog = [];
+      const realSave = saveMeta; saveMeta = () => saved++;
+      sightRecord('escort', 0);
+      eq(META.sky.escorts, 1, 'career counter incremented via table');
+      eq(GAME.skyRun.escorts, 1, 'run counter incremented via table');
+      eq(META.skyLog.length, 1, 'archive row written');
+      eq(META.skyLog[0].k, 'escort', 'kind recorded');
+      eq(saved, 1, 'exactly one save');
+      const meta2 = renderFeats && typeof renderFeats === 'function';
+      ok(SKY_EVENTS.escort && SKY_EVENTS.escort.career === 'escorts', 'table row present');
+    } finally {
+      META.sky = keeper.sky; META.skyLog = keeper.skyLog; saveMeta = keeper.saveMeta;
+      GAME.skyRun = { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 };
+    }
   });
   T('viewport cull rejects NaN', () => {
     eq(inView(NaN, NaN, 40), false);
