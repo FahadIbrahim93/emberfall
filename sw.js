@@ -2,12 +2,15 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v3.6';
+const CACHE = 'emberfall-v3.7';
 const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  /* cache:'reload' — precache fetches BYPASS the browser HTTP cache. Without
+     it, an install inherits whatever stale hour-old entry the page's HTTP
+     cache still holds, and the "new" SW ships old modules forever. */
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(
@@ -37,7 +40,7 @@ self.addEventListener('fetch', e => {
           /* stale-while-revalidate: the cached copy answers instantly, the
              network refreshes it behind the response — module fixes reach
              players on their next load without a SW version bump */
-          const net = fetch(e.request).then(res => {
+          const net = fetch(e.request, { cache: 'no-cache' }).then(res => {   // revalidate, never trust the HTTP cache
             if (res.ok) {
               const copy = res.clone();
               caches.open(CACHE).then(c => c.put(e.request, copy));

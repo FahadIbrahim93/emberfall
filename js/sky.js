@@ -27,10 +27,11 @@ function cometTick() {
       c.paid = 0;                                         // spawn resets the ledger — a school comet must not log the previous sighting's pay
       c.next = 100 + rnd(-20, 20);                        // schedule the next one
       if (GAME.state === 'playing') {                     // career sky log
+        /* goldens are comets too: they count in the comet totals (streak
+           and the 10-wish milestone read them) AND in the golden tally */
         META.sky.comets++;
-        if (c.gold) META.sky.golden++;
-        GAME.skyRun.comets++;                             // per-run log for the summary
-        if (c.gold) GAME.skyRun.goldens++;
+        GAME.skyRun.comets++;
+        if (c.gold) { META.sky.golden++; GAME.skyRun.goldens++; }
         saveMeta();
       }
       c.puffs = c.gold
@@ -64,7 +65,7 @@ function cometTick() {
             c.paid = bonus;
           }
         } catch (e) { }
-        if (GAME.state === 'playing') logSighting(c.gold ? 'golden' : 'comet', c.paid);   // the archive keeps facts: paid 0 on school runs
+        if (GAME.state === 'playing') sightRecord(c.gold ? 'golden' : 'comet', c.paid);   // the archive keeps facts: paid 0 on school runs
       }
     }
     return;
@@ -239,10 +240,7 @@ function fleetTick() {
       f.on = true;
       f.next = 240 + rnd(-60, 60);                   // next fleet in ~4 min
       if (GAME.state === 'playing') {                // career sky log
-        META.sky.fleets++;
-        GAME.skyRun.fleets++;
-        logSighting('fleet', 0);
-        saveMeta();
+        sightRecord('fleet', 0);
       }
     }
     return;
@@ -306,7 +304,30 @@ function pickLine(key, lines) {
 }
 /* one color per sky kind — the edge pointers, the whisper tints, and the
    Sky log rows all read this table, so a recolor is a one-line change */
-const SKY_RGB = { comet: '255,180,84', golden: '255,214,110', fleet: '155,107,255', pyre: '255,150,70', silent: '120,131,156' };
+/* ═══ SKY_EVENTS — the single owner of what each sky event IS: display
+   name, pointer/whisper/log color, and which career (META.sky) and run
+   (GAME.skyRun) counters a sighting increments. Adding a sixth event
+   means one row here plus a countSighting call — colors, counters, the
+   Registry's kind column and the whisper tints follow.
+   career/run keys differ because legacy saves own these shapes:
+   META.sky.golden (career, legacy name) vs skyRun.goldens (per-run). ═══ */
+const SKY_EVENTS = {
+  comet:  { name: 'Comet',           rgb: '255,180,84',  career: 'comets', run: 'comets' },
+  golden: { name: 'Golden comet',    rgb: '255,214,110', career: 'golden', run: 'goldens' },
+  fleet:  { name: 'Graveyard fleet', rgb: '155,107,255', career: 'fleets', run: 'fleets' },
+  pyre:   { name: 'Falling pyre',    rgb: '255,150,70',  career: 'pyres',  run: 'pyres' }
+};
+const SKY_RGB = { silent: '120,131,156' };   // 'silent' is a mood, not an event
+for (const k in SKY_EVENTS) SKY_RGB[k] = SKY_EVENTS[k].rgb;
+/* one owner for sighting bookkeeping — career counters, per-run counters,
+   the archive row. Every sky event calls exactly this, mid-run only. */
+function sightRecord(kind, paid) {
+  const ev = SKY_EVENTS[kind] || SKY_EVENTS.comet;
+  META.sky[ev.career]++;
+  GAME.skyRun[ev.run]++;
+  logSighting(kind, paid);
+  saveMeta();
+}
 function skyWhisper() {
   const near = (ev, t) => !ev.on && ev.next > 0 && ev.next <= t;
   let lines, rgb;
@@ -337,14 +358,11 @@ function pyreTick() {
         vx: rnd(-26, 26), vy: rnd(30, 90),           // kicked out, falls behind
         r: rnd(1, 2.4), life: rnd(2.5, 4.5), seed: rnd(0, TAU)
       }));
-      if (!p.glow) p.glow = cometPuff('255,150,70');
+      if (!p.glow) p.glow = cometPuff(SKY_RGB.pyre);
       p.on = true;
       p.next = 420 + rnd(-90, 90);                   // next pyre in ~7 min
       if (GAME.state === 'playing') {                // career sky log
-        META.sky.pyres++;
-        GAME.skyRun.pyres++;
-        logSighting('pyre', 0);
-        saveMeta();
+        sightRecord('pyre', 0);
       }
       if (GAME.state === 'playing') {                // sighting is an event
         note('A burning hulk falls through the sky — someone lost a ship out there', 'rare');

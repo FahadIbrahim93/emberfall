@@ -369,12 +369,10 @@ function renderSkyLog() {
   /* explicit newest-first sort: appends are chronological and the merge
      sorts, but a skewed device clock must not scramble the ledger */
   const rows = META.skyLog.slice().sort((a, b) => b.t - a.t);
-  const KIND = {
-    comet: ['Comet', 'var(--amber)'],
-    golden: ['Golden comet', 'var(--gold)'],
-    fleet: ['Graveyard fleet', 'rgb(' + SKY_RGB.fleet + ')'],
-    pyre: ['Falling pyre', 'rgb(' + SKY_RGB.pyre + ')']
-  };
+  /* display names + colors come from SKY_EVENTS (js/sky.js) — the single
+     owner of what each sky event is called and how it's tinted */
+  const KIND = Object.fromEntries(Object.entries(SKY_EVENTS).map(([k, ev]) =>
+    [k, [ev.name, 'rgb(' + ev.rgb + ')']]));
   const when = t => {
     const d = new Date(t), days = (Date.now() - t) / 864e5;
     if (days < 1) return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
