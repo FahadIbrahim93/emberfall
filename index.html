@@ -1764,11 +1764,15 @@ function updateBackdrop(dt) {
     }
   }
 }
+/* sky events cross regardless (informative, rare); ambient drift obeys */
+function skyTime(t) { return REDUCE ? 0 : t; }
+
 function drawBackdrop(t) {
+  const tt = skyTime(t);  // reduced-motion: ambient drift frozen at frame zero
   // nebula drift — cool and deep, a hint rather than a haze
   ctx.globalAlpha = .44;
-  ctx.drawImage(nebA, W * .14 - 300, ((t * 7) % (H + 760)) - 620, 640, 640);
-  ctx.drawImage(nebB, W * .72 - 320, ((t * 4.5 + H * .55) % (H + 860)) - 700, 740, 740);
+  ctx.drawImage(nebA, W * .14 - 300, ((tt * 7) % (H + 760)) - 620, 640, 640);
+  ctx.drawImage(nebB, W * .72 - 320, ((tt * 4.5 + H * .55) % (H + 860)) - 700, 740, 740);
   ctx.globalAlpha = 1;
 
   // derelict silhouettes, slow and deep
@@ -1800,15 +1804,15 @@ function drawBackdrop(t) {
   // 25 min) and the ring plane rocks ±2.6° over ~10 min — barely-perceptible
   // drifts that reward long runs. Zero extra offscreen work per frame.
   const ps = Math.max(900, Math.min(W, H) * 1.5);
-  const py = H * 1.06 - ((t * 1.15) % (H * 3.2));
+  const py = H * 1.06 - ((tt * 1.15) % (H * 3.2));
   const px = -ps * .44;
   ctx.globalAlpha = .92;
-  planet.ring(ctx, true, t);              // far half
+  planet.ring(ctx, true, tt);              // far half
   ctx.drawImage(planet.surf, px, py);
   if (planet.storm) {                     // grand storm, creeping around the disc
     ctx.save();
     ctx.translate(px + ps / 2, py + ps / 2);
-    ctx.rotate(t * .0042);
+    ctx.rotate(tt * .0042);
     ctx.drawImage(planet.storm, -ps / 2, -ps / 2);
     ctx.restore();
   }
@@ -1818,14 +1822,14 @@ function drawBackdrop(t) {
   ctx.globalCompositeOperation = 'lighter';
   ctx.drawImage(planet.glow, px, py);
   ctx.globalCompositeOperation = pl;
-  planet.ring(ctx, false, t);             // near half
+  planet.ring(ctx, false, tt);             // near half
   ctx.globalAlpha = 1;
   // the moon — a hemisphere arcing across the top third of the arena.
   // Only its lower limb enters the frame; it hangs there in slow majesty,
   // drifting a few percent over minutes. Behind the HUD, ahead of the stars.
   const ms = Math.min(W, H) * 2.45;
-  const mx = W * .56 + Math.sin(t * .021) * W * .05;
-  const my = H * .36 - ms + Math.sin(t * .043) * H * .012;
+  const mx = W * .56 + Math.sin(tt * .021) * W * .05;
+  const my = H * .36 - ms + Math.sin(tt * .043) * H * .012;
   ctx.globalAlpha = .95;
   ctx.drawImage(moon.surf, mx - ms / 2, my, ms, ms);
   ctx.globalCompositeOperation = 'multiply';
@@ -1853,7 +1857,7 @@ function drawBackdrop(t) {
     }
     if (fc.ember >= 0 && fc.ember < fc.ships.length) {
       const sh = fc.ships[fc.ember];
-      const k = .5 + .5 * Math.sin(t * 2.1 + fc.x);
+      const k = .5 + .5 * Math.sin(tt * 2.1 + fc.x);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const ex = fc.x + sh.ox, ey = fc.y + sh.oy;
@@ -5352,7 +5356,7 @@ function render() {
   SCHOOL.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
-    drawAttract();
+    if (!REDUCE) drawAttract();  // reduced-motion: no self-flying hull
   } else {
     drawRings();
     drawPicks();
@@ -6774,6 +6778,11 @@ function runSelfTests() {
   /* wholesale restore — the suite mutates alloy, counters, logs and feats;
      the pilot's real profile must survive the run untouched */
   const pre = DB.get('meta.preTest', null);
+  T('reduced motion freezes ambient drift, keeps rare events', () => {
+    const frozen = skyTime(5000) === 0, live = skyTime(1) === 1;
+    eq(REDUCE ? frozen : live, true, 'skyTime follows REDUCE');
+    for (const tick of [cometTick, fleetTick, convoyTick, pyreTick]) ok(tick instanceof Function, 'sky events still tick under REDUCE');
+  });
   T('sky traffic cadence scales and floors', () => {
     const save = CFG.sky, saveNext = { c: comet.next, f: fleet.next, v: convoy.next, p: pyre.next };
     try {
