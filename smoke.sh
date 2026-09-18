@@ -41,8 +41,8 @@ ANON="$(curl -s -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -
 if printf '%s' "$ANON" | grep -q 'sign in'; then ok "score reject anon"; else no "score reject anon  →  ${ANON:0:120}"; fi
 expect "score bad mode"    'bad mode'                       -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"cheat","score":1,"wave":1,"ship":"vesper","diff":1}'
 expect "score implausible" 'implausible'                    -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"main","score":2000000,"wave":1,"ship":"vesper","diff":1}'
-expect "score ok"          '"ok":true'                      -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":$((RANDOM+5000)),\"wave\":7,\"ship\":\"vesper\",\"diff\":1}"
-expect "board has entry"   "Pilot$R"                        "$BASE/api/scores?mode=main"
+expect "score without telemetry reviewed" '"verdict":"review"'       -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":$((RANDOM+5000)),\"wave\":7,\"ship\":\"vesper\",\"diff\":1}"
+expect "review excluded from board" '"top":\[\]'                 "$BASE/api/scores?mode=main"
 expect "login wrong pw"    'wrong callsign'                 -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"nope\"}"
 expect "login ok"          '"ok":true'                      -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
 expect "logout"            '"ok":true'                      -X POST "$BASE/api/logout" -H 'X-Emberfall: command-deck'
@@ -53,7 +53,7 @@ say ""; say "── v3.3 provenance + seasons ──"
 expect "ac2 register"      '"ok":true'                      -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Ace$R\",\"password\":\"hunter22\"}"
 # honest arc: 3 waves, ~45s, growing counters
 CPH='[[2.1,1,320,4,30,12,3,1],[12.4,2,940,11,72,31,8,2],[25.0,3,1880,19,118,54,15,2],[44.7,3,2410,24,151,66,21,2]]'
-expect "honest run verified" '"verdict":"verified"'           -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+expect "honest run accepted" '"verdict":"accepted"'           -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
 # replay: identical arc again → rejected
 REPLAY="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}")"
 if printf '%s' "$REPLAY" | grep -q 'replay'; then ok "replay rejected"; else no "replay rejected  →  ${REPLAY:0:140}"; fi
@@ -65,8 +65,8 @@ expect "mass cheat rejected"  'score impossible'             -X POST "$BASE/api/
 expect "velocity rejected"    'velocity'                     -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":3000000,\"wave\":14,\"ship\":\"vesper\",\"diff\":1,\"runT\":90,\"kills\":800,\"cps\":[[90,14,3000000,800,5000,4900,400,5]]}"
 # tamper: monotonicity break inside the arc
 expect "non-monotonic rejected" 'non-monotonic'              -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":3000,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":50,\"kills\":20,\"cps\":[[10,1,900,8,50,20,2,1],[20,2,1500,12,90,40,5,2],[30,3,1400,16,110,50,8,2]]}"
-# flagged: final score disagrees with the arc tail
-expect "mismatch flagged"     '"verdict":"flagged"'          -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":9000,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+# review: final score disagrees with the arc tail
+expect "mismatch reviewed"    '"verdict":"review"'          -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":9000,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
 # seasons
 expect "season endpoint"      '"season":"'                   "$BASE/api/season"
 expect "season has structure" '"ends":'                      "$BASE/api/season"
@@ -85,7 +85,8 @@ if printf '%s' "$INBOX" | grep -q "Ace${R}"; then ok "inbox shows duel"; else no
 CID=$(printf '%s' "$INBOX" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 GHOSTJ="$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/challenges/ghost?id=$CID")"
 if printf '%s' "$GHOSTJ" | grep -q '"frames"'; then ok "ghost delivered"; else no "ghost delivered  →  ${GHOSTJ:0:140}"; fi
-expect "duel marked beaten"   '"beaten":true'                -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID}"
+expect "duel rejects self-report" 'score did not beat'              -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID,\"score\":1,\"wave\":1,\"diff\":1}"
+expect "duel marked beaten"   '"beaten":true'                -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID,\"score\":2410,\"wave\":3,\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
 
 say ""
 say "── $PASS passed, $FAIL failed ─────────────────────"

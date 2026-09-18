@@ -29,14 +29,19 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install browser test dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Syntax gate (check.sh)
         run: bash check.sh
 
       - name: Dead-code + load-order gate (deadscan --check)
         run: node deadscan.js --check
 
-      # headless client suite: every JS-syntax pass re-runs the real game loop.
-      # No DOM in Node — game code is covered by the smoke + server gates below.
+      # Browser smoke below exercises boot, local-only asset loading, and core screen flow.
       - name: Economy model gate (econsim --json)
         run: node tools/econsim.js --json > /dev/null
 
@@ -53,8 +58,11 @@ jobs:
           done
           echo "server failed to start"; cat server.log; exit 1
 
-      - name: API + client-payload smoke (smoke.sh)
+      - name: API smoke (smoke.sh)
         run: bash smoke.sh
+
+      - name: Browser smoke
+        run: npm run test:browser
 
       - name: Stop deck
         if: always()

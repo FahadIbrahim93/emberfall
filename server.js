@@ -13,8 +13,9 @@
 
    Security posture (the boring, correct kind):
    - passwords: scrypt (N=16384) with per-user random salt, constant-time compare
-   - sessions: 32 random bytes, only the SHA-256 is stored; HttpOnly cookie,
-     SameSite=Lax; every mutating request must be same-origin JSON
+   - sessions: 32 random bytes, only the SHA-256 is stored; HttpOnly,
+     SameSite=Lax, Secure-in-production cookie; every mutating request must
+     be same-origin JSON
    - input: every field validated and length-capped; SQL is 100% parameterized
    - rate limits: per-IP sliding windows on auth and score submission
    - headers: nosniff, frame-deny, referrer policy, CSP on documents
@@ -32,6 +33,8 @@ const PORT = Number(process.env.PORT || (process.argv.includes('--port') ? proce
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_PATH = path.join(DATA_DIR, 'emberfall.db');
+const IS_PROD = process.env.NODE_ENV === 'production';
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 
 /* ─────────────────────────── database ─────────────────────────── */
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -79,7 +82,7 @@ function addCol(table, col, decl) {
 addCol('scores', 'run_t', 'REAL');
 addCol('scores', 'kills', 'INTEGER');
 addCol('scores', 'telemetry', 'TEXT');
-addCol('scores', 'verdict', 'TEXT DEFAULT \'verified\'');
+addCol('scores', 'verdict', 'TEXT DEFAULT \'accepted\'');
 addCol('scores', 'run_hash', 'TEXT');
 db.exec(`
 CREATE TABLE IF NOT EXISTS challenges (
@@ -101,17 +104,24 @@ CREATE TABLE IF NOT EXISTS beats (
   PRIMARY KEY (challenge_id, user_id)
 );
 `);
+addCol('beats', 'score', 'INTEGER');
+addCol('beats', 'run_hash', 'TEXT');
+/* Old "verified" rows were checked by the same client-telemetry heuristic.
+   Preserve them for account history, but keep them off ranked boards rather
+   than silently retaining a stronger claim than the server can establish. */
+db.prepare("UPDATE scores SET verdict = 'review' WHERE verdict IS NULL OR verdict = 'verified'").run();
 
 /* ───────────────────── run provenance: verify before trust ─────────────────────
    The sim lives on the client, so cheating is not preventable — it is
    detectable. Runs arrive with checkpoint telemetry (one sample per wave,
-   boss, and death). The server replays the aggregate arc and rejects what
-   the game economy cannot produce. Two verdicts: verified, flagged. */
+   boss, and death). The server checks the aggregate arc and rejects what
+   the game economy cannot produce. This is plausibility checking, not an
+   authoritative replay: accepted runs may rank, review runs may not. */
 const MAX_MULT = 5;
 function verifyRun(mode, diff, wave, score, runT, cps) {
-  const v = { verdict: 'verified', flags: [] };
+  const v = { verdict: 'accepted', flags: [] };
   const reject = why => { v.verdict = 'rejected'; v.flags.push(why); };
-  const flag = why => { if (v.verdict === 'verified') v.verdict = 'flagged'; v.flags.push(why); };
+  const flag = why => { if (v.verdict === 'accepted') v.verdict = 'review'; v.flags.push(why); };
 
   if (!Array.isArray(cps) || !cps.length) {
     /* telemetry-less (legacy) submissions ride the coarse economy ceiling */
@@ -196,7 +206,7 @@ function seasonBoard(ts, userId) {
       SELECT s.user_id, s.score,
         ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
       FROM scores s WHERE s.mode = 'main' AND s.created >= ?
-        AND (s.verdict IS NULL OR s.verdict = 'verified')
+        AND s.verdict = 'accepted'
     )
     SELECT u.name AS n, SUM(w.score) AS pts, COUNT(*) AS runs, MAX(w.score) AS best
     FROM weekly w JOIN users u ON u.id = w.user_id
@@ -209,7 +219,7 @@ function seasonBoard(ts, userId) {
         SELECT s.user_id, s.score,
           ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
         FROM scores s WHERE s.mode = 'main' AND s.created >= ? AND s.user_id = ?
-          AND (s.verdict IS NULL OR s.verdict = 'verified')
+          AND s.verdict = 'accepted'
       )
       SELECT SUM(score) AS pts, COUNT(*) AS runs, MAX(score) AS best FROM weekly WHERE rn <= 5`).get(start, userId);
     if (row && row.runs > 0) {
@@ -218,7 +228,7 @@ function seasonBoard(ts, userId) {
           SELECT s.user_id, s.score,
             ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
           FROM scores s WHERE s.mode = 'main' AND s.created >= ?
-            AND (s.verdict IS NULL OR s.verdict = 'verified')
+            AND s.verdict = 'accepted'
         )
         SELECT user_id, SUM(score) AS pts FROM weekly WHERE rn <= 5 GROUP BY user_id
         HAVING pts > ?`).all(start, row.pts || 0);
@@ -234,6 +244,17 @@ const pad2 = n => String(n).padStart(2, '0');
 const SESSION_DAYS = 30;
 const COOKIE = 'EF_SESSION';
 
+function isSecureRequest(req) {
+  return !!req.socket.encrypted || (TRUST_PROXY && req.headers['x-forwarded-proto'] === 'https');
+}
+function requireSecure(req, res) {
+  if (IS_PROD && !isSecureRequest(req)) {
+    bad(res, 'HTTPS required', 426);
+    return false;
+  }
+  return true;
+}
+
 function hashPassword(password, salt) {
   return crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 }).toString('base64');
 }
@@ -242,19 +263,21 @@ function verifyPassword(password, salt, expected) {
   const a = Buffer.from(got), b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-function newSession(res, userId) {
+function newSession(req, res, userId) {
   const token = crypto.randomBytes(32).toString('base64url');
   const exp = now() + SESSION_DAYS * 86400000;
   db.prepare('INSERT INTO sessions (token_hash, user_id, created, expires) VALUES (?, ?, ?, ?)')
     .run(crypto.createHash('sha256').update(token).digest('hex'), userId, now(), exp);
+  const secure = IS_PROD || isSecureRequest(req);
   res.setHeader('Set-Cookie',
-    `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`);
+    `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=${SESSION_DAYS * 86400}`);
 }
 function clearSession(req, res) {
   const token = readCookie(req, COOKIE);
   if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?')
     .run(crypto.createHash('sha256').update(token).digest('hex'));
-  res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  const secure = IS_PROD || isSecureRequest(req);
+  res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=0`);
 }
 function readCookie(req, name) {
   const raw = req.headers.cookie || '';
@@ -361,7 +384,7 @@ function serveStatic(req, res, urlPath) {
     };
     if (ext === '.html') {
       headers['Content-Security-Policy'] =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'";
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'";
       headers['Cache-Control'] = 'no-cache';
     } else if (file.endsWith('sw.js')) {
       headers['Cache-Control'] = 'no-cache';
@@ -431,7 +454,7 @@ async function handleApi(req, res, pathname, ip) {
     const salt = crypto.randomBytes(16).toString('hex');
     const info = db.prepare('INSERT INTO users (name, name_lower, salt, hash, created, last_seen) VALUES (?, ?, ?, ?, ?, ?)')
       .run(name, name.toLowerCase(), salt, hashPassword(password, salt), now(), now());
-    newSession(res, Number(info.lastInsertRowid));
+    newSession(req, res, Number(info.lastInsertRowid));
     return send(res, 200, { ok: true, user: { name }, profile: null });
   }
 
@@ -449,7 +472,7 @@ async function handleApi(req, res, pathname, ip) {
           hashPassword('x', 'deaddbeefdeadbeefdeadbeefdeadbeef'));
     if (!row || !okPw) return bad(res, 'wrong callsign or password', 401);
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(now(), row.id);
-    newSession(res, row.id);
+    newSession(req, res, row.id);
     return send(res, 200, { ok: true, user: { name: row.name }, profile: publicProfile(row.id) });
   }
 
@@ -523,12 +546,12 @@ async function handleApi(req, res, pathname, ip) {
         JSON.stringify(cps).slice(0, 20000), v.verdict, hash);
 
     const better = db.prepare(`SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s
-      WHERE s.mode = ? AND s.score > ? AND (s.verdict IS NULL OR s.verdict = 'verified')`).get(mode, score);
+      WHERE s.mode = ? AND s.score > ? AND s.verdict = 'accepted'`).get(mode, score);
     const rank = Number(better.n) + 1;
     const top = db.prepare(`
       SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
       FROM scores s JOIN users u ON u.id = s.user_id
-      WHERE s.mode = ? AND (s.verdict IS NULL OR s.verdict = 'verified')
+      WHERE s.mode = ? AND s.verdict = 'accepted'
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
     const sb = seasonBoard(now(), user.id);
     return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me });
@@ -541,15 +564,15 @@ async function handleApi(req, res, pathname, ip) {
     const topN = db.prepare(`
       SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
       FROM scores s JOIN users u ON u.id = s.user_id
-      WHERE s.mode = ? AND (s.verdict IS NULL OR s.verdict = 'verified')
+      WHERE s.mode = ? AND s.verdict = 'accepted'
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
     let me = null;
     if (user) {
-      const best = db.prepare('SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ?').get(mode, user.id);
+      const best = db.prepare("SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted'").get(mode, user.id);
       if (best && best.s != null) {
         const better = db.prepare(`
-          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND
-            s.score > (SELECT MAX(score) FROM scores WHERE mode = ? AND user_id = ?)`).get(mode, mode, user.id);
+          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted' AND
+            s.score > (SELECT MAX(score) FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted')`).get(mode, mode, user.id);
         me = { name: user.name, s: Number(best.s), rank: Number(better.n) + 1 };
       }
     }
@@ -621,14 +644,28 @@ async function handleApi(req, res, pathname, ip) {
 
   if (req.method === 'POST' && pathname === '/api/challenges/beat') {
     if (!user) return bad(res, 'sign in first', 401);
+    if (!rateLimit(ip, 'beat:' + user.id, 12, 60000)) return bad(res, 'slow down', 429);
     if (!sameOriginGuard(req, res)) return;
     const body = await readJson(req, res); if (!body) return;
     const id = Math.floor(Number(body.id) || 0);
-    const row = db.prepare('SELECT id, to_name FROM challenges WHERE id = ?').get(id);
+    const score = Math.floor(Number(body.score) || 0);
+    const wave = Math.floor(Number(body.wave) || 0);
+    const diff = Math.floor(Number(body.diff) || 0);
+    const runT = Number(body.runT) || 0;
+    const kills = Math.floor(Number(body.kills) || 0);
+    const cps = Array.isArray(body.cps) ? body.cps : [];
+    const row = db.prepare('SELECT id, to_name, score FROM challenges WHERE id = ?').get(id);
     if (!row || row.to_name !== user.name.toLowerCase()) return bad(res, 'no such duel', 404);
-    db.prepare('INSERT OR IGNORE INTO beats (challenge_id, user_id, created) VALUES (?, ?, ?)').run(id, user.id, now());
+    if (score < row.score) return bad(res, 'score did not beat the challenge', 422);
+    if (wave < 1 || wave > 999 || diff < 0 || diff > 4 || !Number.isFinite(score) || score > 50000000) return bad(res, 'bad run');
+    const verdict = verifyRun('daily', diff, wave, score, runT, cps);
+    if (verdict.verdict !== 'accepted') return bad(res, 'run failed plausibility checks', 422);
+    const hash = runHash(user.id, 'duel:' + id, score, wave, kills, runT, cps);
+    if (isReplay(hash)) return bad(res, 'run replayed', 422);
+    db.prepare('INSERT OR IGNORE INTO beats (challenge_id, user_id, created, score, run_hash) VALUES (?, ?, ?, ?, ?)')
+      .run(id, user.id, now(), score, hash);
     const n = db.prepare('SELECT COUNT(*) AS n FROM beats WHERE challenge_id = ?').get(id);
-    return send(res, 200, { ok: true, beaten: Number(n.n) > 0 });
+    return send(res, 200, { ok: true, beaten: Number(n.n) > 0, score });
   }
 
   return bad(res, 'no such endpoint', 404);
@@ -640,6 +677,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     if (url.pathname.startsWith('/api/')) {
+      if (!requireSecure(req, res)) return;
       if (!rateLimit(ip, 'api', 240, 60000)) return bad(res, 'slow down', 429);
       return await handleApi(req, res, url.pathname, ip);
     }
