@@ -467,6 +467,10 @@ body.needrotate #rotate{display:grid}
       <div class="lbl"><span>Dash</span><span id="dashN">2</span></div>
       <div class="trk"><i id="dashFill"></i></div>
     </div>
+    <div class="gauge hidden" id="heatG">
+      <div class="lbl"><span>Lance</span><span id="heatN"></span></div>
+      <div class="trk"><i id="heatFill" style="background:var(--aether)"></i></div>
+    </div>
     <div class="pips" id="wpnPips" role="img" aria-label="Weapon tier"></div>
     <div class="lbl">Ordnance · <span id="bombN">2</span> pulse</div>
   </div>
@@ -1175,6 +1179,11 @@ const HULLS = [
     id: 'wraith', name: 'WRAITH', cls: 'অপার্থিব', cost: 5200,
     desc: 'Recovered from the gate, not built. One hull point, a hitbox you can barely see, and it pays for nerve.',
     lives: 1, speed: 1.14, hitbox: .55, dmg: 1.1, dash: 4, bombs: 1, grazeMul: 3, scoreMul: 1.6
+  },
+  {
+    id: 'seraph', name: 'SERAPH', cls: 'Prism', cost: 7600,
+    desc: 'Yard testbed with a prism lance — one continuous cutting beam instead of guns. It pierces everything in line, but the heat sink vents while you are not firing. Burst discipline is the whole ship.',
+    lives: 2, speed: 1.06, hitbox: .88, dmg: 1, dash: 3, bombs: 2, grazeMul: 1.2, scoreMul: 1.2, beam: true
   }
 ];
 const REFITS = [
@@ -1290,6 +1299,7 @@ const FEATS = [
   { id: 'nodeath', name: 'Untouched', desc: 'Clear wave 5 without losing a hull.', check: s => s.wave >= 5 && s.deaths === 0 },
   { id: 'nobomb', name: 'Cold nerve', desc: 'Reach wave 8 without firing a pulse.', check: s => s.wave >= 8 && s.bombsUsed === 0 },
   { id: 'score100k', name: 'Six figures', desc: 'Score 100,000 in one run.', check: s => s.score >= 100000 },
+  { id: 'prism', name: 'Lightbringer', desc: 'Reach wave 10 flying the Seraph.', check: s => s.wave >= 10 && s.ship === 'seraph' },
   { id: 'wraith', name: 'অপার্থিব', desc: 'Reach wave 10 flying the Wraith.', check: s => s.wave >= 10 && s.ship === 'wraith' },
   { id: 'nightmare', name: 'Nightmare fuel', desc: 'Reach wave 10 on Nightmare.', check: s => s.wave >= 10 && s.diff === 4 },   // diff 3 is Ace since Cozy joined the ladder
   { id: 'boons3', name: 'Blessed thrice', desc: 'Hold three boons in one run.', check: s => (s.boons || 0) >= 3 },
@@ -2333,6 +2343,59 @@ const HULL_ART = {
     strobe(g, 17.9, 11.6, SPR.good, tm, PI, 1.3);
   },
 
+  /* SERAPH — prism testbed. A tuning-fork bow focuses the lance; the
+     crystal at the vertex is the weapon. The spine is a heat sink — it
+     shimmers harder the closer the run runs to a vent. */
+  seraph(g, o) {
+    const t = o.thrust == null ? 1 : o.thrust, tm = o.t || 0;
+    thruster(g, -5.4, 11.6, 2.9, 12 * t, o.boost);
+    thruster(g, 5.4, 11.6, 2.9, 12 * t, o.boost);
+
+    /* canted tail fins */
+    mirrorPoly(g, [[4, 4], [14.5, 12.5], [12.5, 14.2], [4.8, 10.5]]);
+    g.fillStyle = vgrad(g, 'sfin', 2, 15, [[0, STEEL.low], [1, STEEL.deep]]);
+    g.fill(); steelEdge(g, .9);
+
+    /* forward prongs — the fork that focuses the lance */
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 3, -6], [sx * 8.5, -20], [sx * 6, -22.5], [sx * 2, -10]]);
+      g.fillStyle = vgrad(g, 'sprong' + sx, -22, -6, [[0, STEEL.hi], [1, STEEL.mid]]);
+      g.fill(); steelEdge(g, 1);
+      g.strokeStyle = rgba(PAL.tech, .5); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(sx * 7.4, -19.5); g.lineTo(sx * 3.2, -8); g.stroke();
+    }
+
+    /* fuselage */
+    mirrorPoly(g, [[0, -8], [3.4, -2], [4.2, 7], [2.8, 12], [0, 12.6]]);
+    steelFill(g, 'sbody', -8, 13);
+    steelEdge(g, 1.05);
+
+    /* heat-sink spine */
+    g.fillStyle = STEEL.black;
+    g.fillRect(-2.2, -4, 4.4, 12);
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.fillStyle = rgba(PAL.rare, .3 + .25 * Math.sin(tm * 3.2));
+    g.fillRect(-1.4, -3.4, 2.8, 11);
+    g.restore();
+
+    /* the prism itself — hangs between the prongs */
+    poly(g, [[0, -24.5], [2.6, -19], [0, -13.5], [-2.6, -19]]);
+    g.fillStyle = rgba(PAL.tech, .85);
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.1;
+    g.stroke();
+    g.save(); g.globalCompositeOperation = 'lighter';
+    g.fillStyle = rgba(PAL.tech, .3 + .2 * Math.sin(tm * 5));
+    poly(g, [[0, -23.5], [1.7, -19], [0, -14.5], [-1.7, -19]]);
+    g.fill();
+    g.restore();
+
+    canopy(g, 0, 0, 1.9, 4.6);
+    rimLight(g, [[-2.8, -6], [0, -8], [2.8, -6]], .55);
+    strobe(g, -13.4, 13.2, SPR.foe, tm, 0, 1.2);
+    strobe(g, 13.4, 13.2, SPR.good, tm, PI, 1.2);
+  },
+
   /* ATLAS — bulwark. Slab armour, four engines, shoulder ordnance cells. */
   atlas(g, o) {
     const t = o.thrust == null ? 1 : o.thrust, tm = o.t || 0;
@@ -3319,7 +3382,9 @@ const P = {
   fireCd: 0, muzzleT: 0, weapon: 1, seekCd: 0,
   dashT: 0, dashCd: 0, charges: 2, maxCharges: 2, dashAng: 0,
   bombs: 2, shield: 0, shieldMax: 0, shieldRegen: 0, overT: 0,
-  thrust: 1, boost: false, art: 'vesper', dmg: 1, speed: 1, grazeMul: 1, scoreMul: 1
+  thrust: 1, boost: false, art: 'vesper', dmg: 1, speed: 1, grazeMul: 1, scoreMul: 1,
+  beam: false, beamOn: false, heat: 0, ventT: 0,
+  beamTick: 0, beamLen: 1, beamAng: -PI / 2, beamVentFlagged: false, beamIgnited: false
 };
 function configurePlayer() {
   const h = hull();
@@ -3340,6 +3405,8 @@ function configurePlayer() {
   P.overT = 0; P.dashT = 0; P.dashCd = 0; P.seekCd = 0;
   P.rateMul = 1; P.dashMul = 1; P.magMul = 1; P.alloyMul = 1;
   P.shieldRegenOn = false; P.boons = []; P.empT = 0;
+  P.beam = !!h.beam; resetBeam();
+  if (GAME.state === 'playing') GAME.beamRuns = P.beam;
   let lives = h.lives + (refit('plating') >= 3 ? 1 : 0) + (refit('plating') >= 5 ? 1 : 0);
   lives += D().lives;
   if (GAME.mutator && GAME.mutator.id === 'glass') {
@@ -3362,7 +3429,32 @@ const WEAPONS = [
 ];
 const MAX_WEAPON = WEAPONS.length - 1;
 
+/* ───────────── PRISM LANCE — the beam hull's weapon ─────────────
+   Not a projectile: a continuous ray from the nose that damages every
+   hostile in its line while it sweeps. Instead of an ammo tier it has a
+   heat economy: firing builds heat, venting sheds it, and pushing into
+   the red forces a 1.5s lockout that returns you half-hot — greed pays.
+   Sustainable duty is ~62%, so the skill is rhythm: cut, breathe, cut again.
+   Power refits and ordnance boons feed straight into beamDps. */
+const BEAM = {
+  heatDrain: .4,       //   heat/second while firing → 2.5s fills the sink
+  cool: .34,           //   heat/second while venting normally
+  ventBoost: 1.9,      //   ×cooling while not firing (breathing restores in ~1.5s)
+  damage: 6.2,         //   burst dps; ×~.62 duty ≈ 3.8 sustained — between
+                       //   Vesper (3.1) and Halcyon (4.03); piercing + no
+                       //   travel time is the trade, heat rhythm is the cost
+  width: 9,
+  hitR: 30             //   lateral grab radius (generous — beams should feel solid)
+};
+function beamDps() { return BEAM.damage * P.dmg * (P.overT > 0 ? 1.2 : 1) * P.rateMul; }
+function resetBeam() {
+  P.beamOn = false; P.heat = 0; P.ventT = 0;
+  P.beamTick = 0; P.beamLen = 1; P.beamAng = -PI / 2;
+  P.beamVentFlagged = false; P.beamIgnited = false;
+}
+
 function firePrimary() {
+  if (P.beam) return;   // the prism lance fires continuously — seraphBeamControl owns it
   const w = WEAPONS[clamp(P.weapon, 1, MAX_WEAPON)];
   const over = P.overT > 0;
   P.fireCd = w.rate * (over ? .68 : 1) * P.rateMul;
@@ -3420,6 +3512,65 @@ function tryBomb() {
   ring(P.x, P.y, { r: 12, vr: 1080, life: .95, col: '255,240,210', w: 3 });
   note('Nova pulse', 'rare');
   AU.bomb(); buzz([20, 40, 30]);
+}
+
+
+/* ───────────── prism lance control ─────────────
+   Runs inside updatePlayer for the beam hull: one shared ray, damage tick
+   on its own accumulator, heat ledger, vent lockout, and a haptics+SFX
+   envelope. Angled at -PI/2 — this hull flies like the others; the lance
+   just replaces what the nose does. */
+function seraphBeamControl(dt) {
+  if (!P.alive) { P.beamOn = false; return; }
+  P.beamAng = -PI / 2;   // the lance fires where the nose fires — no free aiming
+  if (P.ventT > 0) {
+    P.ventT -= dt;
+    P.beamOn = false;
+    P.heat = Math.max(0, P.heat - dt * BEAM.cool);
+    return;
+  }
+  const wantFire = INPUT.firing && P.heat < 1 - 1e-4 && P.empT <= 0;
+  if (wantFire) {
+    P.beamOn = true;
+    P.heat = Math.min(1, P.heat + dt * BEAM.heatDrain);
+    if (P.heat >= 1) P.ventT = 1.5;   // pushed into the red: full vent lockout
+    P.beamTick += dt;
+    P.beamLen = Math.min(1, P.beamLen + dt * 4.5);   // ignition ramp, 0 → 1 in ~.22s
+    while (P.beamTick >= 1 / 30) {
+      P.beamTick -= 1 / 30;
+      const tickDmg = beamDps() / 30 * clamp(P.beamLen, .2, 1);   // ramp scales damage too
+      let hitSomething = false;
+      for (const e of foes) {
+        if (e.dead || e.dying || e.ghost) continue;
+        const dx = e.x - P.x, dy = e.y - P.y;
+        const along = dx * Math.cos(P.beamAng) + dy * Math.sin(P.beamAng);
+        if (along < 0) continue;
+        const lat = Math.abs(-dx * Math.sin(P.beamAng) + dy * Math.cos(P.beamAng));
+        if (lat < BEAM.hitR + e.hitR) {
+          damageFoe(e, tickDmg, e.x, e.y);
+          hitSomething = true;
+          if (QUALITY.particles > .5 && FX.chance(.35)) {
+            part({ x: e.x + rnd(-6, 6), y: e.y + rnd(-6, 6), vx: rnd(-80, 80), vy: rnd(40, 160), life: .3, size: 9, spr: SPR.tech, drag: 3 });
+          }
+        }
+      }
+      if (hitSomething) {
+        AU.gate('beamHit', 90) || AU.hit();
+        buzz(2);
+        GAME.comboT = Math.max(GAME.comboT, 1.2);
+      }
+    }
+  } else {
+    P.beamOn = false;
+    P.beamTick = 0;
+    P.heat = Math.max(0, P.heat - dt * BEAM.cool * BEAM.ventBoost);
+    P.beamLen = 0;   // standing by: next ignition ramps up from zero
+  }
+  // the glow that reads across the room: emitters breathe while hot
+  if (P.beamOn && FX.chance(.5)) {
+    const a = P.beamAng + PI;
+    part({ x: P.x + Math.cos(a) * 10, y: P.y + Math.sin(a) * 10 + 8, vx: Math.cos(a) * 40, vy: Math.sin(a) * 40 + 60, life: .3, size: 7, spr: SPR.tech, drag: 2 });
+  }
 }
 
 /* ─────────────────────────── player update ─────────────────────────── */
@@ -3505,12 +3656,24 @@ function updatePlayer(dt, move) {
   }
 
   P.fireCd -= dt;
-  if (INPUT.firing && P.fireCd <= 0) firePrimary();
+  if (P.beam) {
+    seraphBeamControl(dt);
+    if (P.ventT > 0) {
+      if (!P.beamVentFlagged) { P.beamVentFlagged = true; note('Heat sink venting', 'bad'); buzz([8, 30, 8, 30, 8]); AU.beamVent(); }
+    } else {
+      if (P.beamVentFlagged) P.beamVentFlagged = false;
+      if (P.beamOn) AU.beamLoop();
+      if (P.beamOn && !P.beamIgnited) { P.beamIgnited = true; AU.beamIgnite(); }
+      if (!P.beamOn) P.beamIgnited = false;
+    }
+  }
+  else if (INPUT.firing && P.fireCd <= 0) firePrimary();
   if (P.muzzleT > 0) P.muzzleT -= dt;
 }
 function respawn() {
   P.x = W / 2; P.y = H * .82; P.vx = P.vy = 0; P.bank = 0;
   P.alive = true;
+  resetBeam();
   P.inv = 2.6 * D().grace;
   P.dashT = 0; P.charges = P.maxCharges;
   ring(P.x, P.y, { r: 70, vr: -190, life: .55, col: rgbOf(PAL.hull), w: 2.4 });
@@ -3581,6 +3744,7 @@ function addScore(n, x, y, big) {
 }
 function registerKill(e) {
   GAME.kills++;
+  if (P.beam) GAME.hits++;   // beam kills are also beam hits — accuracy stays meaningful
   GAME.combo++;
   GAME.comboT = 3.2;
   if (GAME.combo % 8 === 0) AU.comboSting(GAME.combo);
@@ -5049,6 +5213,45 @@ function drawPlayerShip() {
   }
   if (!P.alive) return;
   const blink = P.inv > 0 && Math.sin(GAME.t * 32) > 0;
+  // the prism lance — drawn under the hull so the nose sits proud of it.
+  // ramp = beamLen (ignition), wobble = the cut"s live feedback, and the
+  // whole ray fades with heat so "running hot" reads before the vent does.
+  if (P.beamOn) {
+    const reach = Math.max(W, H);
+    const ex = P.x + Math.cos(P.beamAng) * reach, ey = P.y + Math.sin(P.beamAng) * reach;
+    const ramp = clamp(P.beamLen, 0, 1);
+    const wobble = Math.sin(GAME.t * 40) * 1.3 * ramp;
+    const fade = 1 - P.heat * .55;
+    const bx = P.x + Math.cos(P.beamAng + PI / 2) * wobble;
+    const by = P.y + Math.sin(P.beamAng + PI / 2) * wobble;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    const warm = 'rgba(' + rgbOf(PAL.rare) + ',';
+    ctx.strokeStyle = warm + (.14 * ramp * fade).toFixed(3) + ')';
+    ctx.lineWidth = BEAM.width * 2.6;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = 'rgba(' + rgbOf(PAL.tech) + ',' + (.4 * ramp * fade).toFixed(3) + ')';
+    ctx.lineWidth = BEAM.width * 1.05;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (.9 * ramp * fade).toFixed(3) + ')';
+    ctx.lineWidth = BEAM.width * .34;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey); ctx.stroke();
+    // muzzle flare at the prism itself
+    const mg = ctx.createRadialGradient(P.x, P.y - 4, 0, P.x, P.y - 4, 26 * ramp);
+    mg.addColorStop(0, 'rgba(255,255,255,' + (.5 * ramp).toFixed(3) + ')');
+    mg.addColorStop(.4, warm + (.3 * ramp).toFixed(3) + ')');
+    mg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.arc(P.x, P.y - 4, 26 * ramp, 0, TAU); ctx.fill();
+    ctx.lineCap = 'butt';
+    ctx.restore();
+    emit(SPR.rare, P.x, P.y - 6, 30 * ramp, .5);
+    // heat shimmer when close to the red
+    if (P.heat > .75 && FX.chance(.6)) {
+      part({ x: P.x + rnd(-8, 8), y: P.y - 20, vx: rnd(-30, 30), vy: -rnd(40, 90), life: .35, size: 8, spr: SPR.rare, drag: 2 });
+    }
+  }
   // dash afterimages — a slim hull echo, not a fireball
   if ((P.dashT > 0 || P.boost) && QUALITY.particles > .6) {
     P.ghostT = (P.ghostT || 0) - 1 / 60;
@@ -5074,7 +5277,7 @@ function drawPlayerShip() {
      fed the bloom into a screen-wide washout */
   emit(P.boost ? SPR.tech : SPR.hull, P.x, P.y + 12 * SHIP_SCALE, (P.boost ? 26 : 18) + Math.sin(GAME.t * 22) * 3, .34);
 
-  if (P.muzzleT > 0) {
+  if (P.muzzleT > 0 && !P.beam) {
     const a = P.muzzleT / .055;
     const w = WEAPONS[clamp(P.weapon, 1, MAX_WEAPON)];
     ctx.save(); ctx.translate(P.x, P.y - 16 * SHIP_SCALE);
@@ -5520,6 +5723,17 @@ function syncHUD(dt) {
     for (let i = 1; i <= MAX_WEAPON; i++) h += '<i class="' + (i <= P.weapon ? 'on' : '') + '"></i>';
     $('wpnPips').innerHTML = h;
   }
+  if (P.beam) {
+    const hg = $('heatG');
+    if (hg.classList.contains('hidden')) { hg.classList.remove('hidden'); $('wpnPips').style.display = 'none'; }
+    const hf = $('heatFill'), venting = P.ventT > 0;
+    hf.style.transform = 'scaleX(' + P.heat.toFixed(3) + ')';
+    hf.style.background = venting ? 'var(--crimson)' : P.heat > .75 ? 'var(--hot)' : 'var(--aether)';
+    setText('heatN', venting ? 'VENT' : P.heat > .75 ? 'HOT' : 'OK');
+  } else {
+    const hg = $('heatG');
+    if (!hg.classList.contains('hidden')) { hg.classList.add('hidden'); $('wpnPips').style.display = ''; }
+  }
   $('tShield').classList.toggle('on', P.shield > 0);
   const ov = $('tOver');
   ov.classList.toggle('on', P.overT > 0);
@@ -5640,7 +5854,7 @@ function startRun(mode) {
     alloyRun: 0, wave: 0, intensity: .25, threat: 0, bestFlagged: false,
     grazeHeat: 0, goldSighted: false, school: false,
     skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 },
-    boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false,
+    boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false, beamRuns: false,
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
   DDA.arm();
@@ -5698,6 +5912,7 @@ function endRun() {
     hits: GAME.hits, grazes: GAME.grazes, deaths: GAME.deaths, bosses: GAME.bosses,
     maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
     boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true,
+    beamRuns: GAME.beamRuns === true,
     ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
     gold: GAME.goldSighted === true,
     sky: META.sky
@@ -5714,7 +5929,7 @@ function endRun() {
   $('ovScore').textContent = padN(GAME.score, 7);
   $('ovWave').textContent = pad2(Math.max(1, GAME.wave));
   $('ovKills').textContent = fmt(GAME.kills);
-  $('ovAcc').textContent = (GAME.shots ? Math.round(GAME.hits / GAME.shots * 100) : 0) + '%';
+  $('ovAcc').textContent = (GAME.shots ? Math.round(GAME.hits / GAME.shots * 100) : 0) + '%' + (GAME.beamRuns ? ' · lance' : '');
   $('ovMult').textContent = '×' + GAME.maxMult;
   $('ovGraze').textContent = fmt(GAME.grazes);
   $('ovAlloy').textContent = fmt(earned);
@@ -6657,7 +6872,8 @@ function runSelfTests() {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
     const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
-    ok(FEATS.every(f => f.check(big)), 'a perfect run earns everything');
+    /* ship-gated feats are mutually exclusive — verify each with its hull */
+    ok(FEATS.every(f => f.check(big) || (f.id === 'prism' && f.check(Object.assign({}, big, { ship: 'seraph' })))), 'a perfect run earns everything (ship feats each verified)');
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
     const savedR = R;
@@ -6774,15 +6990,15 @@ function runSelfTests() {
     META.skyLog = JSON.parse(snap);
   });
   T('persistence: streak fields merge max-style and migrate from old saves', () => {
-    const s0 = META.sky.streakCur, b0 = META.sky.streakBest;
-    NET.mergeProfile({ updated: 9e12, data: { meta: { sky: { comets: 99, golden: 1, fleets: 1, pyres: 1, streakCur: 7, streakBest: 9 } } } });
-    eq(META.sky.streakCur, 7, 'current streak takes the cloud max (live device may be ahead)');
-    eq(META.sky.streakBest, 9, 'best streak takes the cloud max');
-    eq(META.sky.comets, 99, 'comets max-merged alongside');
+    const s0 = META.sky.streakCur, b0 = META.sky.streakBest, c0 = META.sky.comets;
+    NET.mergeProfile({ updated: 9e12, data: { meta: { sky: { comets: 9999, golden: 1, fleets: 1, pyres: 1, streakCur: 990, streakBest: 999 } } } });
+    eq(META.sky.streakCur, 990, 'current streak takes the cloud max (live device may be ahead)');
+    eq(META.sky.streakBest, 999, 'best streak takes the cloud max');
+    eq(META.sky.comets, 9999, 'comets max-merged alongside');
     // legacy save without streak fields must load to zeros, not NaN
     loadMeta();
     ok(Number.isFinite(META.sky.streakCur) && Number.isFinite(META.sky.streakBest), 'legacy save migrates to finite zeros');
-    META.sky.streakCur = s0; META.sky.streakBest = b0;
+    META.sky.streakCur = s0; META.sky.streakBest = b0; META.sky.comets = c0;
   });
   T('persistence: skyLog legacy save loads to empty, 60-cap holds on load', () => {
     const flood = Array.from({ length: 80 }, (_, i) => ({ k: 'comet', w: 1, d: 1, a: 0, t: i, m: 'endless' }));
@@ -6828,6 +7044,36 @@ function runSelfTests() {
       CFG.fpscap = 120; saveCfg(); loadCfg();
       eq(CFG.fpscap, 120, 'saved preference always wins over default');
     } finally { CFG.fpscap = save; if (saveS) DB.set('cfg', saveS); else DB.del('cfg'); }
+  });
+  T('seraph prism lance: heat math, duty cycle, and hull contract', () => {
+    /* duty cycle: heat in at heatDrain, out at cool×ventBoost → sustainable
+       duty = cool*ventBoost / (heatDrain + cool*ventBoost) ≈ 62% — burst
+       rhythm is the intended skill, not a nerf */
+    const duty = (BEAM.cool * BEAM.ventBoost) / (BEAM.heatDrain + BEAM.cool * BEAM.ventBoost);
+    ok(duty > .55 && duty < .7, 'sustainable duty 55–70%, got ' + duty.toFixed(2));
+    /* SUSTAINED beam dps = burst × duty sits between Vesper (3.1) and
+       Halcyon (4.03) — the piercing + no-travel-time is the trade, not raw
+       single-target dps. Burst alone is higher by design: heat throttles it. */
+    const sustained = BEAM.damage * duty;
+    ok(sustained > 3.1 && sustained < 3.1 * 1.3, 'sustained dps 3.1–4.03, got ' + sustained.toFixed(2));
+    /* vent lockout tax: 1.5s of forced venting sheds cool×1.5 ≈ .51 heat —
+       you return half-hot, which is exactly the sting of greed */
+    const shed = BEAM.cool * 1.5;
+    ok(shed > .4 && shed < .65, 'lockout returns you half-hot, shed ' + shed.toFixed(2));
+    /* hull contract: art present, beam flag, server allowlist, affordable late */
+    ok(HULL_ART.seraph, 'seraph art exists');
+    const s = HULLS.find(h => h.id === 'seraph');
+    ok(s && s.beam && s.cost > HULLS[3].cost, 'prism is the premium hull');
+    /* heat simulation: fire .24s (1 heat) must vent below 1 without firing */
+    let heat = 0, ventT = 0, fired = false;
+    for (let i = 0; i < 60 * 4; i++) {
+      const dt = 1 / 60;
+      if (ventT > 0) { ventT -= dt; heat = Math.max(0, heat - dt * BEAM.cool); continue; }
+      if (!fired) { heat = Math.min(1, heat + dt * BEAM.heatDrain); if (heat >= 1) ventT = 1.5; }
+      else heat = Math.max(0, heat - dt * BEAM.cool * BEAM.ventBoost);
+      if (i === 40) fired = true;   // release after ~.66s of fire
+    }
+    ok(heat < 1 && ventT <= 0, 'releasing before the red never vents');
   });
   T('reduced motion freezes ambient drift, keeps rare events', () => {
     const frozen = skyTime(5000) === 0, live = skyTime(1) === 1;

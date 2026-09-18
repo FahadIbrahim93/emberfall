@@ -297,7 +297,7 @@ function rateLimit(ip, bucket, max, windowMs) {
 
 const NAME_RE = /^[A-Za-z0-9_\- ]{3,16}$/;
 const MODES = new Set(['main', 'daily', 'rush']);
-const SHIPS = new Set(['vesper', 'halcyon', 'atlas', 'wraith']);
+const SHIPS = new Set(['vesper', 'halcyon', 'atlas', 'wraith', 'seraph']);
 
 /* ─────────────────────────── http plumbing ─────────────────────────── */
 function send(res, code, obj) {

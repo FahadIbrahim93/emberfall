@@ -283,6 +283,24 @@ const AU = {
     this.tone({ type: 'sine', f0: 110, f1: 27, dur: 1.6, vol: .22, t0: t + .1 });
     this.duckNow(.4, 1.2);
   },
+  /* prism lance — a rising shimmer on ignition, a falling sigh on vent,
+     and a filtered roar while cutting. The roar uses tone()'s own envelope
+     in short gated bursts so the ray can be on for seconds without a
+     sustained node: cheap, and it dodges autoplay strictness entirely. */
+  beamIgnite() {
+    if (!this.ready) return;
+    this.tone({ type: 'sine', f0: 320, f1: 980, dur: .22, vol: .11, verb: .25 });
+    this.hiss({ dur: .3, f0: 600, f1: 5200, vol: .07, type: 'bandpass', q: 3 });
+  },
+  beamVent() {
+    if (!this.ready) return;
+    this.tone({ type: 'triangle', f0: 900, f1: 210, dur: .5, vol: .1 });
+    this.hiss({ dur: .6, f0: 2800, f1: 500, vol: .12, type: 'highpass' });
+  },
+  beamLoop() {
+    if (!this.ready || this.gate('bloop', 240)) return;
+    this.tone({ type: 'sawtooth', f0: 120 + Math.random() * 30, f1: 95, dur: .26, vol: .05, filter: ['lowpass', 900, 500] });
+  },
   comboSting(n) {
     if (!this.ready) return;
     this.tone({ type: 'square', f0: 740 + Math.min(12, n) * 26, dur: .05, vol: .035, verb: .2 });
