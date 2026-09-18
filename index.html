@@ -560,7 +560,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.6</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.6.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -803,7 +803,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.6 — single-file orbital intercept shooter, Provenance
+   EMBERFALL v3.6.1 — single-file orbital intercept shooter, Provenance
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -5233,6 +5233,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '3.6.1',
+    items: [
+      '<b>Performance HUD</b> — Settings → Show FPS is now a real profiler: frame-time sparkline with 60/30fps guides, percentiles, sim cost and a clamp warning. Turn it on and see what your device is truly doing.',
+      'Deep-sky upgrade: the nebula now drifts in three parallax planes that shear and breathe — the whole sky (rings, storm, moonlight, nebulae) is alive at a cost too small to measure.',
+      'Under the hull: code and pipeline hardening — art and input extracted into load-order-checked modules, a built-in economy simulator, and CI that now tests and publishes every release automatically.'
+    ]
+  },
+  {
     v: '3.6',
     items: [
       '<b>SERAPH</b> — a sixth hull and the first new weapon class: a prism lance that cuts every hostile in its line, continuously. Watch the heat sink — push it into the red and the lance locks out until it vents.',
@@ -5724,7 +5732,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.6', 'newest entry matches current release');
+    ok(NOTES[0].v === '3.6.1', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
