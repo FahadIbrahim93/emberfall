@@ -9,6 +9,10 @@ A single-file, zero-dependency orbital intercept shooter. Everything — art, mu
 - **Touch:** drag anywhere to fly (fires for you); DASH / PULSE buttons bottom-right
 - **Gamepad:** sticks/buttons auto-detected
 
+## CI & deployment
+
+Every push runs the full gate battery (syntax, dead-code + module load order, economy model, API smoke) via GitHub Actions; green builds of `main` auto-publish the playable game to **GitHub Pages**. The Pages build is the static game only — leaderboards/accounts need the self-hosted `node server.js` command deck (the game detects this and runs in local mode, saving to the device).
+
 ## Install as an app (PWA)
 
 Serve the folder over http/https and open it — the browser will offer **Install app** (Chrome/Edge desktop + Android). On iOS Safari: Share → *Add to Home Screen*.

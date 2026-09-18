@@ -9,6 +9,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Pages deploy publishes the static game only — server.js/data/ stay server-side
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   verify:
     name: gates (syntax · dead-code · tests · smoke · economy)
@@ -57,3 +63,34 @@ jobs:
       - name: Server log on failure
         if: failure()
         run: tail -40 server.log
+
+  # the playable game is a fully static site (all asset paths relative), so
+  # a green verify on main publishes it: index + js modules + PWA shell.
+  # server.js and data/ are intentionally excluded — Pages is static-only.
+  deploy:
+    name: publish to GitHub Pages
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble static site
+        run: |
+          mkdir -p _site/js _site/icons
+          cp index.html sw.js manifest.webmanifest _site/
+          cp js/*.js _site/js/
+          cp icons/*.png _site/icons/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
