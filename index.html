@@ -726,6 +726,23 @@ body.needrotate #rotate{display:grid}
   </div>
 </section>
 
+<!-- ════════ SAVE TRANSFER (export/import without prompt() — blocked on iOS) ════════ -->
+<section id="s-save" class="screen" role="dialog" aria-modal="true" aria-labelledby="saveH">
+  <div class="panel card wide">
+    <p class="eyebrow">Transfer</p>
+    <h2 id="saveH">Pilot data</h2>
+    <p id="saveMsg" style="color:var(--dim);font-size:.72rem;letter-spacing:.14em;line-height:1.8;margin-bottom:16px">Copy this code somewhere safe. Paste it on any device to restore your fleet, alloy, and records.</p>
+    <textarea id="saveCode" rows="6" readonly placeholder="Paste a save code here, then press Import — or export first to fill it." style="width:100%;background:rgba(255,138,43,.05);border:1px solid var(--line);color:var(--ink);font:inherit;font-size:.72rem;letter-spacing:.06em;padding:12px;resize:vertical;outline:none"></textarea>
+    <div class="pair" style="margin-top:18px">
+      <button class="btn" id="btnSaveCopy">Copy code</button>
+      <button class="btn key" id="btnSaveImport">Import</button>
+    </div>
+    <div class="pair" style="margin-top:9px">
+      <button class="btn ghost" id="btnSaveClose">Close</button>
+    </div>
+  </div>
+</section>
+
 <!-- ════════ GAME OVER ════════ -->
 <section id="s-over" class="screen" role="dialog" aria-modal="true" aria-labelledby="overH">
   <div class="panel card wide">
@@ -6254,21 +6271,24 @@ function exportSave() {
     callsign: DB.get('callsign', '')
   };
   const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(
-        () => note('Save copied to clipboard', 'good'),
-        () => prompt('Copy your save code:', code)
-      );
-    } else prompt('Copy your save code:', code);
-  } catch (e) { prompt('Copy your save code:', code); }
+  $('saveCode').value = code;
+  $('saveMsg').textContent = 'Code generated below. Copy it somewhere safe — it restores fleet, alloy, and records on any device.';
+  showScreen('s-save', true);
+  $('btnSaveCopy').focus();
   AU.ui();
 }
 function importSave() {
-  const code = prompt('Paste your save code:');
-  if (!code) return;
+  showScreen('s-save', true);
+  $('saveCode').value = '';
+  $('saveMsg').textContent = 'Paste your save code below, then press Import.';
+  $('saveCode').focus();
+  AU.ui();
+}
+function doSaveImport() {
+  const code = $('saveCode').value.trim();
+  if (!code) { $('saveMsg').textContent = 'Nothing to import yet — paste a code first.'; return; }
   try {
-    const payload = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+    const payload = JSON.parse(decodeURIComponent(escape(atob(code))));
     if (!payload || !payload.meta) throw new Error('bad payload');
     DB.set('meta', payload.meta);
     if (payload.cfg) DB.set('cfg', payload.cfg);
@@ -6279,14 +6299,33 @@ function importSave() {
     if (payload.cfg) { for (const k in CFG) if (k in payload.cfg) CFG[k] = payload.cfg[k]; saveCfg(); }
     renderBoard($('tab-scores'), 'main', null);
     refreshTitleMeta();
+    $('saveMsg').textContent = 'Save imported. Welcome back, pilot.';
     note('Save imported', 'good'); AU.unlock();
   } catch (e) {
+    $('saveMsg').textContent = 'That code did not parse — check for a clipped copy.';
     note('That code did not parse', 'bad');
   }
   AU.ui();
 }
 bindClick('btnExport', exportSave);
 bindClick('btnImport', importSave);
+bindClick('btnSaveCopy', async () => {
+  AU.ui();
+  const code = $('saveCode').value;
+  if (!code) { $('saveMsg').textContent = 'Nothing to copy yet — export first.'; return; }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(code);
+      $('saveMsg').textContent = 'Copied to clipboard.';
+      note('Save copied to clipboard', 'good');
+      return;
+    }
+  } catch (e) { /* fall through to select-all */ }
+  $('saveCode').focus(); $('saveCode').select();
+  $('saveMsg').textContent = 'Clipboard blocked — press Ctrl/Cmd+C to copy the selected code.';
+});
+bindClick('btnSaveImport', () => { AU.ui(); doSaveImport(); });
+bindClick('btnSaveClose', () => { AU.ui(); showScreen('s-save', false); if (GAME.state === 'title') $('btnImport').focus(); });
 
 /* ── install prompt: offer it when the browser allows ── */
 let deferredInstall = null;

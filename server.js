@@ -510,7 +510,10 @@ async function handleApi(req, res, pathname, ip) {
 
     /* provenance: verify the arc, catch replays, then store with a verdict */
     const v = verifyRun(mode, diff, wave, score, runT, cps);
-    if (v.verdict === 'rejected') return send(res, 422, { ok: false, error: 'run rejected: ' + v.flags.join(', ') });
+    if (v.verdict === 'rejected') {
+      console.log(`[anti-cheat] reject user=${user.id} mode=${mode} score=${score} wave=${wave} flags=${v.flags.join(',')}`);
+      return send(res, 422, { ok: false, error: 'run rejected: ' + v.flags.join(', ') });
+    }
     const hash = runHash(user.id, mode, score, wave, kills, runT, cps);
     if (isReplay(hash)) return send(res, 422, { ok: false, error: 'run rejected: replay of an identical run' });
 
