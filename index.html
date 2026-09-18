@@ -13,10 +13,6 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600;700&display=swap"></noscript>
 <style>
 /* ═══════════════════════════════════════════════════════════
    EMBERFALL v3 — design tokens
@@ -544,13 +540,13 @@ body.needrotate #rotate{display:grid}
               <p class="empty" id="seasonTimer" style="text-align:left;padding:2px 0 8px"></p>
               <div id="seasonBoard"></div>
               <div id="seasonYou" class="hidden"></div>
-              <p class="empty" style="text-align:left;padding:4px 0 10px">Best five runs this week count. Verified runs only.</p>
+              <p class="empty" style="text-align:left;padding:4px 0 10px">Best five plausibility-checked runs this week count.</p>
             </div>
             <div id="duelBox" class="hidden">
               <div class="side-head"><h3>Duels</h3><span>today's run</span></div>
               <div id="duelList" style="display:grid;gap:6px"></div>
             </div>
-            <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — top pilots, server-verified</p>
+            <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
             <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
@@ -682,7 +678,7 @@ body.needrotate #rotate{display:grid}
             <button class="btn" id="btnAcctNew">Create account</button>
           </div>
           <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">One account, any device. Cloud-saves your
-            hangar and alloy, posts verified runs to the worldwide board. Stored only on this command deck.</p>
+            hangar and alloy, posts plausibility-checked community runs to this command deck. Stored only here.</p>
         </div>
         <div id="acctSigned" class="hidden">
           <div class="pair">
@@ -803,8 +799,9 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.6.1 — single-file orbital intercept shooter, Provenance
-   No build step, no dependencies, no network needed after first paint.
+   EMBERFALL v3.6.1 — zero-build orbital intercept shooter, Provenance
+   Runtime art, sound, and UI are local; no network needed after first paint;
+   hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
 
@@ -4533,9 +4530,8 @@ function syncHUD(dt) {
 
 /* ─────────────────── boards, roster, feats ─────────────────── */
 /* ═══════════════════════════ run provenance ═══════════════════════ */
-/* Checkpoint telemetry: one honest sample per wave / boss / death, hash-
-   chainable by the server. Cheap, privacy-clean (aggregates only), and
-   it makes forged scores statistically indefensible. */
+/* Checkpoint telemetry: one sample per wave / boss / death. The command deck
+   checks the aggregate for plausibility; it is not an authoritative replay. */
 const TELE = {
   cps: [], lastT: -10, lastWave: -1,
   reset() { this.cps.length = 0; this.lastT = -10; this.lastWave = -1; },
@@ -4795,11 +4791,24 @@ function endRun() {
     $('ovSchool').innerHTML = '<b>School report</b><span>' +
       (SCHOOL.payBand ? esc(SCHOOL.payBand) : 'Drills logged. The corridor awaits.') + '</span>';
   }
-  /* verified worldwide posting. Posted now when possible; otherwise the
-     run lands in the OUTBOX and drains automatically once the deck is
-     reachable again — a dropped connection never eats a verified score. */
+  /* Plausibility-checked community posting. Posted now when possible; otherwise
+     the run lands in the OUTBOX and drains automatically once reachable. */
   if (!isSchool) {
+  TELE.sample();
   const tele = { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() };
+  /* A duel completion is only sent with the finished daily run. The deck
+     checks its score and telemetry before recording the win. */
+  if (GAME.rivalBeat && GHOST.rival && GHOST.rival.duelId) {
+    NET.beatDuel(GHOST.rival.duelId, {
+      score: GAME.score, wave: Math.max(1, GAME.wave), diff: CFG.diff,
+      runT: tele.runT, kills: tele.kills, cps: tele.cps
+    }).then(r => {
+      if (!r || !r.beaten) return;
+      const rv = DB.get('ghost.rival', null);
+      if (rv) { rv.beaten = true; DB.set('ghost.rival', rv); }
+      note('Duel win accepted by the deck', 'good');
+    });
+  }
   const ovRankEl = $('ovRank');
   const paintQueued = () => {
     if (!ovRankEl) return;
@@ -4815,10 +4824,10 @@ function endRun() {
         ? ' · gauntlet #' + r.seasonMe.rank
         : '';
       el.innerHTML = r.verdict === 'rejected'
-        ? '<b style="color:var(--crimson)">Not verified</b><span>this run could not be verified — it does not rank</span>'
-        : r.verdict === 'flagged'
-        ? '<b style="color:var(--amber)">Under review</b><span>logged · global rank #' + r.rank + seasonLine + '</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>verified run · global rank #' + r.rank + seasonLine + '</span>';
+        ? '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>'
+        : r.verdict === 'review'
+        ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
+        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + r.rank + seasonLine + '</span>';
     } else {
       if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave), ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
       else el.classList.add('hidden');
@@ -4832,7 +4841,7 @@ function endRun() {
       paintQueued();
     } else if (err && err.status === 422 && ovRankEl) {
       ovRankEl.classList.remove('hidden');
-      ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not verified</b><span>this run could not be verified — it does not rank</span>';
+      ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>';
     }
   });
   }
@@ -5261,7 +5270,7 @@ const NOTES = [
   {
     v: '3.0',
     items: [
-      'Command deck: one account, any device — cloud-saved hangar and verified worldwide boards.',
+      'Command deck: one account, any device — cloud-saved hangar and community scoreboards.',
       'The sky got a story: comets that pay, golden comets worth the wish, graveyard fleets, falling pyres — and feats for watching them all.'
     ]
   }
@@ -5842,9 +5851,7 @@ function stepGame(dt) {
       !GAME.rivalBeat && P.alive) {
       GAME.rivalBeat = true;
       const rv = DB.get('ghost.rival', null);
-      if (rv) { rv.beaten = true; DB.set('ghost.rival', rv); }
-      if (GHOST.rival.duelId) NET.beatDuel(GHOST.rival.duelId);
-      note('Duel beaten — rival notified', 'good');
+      note('Rival trace complete — finish the run to claim it', 'good');
       AU.pickup();
     }
   }
