@@ -1887,12 +1887,26 @@ function drawBackdrop(t) {
   const ms = Math.min(W, H) * 2.45;
   const mx = W * .56 + Math.sin(tt * .021) * W * .05;
   const my = H * .36 - ms + Math.sin(tt * .043) * H * .012;
+  // third pass: the terminator creeps. The lighting maps (shade + glow)
+  // rotate slowly about the sphere's centre — the day/night boundary
+  // migrates across the surface over minutes while the baked features
+  // (maria, craters, city lights) stay put. Rotating the maps inside the
+  // inscribed sphere is exact: the sphere mask is rotation-invariant, so
+  // the limb never moves — only the light does. ~2°/min, a full lap in
+  // three hours; frozen with every other drift under REDUCE.
+  const termRot = tt * .00058;
+  const moonMaps = (g, mode) => {
+    g.save();
+    g.globalCompositeOperation = mode;
+    g.translate(mx, my);
+    g.rotate(termRot);
+    g.drawImage(mode === 'multiply' ? moon.shade : moon.glow, -ms / 2, -ms / 2, ms, ms);
+    g.restore();
+  };
   ctx.globalAlpha = .95;
   ctx.drawImage(moon.surf, mx - ms / 2, my, ms, ms);
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.drawImage(moon.shade, mx - ms / 2, my, ms, ms);
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.drawImage(moon.glow, mx - ms / 2, my, ms, ms);
+  moonMaps(ctx, 'multiply');
+  moonMaps(ctx, 'lighter');
   ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
 
@@ -7151,6 +7165,27 @@ function runSelfTests() {
       }
     } finally { PAL = keepPal; buildBackdrop(); nebA = keepNeb[0]; nebB = keepNeb[1]; dust = keepDust; planet = keepP; moon = keepM; }
     ok(sig.size === PALETTES.length, 'each palette bakes its own sky (' + sig.size + '/' + PALETTES.length + ')');
+    /* third pass — the moon's terminator creeps: the lighting maps rotate
+       under the render transform. Prove it on pixels: compositing shade+glow
+       at two well-separated times over the same surface produces different
+       lit output. (rot is tt * .00058 — tiny, but pixel-visible over minutes.) */
+    const mc = document.createElement('canvas'); mc.width = mc.height = 256;
+    const mg = mc.getContext('2d');
+    mg.scale(256 / 1200, 256 / 1200);
+    const moonLitSum = tt => {
+      mg.clearRect(0, 0, 1200, 1200);
+      mg.drawImage(moon.surf, 0, 0);
+      mg.globalCompositeOperation = 'multiply';
+      mg.save(); mg.translate(600, 600); mg.rotate(tt * .00058);
+      mg.drawImage(moon.shade, -600, -600); mg.restore();
+      mg.globalCompositeOperation = 'source-over';
+      const d = mg.getImageData(0, 0, 1200, 1200).data;
+      let s = 0; for (let i = 0; i < d.length; i += 997) s += d[i];
+      return s;
+    };
+    const m1 = moonLitSum(0), m2 = moonLitSum(3600);
+    ok(m1 > 0, 'moon composite has lit pixels');
+    ok(m1 !== m2, 'terminator creeps — lighting shifts over minutes (' + m1 + ' vs ' + m2 + ')');
   });
   T('sky traffic cadence scales and floors', () => {
     const save = CFG.sky, saveNext = { c: comet.next, f: fleet.next, v: convoy.next, p: pyre.next };
