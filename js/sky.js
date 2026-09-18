@@ -25,7 +25,7 @@ function cometTick() {
       c.dur = rnd(24, 40); c.life = c.dur; c.seed = rnd(0, TAU);
       c.on = true;
       c.paid = 0;                                         // spawn resets the ledger — a school comet must not log the previous sighting's pay
-      c.next = 100 + rnd(-20, 20);                        // schedule the next one
+      c.next = skyDelay(100, 20);                         // schedule the next one
       if (GAME.state === 'playing') {                     // career sky log
         /* goldens are comets too: they count in the comet totals (streak
            and the 10-wish milestone read them) AND in the golden tally */
@@ -241,7 +241,7 @@ function fleetTick() {
       }));
       f.ember = FX.chance(.6) ? FX.int(0, kinds.length - 1) : -1;
       f.on = true;
-      f.next = 240 + rnd(-60, 60);                   // next fleet in ~4 min
+      f.next = skyDelay(240, 60);                    // next fleet in ~4 min
       if (GAME.state === 'playing') {                // career sky log
         sightRecord('fleet', 0);
       }
@@ -309,7 +309,7 @@ function convoyTick() {
         a: rnd(.6, .8)
       }));
       c.on = true;
-      c.next = 210 + rnd(-50, 50);                       // next convoy in ~3.5 min
+      c.next = skyDelay(210, 50);                        // next convoy in ~3.5 min
       if (GAME.state === 'playing') {                    // career sky log
         sightRecord('escort', 0);
         note('A relief convoy slips past — the corridor still connects', 'good');
@@ -391,6 +391,26 @@ const SKY_EVENTS = {
 };
 const SKY_RGB = { silent: '120,131,156' };   // 'silent' is a mood, not an event
 for (const k in SKY_EVENTS) SKY_RGB[k] = SKY_EVENTS[k].rgb;
+/* ═══ SKY_TRAFFIC — the Settings > Sky traffic cadence table. CFG.sky is
+   the index (persisted in the core's CFG); every scheduler countdown is
+   scaled by f, so whispers' "nearly due" windows stay coherent at any
+   cadence — they read the same countdowns. Sparse ~1.7× the gaps,
+   Storm packs them ~3× closer. ═══ */
+const SKY_TRAFFIC = [
+  { name: 'Sparse',   f: 1.7 },
+  { name: 'Standard', f: 1 },
+  { name: 'Busy',     f: .55 },
+  { name: 'Storm',    f: .32 }
+];
+function skyFactor() { return SKY_TRAFFIC[clamp(CFG.sky == null ? 1 : CFG.sky, 0, SKY_TRAFFIC.length - 1)].f; }
+function skyDelay(base, jit) { return Math.max(6, (base + rnd(-jit, jit)) * skyFactor()); }
+/* scale the four initial countdowns — they are load-time literals because
+   modules run before the core defines CFG; boot() calls this once after
+   loadCfg(). */
+function armSkyTraffic() {
+  const f = skyFactor();
+  comet.next *= f; fleet.next *= f; convoy.next *= f; pyre.next *= f;
+}
 /* one owner for sighting bookkeeping — career counters, per-run counters,
    the archive row. Every sky event calls exactly this, mid-run only. */
 function sightRecord(kind, paid) {
@@ -433,7 +453,7 @@ function pyreTick() {
       }));
       if (!p.glow) p.glow = cometPuff(SKY_RGB.pyre);
       p.on = true;
-      p.next = 420 + rnd(-90, 90);                   // next pyre in ~7 min
+      p.next = skyDelay(420, 90);                    // next pyre in ~7 min
       if (GAME.state === 'playing') {                // career sky log
         sightRecord('pyre', 0);
       }

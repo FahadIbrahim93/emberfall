@@ -658,6 +658,11 @@ body.needrotate #rotate{display:grid}
           <button data-v="0">Off</button><button data-v="30">30</button>
           <button data-v="60">60</button><button data-v="120">120</button>
         </div></div>
+      <div class="opt full"><label>Sky traffic — comets, convoys, lost fleets</label>
+        <div class="seg" id="segSky">
+          <button data-v="0">Sparse</button><button data-v="1" class="on">Standard</button>
+          <button data-v="2">Busy</button><button data-v="3">Storm</button>
+        </div></div>
     </div>
     <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
       <div class="opt full">
@@ -833,7 +838,8 @@ const CFG = {
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
   hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
   touchLeft: false, touchBig: false, ghost: true, outline: true,
-  cozy: false /* Cozy mode — slower, sparser hostiles, same rules. */
+  cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
+  sky: 1 /* sky traffic cadence — table in js/sky.js */
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -6402,6 +6408,7 @@ bindSegment('segPal', 'pal', v => {
 });
 bindSegment('segQ', 'quality', () => applyQuality());
 bindSegment('segCap', 'fpscap', () => { });
+bindSegment('segSky', 'sky', () => { });
 
 /* PWA: the manifest and icons are static files — manifest.webmanifest and
    icons/, linked in <head>. A blob: manifest can never satisfy install
@@ -6704,6 +6711,22 @@ function runSelfTests() {
   /* wholesale restore — the suite mutates alloy, counters, logs and feats;
      the pilot's real profile must survive the run untouched */
   const pre = DB.get('meta.preTest', null);
+  T('sky traffic cadence scales and floors', () => {
+    const save = CFG.sky, saveNext = { c: comet.next, f: fleet.next, v: convoy.next, p: pyre.next };
+    try {
+      CFG.sky = 1; eq(SKY_TRAFFIC[1].f, 1, 'standard factor');
+      CFG.sky = 0; ok(skyDelay(100, 0) > 120, 'sparse stretches');
+      CFG.sky = 2; ok(skyDelay(100, 0) < 100, 'busy tightens');
+      CFG.sky = 3; ok(skyDelay(100, 0) < 60, 'storm packs');
+      CFG.sky = 9; eq(skyDelay(1, 0), 6, 'floor holds at any cadence');
+      CFG.sky = -1; eq(skyDelay(1, 0), 6, 'floor holds below range');
+      CFG.sky = 1;
+      const cn = comet.next, fn = fleet.next, vn = convoy.next, pn = pyre.next;
+      armSkyTraffic();
+      ok(Math.abs(comet.next - cn * 1) < 1e-9, 'standard arm is a no-op');
+      comet.next = cn; fleet.next = fn; convoy.next = vn; pyre.next = pn;   // armSkyTraffic mutates in place
+    } finally { CFG.sky = save; comet.next = saveNext.c; fleet.next = saveNext.f; convoy.next = saveNext.v; pyre.next = saveNext.p; }
+  });
   DB.del('meta.preTest');
   if (pre) { for (const k of Object.keys(META)) delete META[k]; Object.assign(META, JSON.parse(pre)); }
   saveMeta();
@@ -6753,6 +6776,7 @@ $('s-boot').addEventListener('click', finishBoot);
 function boot() {
   loadCfg();
   loadMeta();
+  armSkyTraffic();   // scale the sky schedulers' initial countdowns to the saved Sky traffic setting
   PAL = PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)];
   buildSprites();
   Object.assign(QUALITY, qualityFor(CFG.quality === 3 ? 2 : CFG.quality));
