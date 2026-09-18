@@ -873,8 +873,12 @@ const CFG = {
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
-  if (s && typeof s === 'object') for (const k in CFG) if (k in s) CFG[k] = s[k];
+  if (s && typeof s === 'object') { for (const k in CFG) if (k in s) CFG[k] = s[k]; return; }
+  /* first boot on a phone: 120 Hz rAF for a 2D shooter is pure battery drain.
+     Cap at 60 until the pilot explicitly chooses otherwise in Settings. */
+  CFG.fpscap = touchFpsDefault();
 }
+function touchFpsDefault() { return isTouchDevice() ? 60 : 0; }
 function saveCfg() { DB.set('cfg', CFG); }
 
 const DIFF = [
@@ -6817,6 +6821,14 @@ function runSelfTests() {
   /* wholesale restore — the suite mutates alloy, counters, logs and feats;
      the pilot's real profile must survive the run untouched */
   const pre = DB.get('meta.preTest', null);
+  T('battery default: touch devices cap at 60, desktop uncapped', () => {
+    eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
+    const save = CFG.fpscap, saveS = DB.get('cfg', null);
+    try {
+      CFG.fpscap = 120; saveCfg(); loadCfg();
+      eq(CFG.fpscap, 120, 'saved preference always wins over default');
+    } finally { CFG.fpscap = save; if (saveS) DB.set('cfg', saveS); else DB.del('cfg'); }
+  });
   T('reduced motion freezes ambient drift, keeps rare events', () => {
     const frozen = skyTime(5000) === 0, live = skyTime(1) === 1;
     eq(REDUCE ? frozen : live, true, 'skyTime follows REDUCE');
