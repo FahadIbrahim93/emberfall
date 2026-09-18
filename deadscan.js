@@ -80,7 +80,7 @@ while ((m = classRe.exec(cssBlock))) cssClasses.add(m[1]);
 // class names living in CSS don't self-count and module renderers do count
 const body = html.slice(html.indexOf('</style>') + 8) + '\n' + modSrcs.join('\n');
 counts.css = cssClasses.size;
-const deadCSS = [...cssClasses].filter(c => !new RegExp('\\b' + c + '\\b').test(body));
+const deadCSS = [...cssClasses].filter(c => !CSS_NOISE.has(c) && !new RegExp('\\b' + c + '\\b').test(body));
 
 /* ── load-order guard ────────────────────────────────────────────────
    js/*.js modules load BEFORE the inline core (classic scripts, shared
@@ -168,6 +168,10 @@ if (fs.existsSync('js')) {
         let j = w.index + w[0].length;
         while (src[j] === ' ') j++;
         if (src[j] === ':' || src[j] === '(') continue;
+        /* value inside a lazy arrow body — `key: () => CORE.x.y` defers the
+           read to call time, so it is not a load-order hazard */
+        const open = src.lastIndexOf('{', w.index);
+        if (open >= 0 && src.slice(open, w.index).includes('=>')) continue;
       }
       loadOrderFails.push(f + ': live reference to core symbol ' + w[0]);
     }

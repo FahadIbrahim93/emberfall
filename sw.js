@@ -3,7 +3,7 @@
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
 const CACHE = 'emberfall-v3.8';
-const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js',
+const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js', './js/art.js', './js/input.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
