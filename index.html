@@ -509,6 +509,7 @@ body.needrotate #rotate{display:grid}
         <button class="btn" id="btnDaily">Today's run<span class="sub" id="dailySub">One seed, everyone the same</span></button>
       <button class="btn" id="btnRush">Boss rush<span class="sub" id="rushSub">Four capitals, no warm-up</span></button>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
+        <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
         <button class="btn ghost" id="btnSettings">Settings</button>
       </div>
       <p class="creds">
@@ -709,6 +710,18 @@ body.needrotate #rotate{display:grid}
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
       <button class="btn ghost" id="btnFull">Fullscreen</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ PATCH NOTES ════════ -->
+<section id="s-notes" class="screen" role="dialog" aria-modal="true" aria-labelledby="notesH">
+  <div class="panel card wide">
+    <p class="eyebrow">Transmission</p>
+    <h2 id="notesH">What's new</h2>
+    <div id="notesBody" style="display:grid;gap:16px"></div>
+    <div class="pair" style="margin-top:22px">
+      <button class="btn key" id="btnNotesClose">Done</button>
     </div>
   </div>
 </section>
@@ -5821,6 +5834,11 @@ function toTitle() {
   showScreen('s-title', true);
   renderBoard($('tab-scores'), 'main', null);
   refreshTitleMeta();
+  refreshNotesMarker();
+  if (!notesAutoOffered) {               // first title this load: offer an unread release once
+    notesAutoOffered = true;
+    if (NOTES.length && NOTES[0].v !== notesSeen()) setTimeout(openNotes, 450);
+  }
   MUSIC.set('calm', .3);
   $('btnLaunch').focus({ preventScroll: true });
 }
@@ -6410,6 +6428,51 @@ bindSegment('segQ', 'quality', () => applyQuality());
 bindSegment('segCap', 'fpscap', () => { });
 bindSegment('segSky', 'sky', () => { });
 
+/* ── What's new — the changelog lives with the code that changed it.
+   Newest first; entries only need adding, never editing. The most recent
+   version gets the fresh marker, and DB.notesSeen remembers how far the
+   pilot has read, so a release with no entry just clears the marker. ── */
+const NOTES = [
+  {
+    v: '3.5',
+    items: [
+      '<b>Relief convoy</b> — a fifth sky event: watch for friendly running lights crossing mid-sky; the Registry keeps count.',
+      'The sky is yours to tune — new <b>Sky traffic</b> setting (Sparse to Storm) speeds or thins every sky event.',
+      '<b>Install</b> button finished — the offer retires once you accept, and iPhone/iPad pilots get the Add-to-Home-Screen recipe.',
+      'Real installability: proper app icon and manifest, so EMBERFALL lives on your home screen and launches full-screen, offline.'
+    ]
+  },
+  {
+    v: '3.0',
+    items: [
+      'Command deck: one account, any device — cloud-saved hangar and verified worldwide boards.',
+      'The sky got a story: comets that pay, golden comets worth the wish, graveyard fleets, falling pyres — and feats for watching them all.'
+    ]
+  }
+];
+const notesSeen = () => DB.get('notesSeen', '');
+let notesAutoOffered = false;   // the unread-release offer happens once per load, on first title
+function renderNotes() {
+  $('notesBody').innerHTML = NOTES.map((n, i) =>
+    '<div>' +
+    '<h3 style="color:' + (i === 0 && n.v !== notesSeen() ? 'var(--amber)' : 'var(--dim)') + ';margin-bottom:8px">v' + esc(n.v) +
+    (i === 0 && n.v !== notesSeen() ? ' <span style="color:var(--gold);font-size:.55rem;letter-spacing:.2em">● NEW</span>' : '') + '</h3>' +
+    '<div style="display:grid;gap:6px">' + n.items.map(it =>
+      '<p style="color:var(--dim);font-size:.74rem;line-height:1.65">· ' + it + '</p>').join('') +
+    '</div></div>').join('');
+}
+function openNotes() {
+  renderNotes();
+  showScreen('s-notes', true);
+  $('btnNotesClose').focus();
+}
+bindClick('btnNotes', () => { AU.ui(); openNotes(); });
+bindClick('btnNotesClose', () => { AU.ui(); DB.set('notesSeen', NOTES[0].v); showScreen('s-notes', false); refreshNotesMarker(); if (setReturn === 'title') $('btnNotes').focus(); });
+function refreshNotesMarker() {
+  const fresh = NOTES.length && NOTES[0].v !== notesSeen();
+  $('notesSub').textContent = fresh ? 'New — v' + NOTES[0].v : 'Changelog';
+}
+
 /* PWA: the manifest and icons are static files — manifest.webmanifest and
    icons/, linked in <head>. A blob: manifest can never satisfy install
    criteria, so the old runtime generator is gone; tools/genicons.js is the
@@ -6726,6 +6789,20 @@ function runSelfTests() {
       ok(Math.abs(comet.next - cn * 1) < 1e-9, 'standard arm is a no-op');
       comet.next = cn; fleet.next = fn; convoy.next = vn; pyre.next = pn;   // armSkyTraffic mutates in place
     } finally { CFG.sky = save; comet.next = saveNext.c; fleet.next = saveNext.f; convoy.next = saveNext.v; pyre.next = saveNext.p; }
+  });
+  T('patch notes data and seen-marker', () => {
+    ok(NOTES.length >= 1, 'has entries');
+    ok(NOTES[0].v === '3.5', 'newest entry matches current release');
+    const vs = NOTES.map(n => n.v);
+    ok(new Set(vs).size === vs.length, 'no duplicate versions');
+    for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
+    const real = notesSeen();
+    try {
+      DB.set('notesSeen', '');
+      eq(notesSeen(), '', 'unset marker is fresh');
+      DB.set('notesSeen', NOTES[0].v);
+      eq(notesSeen(), NOTES[0].v, 'marker roundtrip');
+    } finally { DB.set('notesSeen', real); }
   });
   DB.del('meta.preTest');
   if (pre) { for (const k of Object.keys(META)) delete META[k]; Object.assign(META, JSON.parse(pre)); }
