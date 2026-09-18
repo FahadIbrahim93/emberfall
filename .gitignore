@@ -1,4 +1,6 @@
 data/
 node_modules/
+test-results/
+playwright-report/
 .freebuff/*.log
 .freebuff/*.log.err
