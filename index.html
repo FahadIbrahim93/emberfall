@@ -560,7 +560,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.5</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.6</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -800,7 +800,7 @@ body.needrotate #rotate{display:grid}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.5 — single-file orbital intercept shooter, Provenance
+   EMBERFALL v3.6 — single-file orbital intercept shooter, Provenance
    No build step, no dependencies, no network needed after first paint.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
@@ -6696,6 +6696,15 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '3.6',
+    items: [
+      '<b>SERAPH</b> — a sixth hull and the first new weapon class: a prism lance that cuts every hostile in its line, continuously. Watch the heat sink — push it into the red and the lance locks out until it vents.',
+      'Reduced-motion pilots: the ambient sky now holds still (drifts, bob and parallax freeze); comets and convoys still cross.',
+      'Save transfer rebuilt — Export/Import now work on iPhone and anywhere copy dialogs are blocked.',
+      'Battery: phones now default to a 60 fps cap (Settings can override); desktop stays uncapped.'
+    ]
+  },
+  {
     v: '3.5',
     items: [
       '<b>Relief convoy</b> — a fifth sky event: watch for friendly running lights crossing mid-sky; the Registry keeps count.',
@@ -7098,7 +7107,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.5', 'newest entry matches current release');
+    ok(NOTES[0].v === '3.6', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
