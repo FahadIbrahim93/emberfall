@@ -157,7 +157,7 @@ const NET = {
             '<span class="sc">' + fmt(r.pts) + '</span>' +
             '<span class="wv">' + r.runs + ' runs</span></div>';
         }).join('')
-      : '<div class="empty">No verified runs this week yet.<br>The ladder is wide open.</div>';
+      : '<div class="empty">No plausibility-checked runs this week yet.<br>The ladder is wide open.</div>';
     const you = $('seasonYou');
     if (j.me && j.me.runs > 0) {
       you.classList.remove('hidden');
@@ -188,9 +188,14 @@ const NET = {
     try { return await this.req('GET', '/api/challenges/ghost?id=' + id); } catch (e) { return null; }
   },
 
-  async beatDuel(id) {
+  async beatDuel(id, run) {
     if (!this.on) return null;
-    try { return await this.req('POST', '/api/challenges/beat', { id }); } catch (e) { return null; }
+    try {
+      return await this.req('POST', '/api/challenges/beat', {
+        id, score: run.score, wave: run.wave, diff: run.diff,
+        runT: run.runT, kills: run.kills, cps: run.cps
+      });
+    } catch (e) { return null; }
   },
 
   async renderDuels() {
@@ -504,7 +509,7 @@ function blurActive() { const a = document.activeElement; if (a && a.blur) a.blu
    OUTBOX — finished runs always survive. A score that cannot post right
    now (offline, rate-limited, deck down) is queued durably in localStorage
    and drained automatically whenever the deck is reachable again — online
-   or freshly signed-in. Verified scores are never lost to a dropped
+   or freshly signed-in. Accepted community scores are never lost to a dropped
    connection, and stale runs are never resurrected: anything older than
    3 days (or that would finish the daily of a day already closed) is
    dropped at drain time so the ladder stays honest.
@@ -547,7 +552,7 @@ const OUTBOX = {
         this.save(rest);
         try {
           note(r.verdict === 'rejected'
-            ? 'Queued run could not be verified — discarded'
+            ? 'Queued run failed plausibility checks — discarded'
             : 'Recovered — queued run posted · rank #' + r.rank,
             r.verdict === 'rejected' ? 'bad' : 'good');
         } catch (e) { }
@@ -557,7 +562,7 @@ const OUTBOX = {
         // definitive server rejection (422): drop the head, never retry it
         if (err && (err.status === 422 || err.status === 400)) {
           this.save(this.load().filter(e => e.at !== head.at));
-          try { note('Queued run could not be verified — discarded', 'bad'); } catch (e) { }
+          try { note('Queued run failed plausibility checks — discarded', 'bad'); } catch (e) { }
           return 1 + this.drainIfPossible();
         }
         return 0;                            // transient — try again later
