@@ -1,6 +1,6 @@
 # EMBERFALL — how to run this worktree
 
-(release v3.5 — relief convoy, install UX, sky-events single-owner refactor)
+(release v3.6 — SERAPH prism-lance hull, reduced-motion sky, prompt-free save transfer, battery default)
 
 ## Reproduce artifacts
 
@@ -32,7 +32,7 @@ powershell -NoProfile -Command "(Start-Process -FilePath 'node.exe' -ArgumentLis
 
 - `bash check.sh` — syntax-verifies every `js/*.js` module AND the inline payload(s)
 - `bash smoke.sh` — dead-code gate (`node deadscan.js --check`, scans modules too) + full API battery, all must pass
-- `http://127.0.0.1:8123/index.html?selftest` — 26 client tests, all must pass
+- `http://127.0.0.1:8123/index.html?selftest` — 31 client tests, all must pass
 - Title screen → Settings → Command deck panel shows the account state
 
 The game also still runs with **no server at all**: open `index.html` directly
