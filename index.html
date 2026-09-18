@@ -1591,16 +1591,29 @@ function buildBackdrop() {
     const p = surf.getContext('2d');
     const cx = ps / 2, cy = ps / 2, r = ps / 2 - 8;
     const ringHalf = (g, back, tt) => {   // live layer: stroked each frame.
-      // The whole ring plane rocks ±2.6° over ~10 min — drift you feel more
-      // than see, and occlusion stays correct because the far/near halves
-      // are still the same param-space arcs under a slightly different tilt.
+      // Second-pass drift, two layers of it: the whole ring plane rocks
+      // ±2.6° over ~10 min (tilt), AND each band is now broken into arc
+      // segments that advect around the disc at Kepler-ish speed — inner
+      // bands orbit faster than outer ones, so the rings visibly SHEAR
+      // over minutes. Occlusion stays correct: far/near halves are still
+      // the same param-space arcs. Frozen with every drift under REDUCE.
       if (!o.ring) return;
-      g.save(); g.translate(cx, cy); g.rotate(-.38 + Math.sin((tt || 0) * .0105) * .045); g.scale(1, .27);
-      for (const [rr, w, a] of [[1.26, .15, .3], [1.42, .09, .52], [1.56, .05, .44],
-        [1.66, .13, .26], [1.86, .06, .15]]) {
-        g.lineWidth = r * w;
-        g.strokeStyle = 'rgba(' + o.ring + ',' + (a * (back ? .5 : .95)).toFixed(2) + ')';
-        g.beginPath(); g.arc(0, 0, r * rr, back ? PI : 0, back ? TAU : 0); g.stroke();
+      const t2 = tt || 0;
+      g.save(); g.translate(cx, cy); g.rotate(-.38 + Math.sin(t2 * .0105) * .045); g.scale(1, .27);
+      const bands = [[1.26, .15, .3, .052], [1.42, .09, .52, .041], [1.56, .05, .44, .033],
+        [1.66, .13, .26, .028], [1.86, .06, .15, .021]];   // [radius, width, alpha, orbital ω rad/s]
+      for (const [rr, w, a, om] of bands) {
+        const rot = t2 * om;
+        const segs = 5, span = PI / segs;
+        for (let s = 0; s < segs; s++) {
+          const a0 = (back ? PI : 0) + s * span + rot % span;
+          // density modulation: each segment's alpha breathes with its
+          // orbital position — the band reads as clumpy ring matter
+          const dens = .72 + .28 * Math.sin(s * 2.3 + rr * 7 + Math.floor(rot / span));
+          g.lineWidth = r * w;
+          g.strokeStyle = 'rgba(' + o.ring + ',' + (a * dens * (back ? .5 : .95)).toFixed(2) + ')';
+          g.beginPath(); g.arc(0, 0, r * rr, a0, a0 + span * .82); g.stroke();
+        }
       }
       g.restore();
     };
@@ -1631,15 +1644,19 @@ function buildBackdrop() {
     // lights it like everything else): the backdrop re-draws it at a
     // creeping yaw, so the oval visibly wheels around the planet over
     // minutes while the baked belts stay still beneath it.
-    let stormC = null;
+    let stormC = null, stormSpin = null;
     if (o.storm) {
-      const st = mk(); const q = st.getContext('2d');
-      q.translate(cx, cy);
+      /* one canvas PER oval, largest first — drawBackdrop spins each at a
+         slightly different rate so the storm shears internally (the inner
+         ovals counter-drift). All carry the palette's stormA/stormB tint. */
+      stormC = []; stormSpin = [1, .8, .6, .45];
       for (let i = 4; i >= 1; i--) {
+        const st = mk(); const q = st.getContext('2d');
+        q.translate(cx, cy);
         q.fillStyle = 'rgba(' + (i % 2 ? o.stormA : o.stormB) + ',' + (.16 + i * .05).toFixed(2) + ')';
         q.beginPath(); q.ellipse(r * .24, r * .2, r * .24 * i / 4, r * .13 * i / 4, -.18, 0, TAU); q.fill();
+        stormC.push(st);
       }
-      stormC = st;
     }
     // mare / cloud mottling — two-tone soft patches
     for (let i = 0; i < 26; i++) {
@@ -1695,7 +1712,7 @@ function buildBackdrop() {
     rim.addColorStop(.6, 'rgba(' + o.rim + ',.1)');
     rim.addColorStop(1, 'rgba(' + o.rim + ',0)');
     w.beginPath(); w.arc(cx, cy, r * 1.08, 0, TAU); w.fillStyle = rim; w.fill();
-    return { surf, shade: sh, glow, storm: stormC, ring: ringHalf };
+    return { surf, shade: sh, glow, storm: stormC, stormSpin, ring: ringHalf };
   };
   /* skies are composed from the palette's own channels — the giant rides
      the tech channel, the moon the ally channel — so every visual style
@@ -1844,7 +1861,16 @@ function drawBackdrop(t) {
     ctx.save();
     ctx.translate(px + ps / 2, py + ps / 2);
     ctx.rotate(tt * .0042);
-    ctx.drawImage(planet.storm, -ps / 2, -ps / 2);
+    // second-pass internal swirl: the four ovals are stacked as separate
+    // spin states — inner ovals lag the outer ones slightly, so the storm
+    // shears like a real rotating anticyclone instead of one rigid stamp
+    for (let i = 0; i < planet.storm.length; i++) {
+      const spin = planet.stormSpin[i];
+      ctx.save();
+      ctx.rotate(spin * tt * .0042 * -.35);   // inner ovals counter-drift
+      ctx.drawImage(planet.storm[i], -ps / 2, -ps / 2);
+      ctx.restore();
+    }
     ctx.restore();
   }
   const pl = ctx.globalCompositeOperation;
@@ -7088,6 +7114,43 @@ function runSelfTests() {
     const frozen = skyTime(5000) === 0, live = skyTime(1) === 1;
     eq(REDUCE ? frozen : live, true, 'skyTime follows REDUCE');
     for (const tick of [cometTick, fleetTick, convoyTick, pyreTick]) ok(tick instanceof Function, 'sky events still tick under REDUCE');
+  });
+  T('backdrop second pass: ring shear, storm swirl, palette tinting', () => {
+    ok(planet && planet.ring && planet.surf, 'planet baked');
+    ok(planet.storm && planet.storm.length === 4 && planet.stormSpin.length === 4, 'storm is 4 spin layers');
+    ok(new Set(planet.stormSpin).size === 4, 'spin rates differ — the storm shears internally');
+    /* the ring layer is live: it must not throw at extreme clocks, and it
+       must MOVE — two well-separated times produce different pixels */
+    const c = document.createElement('canvas'); c.width = c.height = planet.surf.width;
+    const g = c.getContext('2d');
+    const ringSum = tt => {
+      g.clearRect(0, 0, c.width, c.height);
+      planet.ring(g, true, tt); planet.ring(g, false, tt);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      let s = 0; for (let i = 3; i < d.length; i += 40) s += d[i];   // alpha channel, sparse
+      return s;
+    };
+    const s1 = ringSum(0), s2 = ringSum(5000), s3 = ringSum(-1e5);
+    ok(s1 > 0 && s3 > 0, 'rings draw at any clock');
+    ok(s1 !== s2, 'rings advect — the layer is time-dependent (' + s1 + ' vs ' + s2 + ')');
+    /* every palette bakes a distinctly tinted sky: rebuild for each and
+       compare the storm layer's pixels — 4 palettes → 4 different bakes */
+    const keepPal = PAL, keepP = planet, keepM = moon, keepDust = dust, keepNeb = [nebA, nebB];
+    const sig = new Set();
+    try {
+      for (let i = 0; i < PALETTES.length; i++) {
+        PAL = PALETTES[i]; buildBackdrop();
+        const st = planet.storm[0];
+        const d = st.getContext('2d').getImageData(0, 0, st.width, st.height).data;
+        /* hash the first 40 PAINTED pixels — the ovals sit off-center */
+        let h = '', hits = 0;
+        for (let p = 0; p < d.length && hits < 40; p += 64) {
+          if (d[p + 3] > 0) { h += d[p] + ',' + d[p + 1] + ',' + d[p + 2] + ';'; hits++; }
+        }
+        sig.add(h);
+      }
+    } finally { PAL = keepPal; buildBackdrop(); nebA = keepNeb[0]; nebB = keepNeb[1]; dust = keepDust; planet = keepP; moon = keepM; }
+    ok(sig.size === PALETTES.length, 'each palette bakes its own sky (' + sig.size + '/' + PALETTES.length + ')');
   });
   T('sky traffic cadence scales and floors', () => {
     const save = CFG.sky, saveNext = { c: comet.next, f: fleet.next, v: convoy.next, p: pyre.next };
