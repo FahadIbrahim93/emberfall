@@ -1815,12 +1815,33 @@ function updateBackdrop(dt) {
 /* sky events cross regardless (informative, rare); ambient drift obeys */
 function skyTime(t) { return REDUCE ? 0 : t; }
 
+/* ── nebula parallax — three planes from the two 512px bakes ──
+   Far/mid/near scroll at different speeds, counter-rotate, and each
+   breathes on its own slow alpha sine — the deep sky shears against
+   itself the way the ring bands do. Pure function: the suite proves
+   differential motion from these descriptors. All through tt → the
+   whole stack freezes under REDUCE. */
+function nebLayers(tt, W, H) {
+  const farH = 512 * 1.9;
+  return [
+    { i: 1, cx: W * .5,       cy: ((tt * 3.1 + H * .30) % (H + farH)) - farH + 486, sc: 1.9,  a: .24 + .05 * Math.sin(tt * .019 + 1.2), rot: -4.5e-4 * tt },
+    { i: 0, cx: W * .14 + 20, cy: ((tt * 7) % (H + 760)) - 620 + 320,               sc: 1.25, a: .44 + .06 * Math.sin(tt * .031),       rot: 6e-4 * tt },
+    { i: 1, cx: W * .72 + 50, cy: ((tt * 4.6 + H * .55) % (H + 860)) - 700 + 370,   sc: 1.45, a: .33 + .05 * Math.sin(tt * .026 + 3.1), rot: 4.2e-4 * tt }
+  ];
+}
+
 function drawBackdrop(t) {
   const tt = skyTime(t);  // reduced-motion: ambient drift frozen at frame zero
-  // nebula drift — cool and deep, a hint rather than a haze
-  ctx.globalAlpha = .44;
-  ctx.drawImage(nebA, W * .14 - 300, ((tt * 7) % (H + 760)) - 620, 640, 640);
-  ctx.drawImage(nebB, W * .72 - 320, ((tt * 4.5 + H * .55) % (H + 860)) - 700, 740, 740);
+  // nebula drift — three planes, differential parallax, breathing alpha
+  for (const L of nebLayers(tt, W, H)) {
+    const img = L.i ? nebB : nebA, d = 512 * L.sc;
+    ctx.save();
+    ctx.globalAlpha = L.a;
+    ctx.translate(L.cx, L.cy);
+    ctx.rotate(L.rot);
+    ctx.drawImage(img, -d / 2, -d / 2, d, d);
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
 
   // derelict silhouettes, slow and deep
@@ -7186,6 +7207,17 @@ function runSelfTests() {
     const m1 = moonLitSum(0), m2 = moonLitSum(3600);
     ok(m1 > 0, 'moon composite has lit pixels');
     ok(m1 !== m2, 'terminator creeps — lighting shifts over minutes (' + m1 + ' vs ' + m2 + ')');
+    /* third stack: nebula planes move at DIFFERENT speeds and breathe —
+       differential parallax proven from the descriptor function */
+    const L0 = nebLayers(0, 1920, 1080), L1 = nebLayers(600, 1920, 1080);
+    ok(L0.length === 3, 'three nebula planes');
+    ok(new Set(L0.map(l => l.cy)).size === 3, 'planes sit at distinct offsets');
+    const d01 = L1[0].cy - L0[0].cy, d12 = L1[1].cy - L0[1].cy, d22 = L1[2].cy - L0[2].cy;
+    ok(new Set([d01, d12, d22]).size === 3, 'planes scroll at different rates (' + d01.toFixed(0) + '/' + d12.toFixed(0) + '/' + d22.toFixed(0) + ')');
+    ok(new Set(L1.map(l => Math.sign(l.rot))).size === 2, 'planes counter-rotate');
+    ok(L0[1].a !== L1[1].a, 'alpha breathes on its own sine');
+    const R = nebLayers(0, 800, 600);
+    ok(R.every(l => l.a > 0 && l.a <= .5), 'REDUCE frame (t=0) still renders visible nebulae');
   });
   T('sky traffic cadence scales and floors', () => {
     const save = CFG.sky, saveNext = { c: comet.next, f: fleet.next, v: convoy.next, p: pyre.next };
