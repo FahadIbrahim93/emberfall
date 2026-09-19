@@ -17,7 +17,9 @@
      SameSite=Lax, Secure-in-production cookie; every mutating request must
      be same-origin JSON
    - input: every field validated and length-capped; SQL is 100% parameterized
-   - rate limits: per-IP sliding windows on auth and score submission
+   - rate limits: per-IP sliding windows on auth and score submission, keyed
+     on the real client IP (honors TRUST_PROXY + X-Forwarded-For)
+   - static files: explicit allowlist only — data/, server.js, .git/ 404
    - headers: nosniff, frame-deny, referrer policy, CSP on documents
    ══════════════════════════════════════════════════════════════════════ */
 'use strict';
@@ -254,11 +256,20 @@ function requireSecure(req, res) {
   return true;
 }
 
-function hashPassword(password, salt) {
-  return crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 }).toString('base64');
+/* scrypt runs on libuv's threadpool (crypto.scrypt), NOT the event loop —
+   N=16384 costs ~50ms of CPU and used to stall every other request while a
+   login hashed. Callers await these. */
+function scryptAsync(password, salt, keylen) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, { N: 16384, r: 8, p: 1, maxmem: 96 * 1024 * 1024 },
+      (err, key) => err ? reject(err) : resolve(key));
+  });
 }
-function verifyPassword(password, salt, expected) {
-  const got = hashPassword(password, salt);
+async function hashPassword(password, salt) {
+  return (await scryptAsync(password, salt, 64)).toString('base64');
+}
+async function verifyPassword(password, salt, expected) {
+  const got = await hashPassword(password, salt);
   const a = Buffer.from(got), b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
@@ -275,7 +286,11 @@ function clearSession(req, res) {
   const token = readCookie(req, COOKIE);
   if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?')
     .run(crypto.createHash('sha256').update(token).digest('hex'));
-  res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${IS_PROD ? ' Secure;' : ''} Max-Age=0`);
+  /* Secure matches newSession: a logout must be able to clear the very
+     cookie a login set, and a Secure login cookie can only be overwritten
+     by a Secure logout cookie. */
+  const secure = IS_PROD || isSecureRequest(req);
+  res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=0`);
 }
 function readCookie(req, name) {
   const raw = req.headers.cookie || '';
@@ -366,9 +381,35 @@ const MIME = {
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8'
 };
+/* ── static allowlist ──
+   The deck serves the game shell and NOTHING else. Any path not on this
+   list 404s: the SQLite database, this source file, git metadata, shell
+   scripts and dotfiles must never be reachable over HTTP. This closes the
+   audit's P0 leak (GET /data/emberfall.db → 200) and is regression-tested
+   by the static-hygiene battery in smoke.sh (T-LEAK). */
+const STATIC_OK = new Set([
+  '/index.html', '/sw.js', '/manifest.webmanifest',
+  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
+  '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
+  '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
+  '/fonts/chakra-petch-700.woff2'
+]);
+function staticAllowed(p) {
+  if (STATIC_OK.has(p)) return true;
+  if (p.startsWith('/fonts/')) {
+    const name = p.slice('/fonts/'.length);
+    return /^[\w.-]+\.woff2$/.test(name);   // font files only, no traversal
+  }
+  if (p.startsWith('/icons/')) {
+    const name = p.slice('/icons/'.length);
+    return /^[\w.-]+\.png$/.test(name);   // flat icon files only, no traversal
+  }
+  return false;
+}
 function serveStatic(req, res, urlPath) {
   let p = decodeURIComponent(urlPath.split('?')[0]);
   if (p === '/' || p === '') p = '/index.html';
+  if (!staticAllowed(p)) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found'); return; }
   const file = path.normalize(path.join(ROOT, p));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, buf) => {
@@ -414,7 +455,7 @@ function publicProfile(userId) {
   catch (e) { return null; }
 }
 
-async function handleApi(req, res, pathname, ip) {
+async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see clientIp */
   /* ---- public ---- */
   if (req.method === 'GET' && pathname === '/api/health') {
     return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now() });
@@ -450,8 +491,9 @@ async function handleApi(req, res, pathname, ip) {
       return bad(res, 'callsign already registered', 409);
     }
     const salt = crypto.randomBytes(16).toString('hex');
+    const hash = await hashPassword(password, salt);
     const info = db.prepare('INSERT INTO users (name, name_lower, salt, hash, created, last_seen) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(name, name.toLowerCase(), salt, hashPassword(password, salt), now(), now());
+      .run(name, name.toLowerCase(), salt, hash, now(), now());
     newSession(req, res, Number(info.lastInsertRowid));
     return send(res, 200, { ok: true, user: { name }, profile: null });
   }
@@ -464,10 +506,10 @@ async function handleApi(req, res, pathname, ip) {
     const password = String(body.password || '');
     const row = db.prepare('SELECT id, name, salt, hash FROM users WHERE name_lower = ?').get(name.toLowerCase());
     /* constant-ish shape: always run a hash so timing does not reveal existence */
-    const okPw = row
+    const okPw = await (row
       ? verifyPassword(password, row.salt, row.hash)
       : verifyPassword(password, 'deaddbeefdeadbeefdeadbeefdeadbeef',
-          hashPassword('x', 'deaddbeefdeadbeefdeadbeefdeadbeef'));
+          await hashPassword('x', 'deaddbeefdeadbeefdeadbeefdeadbeef')));
     if (!row || !okPw) return bad(res, 'wrong callsign or password', 401);
     db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(now(), row.id);
     newSession(req, res, row.id);
@@ -566,11 +608,13 @@ async function handleApi(req, res, pathname, ip) {
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
     let me = null;
     if (user) {
-      const best = db.prepare('SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ?').get(mode, user.id);
+      /* ranked like every board query: accepted runs only — a review/rejected
+         run must not hand the pilot a rank they do not have */
+      const best = db.prepare("SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted'").get(mode, user.id);
       if (best && best.s != null) {
         const better = db.prepare(`
-          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND
-            s.score > (SELECT MAX(score) FROM scores WHERE mode = ? AND user_id = ?)`).get(mode, mode, user.id);
+          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted' AND
+            s.score > (SELECT MAX(score) FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted')`).get(mode, mode, user.id);
         me = { name: user.name, s: Number(best.s), rank: Number(better.n) + 1 };
       }
     }
@@ -670,8 +714,23 @@ async function handleApi(req, res, pathname, ip) {
 }
 
 /* ─────────────────────────── server ─────────────────────────── */
+/* Rate-limit keys must be the REAL client IP. Behind the documented nginx
+   (TRUST_PROXY=1, one proxy hop), socket.remoteAddress is the proxy's IP —
+   every pilot would share one bucket and one abuser would exhaust it for
+   everyone. Trust X-Forwarded-For ONLY when TRUST_PROXY is explicitly set;
+   without it the header is attacker-controlled and spoofable. */
+function clientIp(req) {
+  if (TRUST_PROXY) {
+    const xff = req.headers['x-forwarded-for'];
+    if (typeof xff === 'string' && xff.length) {
+      const first = xff.split(',')[0].trim();
+      if (first) return first.replace(/^::ffff:/, '');
+    }
+  }
+  return (req.socket.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+}
 const server = http.createServer(async (req, res) => {
-  const ip = (req.socket.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+  const ip = clientIp(req);
   try {
     const url = new URL(req.url, 'http://x');
     if (url.pathname.startsWith('/api/')) {

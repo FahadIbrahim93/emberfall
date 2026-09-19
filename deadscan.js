@@ -23,7 +23,9 @@ const fs = require('fs');
    cannot match a bare sigil with \b */
 const JS_ALLOW = new Set(['$', '$$']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
-const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3']);
+/* fragments that appear inside data:/font: URLs and URL fragments, not real
+   class names — 'woff2' joined when brand fonts became self-hosted files */
+const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3', 'woff2']);
 
 const dead = [];
 const counts = {};

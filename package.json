@@ -2,7 +2,9 @@
   "name": "emberfall",
   "private": true,
   "scripts": {
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:selftest": "node tools/selftest-ci.js",
+    "test": "npm run test:browser && npm run test:selftest"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0"

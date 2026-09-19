@@ -26,6 +26,28 @@ trap 'rm -f "$JAR"' EXIT
 say "── dead code scan (repo-wide) ──"
 if node deadscan.js --check; then ok "deadscan clean (dead code + load order)"; else no "deadscan: dead code or load-order violation"; fi
 
+say "── static hygiene (T-LEAK): the deck serves the game, nothing else ──"
+# The audit's P0: server.js mapped ANY repo path onto HTTP — /data/emberfall.db
+# (the user database + WAL) downloaded with a plain curl. These must all 404.
+LEAK_CODE() { curl -s -o /dev/null -w '%{http_code}' "$BASE$1"; }
+leak() { if [ "$(LEAK_CODE "$1")" = "404" ]; then ok "static leak blocked: $1"; else no "static leak: $1 → $(LEAK_CODE "$1") (must 404)"; fi; }
+leak "/data/emberfall.db"
+leak "/data/emberfall.db-wal"
+leak "/data/emberfall.db-shm"
+leak "/server.js"
+leak "/package.json"
+leak "/smoke.sh"
+leak "/.git/config"
+leak "/check.sh"
+leak "/deadscan.js"
+leak "/.env"
+leak "/js"
+leak "/data"
+ICON_CODE=$(LEAK_CODE "/icons/icon-192.png")
+if [ "$ICON_CODE" = "200" ]; then ok "allowlisted asset serves: /icons/icon-192.png"; else no "/icons/icon-192.png → $ICON_CODE (must 200)"; fi
+SHELL_CODE=$(LEAK_CODE "/sw.js")
+if [ "$SHELL_CODE" = "200" ]; then ok "allowlisted asset serves: /sw.js"; else no "/sw.js → $SHELL_CODE (must 200)"; fi
+
 R=$RANDOM$RANDOM
 expect "health"            '"ok":true'                      "$BASE/api/health"
 expect "static index"      'EMBERFALL'                      "$BASE/"
@@ -41,8 +63,14 @@ ANON="$(curl -s -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -
 if printf '%s' "$ANON" | grep -q 'sign in'; then ok "score reject anon"; else no "score reject anon  →  ${ANON:0:120}"; fi
 expect "score bad mode"    'bad mode'                       -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"cheat","score":1,"wave":1,"ship":"vesper","diff":1}'
 expect "score implausible" 'implausible'                    -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"main","score":2000000,"wave":1,"ship":"vesper","diff":1}'
-expect "score ok"          '"ok":true'                      -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":$((RANDOM+5000)),\"wave\":7,\"ship\":\"vesper\",\"diff\":1}"
-expect "board has entry"   "Pilot$R"                        "$BASE/api/scores?mode=main"
+expect "score without telemetry reviewed" '"verdict":"review"' -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":$((RANDOM+5000)),\"wave\":7,\"ship\":\"vesper\",\"diff\":1}"
+# honest-board regression (audit 3.6): a review run must NOT appear on the
+# board — the old smoke passed for the wrong reason (it matched the submitter's
+# own `me` row, not a ranked entry). Pilot$R has ONLY a review run at this
+# point, so their callsign must be absent from the ranked board entirely.
+BOARD="$(curl -s "$BASE/api/scores?mode=main")"
+if printf '%s' "$BOARD" | grep -q "Pilot$R"; then no "review excluded from board  →  $BOARD"; else ok "review excluded from board"; fi
+expect "review excluded from rank"  '"me":null'                "$BASE/api/scores?mode=main"
 expect "login wrong pw"    'wrong callsign'                 -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"nope\"}"
 expect "login ok"          '"ok":true'                      -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
 expect "logout"            '"ok":true'                      -X POST "$BASE/api/logout" -H 'X-Emberfall: command-deck'
@@ -87,6 +115,22 @@ GHOSTJ="$(curl -s -b "$JAR" -c "$JAR" "$BASE/api/challenges/ghost?id=$CID")"
 if printf '%s' "$GHOSTJ" | grep -q '"frames"'; then ok "ghost delivered"; else no "ghost delivered  →  ${GHOSTJ:0:140}"; fi
 expect "duel rejects self-report" 'score did not beat'              -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID,\"score\":1,\"wave\":1,\"diff\":1}"
 expect "duel marked beaten"   '"beaten":true'                -X POST "$BASE/api/challenges/beat" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"id\":$CID,\"score\":2410,\"wave\":3,\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+
+say ""; say "── P0-9: proxy-aware limiter + non-blocking auth hashing ──"
+# X-Forwarded-For must be IGNORED unless the operator opts in (TRUST_PROXY=1):
+# without it the header is attacker-controlled and spoofing it must not forge
+# a fresh rate-limit bucket.
+SPOOF="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 1.2.3.4' -d '{"name":"bad name!!","password":"x"}')"
+if [ "$SPOOF" = "400" ]; then ok "XFF ignored without TRUST_PROXY (validation still applied)"; else no "XFF handling wrong: $SPOOF"; fi
+# 20 concurrent logins on one account: every request must answer within the
+# smoke timeout — the point is that scrypt no longer serializes the event loop.
+LOAD_T0=$(date +%s)
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  curl -s -o /dev/null -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"wrong$RANDOM\"}" &
+done
+wait
+LOAD_T1=$(date +%s)
+if [ $((LOAD_T1 - LOAD_T0)) -le 10 ]; then ok "20 concurrent logins complete (async scrypt): ${LOAD_T1}s-${LOAD_T0}s"; else no "concurrent logins stalled: $((LOAD_T1 - LOAD_T0))s"; fi
 
 say ""
 say "── $PASS passed, $FAIL failed ─────────────────────"

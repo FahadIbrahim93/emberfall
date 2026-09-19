@@ -80,7 +80,15 @@ function simRun(p) {
     if (rnd() < COMET_BANK_P) {
       comets++;
       const gold = rnd() < GOLD_P;
-      const style = 1 + rnd();
+          /* style ~ the in-game grazeHeat multiplier (x1..x2). NOTE (P0-3 fix):
+         grazeHeat used to FREEZE at its last value once the combo expired, so
+         historical telemetry paid the max x2 on nearly every comet — the
+       anchor below was calibrated against bug-inflated income. Post-fix the
+       multiplier decays 1/s from the last graze, so real style averages
+       below 1.5; uniform(1,2) here now slightly over-predicts the FIXED
+       game, i.e. the anchor drift is even less favourable-looking than the
+       raw -15.4% suggests. See docs/economy-audit.md §5. */
+    const style = 1 + rnd();
       const chart = (p.careerComets + comets) >= 10 ? 1.5 : 1;
       const pay = Math.round((COMET_BASE + w * COMET_WAVE) * (gold ? 10 : 1) * style * chart);
       cometPay += pay; alloyRun += pay;

@@ -2,9 +2,11 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v3.9';
+const CACHE = 'emberfall-v3.7';
 const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js', './js/art.js', './js/input.js',
-  './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+  './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png',
+  './fonts/michroma-400.woff2', './fonts/chakra-petch-400.woff2', './fonts/chakra-petch-500.woff2',
+  './fonts/chakra-petch-600.woff2', './fonts/chakra-petch-700.woff2'];
 
 self.addEventListener('install', e => {
   /* cache:'reload' — precache fetches BYPASS the browser HTTP cache. Without
