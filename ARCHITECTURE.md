@@ -62,10 +62,18 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
    game, any time, without polluting the player's profile (it snapshots and
    restores). New mechanics with invariant math get a `T(...)` test.
 4. **CI is the law**: check.sh → deadscan --check → econsim --json → deck boot
-   → smoke.sh (36) → Pages deploy → live byte-fidelity smoke. Green `main` is
-   the live site.
+   → smoke.sh (static-hygiene T-LEAK + API + anti-cheat + load) → headless
+   `?selftest` suite against a committed baseline → Playwright smoke → Pages
+   deploy → live byte-fidelity smoke. Green `main` is the live site.
 5. **Cache generation bumps on any client payload change** (`sw.js` `CACHE`),
    or installed PWAs never see the update.
+6. **Scored math draws from the run-seeded RNG only.** The cosmetic FX stream
+   is seeded from `Math.random()` and reseeded at run start — any FX draw in
+   gameplay makes a run unreproducible. `simRandom()`/`srnd()` is the gate;
+   the suite's determinism check throws in direct mode.
+7. **Run provenance is plausibility checking, not verification.** Copy may
+   say "plausibility-checked" — "verified" is reserved until the deck can
+   re-simulate a run from (seed, inputs) (SSOT P1/P2).
 
 ## Where new things go
 

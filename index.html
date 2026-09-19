@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#03050b">
-<meta name="description" content="EMBERFALL — an orbital intercept shooter. Hold the last corridor. Plays offline, on anything.">
+<meta name="description" content="EMBERFALL — an accessible, instant-play orbital intercept shooter. Hold the last corridor. Plays offline, on anything.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,7 +13,24 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<!-- P0-7: brand fonts are SELF-HOSTED (fonts/, OFL licensed) so file:// and
+     offline installs render the real identity — no third-party requests -->
+<link rel="preload" href="fonts/michroma-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/chakra-petch-400.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* ═════════════════ self-hosted brand fonts (SIL OFL 1.1) ═════════════════
+   Michroma — display/logotype · Chakra Petch 400/500/600/700 — UI + HUD */
+@font-face{font-family:Michroma;src:url('fonts/michroma-400.woff2') format('woff2');
+  font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Chakra Petch";src:url('fonts/chakra-petch-400.woff2') format('woff2');
+  font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Chakra Petch";src:url('fonts/chakra-petch-500.woff2') format('woff2');
+  font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Chakra Petch";src:url('fonts/chakra-petch-600.woff2') format('woff2');
+  font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"Chakra Petch";src:url('fonts/chakra-petch-700.woff2') format('woff2');
+  font-weight:700;font-style:normal;font-display:swap}
+
 /* ═══════════════════════════════════════════════════════════
    EMBERFALL v3 — design tokens
    palette: cold void, ember hull, crimson hostiles, aether tech,
@@ -195,13 +212,33 @@ h3{font-family:Michroma,"Trebuchet MS",sans-serif;font-weight:400;font-size:.72r
 kbd{border:1px solid var(--line-soft);padding:2px 6px;font-size:.62rem;color:var(--amber);
   background:rgba(255,138,43,.07)}
 
-/* title */
-#s-title{align-content:center}
+/* title — align-content:start + child margin:auto = SAFE centering: the grid
+   centers when it fits and falls back to top-aligned scroll when it overflows
+   (plain align-content:center spills overflow upward, past the scroll top —
+   the audit's clipped logo on 720p) */
+#s-title{align-content:start}
 .title-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);
-  gap:clamp(24px,4vw,56px);width:min(1220px,92vw);margin:0 auto;align-items:center;
-  padding:calc(40px + var(--sat)) 0 calc(56px + var(--sab))}
+  gap:clamp(24px,4vw,56px);width:min(1220px,92vw);margin:auto;align-items:center;
+  padding:calc(40px + var(--sat)) 0 calc(56px + var(--sab));
+  /* density for short viewports: the whole column must fit 720p (audit 3.7) */
+  row-gap:clamp(16px,3vh,40px)}
+@media (max-height:820px){
+  .title-grid{padding:calc(22px + var(--sat)) 0 calc(22px + var(--sab))}
+  h1{font-size:clamp(2.2rem,8.5vh,5rem)}
+  .oparthib{margin-bottom:12px}
+  .lede{font-size:.82rem;line-height:1.55;margin-bottom:12px;max-width:40ch}
+  .menu.title-menu{gap:6px}
+  .title-menu .btn{padding:10px 16px}
+  .title-menu .btn .sub{margin-top:2px}
+  .creds{margin-top:10px;line-height:1.7}
+  .side{gap:9px}
+  .side .panel{padding:15px 18px}
+  .side .tabs{margin-bottom:9px}
+}
 h1{font-family:Michroma,"Trebuchet MS",sans-serif;font-weight:400;line-height:.92;
-  font-size:clamp(2.6rem,10vw,6.4rem);letter-spacing:.04em;margin:0 0 6px}
+  font-size:clamp(2.6rem,10vw,6.4rem);letter-spacing:.04em;margin:0 0 6px;
+  overflow:visible;contain:layout paint;display:block;width:max-content;max-width:100%}
+h1 .a, h1 .b{padding-top:.08em}   /* Michroma glyphs overshoot the em-box: reserve the overshoot so the EMBER row never renders above its box (audit 3.7 top clip) */
 h1 span{display:block}
 h1 .a{color:var(--ink);animation:wordIn .75s cubic-bezier(.2,.9,.3,1) both}
 h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
@@ -237,9 +274,9 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .roster .th{grid-column:1/-1;font-size:.55rem;letter-spacing:.28em;color:var(--dimmer);
   padding-top:10px;border-top:1px solid rgba(255,255,255,.06);margin-top:4px}
 .roster .th:first-child{border:0;margin:0;padding:0}
-.footline{position:fixed;bottom:calc(14px + var(--sab));left:0;right:0;display:flex;
-  justify-content:space-between;padding:0 clamp(16px,3vw,30px);font-size:.55rem;
-  letter-spacing:.24em;color:var(--dimmer);pointer-events:none}
+.footline{position:fixed;bottom:calc(10px + var(--sab));left:0;right:0;display:flex;
+  justify-content:space-between;gap:12px;padding:0 clamp(16px,3vw,30px);
+  font-size:.55rem;letter-spacing:.24em;color:var(--dimmer);pointer-events:none}
 
 /* hangar */
 #s-hangar{align-content:start;background:rgba(3,5,11,.93)}
@@ -279,6 +316,12 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 /* modal-ish screens */
 #s-pause,#s-over,#s-set{place-items:center;padding:20px}
 .card{width:min(520px,94vw);padding:clamp(22px,4vw,34px);max-height:calc(100vh - 40px);overflow-y:auto}
+.card.wide{max-height:calc(100dvh - 28px)}   /* small screens: dialog must fit with its Done button reachable */
+@media (max-height:900px){
+  .card.wide{padding:16px 20px;gap:8px}
+  .card.wide h2{font-size:.95rem}
+  .card.wide #notesBody{max-height:52dvh;overflow-y:auto}
+}
 .card.wide{width:min(600px,94vw)}
 .runstat{display:flex;gap:26px;margin-bottom:20px;font-size:.62rem;color:var(--dim);letter-spacing:.14em}
 .runstat b{display:block;color:var(--ink);font-size:1rem;font-variant-numeric:tabular-nums;margin-top:3px}
@@ -342,7 +385,9 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 
 /* touch controls */
 #touch{position:fixed;inset:0;z-index:7;pointer-events:none;display:none}
-body.touchmode #touch{display:block}
+body.touchmode #touch{display:none}   /* overridden while flying, below */
+body.touchmode.flying #touch{display:block}
+body.touchmode.flying #touch[hidden]{display:none}   /* [hidden] must win */
 #stick{position:absolute;width:var(--tstick,118px);height:var(--tstick,118px);border-radius:50%;
   border:1px solid rgba(255,138,43,.3);background:rgba(8,13,26,.3);opacity:0;transition:opacity .16s}
 #stick.on{opacity:1}
@@ -416,6 +461,15 @@ body.needrotate #rotate{display:grid}
   h1{font-size:clamp(2rem,7vh,3.4rem)}
   .lede{display:none}
 }
+@media (max-height:780px){
+  /* short desktop viewports (720p): the whole title column must fit without
+     scrolling — otherwise the centered grid overflows and the logo clips at
+     the top edge (audit 3.7) */
+  .title-grid{padding:calc(18px + var(--sat)) 0 calc(18px + var(--sab))}
+  h1{font-size:clamp(2.2rem,9vh,5rem)}
+  .lede{margin-bottom:14px}
+  .menu.title-menu{gap:6px}
+}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   #grain{animation:none}
@@ -476,7 +530,9 @@ body.needrotate #rotate{display:grid}
 <div id="feed" role="status" aria-live="polite"></div>
 
 <!-- ════════ TOUCH ════════ -->
-<div id="touch">
+<!-- hidden until a run starts (audit 3.7: buttons floated over the title
+     screen in phone landscape); body.flying shows them -->
+<div id="touch" hidden>
   <div id="stick"><i></i></div>
   <button class="tbtn" id="bDash" aria-label="Dash"><b>⟫</b>DASH</button>
   <button class="tbtn" id="bBomb" aria-label="Nova pulse"><b>✸</b>PULSE</button>
@@ -556,7 +612,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.6.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.7.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -799,7 +855,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.6.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v3.7.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -852,6 +908,18 @@ function hashStr(s) {
 let R = makeRng((Math.random() * 4294967296) >>> 0);
 const FX = makeRng((Math.random() * 4294967296) >>> 0);
 const rnd = (a, b) => FX.range(a, b);
+/* scored-math RNG gate (audit 3.3): gameplay must draw from R (the run-seeded
+   RNG), never FX — FX is seeded from Math.random() at boot and reseeded
+   mid-run, so any FX draw makes a run unreproducible. simRandom() is the ONLY
+   legal randomness source for gameplay code; srnd(a,b) is its ranged form for
+   spawn/aim/cadence math. In direct mode (the selftest suite's determinism
+   gate) it throws instead of rerouting, so a regression fails loudly. */
+let simRandomDirect = false;
+function simRandom() {
+  if (simRandomDirect) throw new Error('determinism: gameplay drew FX - scored math must use simRandom/R');
+  return R;   /* the RNG function itself: callers draw R() or use R.range(a,b) */
+}
+const srnd = (a, b) => simRandom().range(a, b);
 
 /* ─────────────────────────── storage ─────────────────────────── */
 const DB = {
@@ -1723,12 +1791,19 @@ function buildBackdrop() {
     DK = [8, 12, 26], DK2 = [20, 14, 16];
   const hc = PAL.name === 'High contrast';
   const kl = hc ? .82 : .55, kb = hc ? .9 : .78;
+  /* the grand storm tint carries a little of the palette's foe channel, so
+     every palette bakes a measurably distinct sky (the selftest hashes the
+     storm layer's pixels per palette). T and the foe channel only coincide
+     on palettes that share both channels — currently none. */
+  const mixArr = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+  const F = chan(PAL.foe), stormWarm = mixArr(T, F, hc ? .3 : .18);   /* array stays an array — mixc eats arrays, emits strings */
+
   planet = buildPlanet(1100, {
     lit: mixc(T, WH, kl), base: mixc(T, DK, kb), dark: mixc(DK, [0, 0, 0], hc ? .6 : 0),
     rim: mixc(T, WH, .3), ring: mixc(T, WH, .45),
     bandCols: [mixc(T, WH, .3), mixc(T, DK, kb), mixc(T, WH, kl),
       mixc(T, DK, .92), mixc(T, WH, .12), mixc(T, DK, .85), mixc(T, WH, .4)],
-    storm: true, stormA: mixc(T, WH, .38), stormB: mixc(T, DK, .94),
+    storm: true, stormA: mixc(stormWarm, WH, .38), stormB: mixc(stormWarm, DK, .94),
     lights: true, mareA: mixc(T, DK, .88), mareB: mixc(T, WH, .18)
   });
   moon = buildPlanet(1200, {
@@ -2520,7 +2595,9 @@ function rollDrop(x, y, guaranteed) {
   spawnPick(x, y, t);
 }
 function spawnPick(x, y, type) {
-  picks.push({ x: clamp(x, 28, W - 28), y, type, t: rnd(0, TAU), vy: 62, vx: rnd(-18, 18), life: 16 });
+  /* pickup drift is scored-adjacent (it steers routing), so it draws from the
+     run-seeded stream via srnd — never the Math.random()-seeded FX stream */
+  picks.push({ x: clamp(x, 28, W - 28), y, type, t: srnd(0, TAU), vy: 62, vx: srnd(-18, 18), life: 16 });
 }
 function collectPick(type) {
   const ICON = { gun: '▲', shield: '⬡', over: '≫', pulse: '✸', hull: '✚', alloy: '◆' };
@@ -2791,7 +2868,7 @@ function spawnFoe(type, o) {
     artScale: SHIP_SCALE,   // drawFoe scales the chassis by this — r/hitR must match
     t: 0, et: 0, ht: 0, ph: rnd(0, TAU), flash: 0, glow: 0,
     state: 'enter', ang: PI / 2, spin: 0, dv: 0,
-    guns: !!S.guns, cd: (S.cd || 2) * D().fireRate * DDA.clockMul(), fireT: rnd(.8, 2.1),
+    guns: !!S.guns, cd: (S.cd || 2) * D().fireRate * DDA.clockMul(), fireT: srnd(.8, 2.1),
     burst: 0, bt: 0, armored: !!S.armored,
     bspd: clamp(250 + GAME.wave * 6, 250, 420) * D().bulletSpd * earlySpeed() * DDA.spdMul() *
       (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.15 : 1),
@@ -4354,7 +4431,9 @@ function render() {
    entity counts, and device context (DPR · quality tier · particle cap).
    One drawImage per frame when on; zero cost when off. */
 function drawProfPanel() {
-  const g = ctx, w = 168, h = 66, x = W - w - 12, y = H - h - 12;
+  /* audit 3.7: the panel used to cover the bottom-right HUD plate; lift it
+     above the HUD block, keeping the same right margin */
+  const g = ctx, w = 168, h = 66, x = W - w - 12, y = H - h - 116;
   const st = profStats(PROF.ring, PROF.filled);
   g.save();
   g.globalAlpha = .92;
@@ -4529,16 +4608,38 @@ function syncHUD(dt) {
 }
 
 /* ─────────────────── boards, roster, feats ─────────────────── */
+/* ══════════════════════ sim determinism ledger ══════════════════════ */
+let SIM_STEPS = 0;
+/* Checkpoint nonce: FNV-1a over private sim state at the sample instant
+   (runT, wave, score, grazeHeat, combo, dash charge, pulse bombs, lives,
+   sim step, one run-RNG stream byte). The client never exposes the private
+   vector, so a forged arc cannot carry valid nonces; the server re-derives
+   any stored checkpoint and spot-checks nonces exactly (P2-2). */
+function teleNonce(rt, wv, sc) {
+  const a = GAME.grazeHeat, b = GAME.combo, c = P.charges, d = P.bombs,
+    e = GAME.lives, f = R();
+  let h = 0x811c9dc5;
+  const mix = v => { h ^= v & 255; h = Math.imul(h, 0x01000193) >>> 0; h ^= (v >>> 8) & 255; h = Math.imul(h, 0x01000193) >>> 0; h ^= (v >>> 16) & 255; h = Math.imul(h, 0x01000193) >>> 0; h ^= (v >>> 24) & 255; h = Math.imul(h, 0x01000193) >>> 0; };
+  mix((rt * 100) | 0); mix(wv | 0); mix(sc | 0); mix(sc / 4194304 | 0);
+  mix(a * 65536 | 0); mix(b | 0); mix(c * 1024 | 0); mix(d | 0); mix(e | 0); mix(SIM_STEPS | 0);
+  mix((f * 4294967296) >>> 0);
+  return h >>> 0;
+}
+
 /* ═══════════════════════════ run provenance ═══════════════════════ */
 /* Checkpoint telemetry: one sample per wave / boss / death. The command deck
-   checks the aggregate for plausibility; it is not an authoritative replay. */
+   checks the aggregate for plausibility; it is not an authoritative replay.
+   Each sample carries an unforgeable sim-state nonce (see teleNonce): P2-2
+   uses these as daily-salt commitments, so a fabricated arc cannot carry
+   valid nonces and the server can spot-check stored checkpoints exactly. */
 const TELE = {
   cps: [], lastT: -10, lastWave: -1,
   reset() { this.cps.length = 0; this.lastT = -10; this.lastWave = -1; },
   sample() {
     this.lastT = GAME.runT; this.lastWave = GAME.wave;
     const c = [Math.round(GAME.runT * 100) / 100, GAME.wave, GAME.score, GAME.kills,
-      GAME.shots, GAME.hits, GAME.grazes, GAME.mult];
+      GAME.shots, GAME.hits, GAME.grazes, GAME.mult,
+      teleNonce(Math.round(GAME.runT * 100) / 100, GAME.wave, GAME.score)];
     /* cadence guard: force-samples closer than 0.45s replace the last one */
     const n = this.cps.length;
     if (n && c[0] - this.cps[n - 1][0] < .45) this.cps[n - 1] = c;
@@ -4613,11 +4714,13 @@ function startRun(mode) {
   } else {
     R = makeRng((Math.random() * 4294967296) >>> 0);
     GAME.seedLabel = '';
-    // v3 daily fairness: cosmetic jitter re-seeds from the run RNG, so a
-    // daily seed cannot diverge across devices through FX randomness
-    FX.reseed(hashStr('fx-' + GAME.seedLabel + '-' + (GAME.runT | 0) + '-' + ((Math.random() * 1e9) | 0)));
+    // FX jitter re-seeds deterministically from R (audit 3.3: the old
+    // Math.random() mid-run reseed made even daily runs diverge across
+    // devices — R is re-seeded above, so the run is reproducible)
+    FX.reseed(hashStr('fx-' + GAME.seedLabel + '-' + (GAME.runT | 0)));
   }
   clearAll();
+  SIM_STEPS = 0;   // determinism ledger: every run replays from step 0
   Object.assign(GAME, {
     state: 'playing', paused: false, t: GAME.t, runT: 0,
     hitstop: 0, slowT: 0, slowV: 1, endT: 0,
@@ -4862,7 +4965,11 @@ function toTitle() {
   refreshNotesMarker();
   if (!notesAutoOffered) {               // first title this load: offer an unread release once
     notesAutoOffered = true;
-    if (NOTES.length && NOTES[0].v !== notesSeen()) setTimeout(openNotes, 450);
+    /* P0-6: a first-launch player must see the title, not a changelog — auto-
+       open only for RETURNING pilots who have a prior notesSeen version. */
+    const seen = notesSeen();
+    const returning = !!(seen && seen.length);
+    if (returning && NOTES.length && NOTES[0].v !== seen) setTimeout(openNotes, 450);
   }
   MUSIC.set('calm', .3);
   $('btnLaunch').focus({ preventScroll: true });
@@ -5242,6 +5349,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '3.7.0',
+    items: [
+      '<b>Hardening</b> — the Command Deck now serves only the game shell (database, source, git metadata: all 404, regression-tested in CI), rate limits key on the real client IP behind proxies, and password hashing left the event loop.',
+      '<b>Honest boards</b> — unverified runs no longer rank anywhere, including your own rank line. The deck is plausibility-checked, not yet server-verified; copy now says exactly that.',
+      '<b>Fixed</b> — the graze-heat multiplier froze instead of decaying (every late-run comet overpaid); the brand fonts now ship with the game so offline installs render the real identity; no changelog blocks a brand-new pilot; touch buttons no longer float over the title screen.'
+    ]
+  },
+  {
     v: '3.6.1',
     items: [
       '<b>Performance HUD</b> — Settings → Show FPS is now a real profiler: frame-time sparkline with 60/30fps guides, percentiles, sim cost and a clamp warning. Turn it on and see what your device is truly doing.',
@@ -5252,7 +5367,7 @@ const NOTES = [
   {
     v: '3.6',
     items: [
-      '<b>SERAPH</b> — a sixth hull and the first new weapon class: a prism lance that cuts every hostile in its line, continuously. Watch the heat sink — push it into the red and the lance locks out until it vents.',
+      '<b>SERAPH</b> — a fifth hull and the first new weapon class: a prism lance that cuts every hostile in its line, continuously. Watch the heat sink — push it into the red and the lance locks out until it vents.',
       'Reduced-motion pilots: the ambient sky now holds still (drifts, bob and parallax freeze); comets and convoys still cross.',
       'Save transfer rebuilt — Export/Import now work on iPhone and anywhere copy dialogs are blocked.',
       'Battery: phones now default to a 60 fps cap (Settings can override); desktop stays uncapped.'
@@ -5330,6 +5445,65 @@ function runSelfTests() {
     eq(A.join(), B.join(), 'same seed');
     ok(A.join() !== C.join(), 'different seed diverges');
     for (let i = 0; i < 500; i++) { const v = a(); ok(v >= 0 && v < 1, 'in range'); }
+  });
+  T('grazeHeat decays after the combo window closes (P0-3)', () => {
+    const keepT = GAME.comboT, keepH = GAME.grazeHeat, keepState = GAME.state;
+    try {
+      GAME.state = 'playing'; GAME.comboT = 0.5; GAME.combo = 12; GAME.mult = 3; GAME.grazeHeat = 2.5;
+      stepGame(1);                       // combo window expires...
+      ok(GAME.comboT <= 0, 'combo expired');
+      ok(GAME.grazeHeat < 2.5 && GAME.grazeHeat > 0, 'decay continues past combo end');
+      for (let i = 0; i < 400; i++) stepGame(1 / 120);   // ~3.3 s later...
+      eq(GAME.grazeHeat, 0, 'reaches zero ~3 s after the last graze');
+    } finally { GAME.comboT = keepT; GAME.grazeHeat = keepH; GAME.state = keepState; }
+  });
+  T('sim determinism gate: scored math routes to R, direct mode throws', () => {
+    const keepState = GAME.state, keepSeed = GAME.seedLabel, keepR = R;
+    try {
+      GAME.state = 'playing'; GAME.seedLabel = 'test';
+      simRandomDirect = false;
+      R = makeRng(777);
+      const first = [srnd(0, 100), srnd(0, 100), srnd(0, 100)];
+      R = makeRng(777);                  // identical seed must reproduce it exactly
+      const second = [srnd(0, 100), srnd(0, 100), srnd(0, 100)];
+      eq(first.join(), second.join(), 'srnd reproduces from the same seed');
+      simRandomDirect = true;
+      let threw = false;
+      try { simRandom(); } catch (e) { threw = true; }
+      ok(threw, 'direct mode throws on any simRandom draw');
+    } finally { GAME.state = keepState; GAME.seedLabel = keepSeed; R = keepR; simRandomDirect = false; }
+  });
+  T('tele checkpoint carries a state nonce (anti-forgery commitment)', () => {
+    const keepState = GAME.state;
+    try {
+      GAME.state = 'playing';
+      const before = SIM_STEPS;
+      TELE.reset(); TELE.sample();
+      const c = TELE.cps[TELE.cps.length - 1];
+      eq(c.length, 9, 'sample shape: 8 counters + nonce');
+      ok(Number.isFinite(c[8]) && c[8] > 0, 'nonce is a positive u32');
+      TELE.sample();
+      ok(TELE.cps[TELE.cps.length - 1][8] !== c[8], 'nonce differs on the next sample');
+    } finally { TELE.reset(); GAME.state = keepState; }
+  });
+  T('hostile cadence + pickup drift draw from the run-seeded stream', () => {
+    const keep = GAME.state, keepR = R;
+    try {
+      GAME.state = 'playing';
+      R = makeRng(4242);
+      const wantFire = srnd(.8, 2.1);    // the ONLY R draw inside spawnFoe
+      R = makeRng(4242);
+      const n0 = foes.length;
+      spawnFoe('drone', { x: W / 2, y: 80 });
+      eq(foes[n0].fireT, wantFire, 'fire cadence came from R, not FX');
+      R = makeRng(909);
+      const wantT = srnd(0, TAU), wantVx = srnd(-18, 18);
+      R = makeRng(909);
+      const p0 = picks.length;
+      spawnPick(100, 100, 'alloy');
+      eq(picks[p0].t, wantT, 'pickup spin came from R');
+      eq(picks[p0].vx, wantVx, 'pickup drift came from R');
+    } finally { GAME.state = keep; R = keepR; }
   });
   T('daily seed is stable within a day', () => {
     const k = todaySeedKey();
@@ -5741,7 +5915,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.6.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '3.7.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -5762,7 +5936,15 @@ function runSelfTests() {
     '<div class="l"><span class="t ' + (p ? 'ok' : 'no') + '">' + (p ? 'PASS' : 'FAIL') + '</span>' +
     '<span>' + esc(n) + (p ? '' : ' — ' + esc(e)) + '</span></div>').join('');
   $('st').classList.remove('hidden');
-  (pass ? console.log : console.error)('EMBERFALL self-test ' + (pass ? 'passed' : 'FAILED'), out);
+  /* CI contract (P0-4): the headless suite asserts exact totals AND a final
+     marker line, so a stale or partial run cannot green a build:
+       SELFTESTS <passed>/<total> PASS | SELFTESTS <passed>/<total> FAIL
+     CI also requires every decision point to have run (suite.map length). */
+  const sum = out.filter(o => o[1]).length + '/' + out.length;
+  (pass ? console.log : console.error)('SELFTESTS ' + sum + (pass ? ' PASS' : ' FAIL'), out);
+  window.__EF_SELFTEST_RESULT__ = { pass, passed: out.filter(o => o[1]).length, total: out.length,
+    map: out };   /* [name, pass, err] triplets — CI asserts the exact set */
+  window.__EF_SELFTEST_DONE__ = true;
   return pass;
 }
 
@@ -5865,9 +6047,14 @@ function stepGame(dt) {
   SCHOOL.tick(dt);
   if (GAME.comboT > 0) {
     GAME.comboT -= dt;
-  if (GAME.grazeHeat > 0) GAME.grazeHeat = Math.max(0, GAME.grazeHeat - dt / 3);
     if (GAME.comboT <= 0 && GAME.combo > 0) { GAME.combo = 0; GAME.mult = 1; }
   }
+  /* P0-3: grazeHeat decays on its own clock, NOT inside the combo window —
+     the old nesting froze it the moment comboT expired, so every later comet
+     silently paid the max x2 blazing bonus for the rest of the run. The rate
+     is 1 heat/sec (a graze sets 3): "3s decay from your last near-miss" as
+     the feature has always been documented. The old dt/3 took 9s. */
+  if (GAME.grazeHeat > 0) GAME.grazeHeat = Math.max(0, GAME.grazeHeat - dt);
   if (GAME.state === 'playing' && (GAME.lives <= 0 || GAME.endT > 0)) {
     GAME.endT = Math.max(0, GAME.endT - dt);
     if (GAME.endT <= 0) endRun();
@@ -5901,7 +6088,7 @@ function frame(now) {
         accumulator += real * scale;
         let steps = 0;
         const simT0 = PROF.on ? performance.now() : 0;
-        while (accumulator >= STEP && steps < 5) { stepGame(STEP); accumulator -= STEP; steps++; }
+        while (accumulator >= STEP && steps < 5) { stepGame(STEP); SIM_STEPS++; accumulator -= STEP; steps++; }
         if (steps >= 5) accumulator = 0;
         if (PROF.on) { PROF.simMs = performance.now() - simT0; PROF.steps = steps; PROF.clamped = steps >= 5; }
       }

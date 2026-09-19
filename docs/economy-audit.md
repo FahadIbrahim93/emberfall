@@ -2,10 +2,10 @@
 
 *Post-convoy, post-SERAPH. Produced by `tools/econsim.js`, whose constants are
 extracted live from source and whose behaviour model is calibrated on real
-server telemetry (60 verified runs). Anchor: this pilot's actual career —
-95 runs, 58,484 lifetime alloy (23,134 banked + 35,350 spent). The sim
-replays that history at **−15.4% drift**, i.e. it under-predicts slightly:
-every finding below is conservative.*
+server telemetry (60 runs that passed the plausibility checks of their day).
+Anchor: this pilot's actual career — 95 runs, 58,484 lifetime alloy (23,134
+banked + 35,350 spent). The sim replays that history at **−15.4% drift**, i.e.
+it under-predicts slightly: every finding below is conservative.*
 
 ---
 
@@ -88,6 +88,16 @@ Spectacular, memorable, and *fine*: it is rare (career expectation ~1 per
 95 sightings… the anchor pilot has 15), stylistically gated (grazeHeat
 ×2), and self-limiting. Do not nerf; it is the economy's lottery ticket
 and it is doing its job.
+
+> **§5 P0-3 correction (post-audit):** the graze-heat multiplier above was
+> calibrated against a **frozen** multiplier — the decay line sat inside the
+> combo-expiry branch, so once a combo lapsed grazeHeat stopped decaying and
+> every later comet silently paid the max ×2. The fix (decay on its own
+> clock, 1 heat/s from the documented 3s window) means real comet style
+> multipliers now average below the ~×2 this report assumed. Direction of
+> effect: slightly LESS sky income than modelled for graze-active pilots;
+> the -15.4% anchor drift gets marginally wider, i.e. every conclusion here
+> stays conservative. No pricing changes recommended on this basis.
 
 **STAR CHART (10-comet perk, +50% forever):** quietly the most valuable
 permanent perk in the game — at the anchor pilot's 116 career comets it has
