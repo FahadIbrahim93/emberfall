@@ -22,6 +22,11 @@ const must = (re, what, src) => { const m = (src || html).match(re); if (!m) thr
 const hullCosts = [...html.matchAll(/cost: (\d+),\s*\n\s*desc/g)].map(m => +m[1]);
 if (hullCosts.length !== 5) throw new Error('expected 5 hull costs, got ' + hullCosts.length);
 
+/* v4.1 paint shop: cosmetic sinks extracted from source — tracked so the
+   simulation reports total outstanding sink including personalization */
+const paintCosts = [...html.matchAll(/hull: '#[0-9a-f]+', lit: '#[0-9a-f]+', cost: (\d+)/g)].map(m => +m[1]);
+if (paintCosts.length !== 8) throw new Error('expected 8 paint costs, got ' + paintCosts.length);
+
 /* refit ladders: cost: l => A + l * B, five levels each */
 const refitTables = [...html.matchAll(/id: '(\w+)', name: '[^']+', max: 5, cost: l => (\d+) \+ l \* (\d+)/g)]
   .map(m => ({ id: m[1], a: +m[2], b: +m[3] }));

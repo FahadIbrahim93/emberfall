@@ -1,7 +1,6 @@
 {
   "name": "emberfall",
   "private": true,
-  "type": "module",
   "scripts": {
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
