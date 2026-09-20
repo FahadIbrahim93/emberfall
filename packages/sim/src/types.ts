@@ -3,7 +3,6 @@
 export type SimMode = 'endless' | 'daily' | 'rush' | 'tour' | 'school';
 
 export type InputFrame = {
-  /** Normalized move vector, length ≤ 1. */
   mx: number;
   my: number;
   fire: boolean;
@@ -43,6 +42,52 @@ export type PlayerState = {
   boonIds: string[];
 };
 
+export type Foe = {
+  id: number;
+  type: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  hp: number;
+  maxHp: number;
+  r: number;
+  hitR: number;
+  sc: number;
+  state: 'enter' | 'hold' | 'dive' | 'dead';
+  t: number;
+  et: number;
+  ht: number;
+  ph: number;
+  sx: number;
+  sy: number;
+  tx: number;
+  ty: number;
+  swa: number;
+  swf: number;
+  guns: boolean;
+  cd: number;
+  fireT: number;
+  bspd: number;
+  armored: boolean;
+  dead: boolean;
+  elite: boolean;
+};
+
+export type Bullet = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  life: number;
+  dmg?: number;
+  grazed?: boolean;
+  kind: string;
+  ang?: number;
+  friendly: boolean;
+};
+
 export type World = {
   seed: number;
   mode: SimMode;
@@ -56,6 +101,8 @@ export type World = {
   mult: number;
   maxMult: number;
   kills: number;
+  hits: number;
+  shots: number;
   grazes: number;
   deaths: number;
   bombsUsed: number;
@@ -64,6 +111,13 @@ export type World = {
   grazeHeat: number;
   endT: number;
   player: PlayerState;
-  /** Ring buffer of input frames for replay (one per sim step). */
+  foes: Foe[];
+  playerBullets: Bullet[];
+  foeBullets: Bullet[];
+  nextId: number;
+  dirT: number;
+  dirPhase: 'combat' | 'rest';
+  dirRestT: number;
+  spawnQueue: { t: number; type: string; x: number; y: number }[];
   log: InputFrame[];
 };
