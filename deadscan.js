@@ -23,7 +23,9 @@ const fs = require('fs');
    cannot match a bare sigil with \b */
 const JS_ALLOW = new Set(['$', '$$']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
-const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3']);
+/* fragments that appear inside data:/font: URLs and URL fragments, not real
+   class names — 'woff2' joined when brand fonts became self-hosted files */
+const CSS_NOISE = new Set(['com', 'googleapis', 'gstatic', 'media', 'org', 'w3', 'woff2']);
 
 const dead = [];
 const counts = {};
@@ -194,18 +196,21 @@ if (fs.existsSync('js')) {
    either call esc() somewhere in the expression or sit on the allowlist
    below with a reason (mirroring the JS allowlist philosophy: reviewed,
    dated, prefer false negatives). New unescaped sinks fail CI. */
-const XSS_ALLOW = new Set([
+const XSS_ALLOW = [
   /* reviewed 2026-09-21: SHIP_ICON is a repo constant; the count is a clamped
-     Math.max/min over GAME.lives — no external string reaches the sink */
-  'index.html:4489',
-  /* reviewed 2026-09-21: only interpolated values are server-computed rank
-     NUMBERS (r.rank, r.seasonMe.rank) and static verdict strings */
-  'index.html:4826',
+     Math.max/min over GAME.lives — no external string reaches the sink.
+     (Keyed on the expression, not the line number: lines drift, intent doesn't.) */
+  { re: /SHIP_ICON\.repeat\(/ },
+  /* reviewed 2026-09-21 (incl. v3.7 FTUE re-verification): only interpolated
+     values are server-computed rank NUMBERS (r.rank, r.seasonMe.rank) and
+     static verdict strings; user text (' · gauntlet #') is repo-owned. */
+  { re: /gauntlet #'\s*\+ r\.seasonMe\.rank/ },
+  { re: /r\.verdict === 'rejected'\s*\n/ },
   /* reviewed 2026-09-21: flight-log header + rows — META config numerics,
-     local DIFF/when/fmt lookups, no server- or user-derived strings */
-  'js/net.js:400',
-  'js/net.js:401',
-]);
+     local KIND/DIFF/when/fmt lookups, no server- or user-derived strings */
+  { re: /The sky has been quiet/ },
+  { re: /grid-template-columns:1fr auto auto/ },
+];
 function auditSinks(src, file) {
   const re = /\.innerHTML\s*=/g;
   let mm;
@@ -224,7 +229,7 @@ function auditSinks(src, file) {
     const rhs = src.slice(i, j);
     const rhsNoStr = rhs.replace(/(['"`])(?:\\.|[^\\])*?\1/g, '');
     const dynamic = /[A-Za-z_$][\w$]/.test(rhsNoStr);
-    if (dynamic && !/esc\s*\(/.test(rhs) && !XSS_ALLOW.has(tag))
+    if (dynamic && !/esc\s*\(/.test(rhs) && !XSS_ALLOW.some(a => a.re.test(rhs)))
       xssFails.push(tag + ': dynamic innerHTML without esc()');
   }
 }
@@ -234,50 +239,40 @@ for (const f of (fs.existsSync('js') ? fs.readdirSync('js').filter(f => f.endsWi
   auditSinks(fs.readFileSync('js/' + f, 'utf8'), 'js/' + f);
 
 /* ── static-exposure audit: what the deck must refuse to serve ───────
-   The deck serves files from the repo root, so its denylist is a security
-   boundary. This gate pins the boundary in CI — behaviorally, not by string
-   matching: it extracts the deny regex from serveStatic and executes it
-   against sensitive probes (must reject) and game-shell probes (must pass).
+   The deck's static handler is an ALLOWLIST (STATIC_OK + flat font/icon
+   prefix rules); everything else 404s. This gate pins that boundary in CI —
+   behaviorally: it extracts the allowlist from server.js and executes the
+   union against sensitive probes (must 404) and the game shell (must serve).
    Also pins that server state lives OUTSIDE the served root. */
 const srvSrc = fs.readFileSync('server.js', 'utf8');
 const exposeFails = [];
-const serveRegion = srvSrc.slice(srvSrc.indexOf('function serveStatic'), srvSrc.indexOf('api handlers'));
-const MUST_DENY = ['.git', '.github', '.freebuff', 'data', 'node_modules', 'test-results',
-  'playwright-report'];
-const MUST_DENY_FILES = ['server.js', 'smoke.sh', 'check.sh', 'deadscan.js', 'package.json',
-  'package-lock.json', 'playwright.config.js', 'emberfall.html'];
+const allowRegion = srvSrc.slice(srvSrc.indexOf('const STATIC_OK'), srvSrc.indexOf('function serveStatic'));
+const SENSITIVE = ['/data/emberfall.db', '/data/emberfall.db-wal', '/data', '/server.js',
+  '/package.json', '/package-lock.json', '/playwright.config.js', '/emberfall.html',
+  '/smoke.sh', '/check.sh', '/deadscan.js', '/.git/config', '/.env', '/js',
+  '/node_modules/x', '/test-results/x', '/docs/x', '/tools/x', '/tests/x', '/.github/x'];
+const SHELL_OK = ['/index.html', '/sw.js', '/manifest.webmanifest', '/js/art.js', '/js/input.js',
+  '/js/audio.js', '/js/sky.js', '/js/net.js', '/icons/icon-192.png', '/icons/icon-512.png',
+  '/fonts/michroma-400.woff2', '/'];
+const setEntries = [...allowRegion.matchAll(/'([^']+)'/g)].map(m => m[1]);
+if (!setEntries.length) exposeFails.push('STATIC_OK allowlist not found in server.js');
+else {
+  const hasFontRule = /woff2\$\/\.test\(name\)/.test(allowRegion);
+  const hasIconRule = /\.png\$\/\.test\(name\)/.test(allowRegion);
+  if (!hasFontRule || !hasIconRule)
+    exposeFails.push('flat font/icon prefix rules missing from staticAllowed');
+  const allowed = p => {
+    if (p === '/') p = '/index.html';
+    if (setEntries.includes(p)) return true;
+    if (p.startsWith('/fonts/')) return hasFontRule && /^[\w.-]+\.woff2$/.test(p.slice(7));
+    if (p.startsWith('/icons/')) return hasIconRule && /^[\w.-]+\.png$/.test(p.slice(7));
+    return false;
+  };
+  for (const p of SENSITIVE) if (allowed(p)) exposeFails.push('allowlist wrongly permits ' + p);
+  for (const p of SHELL_OK) if (!allowed(p)) exposeFails.push('allowlist wrongly blocks ' + p);
+}
 if (/const DATA_DIR =[^\n]*path\.join\(ROOT,\s*'data'\)/.test(srvSrc))
   exposeFails.push("server state (DATA_DIR) lives inside the served root");
-/* behavioral pin: extract the deny regex serveStatic actually uses and run it
-   against sensitive probes (must reject) and game-shell paths (must pass) —
-   a refactor that weakens the boundary fails HERE, not in production */
-const SENSITIVE = MUST_DENY.map(d => '/' + d + '/x').concat(MUST_DENY_FILES.map(f => '/' + f));
-const SHELL_OK = ['/index.html', '/js/art.js', '/js/net.js?x=1', '/sw.js',
-  '/manifest.webmanifest', '/icons/icon-512.png', '/'];
-/* collect every /…/.test(p) literal in serveStatic — the server ORs them
-   together, so the gate verifies their UNION (any single-literal refactor
-   keeps the gate true as long as the combined boundary holds) */
-const denyLits = [...serveRegion.matchAll(/\/(?:\\.|[^\\\n])*\/[a-z]*\.test\(p\)/g)]
-  .map(m => m[0].replace(/\.test\(p\)$/, ''));
-if (!denyLits.length)
-  exposeFails.push('no /…/.test(p) deny regex found in serveStatic');
-else {
-  let rejectsAll = true, passesShell = true;
-  const rejected = [];
-  for (const lit of denyLits) {
-    try {
-      const body = lit.slice(1, lit.lastIndexOf('/'));
-      const flags = lit.slice(lit.lastIndexOf('/') + 1);
-      const re = new RegExp(body, flags);
-      for (const p of SENSITIVE) if (re.test(p) && !rejected.includes(p)) rejected.push(p);
-      for (const p of SHELL_OK) if (re.test(p)) passesShell = false;
-    } catch { /* non-regex literal — ignore */ }
-  }
-  for (const p of SENSITIVE) if (!rejected.includes(p)) {
-    exposeFails.push('deny regexes do not reject ' + p); rejectsAll = false;
-  }
-  if (!passesShell) exposeFails.push('a deny regex wrongly rejects a game-shell path');
-}
 
 /* report */
 const order = { client: 0, server: 1, shell: 2 };
