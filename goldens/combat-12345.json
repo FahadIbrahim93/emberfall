@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "seed": 99991,
+  "seed": 12345,
   "steps": 2400,
-  "endHash": "630|2|7|0|1|2|6|120|1|1|2|0|282.761|771.106",
-  "score": 630,
-  "kills": 7,
+  "endHash": "580|2|6|0|0|3|6|120|1|1|2|0|316.424|794.755",
+  "score": 580,
+  "kills": 6,
   "grazes": 0,
   "wave": 2,
   "note": "Locked T-DET golden — packages/sim pure combat"
