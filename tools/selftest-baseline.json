@@ -1,6 +1,6 @@
 {
-  "total": 49,
-  "passed": 49,
+  "total": 50,
+  "passed": 50,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -35,6 +35,7 @@
     "test range: the bay stays empty and nothing is at stake",
     "sigils: one worn sigil, power priced in weakness",
     "mastery: XP converts to tiers, awards actually apply",
+    "dock plaques: kills bank per hull and engrave honestly",
     "boards wear your paint: local rows, submissions, ghosts",
     "sustained load: 10s of full combat holds 120Hz sim",
     "cloud profile merge converges and rejects stale",

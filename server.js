@@ -123,6 +123,10 @@ addCol('scores', 'run_hash', 'TEXT');
    a public fact of a run; mastery level rides along for the flex */
 addCol('scores', 'paint', 'TEXT');
 addCol('scores', 'mastery', 'INTEGER DEFAULT 0');
+addCol('challenges', 'paint', 'TEXT');
+/* v4.3: duels show the challenger's paint on the entry row. Allowlist —
+   ids mirror the PAINTS registry in index.html (yard is the free default). */
+const PAINT_IDS = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
 db.exec(`
 CREATE TABLE IF NOT EXISTS challenges (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -688,6 +692,9 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const wave = Math.floor(Number(body.wave) || 1);
     const ship = String(body.ship || 'vesper');
     const ghost = body.ghost;
+    const paint = body.paint == null ? 'yard'
+      : (PAINT_IDS.has(String(body.paint)) ? String(body.paint) : null);
+    if (paint == null) return bad(res, 'bad paint');
     if (!NAME_RE.test(to)) return bad(res, 'challenge a valid callsign');
     if (to.toLowerCase() === user.name.toLowerCase()) return bad(res, 'you cannot duel yourself');
     if (!DAY_RE.test(day) || day !== utcToday()) return bad(res, 'duels are for today\'s run only');
@@ -699,8 +706,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (gjson.length > 220000) return bad(res, 'ghost too large');
     const target = db.prepare('SELECT id FROM users WHERE name_lower = ?').get(to.toLowerCase());
     if (!target) return bad(res, 'no such pilot on this deck', 404);
-    const info = db.prepare('INSERT INTO challenges (from_id, to_name, day, score, wave, ship, ghost, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(user.id, to.toLowerCase(), day, score, wave, ship, gjson, now());
+    const info = db.prepare('INSERT INTO challenges (from_id, to_name, day, score, wave, ship, ghost, paint, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(user.id, to.toLowerCase(), day, score, wave, ship, gjson, paint, now());
     return send(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
   }
 
@@ -708,7 +715,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (!user) return bad(res, 'sign in first', 401);
     const today = utcToday();
     const rows = db.prepare(`
-      SELECT c.id, c.day, c.score, c.wave, c.ship, c.created, u.name AS from_name,
+      SELECT c.id, c.day, c.score, c.wave, c.ship, c.paint, c.created, u.name AS from_name,
         (SELECT COUNT(*) FROM beats b WHERE b.challenge_id = c.id AND b.user_id = ?) AS beaten
       FROM challenges c JOIN users u ON u.id = c.from_id
       WHERE c.to_name = ? AND c.day = ? ORDER BY c.created DESC LIMIT 12`).all(user.id, user.name.toLowerCase(), today);

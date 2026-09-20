@@ -175,7 +175,7 @@ const NET = {
     try {
       return await this.req('POST', '/api/challenges', {
         to, day: todaySeedKey(), score: ghost.score, wave: 1,
-        ship: ghost.ship, ghost: { frames: ghost.frames, paint: META.paint }
+        ship: ghost.ship, ghost: { frames: ghost.frames, paint: META.paint }, paint: META.paint
       });
     } catch (e) { return { error: String((e && e.message) || e) }; }
   },
@@ -212,7 +212,10 @@ const NET = {
       const row = document.createElement('button');
       row.className = 'up';
       row.style.textAlign = 'left';
-      row.innerHTML = '<span><b style="letter-spacing:.16em">' + esc(c.from_name) +
+      const cpt = c.paint && PAINTS.find(x => x.id === c.paint);
+      row.innerHTML = '<span><b style="letter-spacing:.16em">' +
+        (cpt ? '<i class="pdot" style="background:' + cpt.hull + '"></i>' : '') +
+        esc(c.from_name) +
         ' challenges you</b><p style="font-size:.62rem;color:var(--dim);margin-top:3px">Today\'s run · ' +
         fmt(c.score) + ' pts · W' + pad2(c.wave || 1) +
         (c.beaten ? ' · <span style="color:var(--mint)">BEATEN</span>' : ' · open') + '</p></span>';
@@ -489,6 +492,9 @@ function renderMastery() {
       '<span class="ms-l">' + (lvl ? 'M' + lvl : 'unflown') + '</span>' +
       '<span class="ms-bar"><i style="width:' + Math.round(frac * 100) + '%"></i></span>' +
       '<span class="ms-sub">' + (lvl ? MASTERY_TIERS[lvl - 1].sub : 'fly it to earn') +
+      ' · ' + (plaqueOf((META.hullKills || {})[h.id] || 0)
+        ? esc(plaqueOf((META.hullKills || {})[h.id] || 0).name) + ' · ' + fmt((META.hullKills || {})[h.id] || 0) + ' kills'
+        : fmt((META.hullKills || {})[h.id] || 0) + ' kills') +
       (nxt ? ' · next ' + fmt(Math.max(0, nxt.xp - e.xp)) + ' xp' : ' · mastered') + '</span>';
     msl.appendChild(d);
   }

@@ -680,7 +680,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.2.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.3.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -940,7 +940,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.2.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.3.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1446,12 +1446,30 @@ const SIGILS = [
 ];
 const sigil = () => META.sigil && (META.sigils || []).includes(META.sigil)
   ? SIGILS.find(s => s.id === META.sigil) || null : null;
+/* ════════════════ DOCK PLAQUES — kills are the honest measure ═══
+   Every plaque is a kill count with an engraved title, earned per hull
+   on scored flights (the same guard that gates mastery XP — practice
+   runs don't count). Rendered onto the dock under the ship and named
+   on the mastery row: the hangar shows the service record, not a shop. */
+const KILL_PLAQUES = [
+  { at: 200,  name: 'Blooded' },
+  { at: 600,  name: 'Veteran' },
+  { at: 1200, name: 'Veteran, First Class' },
+  { at: 2000, name: 'Ace' },
+  { at: 3000, name: 'Ace of Aces' },
+  { at: 5000, name: 'Legend of the Yard' }
+];
+function plaqueOf(kills) {
+  let p = null;
+  for (const q of KILL_PLAQUES) if (kills >= q.at) p = q;
+  return p;
+}
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   tourBest: 0, tourCleared: false, tourRecords: {},
   paint: 'yard', paints: ['yard'],
-  sigil: null, sigils: [''], mastery: {},
+  sigil: null, sigils: [''], mastery: {}, hullKills: {},
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
@@ -1478,6 +1496,7 @@ function loadMeta() {
   if (!META.sigils.includes('')) META.sigils.unshift('');
   if (META.sigil && !META.sigils.includes(META.sigil)) META.sigil = null;
   META.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : {};
+  META.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -5758,7 +5777,9 @@ function masteryXpRun(wave, kills, score, runT) {
 function masteryBankRun() {
   if (GAME.school || GAME.rush) return 0;
   const xp = masteryXpRun(GAME.wave, GAME.kills, GAME.score, GAME.runT || 0);
-  (META.mastery[hull().id] || (META.mastery[hull().id] = { xp: 0 })).xp += xp;
+  const hullId = hull().id;
+  (META.mastery[hullId] || (META.mastery[hullId] = { xp: 0 })).xp += xp;
+  META.hullKills[hullId] = (META.hullKills[hullId] || 0) + GAME.kills;
   return xp;
 }
 function masteryGrant(hullId) {
@@ -6060,6 +6081,14 @@ function drawDock() {
   const art = HULL_ART[META.ship] || HULL_ART.vesper;
   art(g, ghost);
   g.restore();
+  /* service plaque — kills earned in this hull, engraved under the ship */
+  const kills = META.hullKills ? (META.hullKills[META.ship] || 0) : 0;
+  const plq = plaqueOf(kills);
+  g.font = '600 19px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.fillStyle = plq ? rgba(PAL.gold, .8) : rgba(PAL.tech, .34);
+  g.fillText(plq ? '◆ ' + plq.name.toUpperCase() + ' · ' + fmt(kills) + ' KILLS'
+    : 'SERVICE RECORD · ' + fmt(kills) + ' / ' + KILL_PLAQUES[0].at + ' KILLS', w / 2, h * .80);
   dockT += 1 / 60;
   dockRaf = requestAnimationFrame(drawDock);
 }
@@ -6434,6 +6463,13 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.3.0',
+    items: [
+      '<b>Dock plaques</b> — kills bank per hull and engrave under your ship: Blooded at 200, Veteran at 600, First Class at 1200, Ace at 2000, Ace of Aces at 3000, Legend of the Yard at 5000. Scored flights only — practice runs never count.',
+      '<b>Duel entries wear their pilot</b> — a challenge in your inbox now shows the challenger&apos;s paint beside their callsign, and the service record line on every mastery row names its plaque.'
+    ]
+  },
   {
     v: '4.2.0',
     items: [
@@ -7076,8 +7112,8 @@ function runSelfTests() {
     clearAll();
   });
   T('mastery: XP converts to tiers, awards actually apply', () => {
-    const sv = { m: META.mastery, state: GAME.state, school: GAME.school, ship: META.ship };
-    META.mastery = {};
+    const sv = { m: META.mastery, k: META.hullKills, state: GAME.state, school: GAME.school, ship: META.ship };
+    META.mastery = {}; META.hullKills = {};   /* swap identity — never mutate the pilot's real record */
     ok(MASTERY_TIERS.length === 5 && MASTERY_TIERS.every((t, i) => t.lvl === i + 1), 'five ordered tiers');
     ok(MASTERY_TIERS.every((t, i) => i === 0 || t.xp > MASTERY_TIERS[i - 1].xp), 'xp thresholds strictly climb');
     ok(MASTERY_TIERS.every(t => typeof t.sub === 'string' && t.sub.length > 3), 'every tier carries an award line');
@@ -7111,8 +7147,35 @@ function runSelfTests() {
     GAME.wave = 8; GAME.kills = 100; GAME.score = 5000; GAME.runT = 30;
     ok(masteryBankRun() > 0, 'a real run banks XP off waves, kills and score');
     GAME.wave = svRun.w; GAME.kills = svRun.k; GAME.score = svRun.s; GAME.runT = svRun.t;
-    META.mastery = sv.m; GAME.state = savedState; GAME.school = sv.school; META.ship = sv.ship;
+    META.mastery = sv.m; META.hullKills = sv.k; GAME.state = savedState; GAME.school = sv.school; META.ship = sv.ship;
     P.alive = savedAlive; GAME.mult = savedMult; GAME.score = savedScore;
+    clearAll();
+  });
+  T('dock plaques: kills bank per hull and engrave honestly', () => {
+    const sv = { k: META.hullKills, m: META.mastery, school: GAME.school, ship: META.ship };
+    META.hullKills = {}; META.mastery = {};
+    /* registry invariants: strictly climbing thresholds, every plaque named */
+    ok(KILL_PLAQUES.length >= 5, 'a real ladder, not one plaque');
+    ok(KILL_PLAQUES.every((p, i) => i === 0 || p.at > KILL_PLAQUES[i - 1].at), 'thresholds strictly climb');
+    ok(KILL_PLAQUES.every(p => typeof p.name === 'string' && p.name.length > 2), 'every plaque carries a name');
+    eq(plaqueOf(0), null, 'no kills, no plaque');
+    eq(plaqueOf(KILL_PLAQUES[0].at - 1), null, 'one kill short is still short');
+    eq(plaqueOf(KILL_PLAQUES[0].at).name, KILL_PLAQUES[0].name, 'the first plaque lands on its number');
+    eq(plaqueOf(1e9).name, KILL_PLAQUES[KILL_PLAQUES.length - 1].name, 'the top plaque is the ceiling');
+    /* kills bank per hull off real run numbers — the practice guard holds */
+    GAME.school = true; GAME.wave = 5; GAME.kills = 40;
+    eq(masteryBankRun(), 0, 'practice runs bank no kills');
+    GAME.school = false;
+    META.ship = 'vesper';
+    masteryBankRun();
+    META.ship = 'halcyon';
+    masteryBankRun();
+    eq(META.hullKills.vesper, 40, 'vesper banks its own kills');
+    eq(META.hullKills.halcyon, 40, 'halcyon banks separately');
+    eq(plaqueOf(META.hullKills.vesper), null, '40 kills earns nothing — the ladder is honest');
+    META.hullKills.vesper = KILL_PLAQUES[2].at;
+    eq(plaqueOf(META.hullKills.vesper).name, KILL_PLAQUES[2].name, 'the threshold engraves its title');
+    META.hullKills = sv.k; META.mastery = sv.m; GAME.school = sv.school; META.ship = sv.ship;
     clearAll();
   });
   T('boards wear your paint: local rows, submissions, ghosts', () => {
@@ -7408,7 +7471,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.2.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.3.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
