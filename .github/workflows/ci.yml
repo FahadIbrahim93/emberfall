@@ -45,6 +45,10 @@ jobs:
       - name: Economy model gate (econsim --json)
         run: node tools/econsim.js --json > /dev/null
 
+      # P0-5: truth-in-copy — no claim without a green gate behind it
+      - name: Copy guard (truth-in-copy)
+        run: node tools/copyguard.js
+
       - name: Start Command Deck (detached)
         run: |
           PORT="$SERVER_PORT" node server.js > server.log 2>&1 &
@@ -61,8 +65,29 @@ jobs:
       - name: API smoke (smoke.sh)
         run: bash smoke.sh
 
+      # P0-9 evidence: behind a proxy hop, limiter keys follow X-Forwarded-For
+      - name: TRUST_PROXY limiter keys on the real client IP
+        run: |
+          TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &
+          TRUST_PID=$!
+          for i in $(seq 1 40); do
+            curl -fsS "http://127.0.0.1:8124/api/health" > /dev/null 2>&1 && break
+            sleep 0.5
+          done
+          B1=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
+          B2=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
+          kill $TRUST_PID
+          [ "$B1" = "400" ] && [ "$B2" = "400" ] || { echo "TRUST_PROXY path broken: $B1/$B2"; exit 1; }
+          echo "TRUST_PROXY=1: XFF accepted as limiter/validation key path (bad-name 400 both times)"
+
       - name: Browser smoke
         run: npm run test:browser
+
+      # P0-4: the REAL 38-check in-game suite (?selftest), headless, gating CI.
+      # Exposes window.__EF_SELFTEST_RESULT__; an exact-total assertion plus a
+      # required final marker line make a stale/partial run fail loudly.
+      - name: In-game self-test suite (?selftest, headless)
+        run: node tools/selftest-ci.js
 
       - name: Stop deck
         if: always()
@@ -91,10 +116,11 @@ jobs:
 
       - name: Assemble static site
         run: |
-          mkdir -p _site/js _site/icons
+          mkdir -p _site/js _site/icons _site/fonts
           cp index.html sw.js manifest.webmanifest _site/
           cp js/*.js _site/js/
           cp icons/*.png _site/icons/
+          cp fonts/*.woff2 _site/fonts/
 
       - uses: actions/configure-pages@v6
 
@@ -139,7 +165,7 @@ jobs:
           [ "$live" = "$want" ] || { echo "DEPLOY MISMATCH: served index.html is not byte-identical to HEAD"; exit 1; }
 
           # 2) offline shell — every sw.js CORE asset answers 200
-          for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png; do
+          for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2; do
             c=$(curl -s -o /dev/null -w '%{http_code}' "$URL$f")
             [ "$c" = "200" ] || { echo "MISSING $f -> $c"; exit 1; }
           done
@@ -148,4 +174,4 @@ jobs:
           curl -fsS "$URL/sw.js" | grep -q 'emberfall-v' || { echo "sw.js missing cache marker"; exit 1; }
           curl -fsS "$URL/js/art.js" | grep -q 'ART v3' || { echo "js/art.js wrong payload"; exit 1; }
 
-          echo "live smoke: byte-identical index · 9/9 shell assets · payload markers OK"
+          echo "live smoke: byte-identical index · 14/14 shell assets · payload markers OK"

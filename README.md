@@ -1,4 +1,4 @@
-# EMBERFALL v3.6.1 — Orbital Intercept
+# EMBERFALL v3.7.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -41,16 +41,18 @@ account system, cloud saves, and plausibility-checked community leaderboards —
 
 ```bash
 node server.js            # http://localhost:8123 — serves game + API
-bash smoke.sh             # 41-test API + client-payload battery, all green
+<<<<<<< HEAD
+bash smoke.sh             # API + static-hygiene + load battery, all green
 ```
 
-- **Auth:** callsign + password, scrypt-hashed, per-user salt, constant-time compare
-- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite cookies, 30-day expiry
+- **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare
+- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry
+- **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
-- **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank
+<<<<<<< HEAD
+- **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
 - **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the SQLite file and its WAL files. The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
-- **Serving posture:** the deck refuses to serve anything but the game — server code, VCS internals, docs, tests, tooling, and the state directory all return 403 (pinned in CI by deadscan's static-exposure gate and smoke.sh's 403 probes).
 
 When no server is present the client probes `/api/health` once, fails silently,
 and stays 100% local — the exact same game, stored in the browser.
@@ -59,15 +61,25 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **33 tests, all PASS**. It covers math/RNG, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the profiler math, and the reduced-motion contract.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **37 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the profiler math, and the reduced-motion contract. The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v3.7 — hardening, honesty, fonts
+
+- **Command Deck static allowlist:** the deck now serves exactly the game shell and nothing else — the database, source, git metadata and shell scripts all 404, enforced by a permanent smoke battery (T-LEAK) in CI
+- **Honest boards:** unverified (review) runs no longer rank anywhere, including your own rank line; the smoke battery asserts an unaccepted run leaves the board empty
+- **Security pass:** rate limits key on the real client IP behind proxies (`TRUST_PROXY`), password hashing moved off the event loop (async scrypt), logout cookie carries `Secure` on TLS
+- **The 37-check self-test suite now gates CI headless**, with an exact-count + exact-name baseline so claims stay true
+- **Brand fonts self-hosted** (Michroma + Chakra Petch, OFL) — the real identity renders on `file://` and offline
+- **First-launch polish:** no changelog in front of a new player, no touch buttons over the title, dialogs that fit a phone screen
+- **Economy correction:** the graze-heat multiplier now decays as documented (3s from the last graze) instead of freezing at its last value
 
 ## What's new in v3.5 – v3.6.1 — "The Living Sky & the Prism"
 
 - **The living sky:** five rare events (comets, golden comets, graveyard fleets, relief convoys, pyres) on a shared scheduler with a tunable Sky traffic setting — alloy bonuses, career feats, a Sky log, and edge pointers so you never miss one
 - **The deep sky breathes:** ring-band shear, storm swirl, creeping moon terminator, and three-plane nebula parallax — barely perceptible in the moment, unmistakable across a session; all palette-aware and frozen under reduced-motion
-- **SERAPH, Prism-class:** the second weapon class — a continuous cutting lance with a heat economy, piercing every hostile in its line; balance locked by suite tests
+- **SERAPH, Prism-class:** the fifth hull and the second weapon class — a continuous cutting lance with a heat economy, piercing every hostile in its line; balance locked by suite tests
 - **Cozy onboarding:** codex cards on first sight, flight school drills, dynamic difficulty easing, larger ships and touch controls, four accessibility palettes
 - **Tooling era:** FPS profiler panel (Settings → Show FPS), economy simulator calibrated on real telemetry, dead-code/load-order gates, and CI that tests and publishes every release
 
@@ -92,7 +104,7 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 
 - **Boss Rush mode:** all four capitals back-to-back, then an endless tail at wave-20 tempo — the showcase run
 - **Replay ghosts:** your best daily run records itself and races you — draft, claim, and chase your own best line
-- **High-vis bullets option:** dark rim on hostile fire for bright rooms / OLED — verified on the non-bloom render path
+- **High-vis bullets option:** dark rim on hostile fire for bright rooms / OLED
 - **Performance gate:** the 20-test self-suite now includes a sustained-load benchmark — worst-case combat must hold the 120Hz sim budget on every commit
 - **Economy audited:** hull-focused pilots reach their first hull around run 7; full collection completes around runs 31–35, after which a prestige sink is still recommended
 
@@ -121,14 +133,20 @@ js/sky.js             sky events — comets, fleets, convoys, pyres (single owne
 js/net.js             command-deck client: auth, cloud saves, outbox
 sw.js                 offline cache (network-first, versioned cache generation)
 server.js             the Command Deck: accounts, SQLite, boards, trust boundaries (zero deps)
-smoke.sh              41-test API + client-payload battery
+<<<<<<< HEAD
+smoke.sh              API + static-hygiene (T-LEAK) + load battery
 check.sh              syntax gate (modules + inline payload)
 deadscan.js           dead-code, load-order, XSS-sink and static-exposure gates (--check = CI gate)
+tools/selftest-ci.js  headless CI runner for the in-game ?selftest suite (baselined)
+tools/selftest-baseline.json  the committed suite contract: totals + exact test names
+tools/selftest-probe.js  local harness: totals, failures, name list
+tools/selftest-baseline.js  regenerate the baseline from a live green run
 tools/econsim.js      meta-economy simulator, constants extracted from source
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
 tests/game.spec.js    Playwright browser smoke (boot, local-only assets, core flow)
 docs/economy-audit.md economy tuning report, calibrated on real telemetry
 docs/performance.md   measured CPU/GPU baseline + method
+fonts/                self-hosted brand fonts (Michroma, Chakra Petch — SIL OFL 1.1)
 ```
 
 `emberfall.html` — a pristine v2.0 monolith — is no longer tracked: it carried a pre-hardening CSP and third-party font references, and shipping a legacy payload alongside the game invites drift and confusion. It remains reachable in git history if the artifact is ever needed.
