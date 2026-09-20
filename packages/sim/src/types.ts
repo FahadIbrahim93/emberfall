@@ -119,5 +119,7 @@ export type World = {
   dirPhase: 'combat' | 'rest';
   dirRestT: number;
   spawnQueue: { t: number; type: string; x: number; y: number }[];
+  bossIndex: number;
+  bossesKilled: number;
   log: InputFrame[];
 };
