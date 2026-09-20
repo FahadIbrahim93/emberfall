@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "seed": 99991,
+  "steps": 600,
+  "note": "Golden produced by tools/replay-record.mjs — expand when packages/sim is loadable from Node without Vitest.",
+  "endHash": null,
+  "score": null
+}
