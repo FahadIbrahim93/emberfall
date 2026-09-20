@@ -41,7 +41,6 @@ account system, cloud saves, and plausibility-checked community leaderboards —
 
 ```bash
 node server.js            # http://localhost:8123 — serves game + API
-<<<<<<< HEAD
 bash smoke.sh             # API + static-hygiene + load battery, all green
 ```
 
@@ -50,7 +49,6 @@ bash smoke.sh             # API + static-hygiene + load battery, all green
 - **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
-<<<<<<< HEAD
 - **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
 - **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the SQLite file and its WAL files. The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
 
@@ -139,7 +137,6 @@ js/sky.js             sky events — comets, fleets, convoys, pyres (single owne
 js/net.js             command-deck client: auth, cloud saves, outbox
 sw.js                 offline cache (network-first, versioned cache generation)
 server.js             the Command Deck: accounts, SQLite, boards, trust boundaries (zero deps)
-<<<<<<< HEAD
 smoke.sh              API + static-hygiene (T-LEAK) + load battery
 check.sh              syntax gate (modules + inline payload)
 deadscan.js           dead-code, load-order, XSS-sink and static-exposure gates (--check = CI gate)
