@@ -6,6 +6,10 @@ export {
   HULLS, FOES, FOE_IDS, BOSSES, BOONS, DIFF,
   type HullDef, type FoeDef, type BossDef, type BoonDef, type DiffDef,
 } from './catalog.ts';
-export type { World, PlayerState, InputFrame, SimMode } from './types.ts';
+export type { World, PlayerState, InputFrame, SimMode, Foe, Bullet } from './types.ts';
 export { createWorld, type CreateOpts } from './world.ts';
 export { step, applyGraze, endHash } from './step.ts';
+export {
+  spawnFoe, firePlayer, collide, updateCombat, startWave, bindRng,
+  SHIP_SCALE, SHOT_SCALE,
+} from './combat.ts';
