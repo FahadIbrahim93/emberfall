@@ -1,13 +1,14 @@
 import { ARENA_W, ARENA_H } from './constants.ts';
 import { HULLS } from './catalog.ts';
 import type { World, PlayerState, SimMode } from './types.ts';
-import { makeRng } from './rng.ts';
+import { bindRng, startWave } from './combat.ts';
 
 export type CreateOpts = {
   seed: number;
   mode?: SimMode;
   hullId?: string;
   difficulty?: number;
+  autoWave?: boolean;
 };
 
 function basePlayer(hullId: string): PlayerState {
@@ -48,8 +49,8 @@ function basePlayer(hullId: string): PlayerState {
 export function createWorld(opts: CreateOpts): World {
   const hullId = opts.hullId ?? 'vesper';
   const hull = HULLS.find((h) => h.id === hullId) ?? HULLS[0];
-  makeRng(opts.seed);
-  return {
+  bindRng(opts.seed);
+  const world: World = {
     seed: opts.seed >>> 0,
     mode: opts.mode ?? 'endless',
     hullId: hull.id,
@@ -62,6 +63,8 @@ export function createWorld(opts: CreateOpts): World {
     mult: 1,
     maxMult: 1,
     kills: 0,
+    hits: 0,
+    shots: 0,
     grazes: 0,
     deaths: 0,
     bombsUsed: 0,
@@ -70,6 +73,21 @@ export function createWorld(opts: CreateOpts): World {
     grazeHeat: 0,
     endT: 0,
     player: basePlayer(hull.id),
+    foes: [],
+    playerBullets: [],
+    foeBullets: [],
+    nextId: 1,
+    dirT: 0,
+    dirPhase: 'rest',
+    dirRestT: 0.5,
+    spawnQueue: [],
+    bossIndex: -1,
+    bossesKilled: 0,
     log: [],
   };
+  if (opts.autoWave !== false && world.mode !== 'school') {
+    world.wave = 1;
+    startWave(world);
+  }
+  return world;
 }

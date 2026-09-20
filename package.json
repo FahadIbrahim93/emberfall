@@ -6,7 +6,8 @@
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
     "test:sim": "vitest run",
-    "test": "npm run test:sim && npm run test:browser && npm run test:selftest"
+    "test": "npm run test:sim && npm run test:browser && npm run test:selftest",
+    "replay:record": "node tools/replay-record.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0",
