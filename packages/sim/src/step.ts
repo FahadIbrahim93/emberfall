@@ -80,6 +80,7 @@ export function endHash(world: World): string {
     world.mult,
     world.maxMult,
     world.foes.length,
+    world.bossesKilled || 0,
     world.player.x.toFixed(3),
     world.player.y.toFixed(3),
   ].join('|');

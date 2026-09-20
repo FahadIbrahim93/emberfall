@@ -9,7 +9,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Pages deploy publishes the static game only — server.js/data/ stay server-side
 permissions:
   contents: read
   pages: write
@@ -29,11 +28,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install browser test dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Sim unit tests (packages/sim, T-DET anchors)
+        run: npm run test:sim
 
       - name: Syntax gate (check.sh)
         run: bash check.sh
@@ -41,11 +43,9 @@ jobs:
       - name: Dead-code + load-order gate (deadscan --check)
         run: node deadscan.js --check
 
-      # Browser smoke below exercises boot, local-only asset loading, and core screen flow.
       - name: Economy model gate (econsim --json)
         run: node tools/econsim.js --json > /dev/null
 
-      # P0-5: truth-in-copy — no claim without a green gate behind it
       - name: Copy guard (truth-in-copy)
         run: node tools/copyguard.js
 
@@ -53,7 +53,6 @@ jobs:
         run: |
           PORT="$SERVER_PORT" node server.js > server.log 2>&1 &
           echo "SERVER_PID=$!" >> "$GITHUB_ENV"
-          # wait for /api/health (up to ~20s)
           for i in $(seq 1 40); do
             if curl -fsS "http://127.0.0.1:$SERVER_PORT/api/health" > /dev/null 2>&1; then
               echo "deck up (pid $SERVER_PID)"; exit 0
@@ -65,7 +64,6 @@ jobs:
       - name: API smoke (smoke.sh)
         run: bash smoke.sh
 
-      # P0-9 evidence: behind a proxy hop, limiter keys follow X-Forwarded-For
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &
@@ -83,9 +81,6 @@ jobs:
       - name: Browser smoke
         run: npm run test:browser
 
-      # P0-4: the REAL 38-check in-game suite (?selftest), headless, gating CI.
-      # Exposes window.__EF_SELFTEST_RESULT__; an exact-total assertion plus a
-      # required final marker line make a stale/partial run fail loudly.
       - name: In-game self-test suite (?selftest, headless)
         run: node tools/selftest-ci.js
 
@@ -97,9 +92,6 @@ jobs:
         if: failure()
         run: tail -40 server.log
 
-  # the playable game is a fully static site (all asset paths relative), so
-  # a green verify on main publishes it: index + js modules + PWA shell.
-  # server.js and data/ are intentionally excluded — Pages is static-only.
   deploy:
     name: publish to GitHub Pages
     needs: verify
@@ -131,10 +123,6 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v5
 
-  # release gate: what the world gets must be what we pushed. Byte-fidelity
-  # on index.html catches partial deploys, CDN staleness and wrong-branch
-  # publishes; the 200 sweep proves the offline shell actually exists.
-  # Runs only after a real deploy (needs: deploy skips it on PRs).
   smoke-live:
     name: live smoke (published Pages payload)
     needs: deploy
@@ -148,7 +136,6 @@ jobs:
           URL: ${{ needs.deploy.outputs.url }}
         run: |
           set -e
-          # CDN propagation: poll for a 200 before asserting (max ~45s)
           up=0
           for i in $(seq 1 15); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "$URL" || true)
@@ -157,21 +144,14 @@ jobs:
           done
           [ "$up" = "1" ] || { echo "Pages URL never answered 200 (last: $code)"; exit 1; }
           echo "live: $URL"
-
-          # 1) byte fidelity — served index.html IS this commit's index.html
           live=$(curl -fsS "$URL" | sha256sum | cut -d' ' -f1)
           want=$(git show HEAD:index.html | sha256sum | cut -d' ' -f1)
           echo "live sha $live · HEAD sha $want"
           [ "$live" = "$want" ] || { echo "DEPLOY MISMATCH: served index.html is not byte-identical to HEAD"; exit 1; }
-
-          # 2) offline shell — every sw.js CORE asset answers 200
           for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2; do
             c=$(curl -s -o /dev/null -w '%{http_code}' "$URL$f")
             [ "$c" = "200" ] || { echo "MISSING $f -> $c"; exit 1; }
           done
-
-          # 3) payload markers — cache generation present, art module intact
           curl -fsS "$URL/sw.js" | grep -q 'emberfall-v' || { echo "sw.js missing cache marker"; exit 1; }
           curl -fsS "$URL/js/art.js" | grep -q 'ART v3' || { echo "js/art.js wrong payload"; exit 1; }
-
           echo "live smoke: byte-identical index · 14/14 shell assets · payload markers OK"
