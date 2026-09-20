@@ -1,7 +1,7 @@
 # EMBERFALL — how to run this worktree
 
-(release v3.6.1 — FPS profiler panel, three-plane nebula parallax, SERAPH prism
-lance; published live via CI at https://fahadibrahim93.github.io/emberfall/)
+(release v3.7.0 — deck static allowlist, honest boards, async scrypt, self-hosted
+fonts, FTUE; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 
 ## Reproduce artifacts
 
@@ -14,7 +14,13 @@ that modules stay load-time pure). The backend is a single `server.js` with
 no `.env` — configuration is environment/CLI only:
 
 - `PORT=9000 node server.js` or `node server.js --port 9000` (default port **8123**)
-- Database lives at `data/emberfall.db` (created on first boot; WAL mode; git-ignored)
+- Database lives OUTSIDE the served tree by default: `../emberfall-data/emberfall.db`
+  (created on first boot; WAL mode; git-ignored). Override with `EF_DATA_DIR`;
+  an existing legacy `data/emberfall.db` is migrated there automatically on first start.
+- Static serving is a strict ALLOWLIST: only index.html, sw.js, the manifest,
+  js/*.js, fonts/ and icons/ are served — everything else (data/, server.js,
+  .git/, docs/, tools/) 404s. Pinned by smoke.sh's T-LEAK battery and
+  deadscan's static-exposure gate.
 
 If `data/` is missing, the server recreates it. If the port is busy, kill the
 stale listener (`netstat -ano | grep :8123` → `taskkill //PID <pid> //F`) or
@@ -34,7 +40,9 @@ powershell -NoProfile -Command "(Start-Process -FilePath 'node.exe' -ArgumentLis
 
 - `bash check.sh` — syntax-verifies every `js/*.js` module AND the inline payload(s)
 - `bash smoke.sh` — dead-code gate (`node deadscan.js --check`, scans modules too) + full API battery, all must pass
-- `http://127.0.0.1:8123/index.html?selftest` — 33 client tests, all must pass
+- `http://127.0.0.1:8123/index.html?selftest` — 37 client tests, all must pass
+  (CI runs the same suite headless via `tools/selftest-ci.js` against a committed
+  exact-name baseline)
 - `node tools/econsim.js` — economy simulator; constants are extracted from
   source, so a tuning typo fails here (also run as a CI gate)
 - CI (GitHub Actions) runs all of the above on every push, then deploys `main`

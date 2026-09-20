@@ -612,7 +612,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.7.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.8.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -855,7 +855,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.7.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v3.8.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1262,8 +1262,7 @@ const REFITS = [
   { id: 'magnet', name: 'Collector', max: 5, cost: l => 170 + l * 150, desc: 'Pulls salvage from much further out.' },
   { id: 'fortune', name: 'Scavenger', max: 5, cost: l => 200 + l * 200, desc: 'Better drop odds and a bigger alloy cut from every run.' }
 ];
-const META = {
-  alloy: 0, ship: 'vesper', owned: ['vesper'],
+const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
@@ -2120,6 +2119,7 @@ const GAME = {
   score: 0, shown: 0, best: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
   kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
   alloyRun: 0, wave: 0, lives: 3, intensity: .25, threat: 0,
+  elitesHeal: true,   // v3.8 Vampiric master switch (determinism tests toggle it off)
   skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 }
 };
 
@@ -2325,7 +2325,7 @@ function seraphBeamControl(dt) {
       const tickDmg = beamDps() / 30 * clamp(P.beamLen, .2, 1);   // ramp scales damage too
       let hitSomething = false;
       for (const e of foes) {
-        if (e.dead || e.dying || e.ghost) continue;
+        if (e.dead || e.dying || e.ghost || e.staged) continue;
         const dx = e.x - P.x, dy = e.y - P.y;
         const along = dx * Math.cos(P.beamAng) + dy * Math.sin(P.beamAng);
         if (along < 0) continue;
@@ -2573,6 +2573,232 @@ function explode(x, y, pal, size) {
   if (size >= 1.4) GAME.hitstop = Math.max(GAME.hitstop, .045);
 }
 
+/* ═══════════════════ ELITE AFFIXES (v3.8) ═══════════════════
+   Elites roll 1–2 named affixes (depth-gated), each with an in-world tell.
+   Replaces the old flat 2.1× hp elite with readable threats worth extra. */
+const AFFIXES = {
+  twin: { name: 'Twin', tell: 'Twin muzzles — twice the guns, tighter fan.' },
+  aegis: { name: 'Aegis', tell: 'Personal barrier — it breaks, then recharges.' },
+  volatile: { name: 'Volatile', tell: 'Unstable core — the death is a bullet ring.' },
+  grave: { name: 'Grave', tell: 'Venting embers — its corpse leaves a burning zone.' },
+  swift: { name: 'Swift', tell: 'Overthrust — faster than its class has any right to be.' },
+  vampiric: { name: 'Vampiric', tell: 'Red tether — its shots mend nearby hostiles.' }
+};
+function rollAffixes(e) {
+  const pool = ['twin', 'aegis', 'volatile', 'grave', 'swift', 'vampiric'];
+  const n = GAME.wave >= 18 ? 2 : 1;
+  for (let i = 0; i < n; i++) {
+    const ax = pool[R.int(0, pool.length - 1)];
+    if (e.affixes.includes(ax)) continue;
+    e.affixes.push(ax);
+    if (ax === 'twin') e.axTwin = 1;
+    if (ax === 'aegis') { e.shielded = 1; e.axAegis = 1; }
+    if (ax === 'volatile') e.axVolatile = 1;
+    if (ax === 'grave') e.axGrave = 1;
+    if (ax === 'swift') { e.axSwift = 1; e.bspd = Math.round(e.bspd * 1.4); }
+    if (ax === 'vampiric') e.axVamp = 1;
+  }
+  e.axTint = PAL.rare;
+  e.axExtra = 1;
+  CODEX.show('affix:' + e.affixes[0], 'Elite: ' + AFFIXES[e.affixes[0]].name, AFFIXES[e.affixes[0]].tell);
+}
+function updateVampiric(dt) {
+  if (!GAME.elitesHeal) return;
+  for (const src of foes) {
+    if (!src.axVamp || src.dead || src.staged || src.dying) continue;
+    for (const o of foes) {
+      if (o === src || o.dead || o.staged || o.dying || o.boss) continue;
+      if (hyp(o.x - src.x, o.y - src.y) < 130 && o.hp < o.maxHp) {
+        o.hp = Math.min(o.maxHp, o.hp + 1.5 * dt);
+        if (QUALITY.particles > .5 && FX.chance(.25)) part({ x: o.x + rnd(-6, 6), y: o.y + rnd(-6, 6), life: .3, size: 8, spr: SPR.rare, drag: 2 });
+      }
+    }
+  }
+}
+/* ═══════════════════ DEATH DIRECTOR (v3.8) ═══════════════════
+   Every hostile dies through die(): a universal presentation first
+   (hull debris, tiered punch), then a per-class beat from the DEATHS
+   table. Death never blocks the sim: corpses are marked dead+staged
+   immediately (colliders, seekers and the wave-clear check all ignore
+   them), and the spectacle runs on fxWait — a tiny scheduled FX queue
+   in updateEffects. Zero Qualities still get the audio; the visuals
+   degrade through the same QUALITY tiers as every other system. */
+const fxWait = [];
+function fxAt(delay, fn) { fxWait.push({ t: delay, fn }); }
+function updateFxQueue(dt) {
+  for (let i = fxWait.length - 1; i >= 0; i--) {
+    fxWait[i].t -= dt;
+    if (fxWait[i].t <= 0) { const f = fxWait[i].fn; fxWait.splice(i, 1); f(); }
+  }
+}
+const DEATH_TIER = { drone: 0, mini: 0, striker: 1, weaver: 1, splitter: 1, orbiter: 1, sniper: 1,
+  ram: 1, lancer: 2, warden: 2, minelayer: 2, shieldbreaker: 2, cruiser: 3, carrier: 3 };
+const DEATHS = {
+  /* lancer's capacitor discharges down the line it fought with */
+  lancer(e) {
+    const ang = e.lastBeamAng != null ? e.lastBeamAng : rnd(0, TAU);
+    for (let i = 1; i <= 3; i++) {
+      const d = 34 * i;
+      fxAt(.12 * i, () => {
+        if (GAME.state !== 'playing') return;
+        const x = e.x + Math.cos(ang) * d, y = e.y + Math.sin(ang) * d;
+        explode(x, y, 'foe', .7);
+        foeShot({ x, y, r: 10 }, ang + PI + rnd(-.9, .9), 190, { kind: 'arc', r: 3.4, col: PAL.rare });
+      });
+    }
+  },
+  /* warden: cover collapses inward, then hex shatter — protégés freed early */
+  warden(e) {
+    fxAt(.16, () => { if (GAME.state === 'playing') ring(e.x, e.y, { r: e.r * 2.6, vr: -340, life: .38, col: rgbOf(PAL.tech), w: 3 }); });
+    fxAt(.5, () => {
+      if (GAME.state !== 'playing') return;
+      for (const o of foes) if (!o.dead && o.shielded > 0 && hyp(o.x - e.x, o.y - e.y) < 170) { o.shielded = 0; }
+      burst(12, () => {
+        const a = rnd(0, TAU), sp = rnd(120, 380);
+        part({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rnd(.3, .6), size: rnd(5, 9), spr: SPR.tech, drag: 2.2 });
+      });
+    });
+  },
+  /* minelayer: the payload racks open — dangerous death, honest risk */
+  minelayer(e) {
+    fxAt(.2, () => {
+      if (GAME.state !== 'playing') return;
+      const n = 2 + R.int(0, 2);
+      for (let i = 0; i < n; i++) {
+        const a = rnd(0, TAU), d = rnd(24, 60);
+        mines.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d + 10, vy: rnd(18, 40), r: 11, t: 0, life: 8, armed: .5 });
+      }
+      AU.alarm();
+    });
+  },
+  /* carrier: bay decompression — drones eject burning, door blows in */
+  carrier(e) {
+    for (let i = 0; i < 3; i++) fxAt(.14 + i * .12, () => {
+      if (GAME.state !== 'playing') return;
+      const m = spawnFoe('mini', { state: 'sweep', x: e.x + rnd(-14, 14), y: e.y, ty: e.y + rnd(40, 120), vx: rnd(-1, 1) > 0 ? 120 : -120 });
+      m.hp = 1; m.burn = 1;
+      explode(m.x, m.y + 6, 'foe', .45);
+    });
+    fxAt(.05, () => { if (GAME.state === 'playing') { ring(e.x, e.y - 6, { r: 4, vr: 300, life: .4, col: '255,190,120', w: 4 }); shake(4); } });
+  },
+  /* cruiser: armor plates shear off as tumbling shards before the core goes */
+  cruiser(e) {
+    for (let i = 0; i < 4; i++) {
+      const a = rnd(0, TAU), d = rnd(10, 26);
+      fxAt(.06 * i, () => {
+        if (GAME.state !== 'playing') return;
+        part({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, vx: Math.cos(a) * rnd(90, 260), vy: Math.sin(a) * rnd(60, 200) - 40, life: rnd(.5, .9), mode: 'debris', size: rnd(6, 11), rot: a, vr: rnd(-11, 11), grav: 170, col: PAL.foeDeep, drag: 1.4 });
+        AU.hit();
+      });
+    }
+    fxAt(.3, () => { if (GAME.state === 'playing') explode(e.x, e.y, 'foe', 1.35); });
+  },
+  /* splitter: a visible core crack, then the staggered split (onDeath does the spawn) */
+  splitter(e) {
+    fxAt(.18, () => { if (GAME.state === 'playing') { ring(e.x, e.y, { r: 3, vr: 160, life: .3, col: '255,255,255', w: 1.6 }); AU.armor(); } });
+  },
+  /* sniper: the lock dies with it — line snaps taut, focus ring collapses */
+  sniper(e) {
+    fxAt(.1, () => {
+      if (GAME.state !== 'playing') return;
+      const a = e.lastAim != null ? e.lastAim : aimAt(e);
+      ring(e.x, e.y, { r: 26, vr: -620, life: .26, col: rgbOf(PAL.rare), w: 1.4 });
+      part({ x: e.x + Math.cos(a) * 30, y: e.y + Math.sin(a) * 30, life: .3, size: 26, spr: SPR.rare, mode: 'glow' });
+    });
+  },
+  /* ram: the furrow it carved detonates, receding segment by segment */
+  ram(e) {
+    if (!e.chargeAng && e.chargeAng !== 0) return;
+    const back = e.chargeAng + PI;
+    for (let i = 1; i <= 4; i++) fxAt(.09 * i, () => {
+      if (GAME.state !== 'playing') return;
+      explode(e.x + Math.cos(back) * 30 * i, e.y + Math.sin(back) * 30 * i, 'foe', .5);
+    });
+  },
+  /* shieldbreaker: its EMP bladder vents one last scrambling breath */
+  shieldbreaker(e) {
+    fxAt(.18, () => {
+      if (GAME.state !== 'playing') return;
+      ring(e.x, e.y, { r: 6, vr: 300, life: .4, col: rgbOf(PAL.rare), w: 2.4 });
+      if (P.alive && hyp(P.x - e.x, P.y - e.y) < 150) { P.dashCd = Math.max(P.dashCd, .8); note('Dash capacitors scrambled', 'bad'); }
+    });
+  }
+};
+function die(e) {
+  const tier = DEATH_TIER[e.type] != null ? DEATH_TIER[e.type] : 1;
+  const size = e.r / 14;
+  /* affix: Volatile — death is a bullet ring, tell was the pulsing core */
+  if (e.axVolatile) {
+    fxAt(.05, () => {
+      if (GAME.state !== 'playing') return;
+      const n = 10;
+      for (let i = 0; i < n; i++) foeShot(e, i / n * TAU, 165, { r: 4, col: PAL.rare });
+      AU.shieldBreak();
+    });
+  }
+  /* affix: Grave — a lingering hazard zone where it fell */
+  if (e.axGrave) {
+    fxAt(.02, () => {
+      if (GAME.state !== 'playing') return;
+      GRAVES.push({ x: e.x, y: e.y, r: 64, t: 0, life: 5, tick: 0 });
+    });
+  }
+  /* universal: hull debris always; the tiered punch scales with the threat.
+     Tier 0 stays the honest quick pop it always was. */
+  explode(e.x, e.y, 'foe', size);
+  if (tier >= 1) {
+    burst(3 + tier, () => {
+      const a = rnd(0, TAU), sp = rnd(70, 240 + 60 * tier);
+      part({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rnd(.45, 1.05), mode: 'debris', size: rnd(3, 6.5), rot: rnd(0, TAU), vr: rnd(-10, 10), grav: 150, col: e.axTint || PAL.foeDeep, drag: 1.5 });
+    });
+  }
+  if (tier >= 2) fxAt(.03, () => { ring(e.x, e.y, { r: 4, vr: 300 + 90 * tier, life: .34, col: rgbOf(e.axTint || PAL.foe), w: 2.4 }); });
+  if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  if (e.dying && e.boss) deathVolley(e);
+  const beat = DEATHS[e.type];
+  if (beat) beat(e);
+  AU.death(e.type, tier);
+}
+/* capitals: the last defiant volley — turrets answer the void, upward */
+function deathVolley(b) {
+  const shots = b.nodes ? Math.min(4, b.nodes.filter(n => n.hp > 0).length + 1) : 2;
+  for (let i = 0; i < shots; i++) {
+    fxAt(.2 + i * .16, () => {
+      if (GAME.state !== 'playing') return;
+      const x = b.x + (b.nodes && b.nodes[i] ? b.nodes[i].ox : rnd(-b.r, b.r) * .6);
+      const y = b.y + (b.nodes && b.nodes[i] ? b.nodes[i].oy : 0);
+      foeShot({ x, y, r: 12 }, -PI / 2 + rnd(-.35, .35), 260, { r: 4.6 });
+      part({ x, y, life: .12, size: 16, spr: SPR.foe, mode: 'glow' });
+      AU.foeShot('heavy');
+    });
+  }
+}
+/* affix: Grave zones tick — proximity burn, dashed ember-ring tell */
+const GRAVES = [];
+function updateGraves(dt) {
+  for (let i = GRAVES.length - 1; i >= 0; i--) {
+    const g = GRAVES[i];
+    g.t += dt; g.tick -= dt;
+    if (g.t >= g.life) { GRAVES.splice(i, 1); continue; }
+    if (P.alive && P.inv <= 0 && g.tick <= 0 && hyp(P.x - g.x, P.y - g.y) < g.r) {
+      g.tick = .5;
+      hurtPlayer({ x: P.x + rnd(-6, 6), y: P.y + rnd(-6, 6), r: 4 });
+    }
+    if (QUALITY.particles > .45 && FX.chance(.3)) part({ x: g.x + rnd(-g.r, g.r) * .8, y: g.y + rnd(-g.r, g.r) * .5, vx: rnd(-12, 12), vy: rnd(-46, -18), life: rnd(.4, .8), size: rnd(4, 8), spr: SPR.smoke, mode: 'smoke', drag: 1 });
+  }
+  for (const g of GRAVES) {
+    ctx.save();
+    ctx.globalAlpha = .16 + .05 * Math.sin(GAME.t * 5 + g.x);
+    ctx.setLineDash([5, 7]);
+    ctx.strokeStyle = PAL.rare;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(g.x, g.y, g.r, g.r * .55, 0, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /* ─────────────────────────── pickups ─────────────────────────── */
 let dropPity = 0;
 function rollDrop(x, y, guaranteed) {
@@ -2668,11 +2894,14 @@ function damageFoe(e, dmg, x, y, fromBomb) {
 }
 function killFoe(e) {
   if (e.dead) return;
-  e.dead = true;
+  e.dead = true; e.staged = true;
   registerKill(e);
+  if (e.elite && e.affixes && e.affixes.length)
+    note((FOE_LABEL[e.type] || e.type) + ' · ' + e.affixes.map(a => AFFIXES[a].name).join(' + '), 'rare');
   addScore(e.sc, e.x, e.y);
-  explode(e.x, e.y, 'foe', e.r / 14);
+  die(e);
   rollDrop(e.x, e.y, false);
+  if (e.elite && e.axExtra) rollDrop(e.x + rnd(-12, 12), e.y + rnd(-8, 8), false);
   if (e.onDeath) e.onDeath(e);
 }
 
@@ -2683,7 +2912,7 @@ function collide() {
     let consumed = false;
     for (let j = 0; j < foes.length; j++) {
       const e = foes[j];
-      if (e.dead || e.dying || e.ghost) continue;
+      if (e.dead || e.dying || e.ghost || e.staged) continue;
       const rr = e.hitR + b.r;
       const dx = b.x - e.x, dy = b.y - e.y;
       if (dx * dx + dy * dy < rr * rr) {
@@ -2744,7 +2973,7 @@ function collide() {
   // bodies
   if (P.inv <= 0) {
     for (const e of foes) {
-      if (e.dead || e.dying || e.ghost) continue;
+      if (e.dead || e.dying || e.ghost || e.staged) continue;
       const rr = e.hitR + P.r * 1.6;
       const dx = e.x - px, dy = e.y - py;
       if (dx * dx + dy * dy < rr * rr) {
@@ -2882,6 +3111,8 @@ function spawnFoe(type, o) {
     e.sc = Math.round(e.sc * 2.4);
     e.r *= 1.18; e.hitR *= 1.18;
     e.cd *= .78;
+    e.affixes = [];
+    rollAffixes(e);   // v3.8: elites are named threats now — see AFFIXES
   }
   foes.push(e);
   return e;
@@ -2984,7 +3215,7 @@ function gunControl(e, dt) {
 
   switch (e.type) {
     case 'striker':
-      fan(e, aimAt(e), e.elite ? 2 : 1, .18, e.bspd); break;
+      fan(e, aimAt(e), (e.elite ? 2 : 1) + (e.axTwin ? 2 : 0), .18 + (e.axTwin ? .1 : 0), e.bspd); break;
     case 'sniper':
       // lock-driven fire is handled above; nothing extra on the shared clock
       break;
@@ -3028,13 +3259,18 @@ function gunControl(e, dt) {
   e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
   if (e.type !== 'lancer' && e.type !== 'minelayer') AU.foeShot();
 }
-function beginDive(e) { e.state = 'dive'; e.ang = P.alive ? aimAt(e) : PI / 2; e.dv = 0; e.glow = 0; }
+function beginDive(e) { e.state = 'dive'; e.ang = P.alive ? aimAt(e) : PI / 2; e.dv = e.axSwift ? 90 : 0; e.glow = 0; }
 
 /* ─────────────────── per-frame hostile update ─────────────────── */
 function updateFoe(e, dt) {
+  if (e.dead) return;   // corpses never act — v3.8 also fixes stale guns firing for a frame
   e.t += dt;
   if (e.flash > 0) e.flash -= dt * 6;
   if (e.shielded > 0) e.shielded -= dt;
+  if (e.axAegis && e.shielded <= 0 && !e.dying) {   // affix: Aegis — the bubble rebuilds
+    e.axAegT = (e.axAegT || 0) + dt;
+    if (e.axAegT > 4) { e.axAegT = 0; e.shielded = 1; }
+  }
   if (e.shieldHit > 0) e.shieldHit -= dt * 3;
 
   switch (e.state) {
@@ -3418,6 +3654,7 @@ function startBossDeath(b) {
   beams.length = 0;
   ring(b.x, b.y, { r: b.r, vr: 520, life: 1.2, col: rgbOf(PAL.foeLit), w: 2.5 });
   AU.alarm();
+  die(b);   // v3.8: the breach punch + last volley ride the same director
 }
 function finishBossDeath(b) {
   explode(b.x, b.y, 'foe', 2.6);
@@ -3703,7 +3940,7 @@ function updateWorld(dt) {
         b.target = null;
         let bestD = 1e9;
         for (const e of foes) {
-          if (e.dead || e.dying || e.ghost) continue;
+          if (e.dead || e.dying || e.ghost || e.staged) continue;
           const d = hyp(e.x - b.x, e.y - b.y);
           if (d < bestD) { bestD = d; b.target = e; }
         }
@@ -3807,6 +4044,9 @@ function updateWorld(dt) {
 }
 
 function updateEffects(dt) {
+  updateFxQueue(dt);   // v3.8 death director schedule
+  updateGraves(dt);    // v3.8 Grave affix zones
+  updateVampiric(dt);  // v3.8 Vampiric tethers
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
     p.life -= dt;
@@ -3872,6 +4112,34 @@ function drawFoe(e) {
   else if (e.state === 'hold') tilt = Math.cos(e.ht * e.swf + e.ph) * .09;
   else if (e.state === 'orbit') tilt = Math.sin(e.spin) * .3;
   ctx.rotate(tilt);
+  /* v3.8 affix tells — volatile: pulsing core ring; grave: ember ring;
+     vampiric: red tethers to every foe it is currently mending */
+  if (e.axVolatile || e.axGrave) {
+    ctx.save();
+    ctx.strokeStyle = e.axVolatile ? PAL.rare : PAL.gold;
+    ctx.globalAlpha = .45 + .3 * Math.sin(e.t * 6);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, e.r * (e.axVolatile ? 1.5 : 1.28), 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (e.axVamp && QUALITY.particles > .4) {
+    ctx.save();
+    ctx.globalAlpha = .3;
+    ctx.strokeStyle = '#ff5470';
+    ctx.lineWidth = 1.1;
+    for (const o of foes) {
+      if (o === e || o.dead || o.staged || o.dying || o.boss) continue;
+      if (hyp(o.x - e.x, o.y - e.y) < 130) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo((o.x - e.x) / scale, (o.y - e.y) / scale);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
   if (e.elite) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     emitLocal(ctx, SPR.rare, 0, 0, e.r * 3.4, .3 + .1 * Math.sin(e.t * 4));
@@ -5349,6 +5617,15 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '3.8.0',
+    items: [
+      '<b>Choreographed deaths</b> — every hostile class now dies in character: cruiser armor shears off before the core goes, carriers vent drones in a bay decompression, lancer corpses discharge down their own beam line, minelayers crack open scattering live mines, rams detonate along the furrow they carved, and capitals go out with a last defiant volley.',
+      '<b>Hull debris &amp; tiered punch</b> — kills throw spinning hull fragments tinted by threat tier; medium threats add a shockwave ring, large ones add flash, shake and hitstop.',
+      '<b>Death voices</b> — five new synthesized timbres: the swarm pops, armored steel shears, energy cores snap, big hulls crumple.',
+      '<b>Elite affixes</b> — elites are named threats now: Twin (double guns), Aegis (recharging barrier), Volatile (death bullet-ring), Grave (burning corpse zone), Swift (overthrust) and Vampiric (mends its neighbours — cut the tether first). Every affix has an in-world tell; the codex explains each on first sight.'
+    ]
+  },
+  {
     v: '3.7.0',
     items: [
       '<b>Hardening</b> — the Command Deck now serves only the game shell (database, source, git metadata: all 404, regression-tested in CI), rate limits key on the real client IP behind proxies, and password hashing left the event loop.',
@@ -5649,6 +5926,69 @@ function runSelfTests() {
     GAME.state = savedState; GAME.lives = savedLives;
     R = savedR;
   });
+  T('death director: every class dies in character, staged FX never block the sim', () => {
+    const savedR = R; R = makeRng(42);
+    const savedState = GAME.state; GAME.state = 'playing';
+    clearAll();
+    const types = Object.keys(FOES);
+    const spawned = types.map(t => spawnFoe(t, { ty: 120 + 30 * (types.indexOf(t) % 5) }));
+    const g = spawnFoe('striker', {}); g.axGrave = 1;   // ride the Grave path too
+    spawned.push(g);
+    for (const e of spawned) { e.hp = 1; damageFoe(e, 10, e.x, e.y); }
+    ok(spawned.every(e => e.dead && e.staged), 'every class routed through the director');
+    ok(fxWait.length > 0, 'class choreography scheduled');
+    for (let i = 0; i < 5; i++) updateEffects(1 / 60);   // let the scheduled fx land
+    ok(GRAVES.length >= 1, 'grave zone opened');
+    for (let i = 0; i < 30; i++) updateEffects(1 / 60);
+    ok(fxWait.length < 6, 'queue draining on schedule');
+    for (let i = 0; i < 700; i++) updateEffects(1 / 60);
+    eq(fxWait.length, 0, 'fx queue drains fully');
+    eq(GRAVES.length, 0, 'grave zones expire');
+    ok(mines.length < 60, 'minelayer scatter bounded');
+    clearAll();
+    R = savedR; GAME.state = savedState;
+  });
+  T('elite affixes: named threats with tells, volatile rings, aegis rebuilds', () => {
+    const savedR = R; R = makeRng(7);
+    const savedState = GAME.state, savedWave = GAME.wave, savedHeal = GAME.elitesHeal;
+    GAME.state = 'playing'; GAME.wave = 18; GAME.elitesHeal = true;
+    clearAll();
+    const e = spawnFoe('striker', { elite: true });
+    ok(e.affixes && e.affixes.length >= 1, 'affixes rolled');
+    ok(e.axExtra, 'elites carry extra salvage');
+    ok(AFFIXES[e.affixes[0]] && AFFIXES[e.affixes[0]].tell, 'every affix has a tell');
+    clearAll(); GAME.elitesHeal = false;
+    const v = spawnFoe('drone', { elite: true });
+    v.affixes = ['volatile']; v.axVolatile = 1; v.hp = 1;
+    const fbBefore = fb.length;
+    damageFoe(v, 10, v.x, v.y);
+    ok(fxWait.length > 0, 'volatile ring scheduled');
+    for (let i = 0; i < 40; i++) updateEffects(1 / 60);
+    ok(fb.length > fbBefore, 'volatile death fired its bullet ring');
+    const a = spawnFoe('weaver', { elite: true });
+    a.affixes = ['aegis']; a.axAegis = 1; a.shielded = 0; a.axAegT = 4.1;
+    updateFoe(a, 1 / 60);
+    ok(a.shielded > 0, 'aegis barrier rebuilt after its rest');
+    clearAll();
+    R = savedR; GAME.wave = savedWave; GAME.state = savedState; GAME.elitesHeal = savedHeal;
+  });
+  T('vampiric elites mend close neighbours only, and respect the master switch', () => {
+    const savedState = GAME.state, savedHeal = GAME.elitesHeal;
+    GAME.state = 'playing'; GAME.elitesHeal = true;
+    clearAll();
+    const v = spawnFoe('cruiser', {}); v.axVamp = 1; v.x = W / 2; v.y = 140;
+    const w = spawnFoe('drone', {}); w.x = W / 2 + 30; w.y = 140; w.hp = 1; w.maxHp = 3;
+    const far = spawnFoe('drone', {}); far.x = W / 2 + 400; far.y = 400; far.hp = 1; far.maxHp = 3;
+    for (let i = 0; i < 60; i++) updateVampiric(1 / 60);
+    ok(w.hp > 1, 'close wounded neighbour mended');
+    eq(far.hp, 1, 'distant foe untouched');
+    GAME.elitesHeal = false;
+    const before = w.hp;
+    for (let i = 0; i < 30; i++) updateVampiric(1 / 60);
+    eq(w.hp, before, 'master switch silences the tether');
+    clearAll();
+    GAME.state = savedState; GAME.elitesHeal = savedHeal;
+  });
   T('sustained load: 10s of full combat holds 120Hz sim', () => {
     // Phase E perf gate: the worst realistic worst case — one of every hostile
     // class + a capital + dense fire — must still fit the fixed-step budget.
@@ -5915,7 +6255,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.7.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '3.8.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -5,6 +5,14 @@
    AUDIO — everything is synthesised at runtime. No files, no loading.
    Signal path:  voices → [dry | reverb send] → bus (music/sfx) → comp → out
    ══════════════════════════════════════════════════════════════════════ */
+/* v3.8: per-class death timbre — the small stuff pops, armored steel shears,
+   energy classes snap, big organic capitals crumple, gas bags vent. */
+const DEATH_VOICE = {
+  drone: 'pop', mini: 'pop', striker: 'vent', weaver: 'vent', orbiter: 'vent',
+  splitter: 'vent', sniper: 'snap', lancer: 'snap', shieldbreaker: 'snap',
+  warden: 'shear', cruiser: 'shear', carrier: 'crumple',
+  minelayer: 'crumple', ram: 'shear'
+};
 const AU = {
   ctx: null, ready: false, muted: false,
   out: null, comp: null, musicBus: null, sfxBus: null, verb: null, verbGain: null,
@@ -197,6 +205,35 @@ const AU = {
   playerDown() {
     this.boom(2.1, true);
     this.tone({ type: 'sawtooth', f0: 420, f1: 44, dur: .85, vol: .15, filter: ['lowpass', 2200, 200] });
+  },
+  /* v3.8 death voices — per-family timbre, one layer over the existing boom.
+     Rate-gated like every other sfx so swarm deaths stay inside the budget. */
+  death(type, tier) {
+    if (!this.ready) return;
+    const voice = DEATH_VOICE[type] || 'pop';
+    if (!this.gate('dth' + voice, voice === 'pop' ? 70 : 45)) return;
+    const t = this.ctx.currentTime;
+    if (voice === 'pop') {
+      /* light frame venting — quick hollow thump */
+      this.tone({ type: 'sine', f0: 300, f1: 90, dur: .1, vol: .08 });
+    } else if (voice === 'shear') {
+      /* armored plating tearing — descending metallic rasp */
+      this.tone({ type: 'sawtooth', f0: 210, f1: 46, dur: .3, vol: .12, filter: ['bandpass', 900, 220], q: 3, verb: .3 });
+      this.hiss({ dur: .22, f0: 2000, f1: 300, vol: .09, type: 'bandpass', q: 2 });
+    } else if (voice === 'snap') {
+      /* capacitor discharge — brittle crack with a tail-whine */
+      this.tone({ type: 'square', f0: 1900, f1: 130, dur: .12, vol: .1 });
+      this.tone({ type: 'sine', f0: 2400, f1: 500, dur: .24, vol: .05, t0: t + .05, verb: .4 });
+    } else if (voice === 'crumple') {
+      /* wet structural collapse — low body, long decay */
+      this.tone({ type: 'triangle', f0: 130, f1: 30, dur: .5, vol: .16, verb: .45 });
+      this.hiss({ dur: .4, f0: 900, f1: 90, vol: .1, type: 'lowpass' });
+    } else {
+      /* vent — pressurized gas escape, wobble up */
+      this.tone({ type: 'sine', f0: 520, f1: 1500, dur: .18, vol: .05, filter: ['bandpass', 1200, 2400], q: 4 });
+      this.hiss({ dur: .3, f0: 3800, f1: 700, vol: .06, type: 'bandpass', q: 1.2 });
+    }
+    if (tier >= 3) this.tone({ type: 'sine', f0: 60, f1: 24, dur: .5, vol: .2 });
   },
   alarm() {
     if (!this.ready) return;
