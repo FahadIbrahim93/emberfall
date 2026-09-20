@@ -26,6 +26,13 @@ trap 'rm -f "$JAR"' EXIT
 say "── dead code scan (repo-wide) ──"
 if node deadscan.js --check; then ok "deadscan clean (dead code + load order)"; else no "deadscan: dead code or load-order violation"; fi
 
+say "── static exposure gate (server denies sensitive paths) ──"
+# The deck serves files from the repo root; these must NEVER come back 200.
+for probe in data/emberfall.db .git/config server.js package.json; do
+  code="$(curl -s -o /dev/null -w '%{http_code}' "$BASE/$probe")"
+  if [ "$code" != "200" ]; then ok "denied: /$probe -> $code"; else no "LEAK: /$probe served (200)"; fi
+done
+
 R=$RANDOM$RANDOM
 expect "health"            '"ok":true'                      "$BASE/api/health"
 expect "static index"      'EMBERFALL'                      "$BASE/"

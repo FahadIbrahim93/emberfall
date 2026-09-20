@@ -31,13 +31,46 @@ const { DatabaseSync } = require('node:sqlite');
 
 const PORT = Number(process.env.PORT || (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : 0)) || 8123;
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, 'data');
+/* server-side state lives OUTSIDE the served root by default. The DB holds
+   scrypt password hashes and session-token hashes; serving it would hand the
+   whole user table to anyone on the network. Override with EF_DATA_DIR
+   (multi-deck isolation, containers); 'data/' still works if set explicitly. */
+const DATA_DIR = process.env.EF_DATA_DIR
+  ? path.resolve(process.env.EF_DATA_DIR)
+  : path.join(path.dirname(ROOT), 'emberfall-data');
 const DB_PATH = path.join(DATA_DIR, 'emberfall.db');
 const IS_PROD = process.env.NODE_ENV === 'production';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 
 /* ─────────────────────────── database ─────────────────────────── */
 fs.mkdirSync(DATA_DIR, { recursive: true });
+/* one-time carry-over: decks predating the externalized data dir kept state
+   at <repo>/data — move it so existing pilots, boards and duels survive.
+   Best-effort by design: checkpoint the WAL first (no lost tail), rename when
+   the volumes allow it, copy across devices, and on any failure log loudly
+   and start fresh — a migration must never take the deck down. */
+const LEGACY_DB = path.join(ROOT, 'data', 'emberfall.db');
+if (fs.existsSync(LEGACY_DB) && !fs.existsSync(DB_PATH)) {
+  try {
+    const legacy = new DatabaseSync(LEGACY_DB);
+    legacy.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    legacy.close();
+    try { fs.renameSync(LEGACY_DB, DB_PATH); }
+    catch (e) {                        /* EXDEV: state dir on another volume */
+      fs.copyFileSync(LEGACY_DB, DB_PATH);
+      fs.rmSync(LEGACY_DB);
+    }
+    for (const ext of ['-wal', '-shm']) {
+      const side = LEGACY_DB + ext;
+      if (fs.existsSync(side)) fs.rmSync(side);
+    }
+    try { fs.rmdirSync(path.join(ROOT, 'data')); } catch (e) { /* not empty — fine */ }
+    console.log('[cmd-deck] migrated legacy data/emberfall.db → ' + DB_PATH);
+  } catch (e) {
+    console.error('[cmd-deck] legacy DB migration failed:', e.message,
+      '— starting fresh at ' + DB_PATH);
+  }
+}
 const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
@@ -371,6 +404,15 @@ function serveStatic(req, res, urlPath) {
   if (p === '/' || p === '') p = '/index.html';
   const file = path.normalize(path.join(ROOT, p));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
+  /* defense in depth: the allowlist of what may be served is implicit (repo
+     files), so this explicit denial must hold no matter what sits where —
+     VCS internals, the dependency tree, test artifacts, server-side state,
+     and the server's own code are not the game. One regex, pinned by
+     deadscan's static-exposure gate and smoke.sh's 403 probes. */
+  if (/^\/(\.git|\.github|\.freebuff|data|node_modules|test-results|playwright-report|docs|tools|tests)(\/|$)/.test(p) ||
+      /^\/(server\.js|smoke\.sh|check\.sh|deadscan\.js|package\.json|package-lock\.json|playwright\.config\.js|emberfall\.html)$/.test(p)) {
+    res.writeHead(403); res.end(); return;
+  }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found'); return; }
     const ext = path.extname(file).toLowerCase();
