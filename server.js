@@ -123,7 +123,6 @@ addCol('scores', 'run_hash', 'TEXT');
    a public fact of a run; mastery level rides along for the flex */
 addCol('scores', 'paint', 'TEXT');
 addCol('scores', 'mastery', 'INTEGER DEFAULT 0');
-addCol('challenges', 'paint', 'TEXT');
 /* v4.3: duels show the challenger's paint on the entry row. Allowlist —
    ids mirror the PAINTS registry in index.html (yard is the free default). */
 const PAINT_IDS = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
@@ -149,6 +148,10 @@ CREATE TABLE IF NOT EXISTS beats (
 `);
 addCol('beats', 'score', 'INTEGER');
 addCol('beats', 'run_hash', 'TEXT');
+/* challenges must EXIST before it can be altered — this line lives below
+   the CREATE TABLE for exactly that reason (a fresh CI database has no
+   table to alter if the migration runs first) */
+addCol('challenges', 'paint', 'TEXT');
 /* Old "verified" rows were checked by the same client-telemetry heuristic.
    Do not silently preserve a stronger claim than the server can establish. */
 db.prepare("UPDATE scores SET verdict = 'legacy' WHERE verdict IS NULL OR verdict = 'verified'").run();
