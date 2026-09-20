@@ -433,6 +433,70 @@ function statBar(label, v) {
 }
 function renderHangar() {
   setText('alloyN', fmt(META.alloy));
+  /* v4.1 paint shop — buy, equip, fly in it. High contrast keeps its white. */
+  const pl = $('paintList');
+  const hc = PAL.name === 'High contrast';
+  $('dockName').textContent = hull().name;
+  $('dockSub').textContent = META.ship === 'wraith' ? 'Recovered from the gate — it keeps its own color' :
+    hc ? 'High contrast keeps its hull — paints apply on other styles' :
+    PAINTS.find(p => p.id === META.paint).name + ' · renders in flight and on the boards';
+  pl.innerHTML = '';
+  for (const p of PAINTS) {
+    const owned = META.paints.includes(p.id), sel = META.paint === p.id;
+    const b = document.createElement('button');
+    b.className = 'paint' + (sel ? ' sel' : '') + (owned ? '' : ' locked');
+    const d = document.createElement('i');
+    d.style.background = 'radial-gradient(circle at 34% 30%, ' + p.lit + ', ' + p.hull + ' 62%, rgba(0,0,0,.55))';
+    b.appendChild(d);
+    const lbl = document.createElement('b');
+    lbl.textContent = owned ? (sel ? 'worn' : p.name) : fmt(p.cost);
+    b.appendChild(lbl);
+    b.onclick = () => {
+      AU.ui();
+      if (sel) return;
+      if (owned) { META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
+      else if (META.alloy >= p.cost) {
+        META.alloy -= p.cost; META.paints.push(p.id); META.paint = p.id;
+        saveMeta(); applyPaint(); renderHangar(); note(p.name + ' acquired', 'rare'); AU.unlock();
+      } else note('Need ' + fmt(p.cost - META.alloy) + ' more alloy', 'bad');
+    };
+    pl.appendChild(b);
+  }
+  /* tour wall — world progress, sealed worlds glow green */
+  const twl = $('tourWall');
+  if (twl) {
+    twl.innerHTML = '';
+    for (let i = 0; i < STAGES.length; i++) {
+      const s = STAGES[i];
+      const d = document.createElement('div');
+      const sealed = (META.tourBest || 0) > i;
+      d.className = 'tw' + (sealed ? ' seal' : '');
+      d.innerHTML = '<b>' + esc(s.name) + '</b><span>' +
+        (sealed ? 'sealed · wave ' + ((META.tourRecords || {})['w' + i] || s.waves) : 'unsealed') + '</span>';      
+      twl.appendChild(d);
+    }
+  }
+  /* schematic hot-spots — refit locations pinned on the docked machine;
+     the pip number is the installed level, click jumps to the row */
+  const spots = $('dockSpots');
+  if (spots) {
+    spots.innerHTML = '';
+    const at = { plating: [50, 68], ordnance: [50, 20], thrusters: [50, 86], capacitor: [50, 44], magnet: [27, 54], fortune: [73, 54] };
+    for (const r of REFITS) {
+      const b = document.createElement('button');
+      b.className = 'spot';
+      b.style.left = at[r.id][0] + '%';
+      b.style.top = at[r.id][1] + '%';
+      b.textContent = String(refit(r.id));
+      b.title = r.name + ' — level ' + refit(r.id) + ' of ' + r.max;
+      b.setAttribute('aria-label', b.title);
+      b.onclick = () => {
+        const row = [...document.querySelectorAll('#upList .up')].find(x => x.textContent.indexOf(r.name) >= 0);
+        if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.focus(); AU.ui(); }
+      };
+      spots.appendChild(b);
+    }
+  }
   const hl = $('hullList');
   hl.innerHTML = '';
   for (const h of HULLS) {
@@ -501,7 +565,7 @@ function renderHangar() {
 /* ─────────────────── screen flow ─────────────────── */
 function showScreen(id, on) { const el = $(id); if (el) el.classList.toggle('on', on); }
 function closeAllScreens() {
-  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over', 's-boons'].forEach(id => showScreen(id, false));
+  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over', 's-boons', 's-notes'].forEach(id => showScreen(id, false));
 }
 function blurActive() { const a = document.activeElement; if (a && a.blur) a.blur(); }
 
