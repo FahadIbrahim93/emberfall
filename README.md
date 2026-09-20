@@ -1,4 +1,4 @@
-# EMBERFALL v3.9.0 — Orbital Intercept
+# EMBERFALL v4.0.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -61,7 +61,7 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **42 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the profiler math, and the reduced-motion contract. The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **44 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the profiler math, and the reduced-motion contract. The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
@@ -104,7 +104,7 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 
 - **Solar Tour mode:** eight worlds, Mercury to the Kuiper Gate, in one hull — checkpoints bank alloy as you clear each world, death pays for ground held, sealing the Gate is the clear
 - **A different sky every world:** endless and daily runs tour the solar system too — seeded world rotation every five waves, per-world tinted hostiles and rebuilt skies (storms, rings, craters, city lights); accessibility palettes keep their opposition, halving the tint
-- **Selftest suite grows to 42**, including registry invariants, tint-vs-palette opposition checks and pure tour-settle math
+- **Selftest suite grows to 44**, including registry invariants, tint-vs-palette opposition checks and pure tour-settle math
 
 ## What's new in v3.1 — "Momentum"
 
