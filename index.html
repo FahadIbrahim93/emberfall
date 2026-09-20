@@ -306,6 +306,36 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .hull .cost{font-size:.6rem;letter-spacing:.2em;color:var(--gold);margin-top:7px;display:block}
 .hull .cost.no{color:var(--dimmer)}
 .ups{display:flex;flex-direction:column;gap:7px}
+/* v4.1 the dock — your hull, large, on its pad */
+.dock{position:relative;border:1px solid var(--line-soft);margin-bottom:16px;
+  background:radial-gradient(ellipse 80% 62% at 50% 66%,rgba(255,138,43,.07),transparent 70%),rgba(8,13,26,.55);
+  padding:10px 10px 12px}
+.dock canvas{display:block;width:100%;height:auto}
+.dock-caption{font-family:Michroma,sans-serif;font-size:.72rem;letter-spacing:.22em;margin:6px 4px 0}
+.dock-sub{font-size:.58rem;letter-spacing:.14em;color:var(--dimmer);margin:3px 4px 0}
+.paints{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px}
+.paint{position:relative;height:54px;border:1px solid var(--line-soft);background:rgba(10,16,30,.5);
+  display:grid;place-items:center;transition:all .15s}
+.paint:hover:not(.locked){border-color:var(--line);background:rgba(255,138,43,.07)}
+.paint.sel{border-color:var(--ember);box-shadow:inset 0 0 14px rgba(255,138,43,.16)}
+.paint.locked{opacity:.55}
+.paint i{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 -4px 7px rgba(0,0,0,.55),0 0 8px rgba(255,255,255,.08)}
+.paint b{position:absolute;bottom:3px;left:0;right:0;font-size:.48rem;letter-spacing:.08em;
+  color:var(--dimmer);text-align:center;font-weight:400}
+.paint.sel b{color:var(--amber)}
+/* schematic hot-spots: refit locations pinned on the docked hull */
+#dockSpots{position:absolute;inset:10px 10px 52px;pointer-events:none}
+.spot{position:absolute;pointer-events:auto;width:22px;height:22px;margin:-11px 0 0 -11px;
+  border:1px solid var(--line);border-radius:50%;background:rgba(8,13,26,.8);
+  color:var(--amber);font-size:.58rem;display:grid;place-items:center;transition:all .15s}
+.spot:hover{border-color:var(--ember);background:rgba(255,138,43,.2)}
+/* tour wall — eight worlds, sealed as they fall */
+.tourwall{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px}
+.tw{border:1px solid var(--line-soft);padding:8px 9px;background:rgba(10,16,30,.5)}
+.tw.seal{border-color:rgba(125,255,184,.35)}
+.tw b{display:block;font-size:.56rem;letter-spacing:.14em;font-family:Michroma,sans-serif}
+.tw span{font-size:.52rem;color:var(--dimmer);letter-spacing:.08em}
+.tw.seal span{color:var(--good)}
 .up{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 13px;
   border:1px solid var(--line-soft);background:rgba(10,16,30,.5);text-align:left;width:100%;transition:all .16s}
 .up:hover:not(:disabled){border-color:var(--line);background:rgba(255,138,43,.07)}
@@ -621,7 +651,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.0.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.1.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -635,16 +665,27 @@ body.needrotate #rotate{display:grid}
     </div>
     <div class="bay-cols">
       <div>
-        <div class="side-head"><h3>Hulls</h3><span>Pick what you fly</span></div>
-        <div class="hulls" id="hullList"></div>
+        <div class="dock">
+          <canvas id="dockCanvas" width="1120" height="860"></canvas>
+          <div id="dockSpots"></div>
+          <p class="dock-caption" id="dockName">VESPER-01</p>
+          <p class="dock-sub" id="dockSub"></p>
+        </div>
+        <div class="side-head"><h3>Tour wall</h3><span>Worlds cleared seal on the map</span></div>
+        <div class="tourwall" id="tourWall"></div>
+        <div class="side-head"><h3>Paint shop</h3><span>Cosmetic — you, in flight and on the boards</span></div>
+        <div class="paints" id="paintList"></div>
       </div>
       <div>
-        <div class="side-head"><h3>Refits</h3><span>Permanent, across every run</span></div>
+        <div class="side-head"><h3>Hulls</h3><span>Pick what you fly</span></div>
+        <div class="hulls" id="hullList"></div>
+        <div class="side-head" style="margin-top:16px"><h3>Refits</h3><span>Permanent, across every run</span></div>
         <div class="ups" id="upList"></div>
       </div>
     </div>
     <div class="pair" style="margin-top:20px">
       <button class="btn key" id="btnBayLaunch">Launch</button>
+      <button class="btn" id="btnRange">Test range</button>
       <button class="btn" id="btnBayBack">Back</button>
       <button class="btn" id="btnExport">Export save</button>
       <button class="btn" id="btnImport">Import save</button>
@@ -865,7 +906,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.0.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.1.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1166,6 +1207,36 @@ const SCHOOL = {
   }
 };
 
+/* ════════════════ TEST RANGE — fly your hull, nothing is at stake ════
+   A school-mode run (no ghost, no ladder, no post, no alloy) with no
+   director, free refire and infinite lives. Leave from the pause menu;
+   the summary is skipped entirely — the range owns its exit. */
+const RANGE = {
+  active: false,
+  begin() {
+    startRun('endless');
+    GAME.school = true;
+    this.active = true;
+    DIRECTOR.phase = 'rest'; DIRECTOR.restT = 99999;
+    foes.length = 0; fb.length = 0; picks.length = 0; mines.length = 0;
+    P.lives = 999; P.bombs = 3; P.charges = P.maxCharges; P.overT = 8;
+    announce('TEST RANGE', 'Empty bay · nothing is at stake', '');
+    note('Range hot — pause and Abandon when done', 'good');
+  },
+  stop() {
+    this.active = false;
+    GAME.state = 'hangar';
+    toHangar();
+  },
+  tick(dt) {
+    if (!this.active || GAME.state !== 'playing' || GAME.paused) return;
+    if (P.lives < 900) P.lives = 999;              /* a hit costs nothing */
+    if (DIRECTOR.phase !== 'rest') { DIRECTOR.phase = 'rest'; DIRECTOR.restT = 99999; }
+    foes.length = 0; fb.length = 0; mines.length = 0;   /* keep the bay empty */
+  },
+  draw() {}
+};
+
 /* ═══ dynamic difficulty assist — a quiet tailwind, never a hand ═══
    Fall three times on the same wave (endless runs) and hostile fire
    gently stands down: slower guns, slower bullets, thinner walls.
@@ -1236,6 +1307,13 @@ const PALETTES = [  {
 let PAL = PALETTES[0];
 
 /* ───────────────── meta progression: hulls + refits ───────────────── */
+/* v4.1: re-derive the pilot-facing palette (paint change) without a run —
+   the field derivation runs per wave; here we sync the same result now */
+function applyPaint() {
+  PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
+  buildSprites();
+}
+
 const HULLS = [
   {
     id: 'vesper', name: 'VESPER-01', cls: 'Interceptor', cost: 0,
@@ -1272,10 +1350,26 @@ const REFITS = [
   { id: 'magnet', name: 'Collector', max: 5, cost: l => 170 + l * 150, desc: 'Pulls salvage from much further out.' },
   { id: 'fortune', name: 'Scavenger', max: 5, cost: l => 200 + l * 200, desc: 'Better drop odds and a bigger alloy cut from every run.' }
 ];
+/* ════════════════ PAINT SHOP — wear your record ═══════════════════
+   Pure cosmetics: a paint recolors the hull/hullLit channels through the
+   existing tint pipeline (tintPal), so ship, exhaust, debris and dock all
+   follow with zero art-layer work. High contrast keeps its white hull by
+   design — the shop says so instead of silently selling nothing. */
+const PAINTS = [
+  { id: 'yard',    name: 'Yard amber',    hull: '#ff8a2b', lit: '#ffd9a8', cost: 0 },
+  { id: 'slate',   name: 'Void slate',    hull: '#9fb4c8', lit: '#e6f2ff', cost: 300 },
+  { id: 'verdant', name: 'Verdict green', hull: '#59d98c', lit: '#d2ffe4', cost: 300 },
+  { id: 'crimson', name: 'Crimson signal',hull: '#ff4d5e', lit: '#ffd2d6', cost: 650 },
+  { id: 'violet',  name: 'Deep violet',   hull: '#a86bff', lit: '#ead9ff', cost: 650 },
+  { id: 'glacier', name: 'Glacial',       hull: '#59c8ff', lit: '#dcf3ff', cost: 650 },
+  { id: 'gold',    name: 'Victory gold',  hull: '#ffd166', lit: '#fff3d0', cost: 1200 },
+  { id: 'night',   name: 'Night lure',    hull: '#4b5566', lit: '#aebdd4', cost: 1200 }
+];
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   tourBest: 0, tourCleared: false, tourRecords: {},
+  paint: 'yard', paints: ['yard'],
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
@@ -1292,6 +1386,11 @@ function loadMeta() {
   META.tourBest = +s.tourBest || 0;
   META.tourCleared = !!s.tourCleared;
   META.tourRecords = (s.tourRecords && typeof s.tourRecords === 'object') ? s.tourRecords : {};
+  META.paint = typeof s.paint === 'string' && PAINTS.some(p => p.id === s.paint) ? s.paint : 'yard';
+  META.paints = Array.isArray(s.paints) && s.paints.length ?
+    s.paints.filter(id => PAINTS.some(p => p.id === id)) : ['yard'];
+  if (!META.paints.includes('yard')) META.paints.push('yard');
+  if (!META.paints.includes(META.paint)) META.paint = 'yard';
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -1657,15 +1756,21 @@ const TOUR_FINALE = TOUR_CUM[TOUR_CUM.length - 1];
 const tourWorldsDone = n => TOUR_CUM.filter(c => c < n).length;
 
 /* a stage's palette: hostile channels pulled toward `rare`, everything else
-   untouched — opposition stays opposition on every accessibility palette */
+   untouched — opposition stays opposition on every accessibility palette.
+   v4.1: the pilot's paint rides the same derivation (hull channels only,
+   never on High contrast, where the white hull is the accessibility). */
 const tintPal = (pal, st) => {
-  if (!st || !st.tint) return pal;
+  const p2 = Object.assign({}, pal);
+  const pt = META.paint && META.paint !== 'yard' ? PAINTS.find(p => p.id === META.paint) : null;
+  if (pt && (META.paints || []).includes(META.paint) && pal.name !== 'High contrast') {
+    p2.hull = pt.hull; p2.hullLit = pt.lit;
+  }
+  if (!st || !st.tint) return p2;
   const k = pal.name === 'High contrast' ? st.tint * .5 : st.tint;
   const m = (a, b) => {
     const ca = rgbOf(a).split(',').map(Number), cb = rgbOf(b).split(',').map(Number);
     return 'rgb(' + ca.map((v, i) => Math.round(v + (cb[i] - v) * k)).join(',') + ')';
   };
-  const p2 = Object.assign({}, pal);
   p2.foe = m(pal.foe, pal.rare); p2.foeDeep = m(pal.foeDeep, pal.rare);
   p2.foeLit = m(pal.foeLit, pal.rare);
   return p2;
@@ -5146,6 +5251,7 @@ function render() {
   drawPyre(GAME.t);
   drawConvoy();
   SCHOOL.draw();
+  RANGE.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
     if (!REDUCE) drawAttract();  // reduced-motion: no self-flying hull
@@ -5755,6 +5861,38 @@ function toHangar() {
   showScreen('s-hangar', true);
   AU.ui();
   $('btnBayLaunch').focus({ preventScroll: true });
+  if (!dockRaf) dockRaf = requestAnimationFrame(drawDock);
+}
+
+/* ── v4.1 the dock: your hull, large, pad-lit, breathing ──
+   Reuses the flight renderer's HULL_ART at ~7× scale on its own canvas,
+   so the hangar and the field show the same machine. Self-stopping:
+   the next frame only fires while the hangar screen is actually on. */
+let dockRaf = 0;
+let dockT = 0;   /* wall clock — GAME.t may freeze outside flight */
+function drawDock() {
+  const cv = $('dockCanvas');
+  if (!cv || !document.getElementById('s-hangar').classList.contains('on')) { dockRaf = 0; return; }
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, w, h);
+  /* pad ring: two arcs that breathe on different clocks — a machine at rest */
+  const t = dockT;
+  g.strokeStyle = rgba(PAL.hull, .16);
+  g.lineWidth = 2;
+  g.beginPath(); g.ellipse(w / 2, h * .58, 250, 86, 0, 0, TAU); g.stroke();
+  g.strokeStyle = rgba(PAL.hull, .07 + .04 * Math.sin(t * 1.6));
+  g.beginPath(); g.ellipse(w / 2, h * .58, 296, 104, 0, 0, TAU); g.stroke();
+  const ghost = { thrust: .45 + .2 * Math.sin(t * 2.2), boost: false, t, bank: .06 * Math.sin(t * .7) };
+  g.save();
+  g.translate(w / 2, h * .5);
+  g.scale(7.4, 7.4);
+  const art = HULL_ART[META.ship] || HULL_ART.vesper;
+  art(g, ghost);
+  g.restore();
+  dockT += 1 / 60;
+  dockRaf = requestAnimationFrame(drawDock);
 }
 function refreshTitleMeta() {
   const h = hull();
@@ -5892,6 +6030,7 @@ bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
 bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
+bindClick('btnRange', () => RANGE.begin());
 bindClick('btnWipe', () => {
   if (!confirm('Erase all alloy, hulls, refits, feats and scores on this device?')) return;
   DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
@@ -6015,7 +6154,7 @@ bindClick('btnLanHow', () => { $('lanHow').classList.toggle('hidden'); AU.ui(); 
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
-bindClick('btnAbort', () => { GAME.paused = false; toTitle(); });
+bindClick('btnAbort', () => { GAME.paused = false; if (RANGE.active) { RANGE.stop(); return; } toTitle(); });
 bindClick('btnAbandonTour', () => { GAME.paused = false; endRunTour(); toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
 bindClick('btnToHangar', () => toHangar());
@@ -6126,6 +6265,14 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.1.0',
+    items: [
+      '<b>The Hangar, rebuilt</b> — your hull on a breathing dock at seven times scale, pad rings lit, exactly the machine you fly. Refit hot-spots pin onto the schematic with their levels; click one to jump to its row.',
+      '<b>Paint shop</b> — eight paints, pure cosmetics, worn in flight and visible on the dock. High contrast keeps its white hull by design; the gate-recovered WRAITH keeps its own color.',
+      '<b>Tour wall &amp; test range</b> — cleared worlds seal on the map as you take them, and a zero-stakes range lets you fly the bay with infinite lives when you just want to feel a hull move.'
+    ]
+  },
   {
     v: '4.0.0',
     items: [
@@ -6662,6 +6809,38 @@ function runSelfTests() {
     clearAll();
     R = savedR; GAME.state = savedState; GAME.wave = savedWave; P.alive = savedAlive;
   });
+  T('paint shop: cosmetics derive through tintPal, never touch opposition', () => {
+    const savedPaint = META.paint, savedPaints = META.paints, savedPal = PAL;
+    eq(PAINTS[0].id, 'yard', 'yard is the free default');
+    ok(PAINTS.every(p => p.hull && p.lit && typeof p.cost === 'number'), 'every paint fully specified');
+    META.paints = ['yard', 'crimson']; META.paint = 'crimson';
+    const ember = PALETTES[0];
+    const painted = tintPal(ember, null);
+    eq(painted.hull, PAINTS.find(p => p.id === 'crimson').hull, 'paint recolors the hull channel');
+    eq(painted.foe, ember.foe, 'paint never touches hostiles');
+    /* High contrast refuses paints — the white hull IS the accessibility */
+    const hcPal = PALETTES.find(p => p.name === 'High contrast');
+    const hc = tintPal(hcPal, null);
+    eq(hc.hull, hcPal.hull, 'high contrast keeps its hull');
+    /* unowned paint ids cannot ride the derivation */
+    META.paint = 'violet'; META.paints = ['yard'];
+    eq(tintPal(ember, null).hull, ember.hull, 'unequipped paint is inert');
+    META.paint = savedPaint; META.paints = savedPaints; PAL = savedPal;
+  });
+  T('test range: the bay stays empty and nothing is at stake', () => {
+    const savedActive = RANGE.active, savedSchool = GAME.school, savedState = GAME.state;
+    GAME.state = 'playing'; GAME.school = true; RANGE.active = true;
+    clearAll();
+    spawnFoe('drone', { ty: 120 });
+    fb.length = 0; foeShot({ x: 100, y: 100, r: 10 }, PI / 2, 200, {});
+    RANGE.tick(1 / 60);
+    eq(foes.length, 0, 'range sweep clears hostiles');
+    eq(fb.length, 0, 'range sweep clears fire');
+    P.lives = 2; RANGE.tick(1 / 60);
+    ok(P.lives >= 900, 'a hit costs nothing on the range');
+    RANGE.active = savedActive; GAME.school = savedSchool; GAME.state = savedState;
+    clearAll();
+  });
   T('sustained load: 10s of full combat holds 120Hz sim', () => {
     // Phase E perf gate: the worst realistic worst case — one of every hostile
     // class + a capital + dense fire — must still fit the fixed-step budget.
@@ -6927,7 +7106,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.0.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.1.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -7057,6 +7236,7 @@ function stepGame(dt) {
   updateThreat(dt);
   DDA.update(dt);
   SCHOOL.tick(dt);
+  RANGE.tick(dt);   /* v4.1 test range — clears whatever leaks in */
   if (GAME.comboT > 0) {
     GAME.comboT -= dt;
     if (GAME.comboT <= 0 && GAME.combo > 0) { GAME.combo = 0; GAME.mult = 1; }

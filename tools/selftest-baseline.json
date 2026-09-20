@@ -1,6 +1,6 @@
 {
-  "total": 44,
-  "passed": 44,
+  "total": 46,
+  "passed": 46,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -31,6 +31,8 @@
     "tour run math: cumulative worlds, seeded endless spin, checkpoint settle",
     "world hazards: gravity bends fire, storms telegraph, frost dulls dash",
     "second generation: six classes wired end to end, packs to rails to shells",
+    "paint shop: cosmetics derive through tintPal, never touch opposition",
+    "test range: the bay stays empty and nothing is at stake",
     "sustained load: 10s of full combat holds 120Hz sim",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",
