@@ -1,6 +1,6 @@
 {
-  "total": 42,
-  "passed": 42,
+  "total": 44,
+  "passed": 44,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -29,6 +29,8 @@
     "vampiric elites mend close neighbours only, and respect the master switch",
     "solar tour: eight worlds tint distinct skies without breaking opposition",
     "tour run math: cumulative worlds, seeded endless spin, checkpoint settle",
+    "world hazards: gravity bends fire, storms telegraph, frost dulls dash",
+    "second generation: six classes wired end to end, packs to rails to shells",
     "sustained load: 10s of full combat holds 120Hz sim",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",

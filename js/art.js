@@ -941,6 +941,115 @@ const FOE_ART = {
     ringPath(g, 0, -1, 4.6); g.stroke();
     disc(g, 0, -1, 2.4, e.col === '#fff' ? '#fff' : lit(PAL.tech, .55, .25 + .6 * chg));
     eye(g, e, 0, -6.5, 2.1, PAL.tech);
+  },
+
+  /* HOUND — lean pack hunter. All leg and jaw, built to commit. */
+  hound(g, e) {
+    exhaust(g, e, 0, -8, 2.6, 10);
+    mirrorPoly(g, [[0, 12], [3.2, 6], [9.5, 2.5], [7, -3], [2.4, -5.5], [0, -9]]);
+    carapace(g, e, -9, 12);
+    seams(g, e, [[0, -6, 0, 8], [-3.4, 2, 3.4, 2]]);
+    /* jaw prongs — the pack's grapple look */
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 3, 12], [sx * 5.5, 16], [sx * 6, 9]]);
+      chassis(g, e);
+      g.lineWidth = 1; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .7); g.stroke();
+    }
+    eye(g, e, 0, 2, 2);
+  },
+
+  /* WEEPER — mortar tub. A heavy shouldered lobber with a visible bore. */
+  weeper(g, e) {
+    exhaust(g, e, -4.5, -8, 2.2, 8);
+    exhaust(g, e, 4.5, -8, 2.2, 8);
+    mirrorPoly(g, [[0, 10], [6, 7], [10, -1], [5, -8], [0, -10]]);
+    carapace(g, e, -10, 10);
+    seams(g, e, [[-6.5, 1, 6.5, 1]]);
+    /* mortar bore faces downfield */
+    disc(g, 0, 6, 3.6, '#080510');
+    g.lineWidth = 1.2; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .8); g.stroke();
+    disc(g, 0, 6, 1.4, e.col === '#fff' ? '#fff' : lit(e.col, .4, .8));
+    eye(g, e, 0, -3, 1.9);
+  },
+
+  /* TENDER — field medic. Soft hull, bright mending vanes, no fangs. */
+  tender(g, e) {
+    exhaust(g, e, -3.4, -7, 2, 7);
+    exhaust(g, e, 3.4, -7, 2, 7);
+    mirrorPoly(g, [[0, 11], [5.4, 6], [7.4, -2], [4, -9], [0, -11]]);
+    carapace(g, e, -11, 11);
+    seams(g, e, [[-4.6, 0, 4.6, 0], [0, -7, 0, 7]]);
+    /* mending vanes — they pulse to the repair clock */
+    const mend = .35 + .45 * Math.sin((e.t || 0) * 3.2);
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 6, 3], [sx * 11.5, 0], [sx * 7, -4]]);
+      chassis(g, e);
+      g.lineWidth = 1; g.strokeStyle = PAL.good; g.stroke();
+      disc(g, sx * 9.5, 0, 1.5, lit(PAL.good, .5, .3 + .6 * mend));
+    }
+    eye(g, e, 0, 2.5, 1.9, PAL.good);
+  },
+
+  /* RAVAGER — armored brawler. Slab plates over a rotating core fan. */
+  ravager(g, e) {
+    exhaust(g, e, -6, -10, 3, 12);
+    exhaust(g, e, 6, -10, 3, 12);
+    /* slab pauldrons */
+    mirrorPoly(g, [[8, 7], [15.5, 3], [14, -6], [7, -7]]);
+    chassis(g, e);
+    g.lineWidth = 1.2; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .75); g.stroke();
+    mirrorPoly(g, [[0, 13], [7.5, 8], [9, -1], [5.5, -9], [0, -12]]);
+    carapace(g, e, -12, 13);
+    seams(g, e, [[-7, 2, 7, 2]]);
+    /* the fan — rotates at exactly the firing spin, the honest tell */
+    const spin = (e.t || 0) * 1.4;
+    for (let i = 0; i < 4; i++) {
+      const a = spin + i * TAU / 4;
+      g.strokeStyle = e.col === '#fff' ? '#fff' : lit(e.col, .35, .8);
+      g.lineWidth = 1.3;
+      g.beginPath(); g.moveTo(Math.cos(a) * 3.2, Math.sin(a) * 3.2 - 1);
+      g.lineTo(Math.cos(a) * 7.2, Math.sin(a) * 7.2 - 1); g.stroke();
+    }
+    disc(g, 0, -1, 2.2, e.col === '#fff' ? '#fff' : lit(e.col, .5, .85));
+    eye(g, e, 0, -6.5, 2);
+  },
+
+  /* ARBALEST — rail platform. Long spine, twin rails, honest aim line. */
+  arbalest(g, e) {
+    exhaust(g, e, -4, -11, 2.4, 9);
+    exhaust(g, e, 4, -11, 2.4, 9);
+    mirrorPoly(g, [[0, 9], [4.6, 5], [7, -4], [3.6, -11], [0, -13]]);
+    carapace(g, e, -13, 9);
+    seams(g, e, [[-4.6, -2, 4.6, -2]]);
+    /* twin rails running fore-aft */
+    for (const sx of [-1, 1]) {
+      g.lineWidth = 1.4;
+      g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .85);
+      g.beginPath(); g.moveTo(sx * 2.6, -13); g.lineTo(sx * 2.6, 7); g.stroke();
+    }
+    /* charge bead slides the spine while the shot arms */
+    if (e.railWarm > 0) {
+      const k = 1 - e.railWarm;
+      disc(g, 0, 6 - 13 * k, 1.7, lit(PAL.rare, .5, .9));
+    }
+    eye(g, e, 0, 1, 1.8, PAL.rare);
+  },
+
+  /* MIMIC — the shadow thief. A jagged mirror of your own silhouette. */
+  mimic(g, e) {
+    exhaust(g, e, -3, -9, 2.2, 9);
+    exhaust(g, e, 3, -9, 2.2, 9);
+    /* inverted-delta body — your silhouette, seen wrong */
+    mirrorPoly(g, [[0, -12], [4.8, -4], [9.5, 4], [4, 10], [0, 7]]);
+    carapace(g, e, -12, 10);
+    seams(g, e, [[0, 8, 0, -8], [-4.2, -2, 4.2, -2]]);
+    /* mirrored wingtips glow with your last line */
+    const la = e.lastAim;
+    for (const sx of [-1, 1]) {
+      const wx = sx * 9.5, wy = 4;
+      disc(g, wx, wy, 1.6, la != null ? lit(PAL.hull, .5, .9) : (e.col === '#fff' ? '#fff' : lit(e.col, .4, .7)));
+    }
+    eye(g, e, 0, -4, 2.1);
   }
 };
 

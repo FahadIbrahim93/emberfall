@@ -621,7 +621,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.9.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.0.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -865,7 +865,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.9.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.0.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1639,14 +1639,14 @@ function makeDerelict() {
    balance. Tour mode walks stages in order; endless spins a seeded
    rotation (daily shares the day seed, so everyone flies the same sky). */
 const STAGES = [
-  { id: 'mercury',  name: 'Mercury',     tagline: 'Sun-scoured clutter belt',       tint: .5,  crater: 1.9, ring: 0,   storm: .12, lights: 0,   hue: 38,  sat: 1.12, bri: 1.06, waves: 4 },
-  { id: 'venus',    name: 'Venus',       tagline: 'Crushing shroud, amber static',  tint: .34, crater: .25, ring: .35, storm: .75, lights: .2,  hue: 14,  sat: 1.1,  bri: 1.04, waves: 5 },
+  { id: 'mercury',  name: 'Mercury',     tagline: 'Sun-scoured clutter belt',       tint: .5,  crater: 1.9, ring: 0,   storm: .12, lights: 0,   hue: 38,  sat: 1.12, bri: 1.06, waves: 4, haz: 'flare',     hazK: 1 },
+  { id: 'venus',    name: 'Venus',       tagline: 'Crushing shroud, amber static',  tint: .34, crater: .25, ring: .35, storm: .75, lights: .2,  hue: 14,  sat: 1.1,  bri: 1.04, waves: 5, haz: 'cloudbank', hazK: 1 },
   { id: 'earth',    name: 'Earth',       tagline: 'Home lights behind you',         tint: 0,   crater: .3,  ring: 0,   storm: .4,  lights: 1,   hue: 0,   sat: 1,    bri: 1,    waves: 5 },
-  { id: 'mars',     name: 'Mars',        tagline: 'Rust storms, thin air',          tint: .2,  crater: 1.5, ring: 0,   storm: .95, lights: .35, hue: 16,  sat: 1.06, bri: 1.02, waves: 6 },
-  { id: 'jupiter',  name: 'Jupiter',     tagline: 'The magnetosphere answers back', tint: .3,  crater: .2,  ring: .6,  storm: 1,   lights: 0,   hue: 26,  sat: 1.12, bri: 1.02, waves: 6 },
-  { id: 'saturn',   name: 'Saturn',      tagline: 'Carriers breed in the rings',    tint: .3,  crater: .2,  ring: 1.4, storm: .55, lights: 0,   hue: 40,  sat: 1.04, bri: 1,    waves: 7 },
-  { id: 'neptune',  name: 'Neptune',     tagline: 'Cold velocity, dim instruments', tint: .55, crater: .3,  ring: .3,  storm: .3,  lights: .15, hue: -22, sat: 1.05, bri: .98,  waves: 7 },
-  { id: 'gate',     name: 'Kuiper Gate', tagline: 'The thing the tide came through',tint: .7,  crater: .8,  ring: .2,  storm: .8,  lights: 0,   hue: -14, sat: 1.05, bri: .96,  waves: 8 }
+  { id: 'mars',     name: 'Mars',        tagline: 'Rust storms, thin air',          tint: .2,  crater: 1.5, ring: 0,   storm: .95, lights: .35, hue: 16,  sat: 1.06, bri: 1.02, waves: 6, haz: 'storm',     hazK: 1 },
+  { id: 'jupiter',  name: 'Jupiter',     tagline: 'The magnetosphere answers back', tint: .3,  crater: .2,  ring: .6,  storm: 1,   lights: 0,   hue: 26,  sat: 1.12, bri: 1.02, waves: 6, haz: 'gravity',   hazK: 1 },
+  { id: 'saturn',   name: 'Saturn',      tagline: 'Carriers breed in the rings',    tint: .3,  crater: .2,  ring: 1.4, storm: .55, lights: 0,   hue: 40,  sat: 1.04, bri: 1,    waves: 7, haz: 'haze',      hazK: .45 },
+  { id: 'neptune',  name: 'Neptune',     tagline: 'Cold velocity, dim instruments', tint: .55, crater: .3,  ring: .3,  storm: .3,  lights: .15, hue: -22, sat: 1.05, bri: .98,  waves: 7, haz: 'frost',     hazK: 1 },
+  { id: 'gate',     name: 'Kuiper Gate', tagline: 'The thing the tide came through',tint: .7,  crater: .8,  ring: .2,  storm: .8,  lights: 0,   hue: -14, sat: 1.05, bri: .96,  waves: 8, haz: 'gravity',   hazK: 1.5 }
 ];
 let STAGE = null;   /* active stage descriptor, or null = unmodded sky */
 /* cumulative wave counts per world: [4,9,14,20,26,33,40,48] — world i spans
@@ -1710,6 +1710,171 @@ function endRunTour() {
   saveMeta();
   if (earn) note('Tour settled · +' + fmt(earn) + ' alloy', 'good');
 }
+
+/* ════════════════ WORLD HAZARDS — the stage as an opponent ═══════════
+   Each world beyond Earth declares one hazard (haz) plus an intensity
+   (hazK). Hazards bend the field: gravity wells tug every hull and
+   bullet, storms birth lightning columns that telegraph then bite,
+   cryofields dull the dash capacitor, ring dust breaks lock-ons. They
+   tick only while a run is flying; school and rush stay clean; the
+   codex teaches each hazard on first encounter. */
+const HAZARDS = {
+  gravity: {
+    name: 'Gravity well',
+    tip: 'A mass below pulls everything — shots curve, ships drift. Lead your shots; dash against the pull.',
+    wells: st => [{ x: W / 2, y: H + 140, k: 52000 * st.hazK }],
+    dashMul: () => 1
+  },
+  storm: {
+    name: 'Ion storm',
+    tip: 'Charge builds in columns, then strikes. The shimmering lane is your warning — leave it.',
+    strikeEvery: st => 2.7 / st.hazK,
+    dashMul: () => 1.18
+  },
+  frost: {
+    name: 'Cryofield',
+    tip: 'Deep cold dulls your capacitor — dash charges rebuild far slower. Spend them like alloy.',
+    dashMul: () => 1.9
+  },
+  haze: {
+    name: 'Ring haze',
+    tip: 'Ring dust scatters guidance — seeker rounds and sniper sights track at a fraction. Drift with the slow tide.',
+    seekMul: st => st.hazK,
+    dashMul: () => 1.12
+  },
+  flare: {
+    name: 'Solar flare',
+    tip: 'The sun exhales. Rising heat tides scorch the low field — read the glow climbing under you.',
+    dashMul: () => 1.15
+  },
+  cloudbank: {
+    name: 'Sulfur cloudbank',
+    tip: 'Dense cloud shrouds hostiles until they commit. Watch the leading edge of the bank.',
+    dashMul: () => 1.1
+  }
+};
+const hazards = {
+  active: null, k: 0, wl: null, t: 0, strikeT: 0, strikeFlash: 0, strikeX: 0, nextStrike: 3,
+  flares: [], clouds: [],
+  begin() {
+    const st = STAGE;
+    const on = st && st.haz && GAME.mode !== 'rush' && !GAME.school;
+    this.active = on ? HAZARDS[st.haz] : null;
+    this.k = on ? (st.hazK || 1) : 0;
+    this.wl = on && this.active.wells ? this.active.wells(st) : null;
+    this.t = 0; this.nextStrike = 2.4; this.strikeT = 0; this.strikeFlash = 0;
+    this.flares.length = 0; this.clouds.length = 0;
+    if (!this.active) return;
+    if (st.haz === 'flare') for (let i = 0; i < 2; i++) this.flares.push(this.mkFlare(i * 4.2));
+    if (st.haz === 'cloudbank') for (let i = 0; i < 3; i++)
+      this.clouds.push({ x: rnd(0, W), y: rnd(-30, 70), vx: rnd(60, 120) * (i % 2 ? 1 : -1), w: rnd(170, 340), a: rnd(.16, .28) });
+    CODEX.show('haz_' + st.haz, this.active.name, this.active.tip);
+  },
+  mkFlare(off) { return { x: rnd(W * .1, W * .9), t: -off, life: 2.6, warn: 1.05, w: rnd(46, 92), y: H + 40 }; },
+  stop() {
+    this.active = null; this.k = 0; this.wl = null;
+    this.flares.length = 0; this.clouds.length = 0; this.strikeT = 0; this.strikeFlash = 0;
+  },
+  update(dt) {
+    if (!this.active) return;
+    this.t += dt;
+    if (this.active.strikeEvery) {
+      this.nextStrike -= dt;
+      if (this.nextStrike <= 0 && this.strikeT <= 0) {
+        this.nextStrike = this.active.strikeEvery(STAGE) * rnd(.8, 1.25);
+        this.strikeX = rnd(60, W - 60);
+        this.strikeT = .8;                       /* telegraph, then bite */
+      }
+    }
+    if (this.strikeT > 0) {
+      this.strikeT -= dt;
+      if (this.strikeT <= 0) {
+        this.strikeFlash = .14;
+        if (GAME.state === 'playing' && P.alive && P.inv <= 0 && Math.abs(P.x - this.strikeX) < 46)
+          hurtPlayer({ x: this.strikeX, y: P.y, r: 8 });
+      }
+    }
+    if (this.strikeFlash > 0) this.strikeFlash -= dt;
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const f = this.flares[i];
+      f.t += dt;
+      f.y = H + 30 - (H + 160) * clamp(f.t / f.life, 0, 1);   /* bottom → past top */
+      if (f.t > f.warn && f.t < f.life - .4 && GAME.state === 'playing' && P.alive &&
+          P.inv <= 0 && Math.abs(P.y - f.y) < 26)
+        hurtPlayer({ x: P.x, y: P.y, r: 6 });
+      if (f.t > f.life) this.flares[i] = this.mkFlare(rnd(1.6, 4.4));
+    }
+    for (const c of this.clouds) {
+      c.x += c.vx * dt;
+      if (c.x > W + c.w) c.x = -c.w;
+      if (c.x < -c.w) c.x = W + c.w;
+    }
+  },
+  /* inverse-falloff pull — inverse-SQUARE is far too violent at screen scale.
+     Writes into `out` (one shared scratch) so per-bullet calls never allocate. */
+  pull(x, y, out) {
+    if (!this.wl) return null;
+    const o = out || { ax: 0, ay: 0 };
+    o.ax = 0; o.ay = 0;
+    for (const w of this.wl) {
+      const dx = w.x - x, dy = w.y - y;
+      const d = Math.max(90, Math.sqrt(dx * dx + dy * dy));
+      const f = w.k / d;
+      o.ax += dx / d * f; o.ay += dy / d * f;
+    }
+    return o;
+  },
+  seekMul() { return this.active && this.active.seekMul ? this.active.seekMul(STAGE) : 1; },
+  dashMul() { return this.active ? this.active.dashMul() : 1; },
+  drawBack() {
+    if (!this.active) return;
+    const t = GAME.t;
+    if (this.strikeT > 0) {
+      ctx.save();
+      ctx.globalAlpha = REDUCE ? .22 : .15 + .1 * Math.sin(t * 30);
+      ctx.strokeStyle = PAL.tech;
+      ctx.setLineDash([4, 10]);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(this.strikeX, 0); ctx.lineTo(this.strikeX, H); ctx.stroke();
+      ctx.restore();
+    }
+    for (const c of this.clouds) {
+      ctx.save();
+      ctx.globalAlpha = c.a;
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.w);
+      g.addColorStop(0, '#c8a34a'); g.addColorStop(1, 'rgba(200,163,74,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(c.x - c.w, c.y - c.w * .5, c.w * 2, c.w);
+      ctx.restore();
+    }
+  },
+  drawFront() {
+    if (!this.active) return;
+    if (this.strikeFlash > 0) {                    /* the bite: a jagged bolt */
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.strikeFlash * 7);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.moveTo(this.strikeX, 0);
+      let y = 0, x = this.strikeX;
+      while (y < H) { y += 34; x += rnd(-13, 13); ctx.lineTo(x, y); }
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const f of this.flares) {
+      if (f.t <= 0 || f.t > f.life) continue;
+      const a = .2 * (f.t < f.warn ? f.t / f.warn : clamp(1 - (f.t - f.life * .55) / (f.life * .45), .25, 1));
+      const g = ctx.createLinearGradient(0, f.y - 26, 0, f.y + 26);
+      g.addColorStop(0, 'rgba(255,150,60,0)');
+      g.addColorStop(.5, 'rgba(255,150,60,' + a.toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,150,60,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, f.y - 26, W, 52);
+    }
+  }
+};
+
+const HZPULL = { ax: 0, ay: 0 };   /* shared pull scratch — zero alloc per bullet */
 
 function buildBackdrop() {
   const activeStage = STAGE;   /* captured: rebuilds always bake the active world */
@@ -2495,6 +2660,8 @@ function updatePlayer(dt, move) {
     P.vy = damp(P.vy, tvy, 12, dt);
   }
 
+  const hzPull = hazards.pull(P.x, P.y);   /* gravity wells drag the hull */
+  if (hzPull) { P.vx += hzPull.ax * dt; P.vy += hzPull.ay * dt; }
   P.x = clamp(P.x + P.vx * dt, 20, W - 20);
   P.y = clamp(P.y + P.vy * dt, 46, H - 26);
   P.bank = damp(P.bank, clamp(P.vx / baseSpeed, -1, 1), 9, dt);
@@ -2505,7 +2672,7 @@ function updatePlayer(dt, move) {
   if (P.dashCd > 0) P.dashCd -= dt;
   if (P.charges < P.maxCharges) {
     P.dashCd -= dt * (1 + refit('thrusters') * .1) * P.dashMul;
-    if (P.dashCd <= 0) { P.charges++; P.dashCd = 1.55 * (1 - refit('thrusters') * .055) / P.dashMul; }
+    if (P.dashCd <= 0) { P.charges++; P.dashCd = 1.55 * (1 - refit('thrusters') * .055) / P.dashMul * hazards.dashMul(); }
   }
   if ((refit('capacitor') >= 5 || P.shieldRegenOn) && P.shield < P.shieldMax) {
     P.shieldRegen += dt;
@@ -2735,7 +2902,8 @@ function updateFxQueue(dt) {
   }
 }
 const DEATH_TIER = { drone: 0, mini: 0, striker: 1, weaver: 1, splitter: 1, orbiter: 1, sniper: 1,
-  ram: 1, lancer: 2, warden: 2, minelayer: 2, shieldbreaker: 2, cruiser: 3, carrier: 3 };
+  ram: 1, lancer: 2, warden: 2, minelayer: 2, shieldbreaker: 2, cruiser: 3, carrier: 3,
+  hound: 1, weeper: 1, tender: 2, ravager: 3, arbalest: 2, mimic: 2 };
 const DEATHS = {
   /* lancer's capacitor discharges down the line it fought with */
   lancer(e) {
@@ -2824,6 +2992,57 @@ const DEATHS = {
       if (GAME.state !== 'playing') return;
       ring(e.x, e.y, { r: 6, vr: 300, life: .4, col: rgbOf(PAL.rare), w: 2.4 });
       if (P.alive && hyp(P.x - e.x, P.y - e.y) < 150) { P.dashCd = Math.max(P.dashCd, .8); note('Dash capacitors scrambled', 'bad'); }
+    });
+  },
+  /* hound: the pack bond dies with it — a sharp double flash, inward */
+  hound(e) {
+    fxAt(.08, () => { if (GAME.state === 'playing') ring(e.x, e.y, { r: 2, vr: 260, life: .16, col: rgbOf(PAL.foe), w: 1.2 }); });
+    fxAt(.2, () => { if (GAME.state === 'playing') ring(e.x, e.y, { r: 2, vr: -180, life: .2, col: rgbOf(PAL.foe), w: 1 }); });
+  },
+  /* weeper: unspent shells cook off around the crater */
+  weeper(e) {
+    for (let i = 1; i <= 3; i++) fxAt(.14 * i, () => {
+      if (GAME.state !== 'playing') return;
+      explode(e.x + rnd(-24, 24), e.y + rnd(-16, 16), 'foe', .42);
+      AU.foeShot('heavy');
+    });
+  },
+  /* tender: its mending field collapses — every hull it was knitting flashes once */
+  tender(e) {
+    fxAt(.1, () => {
+      if (GAME.state !== 'playing') return;
+      ring(e.x, e.y, { r: 8, vr: -210, life: .5, col: rgbOf(PAL.good), w: 2.2 });
+      for (const o of foes) {
+        if (o.dead || o === e) continue;
+        if (hyp(o.x - e.x, o.y - e.y) < 170)
+          ring(o.x, o.y, { r: 3, vr: 50, life: .3, col: rgbOf(PAL.good), w: 1.2 });
+      }
+    });
+  },
+  /* ravager: plates shear in its spin direction, then the core goes with the fan */
+  ravager(e) {
+    const spin = e.t * 1.4;
+    for (let i = 0; i < 4; i++) fxAt(.1 + i * .07, () => {
+      if (GAME.state !== 'playing') return;
+      const a = spin + i * TAU / 4;
+      explode(e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, 'foe', .5);
+    });
+  },
+  /* arbalest: its last rail slug fires skyward as the gun dies */
+  arbalest(e) {
+    fxAt(.16, () => {
+      if (GAME.state !== 'playing') return;
+      foeShot(e, -PI / 2, 340, { r: 4.6, col: PAL.rare });
+      ring(e.x, e.y, { r: 4, vr: 260, life: .3, col: rgbOf(PAL.rare), w: 1.8 });
+    });
+  },
+  /* mimic: it finishes wearing you — one last mirrored shot, then static */
+  mimic(e) {
+    fxAt(.15, () => {
+      if (GAME.state !== 'playing') return;
+      foeShot(e, PI - (e.lastAim != null ? e.lastAim : aimAt(e)), e.bspd, { r: 4.4 });
+      for (let i = 0; i < 5; i++)
+        part({ x: e.x, y: e.y, vx: rnd(-70, 70), vy: rnd(-70, 70), life: .3, size: rnd(4, 8), spr: SPR.foe, mode: 'glow' });
     });
   }
 };
@@ -2962,6 +3181,7 @@ function collectPick(type) {
 
 /* ─────────────────────────── collision ─────────────────────────── */
 function damageFoe(e, dmg, x, y, fromBomb) {
+  if (e.type === 'mimic' && x != null) e.lastAim = Math.atan2(y - e.y, x - e.x);
   if (e.dead || e.dying) return;
   // Gate Warden's shield arcs: shots arriving between arcs are absorbed.
   // Nova pulses ignore it — the pulse is a siege weapon.
@@ -3124,13 +3344,21 @@ const FOES = {
   carrier: { hp: 20, r: 26, hit: 23, sc: 520, guns: true, cd: 3.2, armored: true },
   ram: { hp: 9, r: 16, hit: 13, sc: 230, guns: false },
   sniper: { hp: 5, r: 15, hit: 12, sc: 300, guns: true, cd: 3.6 },
-  shieldbreaker: { hp: 8, r: 17, hit: 14, sc: 340, guns: true, cd: 3.2, armored: true }
+  shieldbreaker: { hp: 8, r: 17, hit: 14, sc: 340, guns: true, cd: 3.2, armored: true },
+  /* v4.0 — the second generation. Each one adds a verb to the fight, not a stat line. */
+  hound: { hp: 4, r: 13, hit: 11, sc: 170, guns: false },
+  weeper: { hp: 5, r: 15, hit: 13, sc: 260, guns: true, cd: 3.0 },
+  tender: { hp: 6, r: 14, hit: 12, sc: 380, guns: true, cd: 2.6 },
+  ravager: { hp: 12, r: 19, hit: 17, sc: 420, guns: true, cd: 2.2, armored: true },
+  arbalest: { hp: 7, r: 17, hit: 15, sc: 350, guns: true, cd: 3.8 },
+  mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 }
 };
 const FOE_LABEL = {
   drone: 'Drone', mini: 'Shard', striker: 'Striker', weaver: 'Weaver', splitter: 'Splitter',
   cruiser: 'Cruiser', lancer: 'Lancer', orbiter: 'Orbiter', warden: 'Warden',
   minelayer: 'Minelayer', carrier: 'Carrier',
-  ram: 'Ram', sniper: 'Sniper', shieldbreaker: 'Shieldbreaker'
+  ram: 'Ram', sniper: 'Sniper', shieldbreaker: 'Shieldbreaker',
+  hound: 'Hound', weeper: 'Weeper', tender: 'Tender', ravager: 'Ravager', arbalest: 'Arbalest', mimic: 'Mimic'
 };
 /* one-line threat doctrine — the single source the in-game codex cards and
    the Registry's Threats tab both read */
@@ -3147,7 +3375,13 @@ const FOE_TIPS = {
   orbiter: 'Circles you at range and never stops shooting. Deal with it early.',
   warden: 'Projects cover onto everything near it. Nothing nearby takes damage until it is gone.',
   minelayer: 'Seeds drifting mines that scatter on contact or timeout.',
-  carrier: 'Launches drones on a loop. Treat it as a spawner, not a fighter.'
+  carrier: 'Launches drones on a loop. Treat it as a spawner, not a fighter.',
+  hound: 'Hunts in packs. One committing to a dive pulls the whole pack in with it — break the first one early.',
+  weeper: 'Lobs heavy shells that arc under gravity. The high arc is the miss — keep moving so it stays one.',
+  tender: 'Mends its allies and re-armors them. Kill it first, or every wound you deal closes again.',
+  ravager: 'A armored brawler that walks through fire. Its fan spins — respect the rotation, stay off its line.',
+  arbalest: 'A rail that draws a dead-straight firing line before it speaks. The line is honest: never be on it.',
+  mimic: 'Wears your shadow — it mirrors your line and answers your fire with its own. Dash on your own muzzle flash.'
 };
 const BOSS_TIPS = {
   dreadnought: 'Two turret weak points worth extra. Break them to cut its beam phase short.',
@@ -3292,7 +3526,7 @@ function gunControl(e, dt) {
   if (e.type === 'sniper') {
     // the sight accumulates on its own clock, independent of the fire cooldown
     e.lockNeed = e.lockNeed || 1.5;
-    e.lockT = (e.lockT || 0) + dt;
+    e.lockT = (e.lockT || 0) + dt * hazards.seekMul();   /* haze scatters the sight too */
     e.fireT -= dt * (isCozy() ? 1.45 : 1);   // cozy: the lock needs longer to bite
     if (e.lockT >= e.lockNeed && e.fireT <= 0) {
       e.lockT = 0;
@@ -3319,6 +3553,16 @@ function gunControl(e, dt) {
   switch (e.type) {
     case 'striker':
       fan(e, aimAt(e), (e.elite ? 2 : 1) + (e.axTwin ? 2 : 0), .18 + (e.axTwin ? .1 : 0), e.bspd); break;
+    case 'ravager':
+      /* rotating 4-way fan — respect the spin, stay off its line */
+      fan(e, e.t * 1.4, 4, .16, e.bspd * .92, { r: 5 }); break;
+    case 'weeper':
+      /* mortar shell: slow round + finite life so it never leaves — arcs
+         under the stage's gravity (or falls straight where there is none) */
+      foeShot(e, aimAt(e) + rnd(-.25, .25), e.bspd * .5, { r: 7, life: 5, col: PAL.gold, kind: 'shell' }); break;
+    case 'mimic':
+      /* answers your line: mirrors the angle your hull sits at across its own axis */
+      foeShot(e, PI - aimAt(e) + rnd(-.06, .06), e.bspd * 1.04, { r: 4.4 }); break;
     case 'sniper':
       // lock-driven fire is handled above; nothing extra on the shared clock
       break;
@@ -3358,11 +3602,53 @@ function gunControl(e, dt) {
       }
       break;
     }
+    case 'tender': {
+      /* repair pulse: a visible mend ring heals wounded neighbours — and
+         re-armors the armored ones. Pressure through triage, not bullets. */
+      let mended = false;
+      for (const o of foes) {
+        if (o === e || o.dead || o.dying || o.staged) continue;
+        if (o.hp < o.maxHp && hyp(o.x - e.x, o.y - e.y) < 170) {
+          o.hp = Math.min(o.maxHp, o.hp + 2);
+          if (o.armored) o.hp = Math.min(o.maxHp, o.hp + 1);
+          ring(o.x, o.y, { r: 3, vr: 60, life: .35, col: rgbOf(PAL.good), w: 1.6 });
+          mended = true;
+        }
+      }
+      if (mended) AU.ui();
+      break;
+    }
+    case 'arbalest': {
+      /* rail: the aiming line IS the telegraph — dead straight, then a fast slug */
+      e.railAng = aimAt(e);
+      e.railWarm = 1;
+      fxAt(.85, () => {
+        if (GAME.state !== 'playing' || e.dead) return;
+        foeShot(e, e.railAng, e.bspd * 2.1, { r: 4.6, col: PAL.rare });
+        AU.sniperLock(); AU.foeShot('heavy');
+      });
+      break;
+    }
   }
   e.fireT = e.cd * Math.max(.55, 1 - GAME.wave * .018) * earlyEase() * rnd(.85, 1.2);
   if (e.type !== 'lancer' && e.type !== 'minelayer') AU.foeShot();
 }
 function beginDive(e) { e.state = 'dive'; e.ang = P.alive ? aimAt(e) : PI / 2; e.dv = e.axSwift ? 90 : 0; e.glow = 0; }
+
+/* v4.0: HOUND pack telepathy — the first hound to commit drags the pack.
+   A one-shot per dive so the pack turns once, coherently. */
+function houndPack(e) {
+  let any = false;
+  for (const o of foes) {
+    if (o === e || o.type !== 'hound' || o.dead || o.state === 'dive') continue;
+    if (hyp(o.x - e.x, o.y - e.y) < 240) {
+      /* diveAt 0 means "no timer armed" — arm one instead of min()ing into it */
+      o.diveAt = o.diveAt > 0 ? Math.min(o.diveAt, rnd(.12, .4)) : rnd(.12, .4);
+      any = true;
+    }
+  }
+  if (any) AU.alarm();
+}
 
 /* ─────────────────── per-frame hostile update ─────────────────── */
 function updateFoe(e, dt) {
@@ -3441,6 +3727,17 @@ function updateFoe(e, dt) {
     }
     if (e.t > 48) leaveField(e);
   }
+
+  /* v4.0 class hooks that ride the shared hold/dive states */
+  if (e.type === 'hound' && e.state === 'dive' && !e.packCalled) {
+    e.packCalled = true;
+    houndPack(e);   /* the first diver calls the pack in */
+  }
+  if (e.type === 'mimic' && e.state === 'hold') {
+    /* it wears your shadow — drift toward your column, mirrored */
+    e.tx = damp(e.tx, clamp(W - P.x, 60, W - 60), .8, dt);
+  }
+  if (e.railWarm > 0) { e.railWarm -= dt; if (e.railWarm < 0) e.railWarm = 0; }
 
   /* RAM — telegraphs a furrow across the field, then commits to it. */
   if (e.type === 'ram' && e.state === 'hold') {
@@ -3825,6 +4122,13 @@ function buildWave(n) {
     if (n >= 10) pool.push('ram');
     if (n >= 11) pool.push('sniper');
     if (n >= 13) pool.push('shieldbreaker');
+    /* v4.0 second generation joins the rotation */
+    if (n >= 14) pool.push('hound');
+    if (n >= 15) pool.push('weeper');
+    if (n >= 16) pool.push('tender');
+    if (n >= 17) pool.push('arbalest');
+    if (n >= 18) pool.push('ravager');
+    if (n >= 19) pool.push('mimic');
     const forms = ['vee', 'sweep', 'column', 'arc', 'pincer', 'orbit'];
     let t = .6;
     const groups = Math.min(8, 3 + Math.floor(n / 2));
@@ -3839,6 +4143,10 @@ function buildWave(n) {
       if (type === 'orbiter') count = Math.min(4, 2 + Math.floor(n / 10));
       if (type === 'sniper') count = Math.min(3, 1 + Math.floor((n - 8) / 6));
       if (type === 'ram') count = Math.min(4, 2 + Math.floor(n / 8));
+      if (type === 'hound') count = Math.min(4, 3);   /* packs, not pairs */
+      if (type === 'weeper') count = Math.min(3, 1 + Math.floor((n - 13) / 7));
+      if (type === 'tender' || type === 'arbalest' || type === 'mimic') count = Math.min(2, 1 + Math.floor((n - 15) / 9));
+      if (type === 'ravager') count = Math.min(2, 1 + Math.floor((n - 17) / 9));
       const elite = n >= 10 && R.chance(.16);
       at(t, type, Math.max(1, count), form, { side: i % 2 ? 1 : -1, elite });
       t += Math.max(3.1, 6.4 - n * .11);
@@ -3948,6 +4256,7 @@ function startWave(n) {
      sector line and the world name are one sentence, not two */
   if (GAME.mode !== 'rush' && !GAME.school) {
     syncStage(n);
+    hazards.begin();   /* the stage is an opponent — arm its weather */
     if (GAME.mode === 'tour') {
       const done = tourWorldsDone(n);
       if (done > GAME.tourWorld) {           /* crossed into a new world */
@@ -4093,7 +4402,8 @@ function updateWorld(dt) {
       }
       if (b.target) {
         const want = Math.atan2(b.target.y - b.y, b.target.x - b.x);
-        b.ang += clamp(angDiff(b.ang, want), -5.5 * dt, 5.5 * dt);
+        const hzSeek = hazards.seekMul();   /* ring haze scatters guidance */
+        b.ang += clamp(angDiff(b.ang, want), -5.5 * hzSeek * dt, 5.5 * hzSeek * dt);
       } else b.ang = damp(b.ang, -PI / 2, 4, dt);
       const sp = 760;
       b.vx = Math.cos(b.ang) * sp; b.vy = Math.sin(b.ang) * sp;
@@ -4101,6 +4411,8 @@ function updateWorld(dt) {
         x: b.x, y: b.y, life: .22, size: 9, spr: SPR.hull, drag: 2
       });
     }
+    const hp = hazards.pull(b.x, b.y, HZPULL);   /* your shots answer gravity too */
+    if (hp) { b.vx += hp.ax * dt; b.vy += hp.ay * dt; }
     b.x += b.vx * dt; b.y += b.vy * dt;
     if (b.life <= 0 || !inView(b.x, b.y, 60)) swapOut(pb, i);
   }
@@ -4126,6 +4438,18 @@ function updateWorld(dt) {
       b.vx = Math.cos(b.ang) * sp; b.vy = Math.sin(b.ang) * sp;
     }
     b.x += b.vx * dt; b.y += b.vy * dt;
+    const hp = hazards.pull(b.x, b.y, HZPULL);   /* wells curve hostile fire too */
+    if (hp) { b.vx += hp.ax * dt; b.vy += hp.ay * dt; }
+    /* mortar shells burst into shrapnel when their arc ends — the high lob
+       is dangerous even as a miss if you chase it */
+    if (b.kind === 'shell' && b.life <= 0) {
+      for (let k = -1; k <= 1; k++) {
+        const a = b.ang + k * .5;
+        fb.push({ x: b.x, y: b.y, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190,
+          r: 3.2 * SHOT_SCALE, grazed: false, kind: 'orb', t: 0, ang: a, spin: 0,
+          col: b.col, life: 2.2, hold: 0 });
+      }
+    }
     if (b.life <= 0 || !inView(b.x, b.y, 70)) swapOut(fb, i);
   }
 
@@ -4182,6 +4506,8 @@ function updateWorld(dt) {
     }
     if (n.r > hyp(W, H) + 120) novaWave = null;
   }
+
+  hazards.update(dt);   /* stage weather ticks with the world */
 
   // hostiles
   for (const e of foes) updateFoe(e, dt);
@@ -4258,6 +4584,28 @@ function drawFoe(e) {
   else if (e.state === 'hold') tilt = Math.cos(e.ht * e.swf + e.ph) * .09;
   else if (e.state === 'orbit') tilt = Math.sin(e.spin) * .3;
   ctx.rotate(tilt);
+  /* v4.0 class tells — arbalest: the dead-straight rail line while arming;
+     tender: a faint mend-field ring; mimic: a shadow-wash toward your column */
+  if (e.type === 'arbalest' && e.railWarm > 0) {
+    ctx.save();
+    ctx.strokeStyle = PAL.rare;
+    ctx.globalAlpha = .16 + .5 * (1 - e.railWarm);
+    ctx.setLineDash([7, 9]);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(e.x + Math.cos(e.railAng) * 1200, e.y + Math.sin(e.railAng) * 1200);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (e.type === 'tender') {
+    ctx.save();
+    ctx.strokeStyle = PAL.good;
+    ctx.globalAlpha = .1 + .06 * Math.sin(e.t * 3.2);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, 170, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
   /* v3.8 affix tells — volatile: pulsing core ring; grave: ember ring;
      vampiric: red tethers to every foe it is currently mending */
   if (e.axVolatile || e.axGrave) {
@@ -4793,6 +5141,7 @@ function render() {
   pyreTick();
   convoyTick();
   drawBackdrop(GAME.t);
+  hazards.drawBack();   /* behind the fight: telegraphs, cloud banks */
   drawComet(GAME.t);
   drawPyre(GAME.t);
   drawConvoy();
@@ -4832,6 +5181,7 @@ function render() {
 
   bloomComposite();
 
+  hazards.drawFront();  /* above the fight: bolt bites, flare wash */
   if (CAM.flash > 0) {
     ctx.fillStyle = 'rgba(255,244,226,' + Math.min(.85, CAM.flash) + ')';
     ctx.fillRect(0, 0, W, H);
@@ -5114,6 +5464,7 @@ function startRun(mode) {
   GAME.tourVictory = false;
   GAME.tourRecords = GAME.tourRecords || {};
   STAGE = null;
+  hazards.stop();
   GHOST.begin(mode === 'daily' ? 'daily' : 'main');
   GHOST.startRecord();
   TELE.reset();
@@ -5776,6 +6127,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.0.0',
+    items: [
+      '<b>Every world fights back</b> — Jupiter bends every shot and hull with a gravity well, Mars throws telegraphed ion strikes, Neptunes cold dulls your dash capacitor, Saturns ring haze scatters all guidance, Mercury exhales rising flare tides, Venus shrouds the field in drifting sulfur cloud.',
+      '<b>The second generation</b> — six new hostiles with real verbs: Hounds that hunt in packs and call each other in, Weepers lobbing shells that burst into shrapnel, Tenders that mend their allies (kill them first), spinning-fan Ravagers, Arbalests with an honest dead-straight rail line, and Mimics that wear your shadow and answer your own fire.',
+      '<b>New weapon grammar</b> — mortars that arc under gravity, rails that telegraph their exact line, shells that burst on arc end. Read the tell, not just the bullet.'
+    ]
+  },
+  {
     v: '3.9.0',
     items: [
       '<b>The Solar Tour</b> — a new campaign mode: eight worlds from Mercury to the Kuiper Gate in one hull, each with its own sky, its own hostile tint and its own checkpoint. Half the alloy for a cleared world banks the moment you clear it; a death pays for the ground you held. Seal the Gate for the clear.',
@@ -6217,6 +6576,92 @@ function runSelfTests() {
     META.refits.fortune = savedRefits.fortune;
     saveMeta();
   });
+  T('world hazards: gravity bends fire, storms telegraph, frost dulls dash', () => {
+    const savedStage = STAGE, savedMode = GAME.mode, savedState = GAME.state, savedSchool = GAME.school;
+    GAME.state = 'playing'; GAME.mode = 'tour'; GAME.school = false;
+    clearAll();
+    /* gravity: the well pulls down toward it, harder when closer */
+    STAGE = STAGES[4];
+    hazards.begin();
+    ok(hazards.active === HAZARDS.gravity, 'jupiter arms its gravity well');
+    const top = hazards.pull(W / 2, 100, { ax: 0, ay: 0 });
+    const mid = hazards.pull(W / 2, H / 2, { ax: 0, ay: 0 });   /* closer to the deep well */
+    ok(top && top.ay > 0, 'well pulls hulls toward it');
+    ok(Math.abs(mid.ay) > Math.abs(top.ay) * 1.4, 'pull strengthens near the mass');
+    /* frost: the dash capacitor pays the cold */
+    STAGE = STAGES[6];
+    hazards.begin();
+    ok(hazards.dashMul() > 1.5, 'cryofield slows dash recharge');
+    /* storm: telegraph precedes the bite, then resolves */
+    STAGE = STAGES[3];
+    hazards.begin();
+    ok(hazards.active === HAZARDS.storm, 'mars arms its ion storm');
+    hazards.nextStrike = .05;
+    for (let i = 0; i < 10; i++) hazards.update(1 / 60);
+    ok(hazards.strikeT > 0, 'strike telegraphs first');
+    for (let i = 0; i < 70; i++) hazards.update(1 / 60);
+    ok(hazards.strikeT <= 0, 'strike resolves');
+    /* school and rush never see weather */
+    GAME.school = true; STAGE = STAGES[4]; hazards.begin();
+    ok(!hazards.active, 'school stays clean');
+    GAME.school = false; GAME.mode = 'rush'; STAGE = STAGES[4]; hazards.begin();
+    ok(!hazards.active, 'rush stays clean');
+    hazards.stop();
+    GAME.mode = savedMode; GAME.state = savedState; GAME.school = savedSchool; STAGE = savedStage;
+  });
+  T('second generation: six classes wired end to end, packs to rails to shells', () => {
+    const savedR = R, savedState = GAME.state, savedWave = GAME.wave, savedAlive = P.alive;
+    R = makeRng(99);
+    GAME.state = 'playing'; GAME.wave = 20; P.alive = true;
+    const onField = e => { e.state = 'hold'; e.x = W / 2; e.y = 300; e.ht = 1; };   /* guns need a live, on-field holder */
+    clearAll();
+    const gens = ['hound', 'weeper', 'tender', 'ravager', 'arbalest', 'mimic'];
+    const spawned = gens.map(t => spawnFoe(t, { ty: 120 + 24 * gens.indexOf(t) }));
+    ok(spawned.every(e => e && e.hp > 0), 'all six classes spawn');
+    clearAll();
+    /* hound pack telepathy: the commit arms the pack's timers */
+    const a1 = spawnFoe('hound', { ty: 100 }), a2 = spawnFoe('hound', { ty: 150 });
+    a2.x = a1.x + 30; a2.y = a1.y + 10;
+    houndPack(a1);
+    ok(a2.diveAt > 0 && a2.diveAt <= .4, 'the commit drags the pack in');
+    clearAll();
+    /* arbalest: fire cycle arms the rail, the scheduled shot speaks */
+    const ar = spawnFoe('arbalest', { ty: 120 });
+    onField(ar);
+    ar.fireT = .01;
+    for (let i = 0; i < 4; i++) updateFoe(ar, 1 / 60);
+    ok(ar.railWarm > 0 && typeof ar.railAng === 'number', 'rail arms with an aim line');
+    const fbBefore = fb.length;
+    for (let i = 0; i < 55; i++) updateEffects(1 / 60);   /* ride out the .85 fuse */
+    ok(fb.length > fbBefore, 'the rail speaks on schedule');
+    clearAll();
+    /* weeper: its shell bursts into shrapnel when the arc ends */
+    const wp = spawnFoe('weeper', { ty: 120 });
+    onField(wp);
+    wp.fireT = .01;
+    for (let i = 0; i < 4; i++) updateFoe(wp, 1 / 60);
+    const shell = fb.find(b => b.kind === 'shell');
+    ok(!!shell, 'weeper lobs a mortar shell');
+    if (shell) {
+      shell.life = .01;
+      const before = fb.length;
+      updateWorld(1 / 60);
+      ok(fb.length > before, 'shell bursts into shrapnel');
+    }
+    /* mimic: reads your line from where your fire lands */
+    const mm = spawnFoe('mimic', { ty: 120 });
+    damageFoe(mm, 1, mm.x + 50, mm.y + 50);
+    ok(typeof mm.lastAim === 'number', 'mimic mirrors the incoming line');
+    /* every class dies through the director with its beat scheduled */
+    const spawned2 = gens.map(t => spawnFoe(t, { ty: 120 }));
+    for (const e of spawned2) { e.hp = 1; damageFoe(e, 10, e.x, e.y); }
+    ok(spawned2.every(e => e.dead && e.staged), 'all six route through the death director');
+    ok(fxWait.length > 0, 'class beats scheduled');
+    for (let i = 0; i < 700; i++) updateEffects(1 / 60);
+    eq(fxWait.length, 0, 'beats drain fully');
+    clearAll();
+    R = savedR; GAME.state = savedState; GAME.wave = savedWave; P.alive = savedAlive;
+  });
   T('sustained load: 10s of full combat holds 120Hz sim', () => {
     // Phase E perf gate: the worst realistic worst case — one of every hostile
     // class + a capital + dense fire — must still fit the fixed-step budget.
@@ -6423,11 +6868,10 @@ function runSelfTests() {
         PAL = PALETTES[i]; buildBackdrop();
         const st = planet.storm[0];
         const d = st.getContext('2d').getImageData(0, 0, st.width, st.height).data;
-        /* hash the first 40 PAINTED pixels — the ovals sit off-center */
-        let h = '', hits = 0;
-        for (let p = 0; p < d.length && hits < 40; p += 64) {
-          if (d[p + 3] > 0) { h += d[p] + ',' + d[p + 1] + ',' + d[p + 2] + ';'; hits++; }
-        }
+        /* hash the WHOLE storm layer — a 40-pixel sniff collided when two
+           palettes shared their first sampled ovals and diverged later */
+        let h = 0;
+        for (let p = 0; p < d.length; p += 29) h = (h * 31 + d[p]) | 0;
         sig.add(h);
       }
     } finally { PAL = keepPal; buildBackdrop(); nebA = keepNeb[0]; nebB = keepNeb[1]; dust = keepDust; planet = keepP; moon = keepM; }
@@ -6483,7 +6927,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.9.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.0.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

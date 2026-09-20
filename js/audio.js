@@ -11,7 +11,9 @@ const DEATH_VOICE = {
   drone: 'pop', mini: 'pop', striker: 'vent', weaver: 'vent', orbiter: 'vent',
   splitter: 'vent', sniper: 'snap', lancer: 'snap', shieldbreaker: 'snap',
   warden: 'shear', cruiser: 'shear', carrier: 'crumple',
-  minelayer: 'crumple', ram: 'shear'
+  minelayer: 'crumple', ram: 'shear',
+  hound: 'vent', weeper: 'crumple', tender: 'snap',
+  ravager: 'shear', arbalest: 'snap', mimic: 'snap'
 };
 const AU = {
   ctx: null, ready: false, muted: false,
