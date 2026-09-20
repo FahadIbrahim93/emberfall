@@ -189,6 +189,96 @@ if (fs.existsSync('js')) {
     loadOrderFails.push('index.html: a module tag sits after the inline core');
 }
 
+/* ── XSS sink audit: dynamic innerHTML must be escaped ───────────────
+   Every `.innerHTML =` whose right-hand side involves identifiers must
+   either call esc() somewhere in the expression or sit on the allowlist
+   below with a reason (mirroring the JS allowlist philosophy: reviewed,
+   dated, prefer false negatives). New unescaped sinks fail CI. */
+const XSS_ALLOW = new Set([
+  /* reviewed 2026-09-21: SHIP_ICON is a repo constant; the count is a clamped
+     Math.max/min over GAME.lives — no external string reaches the sink */
+  'index.html:4489',
+  /* reviewed 2026-09-21: only interpolated values are server-computed rank
+     NUMBERS (r.rank, r.seasonMe.rank) and static verdict strings */
+  'index.html:4826',
+  /* reviewed 2026-09-21: flight-log header + rows — META config numerics,
+     local DIFF/when/fmt lookups, no server- or user-derived strings */
+  'js/net.js:400',
+  'js/net.js:401',
+]);
+function auditSinks(src, file) {
+  const re = /\.innerHTML\s*=/g;
+  let mm;
+  while ((mm = re.exec(src))) {
+    const line = src.slice(0, mm.index).split('\n').length;
+    const tag = file + ':' + line;
+    let i = re.lastIndex, depth = 0, inStr = null, j = i;
+    for (; j < src.length && j - i < 4000; j++) {
+      const c = src[j];
+      if (inStr) { if (c === '\\') { j++; continue; } if (c === inStr) inStr = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { inStr = c; continue; }
+      if (c === '(' || c === '[' || c === '{') depth++;
+      else if (c === ')' || c === ']' || c === '}') { if (depth === 0) break; depth--; }
+      else if (c === ';' && depth === 0) break;
+    }
+    const rhs = src.slice(i, j);
+    const rhsNoStr = rhs.replace(/(['"`])(?:\\.|[^\\])*?\1/g, '');
+    const dynamic = /[A-Za-z_$][\w$]/.test(rhsNoStr);
+    if (dynamic && !/esc\s*\(/.test(rhs) && !XSS_ALLOW.has(tag))
+      xssFails.push(tag + ': dynamic innerHTML without esc()');
+  }
+}
+const xssFails = [];
+auditSinks(html, 'index.html');
+for (const f of (fs.existsSync('js') ? fs.readdirSync('js').filter(f => f.endsWith('.js')) : []))
+  auditSinks(fs.readFileSync('js/' + f, 'utf8'), 'js/' + f);
+
+/* ── static-exposure audit: what the deck must refuse to serve ───────
+   The deck serves files from the repo root, so its denylist is a security
+   boundary. This gate pins the boundary in CI — behaviorally, not by string
+   matching: it extracts the deny regex from serveStatic and executes it
+   against sensitive probes (must reject) and game-shell probes (must pass).
+   Also pins that server state lives OUTSIDE the served root. */
+const srvSrc = fs.readFileSync('server.js', 'utf8');
+const exposeFails = [];
+const serveRegion = srvSrc.slice(srvSrc.indexOf('function serveStatic'), srvSrc.indexOf('api handlers'));
+const MUST_DENY = ['.git', '.github', '.freebuff', 'data', 'node_modules', 'test-results',
+  'playwright-report'];
+const MUST_DENY_FILES = ['server.js', 'smoke.sh', 'check.sh', 'deadscan.js', 'package.json',
+  'package-lock.json', 'playwright.config.js', 'emberfall.html'];
+if (/const DATA_DIR =[^\n]*path\.join\(ROOT,\s*'data'\)/.test(srvSrc))
+  exposeFails.push("server state (DATA_DIR) lives inside the served root");
+/* behavioral pin: extract the deny regex serveStatic actually uses and run it
+   against sensitive probes (must reject) and game-shell paths (must pass) —
+   a refactor that weakens the boundary fails HERE, not in production */
+const SENSITIVE = MUST_DENY.map(d => '/' + d + '/x').concat(MUST_DENY_FILES.map(f => '/' + f));
+const SHELL_OK = ['/index.html', '/js/art.js', '/js/net.js?x=1', '/sw.js',
+  '/manifest.webmanifest', '/icons/icon-512.png', '/'];
+/* collect every /…/.test(p) literal in serveStatic — the server ORs them
+   together, so the gate verifies their UNION (any single-literal refactor
+   keeps the gate true as long as the combined boundary holds) */
+const denyLits = [...serveRegion.matchAll(/\/(?:\\.|[^\\\n])*\/[a-z]*\.test\(p\)/g)]
+  .map(m => m[0].replace(/\.test\(p\)$/, ''));
+if (!denyLits.length)
+  exposeFails.push('no /…/.test(p) deny regex found in serveStatic');
+else {
+  let rejectsAll = true, passesShell = true;
+  const rejected = [];
+  for (const lit of denyLits) {
+    try {
+      const body = lit.slice(1, lit.lastIndexOf('/'));
+      const flags = lit.slice(lit.lastIndexOf('/') + 1);
+      const re = new RegExp(body, flags);
+      for (const p of SENSITIVE) if (re.test(p) && !rejected.includes(p)) rejected.push(p);
+      for (const p of SHELL_OK) if (re.test(p)) passesShell = false;
+    } catch { /* non-regex literal — ignore */ }
+  }
+  for (const p of SENSITIVE) if (!rejected.includes(p)) {
+    exposeFails.push('deny regexes do not reject ' + p); rejectsAll = false;
+  }
+  if (!passesShell) exposeFails.push('a deny regex wrongly rejects a game-shell path');
+}
+
 /* report */
 const order = { client: 0, server: 1, shell: 2 };
 dead.sort((a, b) => order[a.corpus] - order[b.corpus] || (a.name < b.name ? -1 : 1));
@@ -202,16 +292,20 @@ if (dead.length) {
 if (deadCSS.length) console.log('── dead CSS classes: ' + deadCSS.sort().join(', '));
 
 if (loadOrderFails.length) console.log('── load-order ──\n  ' + loadOrderFails.join('\n  '));
+if (xssFails.length) console.log('── xss sinks ──\n  ' + xssFails.join('\n  '));
+if (exposeFails.length) console.log('── static exposure ──\n  ' + exposeFails.join('\n  '));
 
 if (process.argv.includes('--check')) {
   const names = dead.map(d => d.corpus + ':' + d.name).concat(deadCSSReal().map(c => 'css:' + c));
-  if (names.length || loadOrderFails.length) {
+  if (names.length || loadOrderFails.length || xssFails.length || exposeFails.length) {
     if (loadOrderFails.length) console.error('LOAD ORDER: ' + loadOrderFails.join(' | '));
     if (names.length) console.error('DEAD CODE: ' + names.join(', '));
+    if (xssFails.length) console.error('XSS SINKS: ' + xssFails.join(' | '));
+    if (exposeFails.length) console.error('STATIC EXPOSURE: ' + exposeFails.join(' | '));
     process.exit(1);
   }
   console.log('deadscan --check: clean (' + counts.client + ' client, ' +
-    counts.server + ' server, ' + counts.shell + ' shell, ' + counts.css + ' css)');
+    counts.server + ' server, ' + counts.shell + ' shell, ' + counts.css + ' css, xss+exposure audited)');
 }
 
 function deadCSSReal() { return deadCSS.filter(c => !CSS_NOISE.has(c)); }

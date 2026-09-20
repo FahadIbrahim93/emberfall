@@ -41,7 +41,7 @@ account system, cloud saves, and plausibility-checked community leaderboards —
 
 ```bash
 node server.js            # http://localhost:8123 — serves game + API
-bash smoke.sh             # 36-test API + client-payload battery, all green
+bash smoke.sh             # 41-test API + client-payload battery, all green
 ```
 
 - **Auth:** callsign + password, scrypt-hashed, per-user salt, constant-time compare
@@ -49,7 +49,8 @@ bash smoke.sh             # 36-test API + client-payload battery, all green
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
 - **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank
-- **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up `data/emberfall.db` and its WAL files. The SQLite file is the database.
+- **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the SQLite file and its WAL files. The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
+- **Serving posture:** the deck refuses to serve anything but the game — server code, VCS internals, docs, tests, tooling, and the state directory all return 403 (pinned in CI by deadscan's static-exposure gate and smoke.sh's 403 probes).
 
 When no server is present the client probes `/api/health` once, fails silently,
 and stays 100% local — the exact same game, stored in the browser.
@@ -120,9 +121,9 @@ js/sky.js             sky events — comets, fleets, convoys, pyres (single owne
 js/net.js             command-deck client: auth, cloud saves, outbox
 sw.js                 offline cache (network-first, versioned cache generation)
 server.js             the Command Deck: accounts, SQLite, boards, trust boundaries (zero deps)
-smoke.sh              36-test API + client-payload battery
+smoke.sh              41-test API + client-payload battery
 check.sh              syntax gate (modules + inline payload)
-deadscan.js           dead-code + module load-order analyzer (--check = CI gate)
+deadscan.js           dead-code, load-order, XSS-sink and static-exposure gates (--check = CI gate)
 tools/econsim.js      meta-economy simulator, constants extracted from source
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
 tests/game.spec.js    Playwright browser smoke (boot, local-only assets, core flow)
@@ -130,4 +131,4 @@ docs/economy-audit.md economy tuning report, calibrated on real telemetry
 docs/performance.md   measured CPU/GPU baseline + method
 ```
 
-`emberfall.html` is a pristine v2.0 backup of the original file, kept for provenance.
+`emberfall.html` — a pristine v2.0 monolith — is no longer tracked: it carried a pre-hardening CSP and third-party font references, and shipping a legacy payload alongside the game invites drift and confusion. It remains reachable in git history if the artifact is ever needed.
