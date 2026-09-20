@@ -1,12 +1,16 @@
 {
   "name": "emberfall",
   "private": true,
+  "type": "module",
   "scripts": {
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
-    "test": "npm run test:browser && npm run test:selftest"
+    "test:sim": "vitest run",
+    "test": "npm run test:sim && npm run test:browser && npm run test:selftest"
   },
   "devDependencies": {
-    "@playwright/test": "1.57.0"
+    "@playwright/test": "1.57.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
   }
 }
