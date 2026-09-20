@@ -33,6 +33,12 @@ const refitGrand = refitTables.reduce((s, r) => s + refitTotal(r.id), 0);
 const fm = must(/bonusMul = 1 \+ refit\('fortune'\) \* \.05;\s*\n\s*const earned = Math\.round\(\(GAME\.alloyRun \+ GAME\.score \/ (\d+) \+ GAME\.wave \* (\d+)\) \* bonusMul\)/, 'run-end formula');
 const SCORE_DIV = +fm[1], WAVE_MULT = +fm[2];
 
+/* v3.8 elite income: elites (wave ≥ 10, chance .16) pay 2.4× score and roll
+   one extra alloy drop — constants extracted from source like every other */
+const eg = must(/const elite = n >= (\d+) && R\.chance\((\.\d+)\);/, 'elite gating');
+const ELITE_MIN_WAVE = +eg[1], ELITE_P = +eg[2];
+const ELITE_SC = +must(/e\.sc = Math\.round\(e\.sc \* (\d\.\d+)\);/, 'elite score mult')[1];
+
 /* kill alloy drops: chance = (.135 + fortune*.022), pity +.5 after 12 dry kills; amt = 4 + floor(wave*.7) */
 must(/const chance = \(\.135 \+ refit\('fortune'\) \* \.022\) \+ \(dropPity > 12 \? \.5 : 0\);/, 'drop chance');
 const DROP_P = .135, PITY_AFTER = 12, PITY_BONUS = .5;
@@ -69,9 +75,11 @@ function simRun(p) {
     const n = Math.round(KILLS_PER_WAVE(w) * (dead ? .5 : 1));
     for (let k = 0; k < n; k++) {
       kills++;
+      const eliteK = w >= ELITE_MIN_WAVE && rnd() < ELITE_P;
       const chance = DROP_P + p.fortune * .022 + (dry > PITY_AFTER ? PITY_BONUS : 0);
       if (rnd() < chance) { dry = 0; alloyRun += ALLOY_PICK(w); } else dry++;
-      score += SCORE_PER_KILL(w);
+      if (eliteK && rnd() < chance) alloyRun += ALLOY_PICK(w);   // the extra elite roll
+      score += SCORE_PER_KILL(w) * (eliteK ? ELITE_SC : 1);
     }
     if (!dead) {
       alloyRun += WAVE_CLEAR_BASE + w * WAVE_CLEAR_W;
