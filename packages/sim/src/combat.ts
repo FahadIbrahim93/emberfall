@@ -7,6 +7,7 @@ import { FOES, DIFF } from './catalog.ts';
 import { clamp, lerp, multFor, TAU, PI } from './math.ts';
 import { makeRng, type Rng } from './rng.ts';
 import type { World, Foe, Bullet, InputFrame } from './types.ts';
+import { updateBoss, killBoss, spawnBoss, bindBossRng } from './bosses.ts';
 
 export const SHIP_SCALE = 1.3;
 export const SHOT_SCALE = 1.18;
@@ -22,9 +23,9 @@ function rng(_world: World): Rng {
   return _rng;
 }
 
-/** Call from createWorld after setting seed. */
 export function bindRng(seed: number): void {
   _rng = makeRng(seed >>> 0);
+  bindBossRng(seed);
 }
 
 export function spawnFoe(
@@ -178,6 +179,10 @@ function updateFoe(world: World, e: Foe, dt: number): void {
 
 function killFoe(world: World, e: Foe): void {
   if (e.dead) return;
+  if (e.type === '@boss') {
+    killBoss(world, e);
+    return;
+  }
   e.dead = true;
   e.state = 'dead';
   world.kills++;
@@ -298,7 +303,6 @@ function updateBullets(world: World, dt: number): void {
 
 export function updateDirector(world: World, dt: number): void {
   if (world.mode === 'school') return;
-
   if (world.dirPhase === 'rest') {
     world.dirRestT -= dt;
     if (world.dirRestT <= 0) {
@@ -307,13 +311,11 @@ export function updateDirector(world: World, dt: number): void {
     }
     return;
   }
-
   world.dirT += dt;
   while (world.spawnQueue.length && world.spawnQueue[0].t <= world.dirT) {
     const s = world.spawnQueue.shift()!;
     spawnFoe(world, s.type, { x: s.x, y: -40, tx: s.x, ty: s.y });
   }
-
   const live = world.foes.some((e) => !e.dead);
   if (!world.spawnQueue.length && !live && world.player.alive) {
     world.dirPhase = 'rest';
@@ -326,6 +328,10 @@ export function startWave(world: World): void {
   world.dirPhase = 'combat';
   world.dirT = 0;
   world.spawnQueue = [];
+  if (world.wave > 0 && world.wave % 5 === 0) {
+    spawnBoss(world, Math.floor(world.wave / 5 - 1));
+    return;
+  }
   const R = rng(world);
   const n = 3 + Math.min(8, world.wave);
   const types = ['drone', 'mini', 'striker', 'weaver'] as const;
@@ -344,7 +350,10 @@ export function updateCombat(world: World, dt: number, input: InputFrame): void 
   const p = world.player;
   if (input.fire) firePlayer(world);
   updateDirector(world, dt);
-  for (const e of world.foes) updateFoe(world, e, dt);
+  for (const e of world.foes) {
+    if (e.type === '@boss') updateBoss(world, e, dt);
+    else updateFoe(world, e, dt);
+  }
   world.foes = world.foes.filter((e) => !e.dead);
   updateBullets(world, dt);
   collide(world);
