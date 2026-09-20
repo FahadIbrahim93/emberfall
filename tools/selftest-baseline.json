@@ -1,6 +1,6 @@
 {
-  "total": 40,
-  "passed": 40,
+  "total": 42,
+  "passed": 42,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -27,6 +27,8 @@
     "death director: every class dies in character, staged FX never block the sim",
     "elite affixes: named threats with tells, volatile rings, aegis rebuilds",
     "vampiric elites mend close neighbours only, and respect the master switch",
+    "solar tour: eight worlds tint distinct skies without breaking opposition",
+    "tour run math: cumulative worlds, seeded endless spin, checkpoint settle",
     "sustained load: 10s of full combat holds 120Hz sim",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",
