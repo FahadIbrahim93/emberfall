@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const VERSION = 'v4.1.0';
+const VERSION = 'v4.2.0';
 const ALLOW = [];   // extra allowed patterns only for HISTORICAL release notes
 
 const FILES = [

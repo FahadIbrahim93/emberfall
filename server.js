@@ -119,6 +119,10 @@ addCol('scores', 'kills', 'INTEGER');
 addCol('scores', 'telemetry', 'TEXT');
 addCol('scores', 'verdict', 'TEXT DEFAULT \'accepted\'');
 addCol('scores', 'run_hash', 'TEXT');
+/* v4.2: opponent-visible personalization on the boards — the worn paint is
+   a public fact of a run; mastery level rides along for the flex */
+addCol('scores', 'paint', 'TEXT');
+addCol('scores', 'mastery', 'INTEGER DEFAULT 0');
 db.exec(`
 CREATE TABLE IF NOT EXISTS challenges (
   id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -595,6 +599,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const wave = Math.floor(Number(body.wave) || 0);
     const diff = Math.floor(Number(body.diff) || 0);
     const ship = String(body.ship || 'vesper');
+    const paint = body.paint ? String(body.paint).slice(0, 24) : null;
+    const mastery = Math.min(5, Math.max(0, Math.floor(Number(body.mastery) || 0)));
     const runT = Number(body.runT) || 0;
     const kills = Math.floor(Number(body.kills) || 0);
     const cps = Array.isArray(body.cps) ? body.cps : [];
@@ -613,16 +619,17 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const hash = runHash(user.id, mode, score, wave, kills, runT, cps);
     if (isReplay(hash)) return send(res, 422, { ok: false, error: 'run rejected: replay of an identical run' });
 
-    db.prepare(`INSERT INTO scores (user_id, mode, score, wave, ship, diff, created, run_t, kills, telemetry, verdict, run_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO scores (user_id, mode, score, wave, ship, diff, created, run_t, kills, telemetry, verdict, run_hash, paint, mastery)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(user.id, mode, score, wave, ship, diff, now(), runT, kills,
-        JSON.stringify(cps).slice(0, 20000), v.verdict, hash);
+        JSON.stringify(cps).slice(0, 20000), v.verdict, hash, paint, mastery);
 
     const better = db.prepare(`SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s
       WHERE s.mode = ? AND s.score > ? AND s.verdict = 'accepted'`).get(mode, score);
     const rank = Number(better.n) + 1;
     const top = db.prepare(`
-      SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
+      SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d,
+        MAX(s.paint) AS p, MAX(s.mastery) AS m
       FROM scores s JOIN users u ON u.id = s.user_id
       WHERE s.mode = ? AND s.verdict = 'accepted'
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
@@ -635,7 +642,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const mode = url.searchParams.get('mode') || 'main';
     if (!MODES.has(mode)) return bad(res, 'bad mode');
     const topN = db.prepare(`
-      SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d
+      SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d,
+        MAX(s.paint) AS p, MAX(s.mastery) AS m
       FROM scores s JOIN users u ON u.id = s.user_id
       WHERE s.mode = ? AND s.verdict = 'accepted'
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
@@ -687,7 +695,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (score <= 0 || score > 50000000) return bad(res, 'bad score');
     if (!ghost || !Array.isArray(ghost.frames) || !ghost.frames.length) return bad(res, 'ghost required');
     if (ghost.frames.length > 11000) return bad(res, 'ghost too long');
-    const gjson = JSON.stringify({ score, ship, frames: ghost.frames });
+    const gjson = JSON.stringify({ score, ship, frames: ghost.frames, paint: ghost.paint || 'yard' });
     if (gjson.length > 220000) return bad(res, 'ghost too large');
     const target = db.prepare('SELECT id FROM users WHERE name_lower = ?').get(to.toLowerCase());
     if (!target) return bad(res, 'no such pilot on this deck', 404);

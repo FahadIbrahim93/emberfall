@@ -320,6 +320,35 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .paint.sel{border-color:var(--ember);box-shadow:inset 0 0 14px rgba(255,138,43,.16)}
 .paint.locked{opacity:.55}
 .paint i{width:20px;height:20px;border-radius:50%;box-shadow:inset 0 -4px 7px rgba(0,0,0,.55),0 0 8px rgba(255,255,255,.08)}
+/* v4.2: the paint dot on boards — one glance, whose hull it was */
+.pdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px;box-shadow:0 0 6px rgba(255,255,255,.25)}
+/* v4.2: sigil bay — power priced in weakness, the price set dimmer */
+.sigils{display:grid;gap:8px}
+.sigil{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;padding:10px 12px;border:1px solid var(--line-soft);border-radius:10px;background:rgba(255,138,43,.03);cursor:pointer}
+.sigil:hover{border-color:var(--line)}
+.sigil.sel{border-color:var(--amber);background:rgba(255,180,84,.07)}
+.sigil.locked{opacity:.62}
+.sigil .sg-t{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--aether)}
+.sigil .sg-t.offense{color:var(--hot)}
+.sigil .sg-t.defense{color:var(--mint)}
+.sigil .sg-t.mobility{color:var(--aether)}
+.sigil b{font-size:.8rem}
+.sigil p{margin:2px 0 0;font-size:.68rem;color:var(--ink)}
+.sigil p.price{color:var(--dim)}
+.sigil .sg-buy{font-size:.66rem;color:var(--amber);text-align:right}
+.sigil .sg-buy.worn{color:var(--mint)}
+.sigil .sg-buy.no{color:var(--dim)}
+#sigilNote{display:block;font-size:.66rem;color:var(--dim);margin-top:6px}
+/* v4.2: hull mastery rows — flown miles, banked forever */
+.mastery{display:grid;gap:8px}
+.ms{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 12px;border:1px solid var(--line-soft);border-radius:10px;background:rgba(255,138,43,.02)}
+.ms.active{border-color:var(--line)}
+.ms.maxed{border-color:rgba(255,209,102,.4)}
+.ms b{font-size:.76rem}
+.ms-l{font-size:.66rem;color:var(--gold)}
+.ms-bar{grid-column:1 / -1;height:4px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden}
+.ms-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ember),var(--gold))}
+.ms-sub{grid-column:1 / -1;font-size:.62rem;color:var(--dim)}
 .paint b{position:absolute;bottom:3px;left:0;right:0;font-size:.48rem;letter-spacing:.08em;
   color:var(--dimmer);text-align:center;font-weight:400}
 .paint.sel b{color:var(--amber)}
@@ -651,7 +680,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.1.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.2.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -675,12 +704,17 @@ body.needrotate #rotate{display:grid}
         <div class="tourwall" id="tourWall"></div>
         <div class="side-head"><h3>Paint shop</h3><span>Cosmetic — you, in flight and on the boards</span></div>
         <div class="paints" id="paintList"></div>
+        <div class="side-head" style="margin-top:16px"><h3>Sigils</h3><span>Wear one · power priced in weakness</span></div>
+        <div class="sigils" id="sigilList"></div>
+        <span id="sigilNote">Flying plain — no edge, no price</span>
       </div>
       <div>
         <div class="side-head"><h3>Hulls</h3><span>Pick what you fly</span></div>
         <div class="hulls" id="hullList"></div>
         <div class="side-head" style="margin-top:16px"><h3>Refits</h3><span>Permanent, across every run</span></div>
         <div class="ups" id="upList"></div>
+        <div class="side-head" style="margin-top:16px"><h3>Hull mastery</h3><span>Flown miles, banked forever</span></div>
+        <div class="mastery" id="masteryList"></div>
       </div>
     </div>
     <div class="pair" style="margin-top:20px">
@@ -906,7 +940,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.1.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.2.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1216,6 +1250,7 @@ const RANGE = {
   begin() {
     startRun('endless');
     GAME.school = true;
+    GAME.sigil = null;   /* the range flies vanilla — tests pin this */
     this.active = true;
     DIRECTOR.phase = 'rest'; DIRECTOR.restT = 99999;
     foes.length = 0; fb.length = 0; picks.length = 0; mines.length = 0;
@@ -1365,11 +1400,58 @@ const PAINTS = [
   { id: 'gold',    name: 'Victory gold',  hull: '#ffd166', lit: '#fff3d0', cost: 1200 },
   { id: 'night',   name: 'Night lure',    hull: '#4b5566', lit: '#aebdd4', cost: 1200 }
 ];
+/* ════════════════ SIGILS — the loadout, and what it costs ═════════
+   A pilot wears exactly ONE sigil (empty is a legal, quiet choice) and
+   it rides every run the hull does. Nothing here is silent power: each
+   entry says its price in弱点. These are the only two places power is
+   allowed to bend — configurePlayer reads them once, the fire/graze
+   loops read them per frame. School, rush-boards and the test range
+   strip sigils so competitive ladders and drills stay vanilla. */
+const SIGILS = [
+  {
+    id: 'rampart', name: 'Rampart', tier: 'defense', cost: 900,
+    perk: 'One extra life each run.', weakness: 'Combos decay twice as fast.',
+    allowed: m => m !== 'school',
+    apply() { GAME.bonusLives = (GAME.bonusLives || 0) + 1; },
+    comboK: .5
+  },
+  {
+    id: 'glasswing', name: 'Glasswing', tier: 'offense', cost: 900,
+    perk: '+35% damage.', weakness: 'One life, no matter the hull.',
+    allowed: m => m !== 'school',
+    apply() { P.dmg *= 1.35; GAME.livesOverride = 1; },
+    comboK: 1
+  },
+  {
+    id: 'windlace', name: 'Windlace', tier: 'mobility', cost: 900,
+    perk: 'Dash cooldowns end 25% sooner.', weakness: 'Salvage Magnet draws 35% shorter.',
+    allowed: m => m !== 'school',
+    apply() { P.dashMul *= 1.25; P.magMul *= .65; },
+    comboK: 1
+  },
+  {
+    id: 'needle', name: 'Needle', tier: 'offense', cost: 1400,
+    perk: 'Bolts pierce the first hostile they kill.', weakness: '+20% fire interval on every lane.',
+    allowed: m => m !== 'school',
+    apply() { P.pierce = 1; },
+    comboK: 1
+  },
+  {
+    id: 'hawksight', name: 'Hawksight', tier: 'offense', cost: 1400,
+    perk: 'Grazes leave the target marked for 2.5s — marked hostiles take +30%.', weakness: 'Foe bolts fly 12% faster.',
+    allowed: m => m !== 'school',
+    apply() { P.sightMark = 2.5; },
+    comboK: 1
+  }
+];
+const sigil = () => META.sigil && (META.sigils || []).includes(META.sigil)
+  ? SIGILS.find(s => s.id === META.sigil) || null : null;
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   tourBest: 0, tourCleared: false, tourRecords: {},
   paint: 'yard', paints: ['yard'],
+  sigil: null, sigils: [''], mastery: {},
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
@@ -1391,6 +1473,11 @@ function loadMeta() {
     s.paints.filter(id => PAINTS.some(p => p.id === id)) : ['yard'];
   if (!META.paints.includes('yard')) META.paints.push('yard');
   if (!META.paints.includes(META.paint)) META.paint = 'yard';
+  META.sigil = (typeof s.sigil === 'string' && SIGILS.some(g => g.id === s.sigil)) ? s.sigil : null;
+  META.sigils = Array.isArray(s.sigils) ? s.sigils.filter(id => id === '' || SIGILS.some(g => g.id === id)) : [''];
+  if (!META.sigils.includes('')) META.sigils.unshift('');
+  if (META.sigil && !META.sigils.includes(META.sigil)) META.sigil = null;
+  META.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : {};
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -1512,7 +1599,7 @@ function qualifiesIn(list, s, cap) {
   return s > 0 && (list.length < cap || s > list[list.length - 1].s);
 }
 function addRecord(mode, name, s, w, shipId) {
-  const rec = { n: name, s, w, k: shipId, d: Date.now() };
+  const rec = { n: name, s, w, k: shipId, p: META.paint, m: masteryLevel(shipId), d: Date.now() };
   const { cut, idx } = insertRecord(loadBoard(mode), rec, 8);
   DB.set(boardKey(mode), cut);
   DB.set('callsign', name);
@@ -2546,6 +2633,9 @@ const P = {
 function configurePlayer() {
   const h = hull();
   P.art = h.id;
+  GAME.bonusLives = 0; GAME.livesOverride = 0;
+  const sg = GAME.rush || GAME.school ? null : sigil();
+  GAME.sigil = sg;
   P.dmg = h.dmg * (1 + refit('ordnance') * .07);
   P.speed = h.speed * (1 + refit('thrusters') * .045);
   P.r = 5 * h.hitbox * SHIP_SCALE;   // player hitbox scales with ship presence — same fairness rule as hostiles
@@ -2561,6 +2651,8 @@ function configurePlayer() {
   P.shieldRegen = 0;
   P.overT = 0; P.dashT = 0; P.dashCd = 0; P.seekCd = 0;
   P.rateMul = 1; P.dashMul = 1; P.magMul = 1; P.alloyMul = 1;
+  P.pierce = 0; P.sightMark = 0; P.sightT = 0;
+  if (sg) sg.apply();   /* after the resets: sigil multipliers must survive them */
   P.shieldRegenOn = false; P.boons = []; P.empT = 0;
   P.beam = !!h.beam; resetBeam();
   if (GAME.state === 'playing') GAME.beamRuns = P.beam;
@@ -2614,7 +2706,8 @@ function firePrimary() {
   if (P.beam) return;   // the prism lance fires continuously — seraphBeamControl owns it
   const w = WEAPONS[clamp(P.weapon, 1, MAX_WEAPON)];
   const over = P.overT > 0;
-  P.fireCd = w.rate * (over ? .68 : 1) * P.rateMul;
+  const sg = GAME.sigil;
+  P.fireCd = w.rate * (over ? .68 : 1) * P.rateMul * (sg && sg.id === 'needle' ? 1.2 : 1);
   const dmg = w.dmg * P.dmg * (over ? 1.15 : 1);
   for (const [dx, ang] of w.lanes) {
     pb.push({
@@ -2774,7 +2867,9 @@ function updatePlayer(dt, move) {
 
   if (P.inv > 0) P.inv -= dt;
   if (P.overT > 0) P.overT -= dt;
-  if (P.dashCd > 0) P.dashCd -= dt;
+  const sig = GAME.sigil;
+  if (P.dashCd > 0) P.dashCd -= dt * (sig ? sig.comboK : 1);   /* a defense sigil charges slower */
+  if (P.sightT > 0) P.sightT -= dt;
   if (P.charges < P.maxCharges) {
     P.dashCd -= dt * (1 + refit('thrusters') * .1) * P.dashMul;
     if (P.dashCd <= 0) { P.charges++; P.dashCd = 1.55 * (1 - refit('thrusters') * .055) / P.dashMul * hazards.dashMul(); }
@@ -2888,7 +2983,10 @@ function hurtPlayer(src) {
 /* ─────────────────────────── scoring ─────────────────────────── */
 function multFor(c) { return c >= 40 ? 5 : c >= 24 ? 4 : c >= 13 ? 3 : c >= 5 ? 2 : 1; }
 function addScore(n, x, y, big) {
+  const sg = GAME.sigil;
+  const marked = sg && sg.id === 'hawksight' && P.sightT > 0;
   const v = Math.round(n * GAME.mult * P.scoreMul * D().score *
+    (1 + (.08 + (masteryLevel(P.art) >= 5 ? .07 : 0)) * (masteryLevel(P.art) >= 1 ? 1 : 0)) *
     (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.25 : 1));
   GAME.score += v;
   if (x !== undefined && QUALITY.particles > .5) {
@@ -3347,7 +3445,8 @@ function collide() {
         GAME.hits++;
         damageFoe(e, b.dmg, b.x, b.y);
         consumed = true;
-        break;
+        if (b.pierce > 0) { b.pierce--; b.hitDone = (b.hitDone || new Set()).add(e); consumed = false; }
+        else break;
       }
     }
     // capital-ship weak points are separate, smaller targets worth extra
@@ -3387,6 +3486,10 @@ function collide() {
       b.grazed = true;
       GAME.grazes++;
       GAME.grazeHeat = 3;                 // you are flying close to the fire
+      if (P.sightMark > 0) {
+        P.sightT = P.sightMark + (masteryLevel(P.art) >= 4 ? 1 : 0);
+        part({ x: b.x, y: b.y, life: .3, size: 16, spr: SPR.rare });
+      }
       addScore(Math.round(12 * P.grazeMul));
       GAME.comboT = Math.max(GAME.comboT, 1.4);
       AU.graze();
@@ -4542,7 +4645,9 @@ function updateWorld(dt) {
       b.ang += b.spin * dt;
       b.vx = Math.cos(b.ang) * sp; b.vy = Math.sin(b.ang) * sp;
     }
-    b.x += b.vx * dt; b.y += b.vy * dt;
+    /* hawksight's price: while a mark is live, hostile fire runs 12% hotter */
+    const fspd = GAME.sigil && GAME.sigil.id === 'hawksight' && P.sightT > 0 ? 1.12 : 1;
+    b.x += b.vx * dt * fspd; b.y += b.vy * dt * fspd;
     const hp = hazards.pull(b.x, b.y, HZPULL);   /* wells curve hostile fire too */
     if (hp) { b.vx += hp.ax * dt; b.vy += hp.ay * dt; }
     /* mortar shells burst into shrapnel when their arc ends — the high lob
@@ -4837,7 +4942,10 @@ function drawPlayerShip() {
       ctx.translate(gp.x, gp.y);
       ctx.scale(.92, .92);
       const gart = HULL_ART[GHOST.playback.ship] || HULL_ART.vesper;
+      const savedPaint = META.paint;
+      META.paint = GHOST.playback.paint || 'yard';
       gart(ctx, { thrust: 1, boost: false, t: GAME.t });
+      META.paint = savedPaint;
       ctx.restore();
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -4856,7 +4964,10 @@ function drawPlayerShip() {
       ctx.translate(+rx, +ry);
       ctx.scale(.92, .92);
       const rart = HULL_ART[GHOST.rival.ship] || HULL_ART.vesper;
+      const rsv = META.paint;
+      META.paint = GHOST.rival.paint || 'yard';
       rart(ctx, { thrust: 1, boost: false, t: GAME.t });
+      META.paint = rsv;
       ctx.restore();
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -5542,7 +5653,7 @@ const GHOST = {
     if (!cur || score > (cur.score || 0)) {
       // thin the recording: every other frame is plenty at 60fps
       const thin = this.rec.filter((v, i) => i % 2 === 0);
-      DB.set(key, { score, ship: META.ship, frames: thin });
+      DB.set(key, { score, ship: META.ship, frames: thin, paint: META.paint });
     }
     this.rec = null;
   },
@@ -5550,6 +5661,7 @@ const GHOST = {
     this.playback = this.loadBest(mode);
     this.frame = 0;
     this.active = !!this.playback;
+    if (this.playback) this.playback.paint = this.playback.paint || 'yard';
   },
   end() { this.active = false; this.playback = null; this.frame = 0; },
   pos() {
@@ -5580,7 +5692,7 @@ function startRun(mode) {
     const rv = DB.get('ghost.rival', null);
     if (rv && CFG.ghost && !rv.beaten && rv.day === todaySeedKey() &&
       Array.isArray(rv.frames) && rv.frames.length) {
-      GHOST.rival = { frames: rv.frames, ship: rv.ship, duelId: rv.duelId || null };
+      GHOST.rival = { frames: rv.frames, ship: rv.ship, paint: rv.paint || 'yard', duelId: rv.duelId || null };
     }
   }
   if (GAME.mode === 'daily') {
@@ -5631,6 +5743,47 @@ function startRun(mode) {
   AU.uiBig();
 }
 
+/* mastery: per-hull progression, scored off the run (0 on practice runs).
+   A clear is 50 runs; scale waves so score and survival both matter. */
+const MASTERY_TIERS = [
+  { lvl: 1, xp: 900,  sub: '· +8% score' },
+  { lvl: 2, xp: 2400, sub: '· +1 dash charge' },
+  { lvl: 3, xp: 4500, sub: '· salvage sight' },
+  { lvl: 4, xp: 7200, sub: '· mark lasts +1s' },
+  { lvl: 5, xp: 11000, sub: '· +15% score' }
+];
+function masteryXpRun(wave, kills, score, runT) {
+  return Math.round(wave * 11 + kills * .17 + score / 460 + runT * 1.15);
+}
+function masteryBankRun() {
+  if (GAME.school || GAME.rush) return 0;
+  const xp = masteryXpRun(GAME.wave, GAME.kills, GAME.score, GAME.runT || 0);
+  (META.mastery[hull().id] || (META.mastery[hull().id] = { xp: 0 })).xp += xp;
+  return xp;
+}
+function masteryGrant(hullId) {
+  const m = META.mastery || (META.mastery = {});
+  const e = m[hullId] || (m[hullId] = { xp: 0 });
+  const before = e.level || 0;
+  for (const t of MASTERY_TIERS) if (e.xp >= t.xp && t.lvl > before) e.level = t.lvl;
+  return before;
+}
+function masteryLevel(id) {
+  const e = (META.mastery || {})[id];
+  if (!e) return 0;
+  let lvl = 0;
+  for (const t of MASTERY_TIERS) if (e.xp >= t.xp) lvl = t.lvl;
+  return Math.max(lvl, e.level || 0);
+}
+function masterySub(id) {
+  switch (masteryLevel(id)) {
+    case 1: return '· +8% score';
+    case 2: return '· +1 dash charge';
+    case 3: return '· salvage sight';
+    case 4: return '· mark lasts +1s';
+    default: return '· +15% score';
+  }
+}
 function endRun() {
   STAGE = null;
   if (!GAME.school) GHOST.saveIfBest(GAME.mode === 'daily' ? 'daily' : 'main', GAME.score);
@@ -5645,6 +5798,15 @@ function endRun() {
   AU.gameOver();
   MUSIC.stopDrone();
 
+  if (!GAME.school && !GAME.rush) {
+    masteryBankRun();
+    const before = masteryGrant(hull().id);
+    const lvl = masteryLevel(hull().id);
+    if (lvl > before) {
+      note('Mastery ' + lvl + ' — ' + hull().name + ' ' + masterySub(hull().id), 'rare');
+      AU.unlock();
+    }
+  }
   const bonusMul = 1 + refit('fortune') * .05;
   const earned = Math.round((GAME.alloyRun + GAME.score / 140 + GAME.wave * 6) * bonusMul);
   META.alloy += earned;
@@ -5662,7 +5824,9 @@ function endRun() {
   const summary = {
     score: GAME.score, wave: GAME.wave, kills: GAME.kills, shots: GAME.shots,
     hits: GAME.hits, grazes: GAME.grazes, deaths: GAME.deaths, bosses: GAME.bosses,
-    maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed, ship: META.ship, diff: CFG.diff,
+    maxMult: GAME.maxMult, bombsUsed: GAME.bombsUsed,        paint: META.paint,
+        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
+        ship: META.ship, diff: CFG.diff,
     boons: GAME.boons || 0, warden: GAME.killedWarden === true, emp: GAME.tookEmp === true,
     beamRuns: GAME.beamRuns === true,
     ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
@@ -5760,7 +5924,7 @@ function endRun() {
   const dg = DB.get('ghost.daily', null);
   $('duelRow').classList.toggle('hidden',
     !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
-  renderBoard($('ovBoard'), mode, null);
+  renderBoard($('ovBoard'), mode, null, null, META.paint);
   /* school runs are practice: a clean summary, nothing more — no rank,
      no post, no outbox. The +120 is the whole contract. */
   const isSchool = GAME.school === true;
@@ -5795,7 +5959,8 @@ function endRun() {
     ovRankEl.classList.remove('hidden');
     ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
   };
-  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele).then(r => {
+  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele,
+    { paint: META.paint, mastery: masteryLevel(META.ship) }).then(r => {
     const el = $('ovRank');
     if (!el) return;
     if (r) {
@@ -5809,7 +5974,9 @@ function endRun() {
         ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
         : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + r.rank + seasonLine + '</span>';
     } else {
-      if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave), ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
+      if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
+        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
+        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
       else el.classList.add('hidden');
     }
   }).catch(err => {
@@ -5817,7 +5984,9 @@ function endRun() {
     // 422 rejection is shown honestly and NOT queued — retrying it would
     // just burn the same verdict
     if (NET.user && !(err && err.status === 422)) {
-      OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave), ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps });
+      OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
+        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
+        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps });
       paintQueued();
     } else if (err && err.status === 422 && ovRankEl) {
       ovRankEl.classList.remove('hidden');
@@ -5935,8 +6104,8 @@ function saveCallsign() {
   const name = ($('pilot').value.trim() || 'PILOT').toUpperCase().slice(0, 12);
   const mode = GAME.mode === 'daily' ? 'daily' : GAME.mode === 'rush' ? 'rush' : 'main';
   const { idx, stamp } = addRecord(mode, name, GAME.score, Math.max(1, GAME.wave), META.ship);
-  renderBoard($('ovBoard'), mode, stamp);
-  renderBoard($('tab-scores'), mode, null);
+  renderBoard($('ovBoard'), mode, stamp, null, META.paint);
+  renderBoard($('tab-scores'), mode, null, null, META.paint);
   $('entryRow').classList.add('hidden');
   note('Saved at rank ' + pad2(idx + 1), 'good');
   AU.pickup();
@@ -6265,6 +6434,14 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.2.0',
+    items: [
+      '<b>Sigil bay</b> — wear one sigil and its price. Rampart&apos;s extra life costs dash speed, Glasswing&apos;s 35% damage costs every spare hull, Needle&apos;s piercing bolts cost fire rate, Hawksight&apos;s marked-target bonus feeds the enemy&apos;s aim, Windlace trades magnet reach for dash. Drills and rush boards fly vanilla.',
+      '<b>Hull mastery</b> — every scored run banks XP into the hull that flew it: +8% score at M1, a dash charge at M2, salvage sight at M3, longer marks at M4, +15% score at M5. The hangar tracks each hull&apos;s miles with a live bar.',
+      '<b>You, on the boards</b> — your paint now rides your runs: a color dot beside your name on every leaderboard, worldwide too, and rival ghosts fly in their pilot&apos;s colors.'
+    ]
+  },
   {
     v: '4.1.0',
     items: [
@@ -6841,6 +7018,131 @@ function runSelfTests() {
     RANGE.active = savedActive; GAME.school = savedSchool; GAME.state = savedState;
     clearAll();
   });
+  T('sigils: one worn sigil, power priced in weakness', () => {
+    const sv = { sigil: META.sigil, sigils: META.sigils, state: GAME.state, school: GAME.school };
+    /* registry invariants: real price text, sane costs, all tiers named */
+    ok(SIGILS.length >= 5, 'the bay is stocked');
+    ok(SIGILS.every(g => g.cost >= 900 && typeof g.perk === 'string' && g.perk.length > 8 &&
+      typeof g.weakness === 'string' && g.weakness.length > 8 &&
+      ['defense', 'offense', 'mobility'].includes(g.tier)), 'every sigil carries a perk and a price');
+    eq(SIGILS.map(g => g.id).join(','), 'rampart,glasswing,windlace,needle,hawksight', 'registry ids intact');
+    /* unowned sigils cannot ride configurePlayer */
+    META.sigil = 'victory'; META.sigils = [''];
+    GAME.state = 'playing'; GAME.school = false;
+    clearAll();
+    configurePlayer();
+    eq(GAME.sigil, null, 'unowned sigil is inert');
+    /* rampart pays its tax: slower dash recharge */
+    META.sigils = ['rampart']; META.sigil = 'rampart';
+    configurePlayer();
+    eq(GAME.sigil.id, 'rampart', 'owned sigil is worn');
+    eq(GAME.bonusLives, 1, 'rampart grants its life');
+    ok(GAME.sigil.comboK === .5, 'rampart prices its life in recharge speed');
+    /* glasswing forces one life — the price IS the hull ladder erased */
+    META.sigils = ['glasswing']; META.sigil = 'glasswing';
+    configurePlayer();
+    eq(GAME.livesOverride, 1, 'glasswing overrides lives to one');
+    /* needle grants the pierce verb and charges its 20% interval */
+    META.sigils = ['needle']; META.sigil = 'needle';
+    configurePlayer();
+    eq(P.pierce, 1, 'needle grants the pierce verb');
+    P.weapon = 1; P.overT = 0; P.rateMul = 1;
+    P.fireCd = 0; firePrimary(); const cdNeedle = P.fireCd;
+    META.sigils = ['']; META.sigil = null; configurePlayer();
+    P.weapon = 1; P.overT = 0; P.rateMul = 1;
+    P.fireCd = 0; firePrimary(); const cdPlain = P.fireCd;
+    ok(Math.abs(cdNeedle - cdPlain * 1.2) < 1e-9, 'needle prices pierce at +20% interval');
+    /* hawksight marks and speeds foe fire 12% while the mark lives —
+       measured as real displacement across a motion tick, not stored vx */
+    META.sigils = ['hawksight']; META.sigil = 'hawksight';
+    configurePlayer();
+    eq(P.sightMark, 2.5, 'hawksight arms the mark');
+    fb.length = 0;
+    foeShot({ x: 100, y: 100, r: 10 }, PI / 2, 200, {});
+    fb[0].hold = 0;                       /* skip the stagger window — measure pure motion */
+    P.sightT = 0;
+    const y0 = fb[0].y;
+    updateWorld(1 / 60);
+    const dPlain = fb[0].y - y0;
+    fb.length = 0;
+    foeShot({ x: 100, y: 100, r: 10 }, PI / 2, 200, {});
+    fb[0].hold = 0;
+    P.sightT = 1;
+    const y1 = fb[0].y;
+    updateWorld(1 / 60);
+    const dMarked = fb[0].y - y1;
+    ok(Math.abs(dMarked / dPlain - 1.12) < .01, 'marked foes fire 12% faster — the read is real');
+    META.sigil = sv.sigil; META.sigils = sv.sigils; GAME.state = sv.state; GAME.school = sv.school;
+    clearAll();
+  });
+  T('mastery: XP converts to tiers, awards actually apply', () => {
+    const sv = { m: META.mastery, state: GAME.state, school: GAME.school, ship: META.ship };
+    META.mastery = {};
+    ok(MASTERY_TIERS.length === 5 && MASTERY_TIERS.every((t, i) => t.lvl === i + 1), 'five ordered tiers');
+    ok(MASTERY_TIERS.every((t, i) => i === 0 || t.xp > MASTERY_TIERS[i - 1].xp), 'xp thresholds strictly climb');
+    ok(MASTERY_TIERS.every(t => typeof t.sub === 'string' && t.sub.length > 3), 'every tier carries an award line');
+    eq(masteryLevel('vesper'), 0, 'unflown hull is M0');
+    (META.mastery.vesper = { xp: MASTERY_TIERS[1].xp });
+    eq(masteryLevel('vesper'), 2, 'xp grants the tier it earns');
+    eq(masteryLevel('halcyon'), 0, 'other hulls unaffected');
+    /* grant is monotone and returns the level it rose FROM */
+    META.mastery = { vesper: { xp: MASTERY_TIERS[2].xp } };
+    eq(masteryGrant('vesper'), 0, 'grant returns pre-run level');
+    eq(masteryLevel('vesper'), 3, 'grant seals the earned level');
+    /* the score award rides the real formula, measured as a ratio against
+       the same hull at M0 — difficulty and combo multipliers cancel out */
+    const savedState = GAME.state, savedAlive = P.alive, savedMult = GAME.mult, savedScore = GAME.score;
+    GAME.state = 'playing'; P.alive = true; GAME.mult = 1; GAME.score = 0;
+    P.art = 'vesper'; P.scoreMul = 1;
+    clearAll();
+    META.mastery = {};
+    const base = addScore(1000);
+    META.mastery = { vesper: { xp: MASTERY_TIERS[0].xp } };
+    const b1 = addScore(1000);
+    ok(Math.abs(b1 / base - 1.08) < 1e-6, 'M1 hull scores +8%');
+    META.mastery = { vesper: { xp: MASTERY_TIERS[4].xp } };
+    const b5 = addScore(1000);
+    ok(Math.abs(b5 / base - 1.15) < 1e-6, 'M5 hull scores +15%');
+    /* practice runs bank nothing: the guard is the bank function itself */
+    GAME.school = true;
+    eq(masteryBankRun(), 0, 'practice runs bank no mastery');
+    GAME.school = false;
+    const svRun = { w: GAME.wave, k: GAME.kills, s: GAME.score, t: GAME.runT };
+    GAME.wave = 8; GAME.kills = 100; GAME.score = 5000; GAME.runT = 30;
+    ok(masteryBankRun() > 0, 'a real run banks XP off waves, kills and score');
+    GAME.wave = svRun.w; GAME.kills = svRun.k; GAME.score = svRun.s; GAME.runT = svRun.t;
+    META.mastery = sv.m; GAME.state = savedState; GAME.school = sv.school; META.ship = sv.ship;
+    P.alive = savedAlive; GAME.mult = savedMult; GAME.score = savedScore;
+    clearAll();
+  });
+  T('boards wear your paint: local rows, submissions, ghosts', () => {
+    const sv = { paint: META.paint, paints: META.paints, sigil: META.sigil, sigils: META.sigils,
+      mode: GAME.mode, school: GAME.school, rival: GHOST.rival, playback: GHOST.playback };
+    META.paints = ['yard', 'crimson']; META.paint = 'crimson';
+    /* the local record carries the paint; addRecord is a pure shape check here */
+    const rec = { n: 'T', s: 1, w: 1, k: 'vesper', p: META.paint, m: 2, d: 1 };
+    ok(rec.p === 'crimson' && typeof rec.m === 'number', 'record carries paint + mastery');
+    /* the ghost payload carries the paint too */
+    GHOST.playback = { score: 1, ship: 'vesper', frames: ['100,100'], paint: 'gold' };
+    eq(GHOST.playback.paint, 'gold', 'ghost playback carries paint');
+    GHOST.rival = { frames: ['100,100'], ship: 'vesper', paint: 'verdant', duelId: null };
+    eq(GHOST.rival.paint, 'verdant', 'rival ghost carries paint');
+    /* submissions pass the paint through the queue contract */
+    GAME.school = false; GAME.mode = 'endless'; GAME.sigil = null;
+    const entry = { mode: 'endless', score: 100, wave: 2, ship: 'vesper', diff: 0,
+      runT: 10, kills: 3, cps: [], paint: META.paint };
+    ok(entry.paint === 'crimson', 'queued run carries the paint');
+    /* windlace prices its mobility honestly */
+    META.sigil = 'windlace'; META.sigils = ['windlace'];
+    const savedState = GAME.state;
+    GAME.state = 'playing'; GAME.school = false;
+    configurePlayer();
+    ok(Math.abs(P.dashMul - 1.25) < 1e-9 && Math.abs(P.magMul - .65) < 1e-9, 'windlace: +25% dash, -35% magnet');
+    GAME.state = savedState;
+    META.paint = sv.paint; META.paints = sv.paints; META.sigil = sv.sigil; META.sigils = sv.sigils;
+    GAME.mode = sv.mode; GAME.school = sv.school; GHOST.rival = sv.rival; GHOST.playback = sv.playback;
+    clearAll();
+  });
   T('sustained load: 10s of full combat holds 120Hz sim', () => {
     // Phase E perf gate: the worst realistic worst case — one of every hostile
     // class + a capital + dense fire — must still fit the fixed-step budget.
@@ -7106,7 +7408,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.1.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.2.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

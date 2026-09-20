@@ -1,6 +1,6 @@
 {
-  "total": 46,
-  "passed": 46,
+  "total": 49,
+  "passed": 49,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -33,6 +33,9 @@
     "second generation: six classes wired end to end, packs to rails to shells",
     "paint shop: cosmetics derive through tintPal, never touch opposition",
     "test range: the bay stays empty and nothing is at stake",
+    "sigils: one worn sigil, power priced in weakness",
+    "mastery: XP converts to tiers, awards actually apply",
+    "boards wear your paint: local rows, submissions, ghosts",
     "sustained load: 10s of full combat holds 120Hz sim",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",

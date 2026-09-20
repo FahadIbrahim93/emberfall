@@ -27,6 +27,11 @@ if (hullCosts.length !== 5) throw new Error('expected 5 hull costs, got ' + hull
 const paintCosts = [...html.matchAll(/hull: '#[0-9a-f]+', lit: '#[0-9a-f]+', cost: (\d+)/g)].map(m => +m[1]);
 if (paintCosts.length !== 8) throw new Error('expected 8 paint costs, got ' + paintCosts.length);
 
+/* v4.2 sigil bay: one worn sigil, power priced in weakness — alloy sinks
+   extracted from source like every other (anchored on the tier field) */
+const sigilCosts = [...html.matchAll(/tier: '\w+', cost: (\d+),/g)].map(m => +m[1]);
+if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + sigilCosts.length);
+
 /* refit ladders: cost: l => A + l * B, five levels each */
 const refitTables = [...html.matchAll(/id: '(\w+)', name: '[^']+', max: 5, cost: l => (\d+) \+ l \* (\d+)/g)]
   .map(m => ({ id: m[1], a: +m[2], b: +m[3] }));
@@ -208,7 +213,9 @@ function main() {
     anchor: anchorCheck(),
     incomeCurve: incomeCurve(3000),
     milestones: null,
-    spend: { hulls: hullCosts.reduce((a, c) => a + c, 0), refits: refitGrand, grandTotal: hullCosts.reduce((a, c) => a + c, 0) + refitGrand }
+    spend: { hulls: hullCosts.reduce((a, c) => a + c, 0), refits: refitGrand, grandTotal: hullCosts.reduce((a, c) => a + c, 0) + refitGrand,
+      paints: paintCosts.reduce((a, c) => a + c, 0), sigils: sigilCosts.reduce((a, c) => a + c, 0),
+      allIn: hullCosts.reduce((a, c) => a + c, 0) + refitGrand + paintCosts.reduce((a, c) => a + c, 0) + sigilCosts.reduce((a, c) => a + c, 0) }
   };
   const seeds = [];
   for (let s = 0; s < 21; s++) {

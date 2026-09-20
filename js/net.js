@@ -114,13 +114,15 @@ const NET = {
   },
 
   /* submit a finished run with its provenance; returns { rank, verdict } or null */
-  async  submitScore(mode, score, wave, ship, diff, tele) {
+  async  submitScore(mode, score, wave, ship, diff, tele, extra) {
     if (!this.on || !this.user) return null;
     // no catch: callers need the error status to decide queue vs drop
     return this.req('POST', '/api/scores', {
       mode, score, wave, ship, diff,
       runT: tele ? tele.runT : 0, kills: tele ? tele.kills : 0,
-      cps: tele ? tele.cps : []
+      cps: tele ? tele.cps : [],
+      paint: extra && extra.paint ? String(extra.paint).slice(0, 24) : null,
+      mastery: extra && extra.mastery ? Math.floor(Number(extra.mastery)) || 0 : 0
     }).then(j => ({ rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe }));
   },
 
@@ -173,7 +175,7 @@ const NET = {
     try {
       return await this.req('POST', '/api/challenges', {
         to, day: todaySeedKey(), score: ghost.score, wave: 1,
-        ship: ghost.ship, ghost: { frames: ghost.frames }
+        ship: ghost.ship, ghost: { frames: ghost.frames, paint: META.paint }
       });
     } catch (e) { return { error: String((e && e.message) || e) }; }
   },
@@ -218,7 +220,7 @@ const NET = {
         AU.ui();
         const g = await this.fetchGhost(c.id);
         if (!g || !g.ghost) { note('Duel ghost unavailable', 'bad'); return; }
-        DB.set('ghost.rival', { score: c.score, ship: g.ghost.ship, frames: g.ghost.frames, duelId: c.id });
+        DB.set('ghost.rival', { score: c.score, ship: g.ghost.ship, frames: g.ghost.frames, paint: g.ghost.paint || 'yard', duelId: c.id });
         note('Rival ghost armed — fly Today\'s run', 'good');
         toTitle();
       };
@@ -248,9 +250,12 @@ const NET = {
       box.innerHTML = j.top.map((r, i) => {
         const h = HULLS.find(x => x.id === r.ship);
         const mine = this.user && r.n === this.user.name;
+        const gpt = r.p && PAINTS.find(x => x.id === r.p);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
-          '<span class="nm">' + esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') +
+          esc(r.n) + (h ? ' · ' + esc(h.name) : '') +
+          (r.m ? ' <span style="color:var(--gold);font-size:.6rem">M' + r.m + '</span>' : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
       }).join('');
@@ -266,7 +271,7 @@ const NET = {
   }
 };
 
-function renderBoard(el, mode, highlight) {
+function renderBoard(el, mode, highlight, _remote, myPaint) {
   const list = loadBoard(mode);
   if (!list.length) {
     el.innerHTML = '<div class="empty">No runs recorded yet.<br>The first one is yours.</div>';
@@ -274,9 +279,11 @@ function renderBoard(el, mode, highlight) {
   }
   el.innerHTML = list.map((r, i) => {
     const h = HULLS.find(x => x.id === r.k);
+    const pt = r.p && PAINTS.find(x => x.id === r.p);
+    const dot = pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : (r.p && r.p !== 'yard' && r.p === myPaint && PAINTS.find(x => x.id === myPaint) ? '<i class="pdot" style="background:' + PAINTS.find(x => x.id === myPaint).hull + '"></i>' : '');
     return '<div class="row' + (r.d === highlight ? ' me' : '') + '">' +
       '<span class="rk">' + pad2(i + 1) + '</span>' +
-      '<span class="nm">' + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+      '<span class="nm">' + dot + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
       '<span class="sc">' + padN(r.s, 7) + '</span>' +
       '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
   }).join('');
@@ -431,15 +438,72 @@ function hullPreview(id, size) {
 function statBar(label, v) {
   return '<span>' + label + '</span><i><b style="transform:scaleX(' + clamp(v, .05, 1) + ')"></b></i>';
 }
+/* v4.2 sigil bay — wear one, price and all. Rush boards and drills
+   fly vanilla (sigil stripped at launch, stated here, not hidden). */
+function renderSigils() {
+  const sgl = $('sigilList');
+  if (!sgl) return;
+  sgl.innerHTML = '';
+  for (const g of [{ id: '', name: 'None', tier: '—', cost: 0, perk: 'Fly plain. No edge, no price.', weakness: '' },
+    ...SIGILS]) {
+    const owned = g.id === '' || (META.sigils || []).includes(g.id);
+    const sel = (META.sigil || '') === g.id;
+    const b = document.createElement('button');
+    b.className = 'sigil' + (sel ? ' sel' : '') + (owned ? '' : ' locked');
+    b.innerHTML =
+      '<span class="sg-t ' + (g.tier || 'x') + '">' + (g.tier || '—') + '</span>' +
+      '<span><b>' + esc(g.name) + '</b><p class="perk">' + esc(g.perk) + '</p>' +
+      (g.weakness ? '<p class="price">Its price: ' + esc(g.weakness) + '</p>' : '') + '</span>' +
+      '<span class="sg-buy ' + (sel ? 'worn' : owned ? '' : 'no') + '">' +
+      (sel ? 'worn' : owned ? 'wear' : fmt(g.cost) + '<br>alloy') + '</span>';
+    b.onclick = () => {
+      AU.ui();
+      if (sel) return;
+      if (owned) { META.sigil = g.id || null; saveMeta(); renderHangar(); if (g.id) note(g.name + ' worn', 'good'); }
+      else if (META.alloy >= g.cost) {
+        META.alloy -= g.cost; META.sigils.push(g.id); META.sigil = g.id;
+        saveMeta(); renderHangar(); note(g.name + ' acquired — read its price twice', 'rare'); AU.unlock();
+      } else note('Need ' + fmt(g.cost - META.alloy) + ' more alloy', 'bad');
+    };
+    sgl.appendChild(b);
+  }
+  const worn = META.sigil && (META.sigils || []).includes(META.sigil);
+  $('sigilNote').textContent = worn
+    ? SIGILS.find(s => s.id === META.sigil).name + ' rides every flight (except drills and rush boards)'
+    : 'Flying plain — no edge, no price';
+}
+/* hull mastery — the docked hull leads the list with its live XP bar */
+function renderMastery() {
+  const msl = $('masteryList');
+  if (!msl) return;
+  msl.innerHTML = '';
+  for (const h of [hull(), ...HULLS.filter(x => x.id !== META.ship)]) {
+    const e = (META.mastery || {})[h.id] || { xp: 0 };
+    const lvl = masteryLevel(h.id);
+    const nxt = MASTERY_TIERS.find(t => t.lvl === lvl + 1);
+    const floorXp = lvl ? MASTERY_TIERS[lvl - 1].xp : 0;
+    const frac = nxt ? clamp((e.xp - floorXp) / (nxt.xp - floorXp), 0, 1) : 1;
+    const d = document.createElement('div');
+    d.className = 'ms' + (h.id === META.ship ? ' active' : '') + (lvl >= 5 ? ' maxed' : '');
+    d.innerHTML = '<b>' + esc(h.name) + (h.id === META.ship ? ' · docked' : '') + '</b>' +
+      '<span class="ms-l">' + (lvl ? 'M' + lvl : 'unflown') + '</span>' +
+      '<span class="ms-bar"><i style="width:' + Math.round(frac * 100) + '%"></i></span>' +
+      '<span class="ms-sub">' + (lvl ? MASTERY_TIERS[lvl - 1].sub : 'fly it to earn') +
+      (nxt ? ' · next ' + fmt(Math.max(0, nxt.xp - e.xp)) + ' xp' : ' · mastered') + '</span>';
+    msl.appendChild(d);
+  }
+}
 function renderHangar() {
   setText('alloyN', fmt(META.alloy));
+  renderSigils();
+  renderMastery();
   /* v4.1 paint shop — buy, equip, fly in it. High contrast keeps its white. */
   const pl = $('paintList');
   const hc = PAL.name === 'High contrast';
   $('dockName').textContent = hull().name;
   $('dockSub').textContent = META.ship === 'wraith' ? 'Recovered from the gate — it keeps its own color' :
     hc ? 'High contrast keeps its hull — paints apply on other styles' :
-    PAINTS.find(p => p.id === META.paint).name + ' · renders in flight and on the boards';
+    PAINTS.find(p => p.id === META.paint).name + ' · worn in flight, on the boards';
   pl.innerHTML = '';
   for (const p of PAINTS) {
     const owned = META.paints.includes(p.id), sel = META.paint === p.id;
@@ -593,7 +657,7 @@ const OUTBOX = {
     const q = this.load();
     q.push({
       mode: entry.mode, score: entry.score, wave: entry.wave, ship: entry.ship,
-      diff: entry.diff, runT: entry.runT, kills: entry.kills, cps: entry.cps,
+      diff: entry.diff, runT: entry.runT, kills: entry.kills, cps: entry.cps, paint: entry.paint || null,
       day: entry.mode === 'daily' ? todaySeedKey() : null,
       at: Date.now()
     });
@@ -609,7 +673,7 @@ const OUTBOX = {
     if (!q.length) return Promise.resolve(0);
     const head = q[0];
     return NET.submitScore(head.mode, head.score, head.wave, head.ship, head.diff,
-      { runT: head.runT, kills: head.kills, cps: head.cps })
+      { runT: head.runT, kills: head.kills, cps: head.cps }, head.paint ? { paint: head.paint } : null)
       .then(r => {
         if (!r) return 0;                      // deck vanished mid-drain — retry later
         const rest = this.load().filter(e => e.at !== head.at);
