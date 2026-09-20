@@ -230,6 +230,11 @@ kbd{border:1px solid var(--line-soft);padding:2px 6px;font-size:.62rem;color:var
   .menu.title-menu{gap:6px}
   .title-menu .btn{padding:10px 16px}
   .title-menu .btn .sub{margin-top:2px}
+  /* short viewports: Boss rush + Solar Tour share a row so the menu keeps
+     fitting 720p with the footer clear (ftue spec pins this). The extra
+     class wins the tie against the display:contents base rule below. */
+  .menu.title-menu .duo{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .menu.title-menu .duo .sub{display:none}
   .creds{margin-top:10px;line-height:1.7}
   .side{gap:9px}
   .side .panel{padding:15px 18px}
@@ -247,6 +252,7 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .oparthib{font-size:.64rem;letter-spacing:.4em;color:var(--violet);margin-bottom:22px;opacity:.85}
 .lede{color:var(--dim);font-size:.88rem;line-height:1.75;max-width:44ch;margin-bottom:26px}
 .title-menu{width:min(330px,100%)}
+.title-menu .duo{display:contents}   /* tall layouts: the pair stacks like any two buttons */
 .creds{margin-top:22px;font-size:.62rem;letter-spacing:.1em;color:var(--dimmer);line-height:2.1}
 .side{display:flex;flex-direction:column;gap:12px;max-height:80vh;overflow-y:auto;padding:2px}
 .side .panel{padding:20px 22px}
@@ -563,7 +569,10 @@ body.needrotate #rotate{display:grid}
         <button class="btn" id="btnHangar">Hangar<span class="sub" id="hangarSub">Hulls and refits</span></button>
         <button class="btn" id="btnSchool">Flight school<span class="sub" id="schoolSub">Three drills · +120 alloy once</span></button>
         <button class="btn" id="btnDaily">Today's run<span class="sub" id="dailySub">One seed, everyone the same</span></button>
-      <button class="btn" id="btnRush">Boss rush<span class="sub" id="rushSub">Four capitals, no warm-up</span></button>
+        <div class="duo">
+        <button class="btn" id="btnRush">Boss rush<span class="sub" id="rushSub">Four capitals, no warm-up</span></button>
+        <button class="btn" id="btnTour">Solar Tour<span class="sub" id="tourSub">Eight worlds · one hull · checkpoints</span></button>
+      </div>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
         <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
         <button class="btn ghost" id="btnSettings">Settings</button>
@@ -612,7 +621,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v3.8.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v3.9.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -668,6 +677,7 @@ body.needrotate #rotate{display:grid}
       <button class="btn key" id="btnResume">Resume</button>
       <button class="btn" id="btnPauseSet">Settings</button>
       <button class="btn" id="btnRestart">Restart run</button>
+      <button class="btn warn hidden" id="btnAbandonTour">Abandon tour</button>
       <button class="btn warn" id="btnAbort">Leave to hangar</button>
     </div>
   </div>
@@ -855,7 +865,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v3.8.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v3.9.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1265,6 +1275,7 @@ const REFITS = [
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
+  tourBest: 0, tourCleared: false, tourRecords: {},
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
@@ -1278,6 +1289,9 @@ function loadMeta() {
   META.runs = +s.runs || 0;
   META.totalKills = +s.totalKills || 0;
   META.bestWave = +s.bestWave || 0;
+  META.tourBest = +s.tourBest || 0;
+  META.tourCleared = !!s.tourCleared;
+  META.tourRecords = (s.tourRecords && typeof s.tourRecords === 'object') ? s.tourRecords : {};
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -1616,7 +1630,90 @@ function makeDerelict() {
   }
   return { img: c, x: rnd(0, W), y: rnd(-H * 1.5, -H * .2), vy: rnd(2.6, 6.5), s: rnd(.5, 1), rot: rnd(-.06, .06), rotA: rnd(-.008, .008) };
 }
+/* ════════════════ SOLAR TOUR — stage registry ════════════════════════
+   Eight worlds, Mercury to the Kuiper Gate. Each stage owns (a) a foe-tint
+   mix — the percentage palette mixes its hostile channels toward `rare`,
+   halved on the High contrast palette so opposition never softens — and
+   (b) structural sky facts fed to the existing planet baker. Waves and
+   budgets stay in the director's hands; a stage shapes the SKY, not the
+   balance. Tour mode walks stages in order; endless spins a seeded
+   rotation (daily shares the day seed, so everyone flies the same sky). */
+const STAGES = [
+  { id: 'mercury',  name: 'Mercury',     tagline: 'Sun-scoured clutter belt',       tint: .5,  crater: 1.9, ring: 0,   storm: .12, lights: 0,   hue: 38,  sat: 1.12, bri: 1.06, waves: 4 },
+  { id: 'venus',    name: 'Venus',       tagline: 'Crushing shroud, amber static',  tint: .34, crater: .25, ring: .35, storm: .75, lights: .2,  hue: 14,  sat: 1.1,  bri: 1.04, waves: 5 },
+  { id: 'earth',    name: 'Earth',       tagline: 'Home lights behind you',         tint: 0,   crater: .3,  ring: 0,   storm: .4,  lights: 1,   hue: 0,   sat: 1,    bri: 1,    waves: 5 },
+  { id: 'mars',     name: 'Mars',        tagline: 'Rust storms, thin air',          tint: .2,  crater: 1.5, ring: 0,   storm: .95, lights: .35, hue: 16,  sat: 1.06, bri: 1.02, waves: 6 },
+  { id: 'jupiter',  name: 'Jupiter',     tagline: 'The magnetosphere answers back', tint: .3,  crater: .2,  ring: .6,  storm: 1,   lights: 0,   hue: 26,  sat: 1.12, bri: 1.02, waves: 6 },
+  { id: 'saturn',   name: 'Saturn',      tagline: 'Carriers breed in the rings',    tint: .3,  crater: .2,  ring: 1.4, storm: .55, lights: 0,   hue: 40,  sat: 1.04, bri: 1,    waves: 7 },
+  { id: 'neptune',  name: 'Neptune',     tagline: 'Cold velocity, dim instruments', tint: .55, crater: .3,  ring: .3,  storm: .3,  lights: .15, hue: -22, sat: 1.05, bri: .98,  waves: 7 },
+  { id: 'gate',     name: 'Kuiper Gate', tagline: 'The thing the tide came through',tint: .7,  crater: .8,  ring: .2,  storm: .8,  lights: 0,   hue: -14, sat: 1.05, bri: .96,  waves: 8 }
+];
+let STAGE = null;   /* active stage descriptor, or null = unmodded sky */
+/* cumulative wave counts per world: [4,9,14,20,26,33,40,48] — world i spans
+   waves (TOUR_CUM[i-1], TOUR_CUM[i]]; the finale boss rides the last one */
+const TOUR_CUM = STAGES.reduce((a, s) => (a.push((a[a.length - 1] || 0) + s.waves), a), []);
+const TOUR_FINALE = TOUR_CUM[TOUR_CUM.length - 1];
+/* worlds fully cleared when wave n starts (0 while inside world 1) */
+const tourWorldsDone = n => TOUR_CUM.filter(c => c < n).length;
+
+/* a stage's palette: hostile channels pulled toward `rare`, everything else
+   untouched — opposition stays opposition on every accessibility palette */
+const tintPal = (pal, st) => {
+  if (!st || !st.tint) return pal;
+  const k = pal.name === 'High contrast' ? st.tint * .5 : st.tint;
+  const m = (a, b) => {
+    const ca = rgbOf(a).split(',').map(Number), cb = rgbOf(b).split(',').map(Number);
+    return 'rgb(' + ca.map((v, i) => Math.round(v + (cb[i] - v) * k)).join(',') + ')';
+  };
+  const p2 = Object.assign({}, pal);
+  p2.foe = m(pal.foe, pal.rare); p2.foeDeep = m(pal.foeDeep, pal.rare);
+  p2.foeLit = m(pal.foeLit, pal.rare);
+  return p2;
+};
+
+/* structural sky facts ride the stage itself — buildBackdrop reads the
+   active stage's fields directly, so there is no second mapping to keep
+   in sync (removed: an unused skyFor indirection deadscan flagged) */
+const stageTint = () => ({ sat: STAGE ? STAGE.sat : 1, bri: STAGE ? STAGE.bri : 1, hue: STAGE ? STAGE.hue : 0 });
+
+/* the seeded spin for endless + daily: a different world every 5 waves,
+   deterministic per run (daily shares the day seed) */
+const stageForWave = (n, seed) => {
+  if (n < 1) n = 1;
+  const i = Math.floor((n - 1) / 5) % (STAGES.length - 1);
+  return STAGES[(seed + i) % (STAGES.length - 1)];
+};
+
+function syncStage(n) {
+  if (GAME.mode === 'tour') {
+    STAGE = STAGES[clamp(n - 1, 0, STAGES.length - 1)];
+  } else {
+    STAGE = GAME.rush || GAME.school ? null : stageForWave(n, GAME.stageSeed | 0);
+  }
+  PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
+  buildBackdrop();
+}
+
+/* tour end-of-life without a summary: settle the remaining half-alloy of
+   every cleared world (death forfeits those — checkpoints already paid),
+   stamp the record. The victory path calls this, then endRun for the full
+   summary; the abandon path calls it, then toTitle. */
+function endRunTour() {
+  if (GAME.mode !== 'tour' || GAME.state === 'over') return;
+  const done = GAME.tourWorld;
+  const bonusMul = 1 + refit('fortune') * .05;
+  let earn = 0;
+  for (let i = 0; i < done; i++) earn += Math.floor((9 + i * 2) / 2 * bonusMul);
+  META.alloy += earn;
+  META.tourBest = Math.max(META.tourBest || 0, done);
+  if (GAME.tourVictory) META.tourCleared = true;
+  saveMeta();
+  if (earn) note('Tour settled · +' + fmt(earn) + ' alloy', 'good');
+}
+
 function buildBackdrop() {
+  const activeStage = STAGE;   /* captured: rebuilds always bake the active world */
+  const gr = stageTint();      /* sat/bri/hue trims — identity when STAGE is null */
   const mk = (rgb, size) => {
     const c = document.createElement('canvas'); c.width = c.height = size;
     const x = c.getContext('2d');
@@ -1789,13 +1886,17 @@ function buildBackdrop() {
   const T = chan(PAL.tech), A = chan(PAL.ally), WH = [246, 250, 255],
     DK = [8, 12, 26], DK2 = [20, 14, 16];
   const hc = PAL.name === 'High contrast';
-  const kl = hc ? .82 : .55, kb = hc ? .9 : .78;
-  /* the grand storm tint carries a little of the palette's foe channel, so
-     every palette bakes a measurably distinct sky (the selftest hashes the
-     storm layer's pixels per palette). T and the foe channel only coincide
-     on palettes that share both channels — currently none. */
+  /* stage skies trim light angle and saturation a touch — folded into the
+     bake's own mix knobs, so the identity stage is byte-identical to stock */
+  const kl = (hc ? .82 : .55) * gr.sat, kb = (hc ? .9 : .78) * gr.sat;
+  /* storm tint: stock skies carry a little of the palette's foe channel so
+     every PALETTE bakes a measurably distinct sky (the selftest hashes the
+     storm layer's pixels); stage skies tint straight from the stage's own
+     tinted foe channel — every WORLD bakes its own storm */
   const mixArr = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
-  const F = chan(PAL.foe), stormWarm = mixArr(T, F, hc ? .3 : .18);   /* array stays an array — mixc eats arrays, emits strings */
+  const stormWarm = activeStage && activeStage.storm
+    ? chan(PAL.foe)
+    : mixArr(T, chan(PAL.foe), hc ? .3 : .18);
 
   planet = buildPlanet(1100, {
     lit: mixc(T, WH, kl), base: mixc(T, DK, kb), dark: mixc(DK, [0, 0, 0], hc ? .6 : 0),
@@ -1803,12 +1904,13 @@ function buildBackdrop() {
     bandCols: [mixc(T, WH, .3), mixc(T, DK, kb), mixc(T, WH, kl),
       mixc(T, DK, .92), mixc(T, WH, .12), mixc(T, DK, .85), mixc(T, WH, .4)],
     storm: true, stormA: mixc(stormWarm, WH, .38), stormB: mixc(stormWarm, DK, .94),
-    lights: true, mareA: mixc(T, DK, .88), mareB: mixc(T, WH, .18)
+    lights: !(activeStage && activeStage.lights === 0),
+    mareA: mixc(T, DK, .88), mareB: mixc(T, WH, .18)
   });
   moon = buildPlanet(1200, {
     lit: mixc(A, WH, hc ? .7 : .42), base: mixc(A, DK2, .66), dark: DK2,
     rim: mixc(A, WH, .3), mareA: mixc(A, DK2, .8), mareB: mixc(A, WH, .22),
-    craters: true, craterN: 64
+    craters: !(activeStage && activeStage.crater < .2), craterN: 64
   });
 
   dust = [];
@@ -2120,7 +2222,8 @@ const GAME = {
   kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
   alloyRun: 0, wave: 0, lives: 3, intensity: .25, threat: 0,
   elitesHeal: true,   // v3.8 Vampiric master switch (determinism tests toggle it off)
-  skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 }
+  skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 },
+  stageSeed: 1, tourWorld: 0, tourRecords: {}
 };
 
 const foes = [], pb = [], fb = [], picks = [], rings = [], floats = [], beams = [], mines = [];
@@ -3840,7 +3943,20 @@ function startWave(n) {
   DIRECTOR.t = 0; DIRECTOR.phase = 'combat';
   if (GAME.mode === 'rush') { return; }
   DIRECTOR.queue = buildWave(n);
-  const isBoss = n % 5 === 0;
+  const isBoss = n % 5 === 0 || (GAME.mode === 'tour' && n === TOUR_FINALE);
+  /* Solar Tour / stage spin: land the sky before the wave banners — the
+     sector line and the world name are one sentence, not two */
+  if (GAME.mode !== 'rush' && !GAME.school) {
+    syncStage(n);
+    if (GAME.mode === 'tour') {
+      const done = tourWorldsDone(n);
+      if (done > GAME.tourWorld) {           /* crossed into a new world */
+        GAME.tourWorld = done;
+        announce(STAGES[clamp(done, 0, STAGES.length - 1)].name, STAGES[clamp(done, 0, STAGES.length - 1)].tagline, 'violet');
+        AU.alarm();
+      }
+    }
+  }
   announce(
     isBoss ? 'Capital signature' : 'Wave ' + pad2(n),
     isBoss ? 'Kill order · ' + codename(n) : 'Operation ' + codename(n),
@@ -3915,10 +4031,40 @@ function updateDirector(dt) {
       const bonus = 260 * DIRECTOR.wave;
       GAME.score += bonus;
       GAME.alloyRun += 12 + DIRECTOR.wave * 3;
+      /* TOUR: a world cleared is a checkpoint banked — half its alloy
+         settles on the spot, so a death still pays for ground held */
+      if (GAME.mode === 'tour') {
+        const done = tourWorldsDone(DIRECTOR.wave + 1);
+        if (done > GAME.tourWorld) {
+          const i = done - 1;                    /* 0-based world just cleared */
+          GAME.tourWorld = done;
+          const v = 9 + i * 2;
+          const half = Math.ceil(v / 2 * (1 + refit('fortune') * .05));
+          GAME.alloyRun += half;
+          const rec = GAME.tourRecords['w' + i] || 0;
+          if (GAME.wave > rec) GAME.tourRecords['w' + i] = GAME.wave;
+          META.tourRecords = GAME.tourRecords;
+          META.tourBest = Math.max(META.tourBest || 0, i + 1);
+          saveMeta();
+          announce(STAGES[i].name + ' cleared', 'Checkpoint · +' + half + ' alloy banked', 'violet');
+        }
+        if (DIRECTOR.wave >= TOUR_FINALE && !GAME.tourVictory) {
+          GAME.tourVictory = true;
+          announce('TOUR COMPLETE', 'The Gate is sealed. Fly home, pilot.', 'violet');
+          /* settle after the banner — but wait out a pause opened mid-banner,
+             and stand down if the run ended some other way first */
+          const settle = () => {
+            if (GAME.state !== 'playing') return;
+            if (GAME.paused) { setTimeout(settle, 400); return; }
+            endRunTour(); endRun();
+          };
+          setTimeout(settle, 2900);
+        }
+      }
       announce('Wave ' + pad2(DIRECTOR.wave) + ' clear', 'Bonus ' + fmt(bonus));
       AU.waveClear();
       MUSIC.set('calm', .32);
-      if (DIRECTOR.wave % 5 === 0) spawnPick(W / 2, H * .35, 'hull');
+      if (DIRECTOR.wave % 5 === 0 || (GAME.mode === 'tour' && DIRECTOR.wave === TOUR_FINALE)) spawnPick(W / 2, H * .35, 'hull');
     }
   } else if (DIRECTOR.phase === 'rest') {
     DIRECTOR.restT -= dt;
@@ -4963,6 +5109,11 @@ const GHOST = {
 function startRun(mode) {
   AU.init(); AU.resume(); AU.applyVolumes(); MUSIC.start();
   GAME.mode = mode || 'endless';
+  GAME.stageSeed = 1 + ((rnd(0, 1e9) | 0) % 7);
+  GAME.tourWorld = 0;
+  GAME.tourVictory = false;
+  GAME.tourRecords = GAME.tourRecords || {};
+  STAGE = null;
   GHOST.begin(mode === 'daily' ? 'daily' : 'main');
   GHOST.startRecord();
   TELE.reset();
@@ -5024,6 +5175,7 @@ function startRun(mode) {
 }
 
 function endRun() {
+  STAGE = null;
   if (!GAME.school) GHOST.saveIfBest(GAME.mode === 'daily' ? 'daily' : 'main', GAME.score);
   GHOST.end();
   GAME.state = 'over';
@@ -5223,6 +5375,9 @@ function endRun() {
 
 function toTitle() {
   GAME.state = 'title'; GAME.paused = false;
+  STAGE = null;
+  PAL = PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)];
+  buildBackdrop();
   $('hud').classList.add('hidden');
   $('lowhp').classList.remove('on');
   document.body.classList.remove('flying');
@@ -5258,6 +5413,8 @@ function refreshTitleMeta() {
   $('schoolSub').textContent = META.school ? 'Drills complete · replay anytime' : 'Three drills · +120 alloy once';
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
+  if (META.tourCleared) $('tourSub').textContent = 'Tour complete · best ' + (META.tourBest || 8) + ' of 8 worlds';
+  else if (META.tourBest) $('tourSub').textContent = 'Furthest: ' + STAGES[Math.min(7, META.tourBest - 1)].name + ' · ' + META.tourBest + ' of 8 worlds';
   $('regMeta').textContent = (META.runs
     ? META.runs + ' runs · ' + fmt(META.totalKills) + ' kills · best wave ' + Math.max(1, META.bestWave)
     : 'Stored on this device')
@@ -5376,6 +5533,7 @@ function closeSettings() {
    ══════════════════════════════════════════════════════════════════════ */
 function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
 bindClick('btnLaunch', () => startRun('endless'));
+bindClick('btnTour', () => startRun('tour'));
 bindClick('btnDaily', () => startRun('daily'));
 bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
@@ -5507,6 +5665,7 @@ bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
 bindClick('btnAbort', () => { GAME.paused = false; toTitle(); });
+bindClick('btnAbandonTour', () => { GAME.paused = false; endRunTour(); toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
 bindClick('btnToHangar', () => toHangar());
 bindClick('btnRegister', () => saveCallsign());
@@ -5616,6 +5775,14 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '3.9.0',
+    items: [
+      '<b>The Solar Tour</b> — a new campaign mode: eight worlds from Mercury to the Kuiper Gate in one hull, each with its own sky, its own hostile tint and its own checkpoint. Half the alloy for a cleared world banks the moment you clear it; a death pays for the ground you held. Seal the Gate for the clear.',
+      '<b>Every world looks different</b> — endless and daily runs now tour the solar system too: a new world every five waves (seeded, so daily pilots share the same skies). Storms, rings, craters and city lights rebuild per world, and hostiles carry each world\'s tint — never at the cost of readability.',
+      '<b>Victory lap</b> — finish the Tour and the run settles itself into the summary with a full checkpoint payout. The title remembers how far you have flown.'
+    ]
+  },
   {
     v: '3.8.0',
     items: [
@@ -5989,6 +6156,67 @@ function runSelfTests() {
     clearAll();
     GAME.state = savedState; GAME.elitesHeal = savedHeal;
   });
+  T('solar tour: eight worlds tint distinct skies without breaking opposition', () => {
+    const savedPal = PAL, savedState = GAME.state, savedCfgPal = CFG.pal;
+    GAME.state = 'playing';
+    clearAll();
+    eq(STAGES.length, 8, 'registry holds eight worlds');
+    eq(TOUR_CUM.length, 8, 'world spans accumulate');
+    ok(TOUR_CUM[7] === STAGES.reduce((a, s) => a + s.waves, 0), 'finale wave matches total');
+    const pal = PAL;                                    /* Ember stock */
+    for (const s of STAGES) {
+      STAGE = s;
+      const tp = tintPal(pal, s);
+      if (s.tint) {
+        ok(tp.foe !== pal.foe, s.id + ' tints its hostiles');
+        const d = (hex, rgb) => Math.abs(rgbOf(hex).split(',').reduce((a, v) => a + +v, 0) -
+          rgb.reduce((a, v) => a + v, 0));
+        const n = rgbOf(tp.foe).split(',').map(Number), o = rgbOf(pal.foe).split(',').map(Number);
+        ok(n.some((v, i) => v !== o[i]), s.id + ' hue actually moved');
+      } else ok(tp.foe === pal.foe, s.id + ' stays stock');
+    }
+    /* opposition survives the tint: foe stays far from the hull channel */
+    STAGE = STAGES[7];                                  /* heaviest tint */
+    const tp = tintPal(pal, STAGE);
+    const c = h => rgbOf(h).split(',').map(Number);
+    const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    ok(dist(c(tp.foe), c(pal.hull)) > 110, 'tinted foes stay distinct from your hull');
+    STAGE = null;
+    PAL = savedPal; GAME.state = savedState;
+  });
+  T('tour run math: cumulative worlds, seeded endless spin, checkpoint settle', () => {
+    const savedState = GAME.state, savedMode = GAME.mode, savedAlloy = META.alloy;
+    const savedBest = META.tourBest, savedRecords = META.tourRecords;
+    GAME.state = 'playing';
+    eq(tourWorldsDone(1), 0, 'world 1 starts clearless');
+    eq(tourWorldsDone(TOUR_CUM[0] + 1), 1, 'world 2 opens after Mercury span');
+    eq(tourWorldsDone(TOUR_FINALE), 7, 'finale wave sits inside world 8');
+    /* seeded spin: deterministic per seed, rotates worlds, never the finale */
+    const a = stageForWave(1, 3), b = stageForWave(36, 3), c2 = stageForWave(1, 4);
+    eq(a.id, b.id, 'same seed repeats its world after one full lap');
+    ok(a.id !== c2.id, 'different seed spins elsewhere');
+    eq(stageForWave(1, 3).id, stageForWave(1, 3).id, 'spin is pure');
+    /* checkpoint settle math — no server, no world(), pure META flow.
+       Pin the Fortune refit so the multiplier is exact whatever the
+       local profile carries (discovered live: a leveled refit broke the
+       hardcoded expectation). */
+    const savedRefits = Object.assign({}, META.refits);
+    META.refits.fortune = 0;
+    META.alloy = 0; META.tourBest = 0; META.tourRecords = {};
+    GAME.mode = 'tour'; GAME.tourWorld = 2; GAME.tourVictory = false;
+    endRunTour();
+    ok(META.alloy === Math.floor(9 / 2) + Math.floor(11 / 2), 'settled halves sum exactly');
+    eq(META.tourBest, 2, 'furthest world stamped');
+    ok(!META.tourCleared, 'abandoned tour never stamps cleared');
+    GAME.tourVictory = true;
+    META.tourCleared = false;
+    endRunTour();
+    ok(META.tourCleared, 'victory stamps the clear');
+    GAME.mode = savedMode; GAME.state = savedState;
+    META.alloy = savedAlloy; META.tourBest = savedBest; META.tourRecords = savedRecords;
+    META.refits.fortune = savedRefits.fortune;
+    saveMeta();
+  });
   T('sustained load: 10s of full combat holds 120Hz sim', () => {
     // Phase E perf gate: the worst realistic worst case — one of every hostile
     // class + a capital + dense fire — must still fit the fixed-step budget.
@@ -6255,7 +6483,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '3.8.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '3.9.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
