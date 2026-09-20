@@ -638,4 +638,3 @@ function kickOutbox() {
   clearTimeout(outboxTimer);
   outboxTimer = setTimeout(() => { OUTBOX.drainIfPossible().then(n => { if (n > 0) kickOutbox(); }); }, 2500);
 }
-function blurActive() { const a = document.activeElement; if (a && a.blur) a.blur(); }
