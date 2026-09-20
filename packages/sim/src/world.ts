@@ -81,6 +81,8 @@ export function createWorld(opts: CreateOpts): World {
     dirPhase: 'rest',
     dirRestT: 0.5,
     spawnQueue: [],
+    bossIndex: -1,
+    bossesKilled: 0,
     log: [],
   };
   if (opts.autoWave !== false && world.mode !== 'school') {
