@@ -13,3 +13,5 @@ export {
   spawnFoe, firePlayer, collide, updateCombat, startWave, bindRng,
   SHIP_SCALE, SHOT_SCALE,
 } from './combat.ts';
+
+export { spawnBoss, updateBoss, killBoss, BOSS_DEFS, type Boss, type BossDefPure } from './bosses.ts';
