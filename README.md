@@ -1,4 +1,4 @@
-# EMBERFALL v4.3.0 — Orbital Intercept
+# EMBERFALL v4.4.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -12,6 +12,7 @@ A zero-build, static orbital intercept shooter. Art, music, and sound are genera
 - **Keyboard:** `WASD`/arrows fly · `Space` fire · `Shift` dash · `E` pulse · `P` pause · `M` mute · `F` fullscreen
 - **Touch:** drag anywhere to fly (fires for you); DASH / PULSE buttons bottom-right
 - **Gamepad:** sticks/buttons auto-detected
+- **Campaign, progression, personality:** fly the **Solar Tour** (8 worlds, Mercury to the Kuiper Gate, each with its own sky, hazard and hostile doctrine), bank **hull mastery** (+8%→+15% score, dash, salvage sight) and **kill plaques** (Blooded 200 → Legend of the Yard 5,000, engraved on your docked hull), wear **paints** and a **sigil** — one worn sigil, its price stated in a real weakness — and see your colors on every leaderboard, worldwide, and on the rival ghosts that race you.
 
 ## CI & deployment
 
@@ -59,9 +60,16 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **50 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil and mastery contracts, the profiler math, and the reduced-motion contract. The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **51 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, and the reduced-motion contract. The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v4.0 – v4.4 — "Worlds that fight back & the pilot's hangar"
+
+- **v4.0 — hazards & new hostiles:** six environmental systems (gravity wells, ion storms, cryofield, ring haze, flare tides, sulfur clouds) and six hostile classes with real verbs — pack telepathy, mortar arcs that burst into shrapnel, ally mending, rotating fire fans, honest rail telegraphs, and your own shadow mirrored back at you.
+- **v4.1 — the dock:** your hull at 7× on a breathing pad, refit hot-spots pinned to the schematic, a paint shop, the tour wall, and a zero-stakes test range.
+- **v4.2 – v4.3 — power priced in weakness:** the sigil bay (five sigils, each stating its price), hull mastery with tested awards, paints on local + worldwide boards and on rival ghosts, kill plaques earned per hull, duel entries in their challenger's colors.
+- **v4.4 — the ledger closes:** eight new feats across tour, hazards, sigils, mastery, plaques and the wardrobe; economy audit updated with the extracted sink tables (`docs/economy-audit.md` §6); backdrop bakes are now keyed, so same-sky wave starts cost zero (measured 3.65 ms per avoided bake).
 
 ## What's new in v3.7 — hardening, honesty, fonts
 

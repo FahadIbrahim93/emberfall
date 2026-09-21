@@ -4,8 +4,9 @@
 extracted live from source and whose behaviour model is calibrated on real
 server telemetry (60 runs that passed the plausibility checks of their day).
 Anchor: this pilot's actual career — 95 runs, 58,484 lifetime alloy (23,134
-banked + 35,350 spent). The sim replays that history at **−15.4% drift**, i.e.
-it under-predicts slightly: every finding below is conservative.*
+banked + 35,350 spent). The sim replays that history at **−3.3% drift**
+(tightened from −15.4% once the v3.8 elite-income term was folded into the
+model), i.e. it under-predicts slightly: every finding below is conservative.*
 
 ---
 
@@ -65,6 +66,11 @@ At wave 26+, a pilot earns ~12,000/run with nothing left to buy. There is no
 sink, no prestige, no season goal beyond leaderboard rank. Two sessions of
 veteran play make every future alloy meaningless. **This is the single
 biggest economy gap** — bigger than any pricing question.
+
+> **v4.4 status:** partially closed. The v4.1 paint shop and the v4.2 sigil
+> bay added **10,250 alloy** of late-game sink (see §6), and mastery/plaques
+> give progress an identity layer that survives completion. A prestige
+> ladder remains the open item — §5.1 stays on the books.
 
 ### 3b. The rookie comet dependency (economic fragility, by way of a gift)
 
@@ -149,5 +155,31 @@ its cost curve already prices it fairly.
 *Model provenance: kills/wave = 1.66·w^1.09 (fits w5, w12, w32 buckets
 simultaneously); score/kill = −0.86w²+58.8w−45.7 (combo-inflated, concave);
 35 s/wave; death wave pays half kills, no clear bonus. Anchor replay
-−15.4%; residual drift is daily-mutator and combo variance, all of which
+−3.3%; residual drift is daily-mutator and combo variance, all of which
 raises real income above the model — findings are conservative.*
+
+## 6. The v4.1–v4.4 personalization sinks (post-completion alloy)
+
+Both new shops extract their prices from source (`tools/econsim.js` fails
+loudly if the registry shape drifts):
+
+| Sink | Items | Total | When it lands |
+|-------|-------|-------|---------------|
+| Paints (v4.1) | 7 paid | 4,450 | mid-game onward |
+| Sigils (v4.2) | 5 | 5,800 | late-game (900–1,400 each, priced against mastery) |
+| **Combined** | 12 | **10,250** | ≈ one deep run per purchase |
+
+Reading against §2's completion curve (35,350 for hulls+refits at run ~31):
+the shops extend the *meaningful* spend horizon by roughly **two to three
+sessions** for a completionist, and indefinitely for collectors who want
+the wardrobe. Income was not touched: mastery's +8%/+15% score award is a
+*score* multiplier (leaderboard reach), not an alloy multiplier — run-end
+pays off `GAME.score`, so a mastery pilot's alloy rises only as far as
+their play improves. That keeps the award real (it shows on boards) without
+compounding the veteran curve.
+
+Sigil pricing rule of thumb: each sigil costs about one wave-26 run
+(900–1,400), and each one *costs* something in flight — the shop is a
+power-swap, not a power-up, so it cannot inflate the economy it sits in.
+Plaques (v4.3) and feats pay zero alloy by design (§4: identity, not
+income) — the plaque ladder is kill-count, which no alloy can buy.

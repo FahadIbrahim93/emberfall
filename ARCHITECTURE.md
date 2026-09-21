@@ -42,9 +42,17 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   registers its paint in `SETTING_PAINTS`, replayed by `boot()` after
   `loadCfg()` so saved prefs always render. *Never* bind a settings control
   that paints at eval-time only.
-- `META` (career: alloy, hulls, refits, feats, sky log, streaks) — persisted,
-  cloud-merged by net.js with server convergence; suite-tested for merge
-  union/max semantics and legacy migration.
+- `META` (career: alloy, hulls, refits, feats, sky log, streaks, sigils,
+  mastery, hullKills) — persisted, cloud-merged by net.js with server
+  convergence; suite-tested for merge union/max semantics and legacy
+  migration. The personalization ledgers (`META.sigils`, `META.mastery`,
+  `META.hullKills`) are written only through their bank functions
+  (`masteryBankRun`), which share one guard: scored flights only.
+- `GAME.sigil` (worn sigil, resolved at launch) — the only run-long power
+  channel outside refits. Configure order matters and is suite-tested:
+  stats reset **first**, sigil `apply()` **last** — a sigil that pays in a
+  stat malus must never be wiped by the reset that follows it. Rush boards
+  and practice runs strip sigils at the same line.
 - `GAME` (run state) — ephemeral; the fixed-step sim at `STEP` with a 5-step
   accumulator ceiling (death-spiral guard). `GAME.school` walls practice runs
   off from ghosts, ladders and the server.
@@ -74,6 +82,16 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 7. **Run provenance is plausibility checking, not verification.** Copy may
    say "plausibility-checked" — "verified" is reserved until the deck can
    re-simulate a run from (seed, inputs) (SSOT P1/P2).
+8. **Every sky bake is keyed.** `syncStage` skips `buildBackdrop` unless a
+   bake input actually changed (stage · palette · worn paint). The bake is
+   the single most expensive frame operation in the game (≈3.7 ms desktop);
+   wave starts with an unchanged sky cost zero. Bypass the guard only by
+   clearing `GAME.skyKey` (the title screen owns that path).
+9. **Personalization is public, never secret, never power on boards.** Paint
+   ids ride runs to the deck and come back on rows; the server accepts an
+   *allowlisted* id set only. Sigils strip on rush/practice by design — the
+   ladders stay vanilla (see `docs/economy-audit.md` §6 for why sigils are
+   power-swaps, not power-ups).
 
 ## Where new things go
 

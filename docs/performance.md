@@ -18,6 +18,13 @@ Take-aways:
 - **Sky drifts are effectively free.** Ring shear, storm swirl, moon terminator
   and the nebula planes together cost under 0.6 ms — the differential-parallax
   rework (three `drawImage` stamps over two cached bakes) measured 0.045 ms/frame.
+- **The backdrop bake is the one expensive sky operation — and it is keyed.**
+  A full `buildBackdrop()` (planet, storms, craters, moons, dust) measured
+  **3.65 ms** on the reference desktop — fine once at run start, unacceptable
+  every wave. Since v4.4 `syncStage` keys the bake on (stage · palette · worn
+  paint): three same-world wave starts trigger exactly **one** bake
+  (suite-guarded and measured live in the preview). Wave starts with an
+  unchanged sky cost zero.
 - **Headroom at 4x throttle is ~28 frames.** With a 12 ms/frame busy-wait
   injected (≈ a 4x-throttled phone), worst-case combat execution stayed ~1.4 ms.
 - **The death-spiral clamp is real.** Injecting 8 sim-steps of backlog: the

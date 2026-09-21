@@ -680,7 +680,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.3.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.4.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -940,7 +940,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.3.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.4.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1598,7 +1598,16 @@ const FEATS = [
   { id: 'ghostwatch', name: 'Ghost watcher', desc: 'See a graveyard fleet cross mid-run.', check: s => s.sky && s.sky.fleets >= 1, prog: () => [META.sky.fleets, 1] },
   { id: 'serialwish', name: 'Serial wisher', desc: 'Bank 10 comet bonuses — earns the STAR CHART: every comet pays +50% alloy, forever.', check: s => s.sky && s.sky.comets >= 10, prog: () => [META.sky.comets, 10] },
   { id: 'skystreak', name: 'Sky-touched', desc: 'Sight a comet in 5 consecutive runs.', check: s => s.sky && (s.sky.streakBest || 0) >= 5, prog: () => [Math.min(META.sky.streakBest || 0, 5), 5] },
-  { id: 'escort', name: 'Escort service', desc: 'Watch a relief convoy cross mid-run.', check: s => s.sky && (s.sky.escorts || 0) >= 1, prog: () => [META.sky.escorts || 0, 1] }
+  { id: 'escort', name: 'Escort service', desc: 'Watch a relief convoy cross mid-run.', check: s => s.sky && (s.sky.escorts || 0) >= 1, prog: () => [META.sky.escorts || 0, 1] },
+  /* ── v4.4: the worlds, the wardrobe, the service record ── */
+  { id: 'tour3', name: 'Inner worlds', desc: 'Clear three worlds on the Solar Tour.', check: s => (s.tourWorlds || 0) >= 3, prog: () => [Math.min(META.tourBest || 0, 3), 3] },
+  { id: 'tour8', name: 'Gate breaker', desc: 'Complete the Solar Tour.', check: s => s.tourVictory === true, prog: () => [Math.min(META.tourBest || 0, 8), 8] },
+  { id: 'haz10', name: 'Weathered', desc: 'Fly ten hazardous waves in one run.', check: s => (s.hazWaves || 0) >= 10, prog: () => [Math.min(GAME.hazWaves || 0, 10), 10] },
+  { id: 'sigil1', name: 'Marked', desc: 'Finish a run wearing a sigil — price and all.', check: s => !!s.sigil },
+  { id: 'glasswing', name: 'One wing on', desc: 'Reach wave 10 on Glasswing&apos;s one life.', check: s => s.sigil === 'glasswing' && s.wave >= 10 },
+  { id: 'ace', name: 'Ace plaquer', desc: 'Earn the ACE plaque on any hull — 2,000 kills in one airframe.', check: s => Object.values(META.hullKills || {}).some(k => k >= 2000), prog: () => [Math.max(0, ...Object.values(META.hullKills || {}), 0), 2000] },
+  { id: 'mast3', name: 'Flight instructor', desc: 'Bring any hull to Mastery 3.', check: s => Object.values(META.mastery || {}).some(e => (e.xp || 0) >= MASTERY_TIERS[2].xp), prog: () => [Math.max(0, ...Object.values(META.mastery || {}).map(e => { let l = 0; for (const t of MASTERY_TIERS) if ((e.xp || 0) >= t.xp) l = t.lvl; return l; }), 0), 3] },
+  { id: 'wardrobe', name: 'Paint locker', desc: 'Own five paints.', check: s => (META.paints || []).length >= 5, prog: () => [Math.min((META.paints || []).length, 5), 5] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1902,7 +1911,12 @@ function syncStage(n) {
     STAGE = GAME.rush || GAME.school ? null : stageForWave(n, GAME.stageSeed | 0);
   }
   PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
-  buildBackdrop();
+  /* the bake is the expensive part — skip it unless a bake input changed
+     (stage name, palette name, worn paint). Wave starts with the same sky
+     cost zero; paint/palette changes change the key and force the rebake. */
+  const skyKey = (STAGE ? STAGE.name : '-') + '|' + PAL.name + '|' + (META.paint || '');
+  if (skyKey !== GAME.skyKey) buildBackdrop();
+  GAME.skyKey = skyKey;
 }
 
 /* tour end-of-life without a summary: settle the remaining half-alloy of
@@ -4478,6 +4492,7 @@ function startWave(n) {
   DIRECTOR.t = 0; DIRECTOR.phase = 'combat';
   if (GAME.mode === 'rush') { return; }
   DIRECTOR.queue = buildWave(n);
+  if (STAGE && STAGE.haz && !GAME.school) GAME.hazWaves = (GAME.hazWaves || 0) + 1;
   const isBoss = n % 5 === 0 || (GAME.mode === 'tour' && n === TOUR_FINALE);
   /* Solar Tour / stage spin: land the sky before the wave banners — the
      sector line and the world name are one sentence, not two */
@@ -5699,6 +5714,7 @@ function startRun(mode) {
   GAME.stageSeed = 1 + ((rnd(0, 1e9) | 0) % 7);
   GAME.tourWorld = 0;
   GAME.tourVictory = false;
+  GAME.hazWaves = 0;
   GAME.tourRecords = GAME.tourRecords || {};
   STAGE = null;
   hazards.stop();
@@ -5852,6 +5868,9 @@ function endRun() {
     beamRuns: GAME.beamRuns === true,
     ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
     gold: GAME.goldSighted === true,
+    hazWaves: GAME.hazWaves || 0,
+    tourWorlds: GAME.mode === 'tour' ? tourWorldsDone(Math.max(1, GAME.wave)) : 0,
+    tourVictory: GAME.tourVictory === true,
     sky: META.sky
   };
   const newFeats = [];
@@ -6024,6 +6043,7 @@ function toTitle() {
   GAME.state = 'title'; GAME.paused = false;
   STAGE = null;
   PAL = PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)];
+  GAME.skyKey = null;   /* title always bakes — it owns the plain sky */
   buildBackdrop();
   $('hud').classList.add('hidden');
   $('lowhp').classList.remove('on');
@@ -6464,6 +6484,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.4.0',
+    items: [
+      '<b>The ledger closes</b> — eight new feats across the campaign and the hangar: clear three worlds, complete the Tour, fly ten hazardous waves, finish a run wearing a sigil, take Glasswing to wave 10 on its one life, earn an Ace plaque, bring a hull to Mastery 3, own five paints. Each carries a progress bar where a ladder makes sense; the binary ones do not pretend to.',
+      '<b>Wave starts stop paying the sky twice</b> — backdrop bakes are keyed to (stage · palette · paint): a wave start with an unchanged sky now costs zero instead of a measured 3.65&nbsp;ms rebuild.',
+      '<b>Docs re-proven</b> — the economy audit carries the extracted sink tables (10,250 alloy across paints and sigils, income untouched: mastery pays in score, not alloy); architecture notes the bake-key and the sigil configure-order invariant; performance gains the bake measurement.'
+    ]
+  },
+  {
     v: '4.3.0',
     items: [
       '<b>Dock plaques</b> — kills bank per hull and engrave under your ship: Blooded at 200, Veteran at 600, First Class at 1200, Ace at 2000, Ace of Aces at 3000, Legend of the Yard at 5000. Scored flights only — practice runs never count.',
@@ -6771,9 +6799,14 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
+    /* career feats read META — swap identity so the claim is self-contained */
+    const svK = META.hullKills, svM = META.mastery, svP = META.paints;
+    META.hullKills = { vesper: 2000 }; META.mastery = { vesper: { xp: MASTERY_TIERS[4].xp } };
+    META.paints = ['yard', 'a', 'b', 'c', 'd'];
     /* ship-gated feats are mutually exclusive — verify each with its hull */
     ok(FEATS.every(f => f.check(big) || (f.id === 'prism' && f.check(Object.assign({}, big, { ship: 'seraph' })))), 'a perfect run earns everything (ship feats each verified)');
+    META.hullKills = svK; META.mastery = svM; META.paints = svP;
   });
   T('headless sim: 60s of combat stays finite and stable', () => {
     const savedR = R;
@@ -7178,6 +7211,50 @@ function runSelfTests() {
     META.hullKills = sv.k; META.mastery = sv.m; GAME.school = sv.school; META.ship = sv.ship;
     clearAll();
   });
+  T('v4.4 feats: every claim in the registry is checkable and progressible', () => {
+    const sv = { k: META.hullKills, m: META.mastery, p: META.paints.length };
+    /* registry hygiene: unique ids, each new feat carries a prog line */
+    const ids = FEATS.map(f => f.id);
+    eq(new Set(ids).size, ids.length, 'feat ids are unique');
+    const fresh = ['tour3', 'tour8', 'haz10', 'sigil1', 'glasswing', 'ace', 'mast3', 'wardrobe'];
+    ok(fresh.every(id => ids.includes(id)), 'all eight v4.4 feats registered');
+    const ladder = ['tour3', 'tour8', 'haz10', 'ace', 'mast3', 'wardrobe'];
+    const find = id => FEATS.find(f => f.id === id);
+    ok(ladder.every(id => typeof find(id).prog === 'function') &&
+      ['sigil1', 'glasswing'].every(id => typeof find(id).prog === 'undefined'),
+      'ladder feats carry progress; binary feats do not pretend to');
+    /* the checks read a synthetic summary — same shape endRun builds */
+    const S = o => Object.assign({ score: 0, wave: 1, kills: 0, shots: 0, hits: 0, grazes: 0,
+      deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, hazWaves: 0, tourWorlds: 0,
+      tourVictory: false, sigil: null }, o);
+    const get = id => FEATS.find(f => f.id === id);
+    ok(get('haz10').check(S({ hazWaves: 10 })) && !get('haz10').check(S({ hazWaves: 9 })),
+      'Weathered counts hazardous waves, exactly');
+    ok(get('tour3').check(S({ tourWorlds: 3 })) && !get('tour3').check(S({ tourWorlds: 2 })),
+      'Inner worlds reads worlds cleared off the summary');
+    ok(get('tour8').check(S({ tourVictory: true })) && !get('tour8').check(S({ tourWorlds: 7 })),
+      'Gate breaker fires on victory, not proximity');
+    ok(get('sigil1').check(S({ sigil: 'rampart' })) && !get('sigil1').check(S()),
+      'Marked requires a worn sigil');
+    ok(get('glasswing').check(S({ sigil: 'glasswing', wave: 10 })) &&
+      !get('glasswing').check(S({ sigil: 'glasswing', wave: 9 })) &&
+      !get('glasswing').check(S({ sigil: 'rampart', wave: 12 })),
+      'One wing on is glasswing AND wave 10 — no other sigil qualifies');
+    /* career feats read META (identity-swapped, never mutated) */
+    META.hullKills = { vesper: 2000 };
+    ok(get('ace').check(S()), 'Ace fires at exactly 2,000 kills in one hull');
+    META.hullKills = { vesper: 1999 };
+    ok(!get('ace').check(S()), 'one kill short is still short');
+    META.mastery = { vesper: { xp: MASTERY_TIERS[2].xp } };
+    ok(get('mast3').check(S()), 'Flight instructor reads mastery xp');
+    META.mastery = { vesper: { xp: MASTERY_TIERS[1].xp } };
+    ok(!get('mast3').check(S()), 'M2 is not M3');
+    META.paints = ['yard', 'a', 'b', 'c', 'd'];
+    eq(get('wardrobe').check(S()), true, 'five paints own the locker');
+    META.paints = ['yard'];
+    eq(get('wardrobe').check(S()), false, 'yard alone does not');
+    META.hullKills = sv.k; META.mastery = sv.m; META.paints = META.paints.slice(0, sv.p);
+  });
   T('boards wear your paint: local rows, submissions, ghosts', () => {
     const sv = { paint: META.paint, paints: META.paints, sigil: META.sigil, sigils: META.sigils,
       mode: GAME.mode, school: GAME.school, rival: GHOST.rival, playback: GHOST.playback };
@@ -7471,7 +7548,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.3.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.4.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
