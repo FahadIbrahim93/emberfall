@@ -1,6 +1,6 @@
 {
-  "total": 52,
-  "passed": 52,
+  "total": 55,
+  "passed": 55,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -51,6 +51,9 @@
     "battery default: touch devices cap at 60, desktop uncapped",
     "seraph prism lance: heat math, duty cycle, and hull contract",
     "reduced motion freezes ambient drift, keeps rare events",
+    "reduced motion freezes the dock at rest",
+    "reduced motion holds the cloudbanks",
+    "paint wardrobe stays nameable under colorblind vision (ΔE floor)",
     "backdrop second pass: ring shear, storm swirl, palette tinting",
     "sky traffic cadence scales and floors",
     "patch notes data and seen-marker"
