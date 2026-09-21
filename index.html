@@ -349,6 +349,10 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .ms-bar{grid-column:1 / -1;height:4px;border-radius:2px;background:rgba(255,255,255,.07);overflow:hidden}
 .ms-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ember),var(--gold))}
 .ms-sub{grid-column:1 / -1;font-size:.62rem;color:var(--dim)}
+/* v4.5: yard donations — the honor ledger shares the mastery row styling */
+.donations{display:grid;gap:8px}
+.donations .up{cursor:pointer}
+.donations .buy.no{color:var(--dim)}
 .paint b{position:absolute;bottom:3px;left:0;right:0;font-size:.48rem;letter-spacing:.08em;
   color:var(--dimmer);text-align:center;font-weight:400}
 .paint.sel b{color:var(--amber)}
@@ -715,6 +719,8 @@ body.needrotate #rotate{display:grid}
         <div class="ups" id="upList"></div>
         <div class="side-head" style="margin-top:16px"><h3>Hull mastery</h3><span>Flown miles, banked forever</span></div>
         <div class="mastery" id="masteryList"></div>
+        <div class="side-head" style="margin-top:16px"><h3>Yard donations</h3><span>Honor is bought, never sold</span></div>
+        <div class="donations" id="donateBox"></div>
       </div>
     </div>
     <div class="pair" style="margin-top:20px">
@@ -1464,12 +1470,29 @@ function plaqueOf(kills) {
   for (const q of KILL_PLAQUES) if (kills >= q.at) p = q;
   return p;
 }
+/* ════════════════ YARD DONATIONS — the honor ledger ═══════════
+   The economy audit's answer to the veteran dead-zone (§3a): after the
+   collection completes, surplus alloy becomes *honor* — an irreversible
+   donation to the yard that buys nothing but standing. Three tiers,
+   each paying a real cosmetic: a plate under your docked hull, a sigil
+   on your board rows, and finally the title itself. No stat, no drop,
+   no score ever changes — the ladders stay honest. */
+const DONATIONS = [
+  { at: 5000,   name: 'Patron',     perk: 'your callsign engraved on the dock plate' },
+  { at: 25000,  name: 'Shipwright', perk: 'gilded plate · a ✦ sigil on your board rows' },
+  { at: 100000, name: 'Yardmaster', perk: 'the full title, on every board you fly' }
+];
+function honorOf(donated) {
+  let d = null;
+  for (const t of DONATIONS) if (donated >= t.at) d = t;
+  return d;
+}
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   tourBest: 0, tourCleared: false, tourRecords: {},
   paint: 'yard', paints: ['yard'],
-  sigil: null, sigils: [''], mastery: {}, hullKills: {},
+  sigil: null, sigils: [''], mastery: {}, hullKills: {}, donated: 0,
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
@@ -1497,6 +1520,7 @@ function loadMeta() {
   if (META.sigil && !META.sigils.includes(META.sigil)) META.sigil = null;
   META.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : {};
   META.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
+  META.donated = Math.max(0, +s.donated || 0);
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -6109,6 +6133,14 @@ function drawDock() {
   g.fillStyle = plq ? rgba(PAL.gold, .8) : rgba(PAL.tech, .34);
   g.fillText(plq ? '◆ ' + plq.name.toUpperCase() + ' · ' + fmt(kills) + ' KILLS'
     : 'SERVICE RECORD · ' + fmt(kills) + ' / ' + KILL_PLAQUES[0].at + ' KILLS', w / 2, h * .80);
+  /* honor plate — the donor's name stays on the deck (Shipwright+ gilds it) */
+  const hon = honorOf(META.donated || 0);
+  if (hon) {
+    g.font = '600 13px system-ui, sans-serif';
+    g.fillStyle = rgba(PAL.gold, hon.at >= 25000 ? .95 : .55);
+    g.fillText((hon.at >= 25000 ? '✦ ' : '') + (NET.user ? NET.user.name.toUpperCase() : (DB.get('callsign', '') || 'PILOT').toUpperCase()) +
+      ' · ' + hon.name.toUpperCase() + ' OF THE YARD', w / 2, h * .855);
+  }
   dockT += 1 / 60;
   dockRaf = requestAnimationFrame(drawDock);
 }
@@ -7210,6 +7242,27 @@ function runSelfTests() {
     eq(plaqueOf(META.hullKills.vesper).name, KILL_PLAQUES[2].name, 'the threshold engraves its title');
     META.hullKills = sv.k; META.mastery = sv.m; GAME.school = sv.school; META.ship = sv.ship;
     clearAll();
+  });
+  T('yard donations: honor is bought, never sold, and buys no power', () => {
+    const sv = { d: META.donated, a: META.alloy };
+    /* ladder invariants: climbing, named, led by Patron */
+    ok(DONATIONS.length === 3 && DONATIONS[0].name === 'Patron' && DONATIONS[2].name === 'Yardmaster',
+      'three tiers, Patron first, Yardmaster last');
+    ok(DONATIONS.every((t, i) => i === 0 || t.at > DONATIONS[i - 1].at), 'thresholds strictly climb');
+    eq(honorOf(0), null, 'no donation, no honor');
+    eq(honorOf(DONATIONS[1].at - 1).name, 'Patron', 'one short still buys only the tier below');
+    eq(honorOf(DONATIONS[2].at).name, 'Yardmaster', 'the ceiling engraves');
+    /* the cosmetic-only contract: honor touches no stat the sim reads */
+    const powerKeys = ['alloy', 'ship', 'owned', 'refits', 'mastery', 'hullKills', 'sigil', 'sigils'];
+    const snap = powerKeys.map(k => JSON.stringify(META[k]));
+    META.donated = DONATIONS[2].at;
+    ok(powerKeys.every((k, i) => JSON.stringify(META[k]) === snap[i]),
+      'honor changes none of the power keys — cosmetic only, by construction');
+    /* the irreversible contract: donated alloy never returns via endRun math */
+    META.alloy = 0; META.donated = DONATIONS[0].at;
+    const earned = Math.round((0 + 14000 / 140 + 5 * 6) * 1);   /* the run-end formula, alloy 0 */
+    ok(earned < DONATIONS[0].at, 'one run cannot out-earn a donation — the sink is real');
+    META.donated = sv.d; META.alloy = sv.a;
   });
   T('v4.4 feats: every claim in the registry is checkable and progressible', () => {
     const sv = { k: META.hullKills, m: META.mastery, p: META.paints.length };

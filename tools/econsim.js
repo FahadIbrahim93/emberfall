@@ -32,6 +32,14 @@ if (paintCosts.length !== 8) throw new Error('expected 8 paint costs, got ' + pa
 const sigilCosts = [...html.matchAll(/tier: '\w+', cost: (\d+),/g)].map(m => +m[1]);
 if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + sigilCosts.length);
 
+/* v4.5 yard donations: the audit's prestige sink (§5.1) — extracted so the
+   honor ladder stays in the model like every other sink */
+const donBlock = html.match(/const DONATIONS = \[([\s\S]*?)\n\];/);
+if (!donBlock) throw new Error('constant drifted: DONATIONS table');
+const donationTiers = [...donBlock[1].matchAll(/at: (\d+),\s*name: '(\w+)'/g)].map(m => ({ at: +m[1], name: m[2] }));
+if (donationTiers.length !== 3 || donationTiers[0].name !== 'Patron')
+  throw new Error('expected 3 donation tiers led by Patron, got ' + donationTiers.length);
+
 /* refit ladders: cost: l => A + l * B, five levels each */
 const refitTables = [...html.matchAll(/id: '(\w+)', name: '[^']+', max: 5, cost: l => (\d+) \+ l \* (\d+)/g)]
   .map(m => ({ id: m[1], a: +m[2], b: +m[3] }));
@@ -215,6 +223,7 @@ function main() {
     milestones: null,
     spend: { hulls: hullCosts.reduce((a, c) => a + c, 0), refits: refitGrand, grandTotal: hullCosts.reduce((a, c) => a + c, 0) + refitGrand,
       paints: paintCosts.reduce((a, c) => a + c, 0), sigils: sigilCosts.reduce((a, c) => a + c, 0),
+      donationsCeiling: donationTiers[donationTiers.length - 1].at,
       allIn: hullCosts.reduce((a, c) => a + c, 0) + refitGrand + paintCosts.reduce((a, c) => a + c, 0) + sigilCosts.reduce((a, c) => a + c, 0) }
   };
   const seeds = [];

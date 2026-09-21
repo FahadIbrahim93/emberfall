@@ -254,9 +254,10 @@ const NET = {
         const h = HULLS.find(x => x.id === r.ship);
         const mine = this.user && r.n === this.user.name;
         const gpt = r.p && PAINTS.find(x => x.id === r.p);
+        const gstar = honor && honor.at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
-          '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') +
+          '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
           esc(r.n) + (h ? ' · ' + esc(h.name) : '') +
           (r.m ? ' <span style="color:var(--gold);font-size:.6rem">M' + r.m + '</span>' : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
@@ -275,6 +276,8 @@ const NET = {
 };
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
+  const honor = honorOf(META.donated || 0);
+  const star = honor && honor.at >= 25000 ? '<span style="color:var(--gold)">✦ </span>' : '';
   const list = loadBoard(mode);
   if (!list.length) {
     el.innerHTML = '<div class="empty">No runs recorded yet.<br>The first one is yours.</div>';
@@ -284,9 +287,10 @@ function renderBoard(el, mode, highlight, _remote, myPaint) {
     const h = HULLS.find(x => x.id === r.k);
     const pt = r.p && PAINTS.find(x => x.id === r.p);
     const dot = pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : (r.p && r.p !== 'yard' && r.p === myPaint && PAINTS.find(x => x.id === myPaint) ? '<i class="pdot" style="background:' + PAINTS.find(x => x.id === myPaint).hull + '"></i>' : '');
-    return '<div class="row' + (r.d === highlight ? ' me' : '') + '">' +
+    const mine = r.d === highlight || r.n === (DB.get('callsign', '') || '').toUpperCase();
+    return '<div class="row' + (mine ? ' me' : '') + '">' +
       '<span class="rk">' + pad2(i + 1) + '</span>' +
-      '<span class="nm">' + dot + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+      '<span class="nm">' + dot + (mine ? star : '') + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
       '<span class="sc">' + padN(r.s, 7) + '</span>' +
       '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
   }).join('');
@@ -475,6 +479,47 @@ function renderSigils() {
     ? SIGILS.find(s => s.id === META.sigil).name + ' rides every flight (except drills and rush boards)'
     : 'Flying plain — no edge, no price';
 }
+/* yard donations — irreversible alloy → honor. Buttons ask twice. */
+function renderDonations() {
+  const box = $('donateBox');
+  if (!box) return;
+  box.innerHTML = '';
+  const next = DONATIONS.find(t => META.donated < t.at);
+  for (const t of [...DONATIONS].reverse()) {
+    const earned = META.donated >= t.at;
+    const d = document.createElement('div');
+    d.className = 'ms' + (earned ? ' maxed' : '');
+    d.innerHTML = '<b>' + esc(t.name) + '</b>' +
+      '<span class="ms-l">' + fmt(t.at) + '</span>' +
+      '<span class="ms-sub">' + (earned ? '✦ ' : '') + esc(t.perk) + '</span>';
+    box.appendChild(d);
+  }
+  const b = document.createElement('button');
+  b.className = 'up';
+  if (next) {
+    const need = next.at - META.donated;
+    b.innerHTML = '<span><b>Donate to the yard</b><p>Alloy becomes honor. It does not come back. ' +
+      'Next honor: ' + esc(next.name) + '.</p></span>' +
+      '<span class="buy ' + (META.alloy >= need ? '' : 'no') + '">' + fmt(need) + '<br>to ' + esc(next.name) + '</span>';
+    b.onclick = () => {
+      AU.ui();
+      const amount = next.at - META.donated;
+      if (META.alloy < amount) { note('Need ' + fmt(amount - META.alloy) + ' more alloy', 'bad'); return; }
+      if (!confirm('Donate ' + fmt(amount) + ' alloy to the yard? Honor is permanent; the alloy is not.')) return;
+      META.alloy -= amount;
+      META.donated += amount;
+      saveMeta();
+      renderHangar();
+      note('The yard thanks you — ' + next.name, 'rare');
+      AU.unlock();
+    };
+  } else {
+    b.innerHTML = '<span><b>Yardmaster</b><p>The highest honor is yours. The yard flies your colors.</p></span>' +
+      '<span class="buy max">✦ ' + fmt(META.donated) + '</span>';
+    b.onclick = () => { AU.ui(); };   /* nothing left to buy — by design */
+  }
+  box.appendChild(b);
+}
 /* hull mastery — the docked hull leads the list with its live XP bar */
 function renderMastery() {
   const msl = $('masteryList');
@@ -503,6 +548,7 @@ function renderHangar() {
   setText('alloyN', fmt(META.alloy));
   renderSigils();
   renderMastery();
+  renderDonations();
   /* v4.1 paint shop — buy, equip, fly in it. High contrast keeps its white. */
   const pl = $('paintList');
   const hc = PAL.name === 'High contrast';

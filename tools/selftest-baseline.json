@@ -1,6 +1,6 @@
 {
-  "total": 51,
-  "passed": 51,
+  "total": 52,
+  "passed": 52,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -36,6 +36,7 @@
     "sigils: one worn sigil, power priced in weakness",
     "mastery: XP converts to tiers, awards actually apply",
     "dock plaques: kills bank per hull and engrave honestly",
+    "yard donations: honor is bought, never sold, and buys no power",
     "v4.4 feats: every claim in the registry is checkable and progressible",
     "boards wear your paint: local rows, submissions, ghosts",
     "sustained load: 10s of full combat holds 120Hz sim",
