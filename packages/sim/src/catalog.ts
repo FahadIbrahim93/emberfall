@@ -73,9 +73,49 @@ export const FOES: Readonly<Record<string, FoeDef>> = {
   ram: { hp: 9, r: 16, hit: 13, sc: 230, guns: false },
   sniper: { hp: 5, r: 15, hit: 12, sc: 300, guns: true, cd: 3.6 },
   shieldbreaker: { hp: 8, r: 17, hit: 14, sc: 340, guns: true, cd: 3.2, armored: true },
+  /* v4.0 — the second generation. Kept in parity with index.html's FOES by
+     tests/golden.test.ts, which extracts the live table and fails loudly on
+     drift (same discipline as tools/econsim.js). */
+  hound: { hp: 4, r: 13, hit: 11, sc: 170, guns: false },
+  weeper: { hp: 5, r: 15, hit: 13, sc: 260, guns: true, cd: 3.0 },
+  tender: { hp: 6, r: 14, hit: 12, sc: 380, guns: true, cd: 2.6 },
+  ravager: { hp: 12, r: 19, hit: 17, sc: 420, guns: true, cd: 2.2, armored: true },
+  arbalest: { hp: 7, r: 17, hit: 15, sc: 350, guns: true, cd: 3.8 },
+  mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 },
 };
 
 export const FOE_IDS = Object.keys(FOES) as readonly string[];
+
+/* ── the pilot's weapon ladder — the live fire model ──
+   Parity source: index.html `WEAPONS` (tests/golden.test.ts extracts the
+   table and compares). `lanes` are [dx, ang] pairs: muzzle offset in
+   logical px, angle in radians (0 = straight, positive = right).
+   `rate` is the fire interval in seconds; `dmg` multiplies the pilot's
+   damage stat. The prism lance (seraph) is a separate continuous-beam
+   model and intentionally absent here. */
+export type WeaponTier = {
+  lanes: readonly (readonly [number, number])[];
+  rate: number;
+  dmg: number;
+};
+
+export const WEAPONS: readonly (WeaponTier | null)[] = [
+  null,
+  { lanes: [[0, 0]], rate: 0.155, dmg: 1 },
+  { lanes: [[-7, 0], [7, 0]], rate: 0.15, dmg: 1 },
+  { lanes: [[0, 0], [-10, -0.07], [10, 0.07]], rate: 0.145, dmg: 1 },
+  { lanes: [[-5, 0], [5, 0], [-13, -0.13], [13, 0.13]], rate: 0.135, dmg: 1.05 },
+  { lanes: [[0, 0], [-7, -0.05], [7, 0.05], [-15, -0.17], [15, 0.17]], rate: 0.128, dmg: 1.1 },
+  { lanes: [[0, 0], [-6, -0.03], [6, 0.03], [-13, -0.13], [13, 0.13], [-20, -0.26], [20, 0.26]], rate: 0.12, dmg: 1.15 },
+];
+
+export const MAX_WEAPON = WEAPONS.length - 1;
+
+/* overdrive multipliers — index.html firePrimary: rate ×0.68, dmg ×1.15 */
+export const OVER_RATE = 0.68;
+export const OVER_DMG = 1.15;
+/** player bolt speed (logical px/s) — index.html firePrimary */
+export const BOLT_SPEED = 1020;
 
 export type BossDef = {
   id: string;

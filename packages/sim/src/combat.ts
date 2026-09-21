@@ -3,7 +3,7 @@
  * Side-effect free (no audio, particles, DOM).
  */
 import { ARENA_W, ARENA_H } from './constants.ts';
-import { FOES, DIFF } from './catalog.ts';
+import { FOES, DIFF, WEAPONS, MAX_WEAPON, OVER_RATE, OVER_DMG, BOLT_SPEED } from './catalog.ts';
 import { clamp, lerp, multFor, TAU, PI } from './math.ts';
 import { makeRng, type Rng } from './rng.ts';
 import type { World, Foe, Bullet, InputFrame } from './types.ts';
@@ -11,7 +11,9 @@ import { updateBoss, killBoss, spawnBoss, bindBossRng } from './bosses.ts';
 
 export const SHIP_SCALE = 1.3;
 export const SHOT_SCALE = 1.18;
-const PLAYER_FIRE_CD = 0.14;
+/* NOTE: the old flat PLAYER_FIRE_CD = 0.14 was fabricated — the live game
+   has no such constant. Fire interval comes from the per-tier WEAPONS
+   table (parity-tested against index.html in tests/golden.test.ts). */
 
 function diff(world: World) {
   return DIFF[clamp(world.difficulty, 0, DIFF.length - 1)];
@@ -91,25 +93,27 @@ export function spawnFoe(
 export function firePlayer(world: World): void {
   const p = world.player;
   if (!p.alive || p.fireCd > 0 || p.beam) return;
-  const dmg = 12 * p.dmg * (p.overT > 0 ? 1.25 : 1);
-  const lanes = Math.min(5, p.weapon);
-  const spread = (lanes - 1) * 0.12;
-  for (let i = 0; i < lanes; i++) {
-    const ang = -PI / 2 + (lanes === 1 ? 0 : (i / (lanes - 1) - 0.5) * spread);
+  const w = WEAPONS[clamp(p.weapon, 1, MAX_WEAPON)];
+  if (!w) return;
+  const over = p.overT > 0;
+  /* live model (index.html firePrimary): per-tier lane table, per-tier rate
+     and dmg mult, overdrive ×0.68 rate / ×1.15 dmg, bolt speed 1020 */
+  const dmg = w.dmg * p.dmg * (over ? OVER_DMG : 1);
+  for (const [dx, ang] of w.lanes) {
     world.playerBullets.push({
-      x: p.x,
+      x: p.x + dx * 0.9,
       y: p.y - p.r,
-      vx: Math.cos(ang) * 780,
-      vy: Math.sin(ang) * 780,
-      r: 4.5 * SHOT_SCALE,
-      life: 1.4,
+      vx: Math.sin(ang) * BOLT_SPEED,
+      vy: -Math.cos(ang) * BOLT_SPEED,
+      r: 4 * SHOT_SCALE,
+      life: 2,
       dmg,
       kind: 'bolt',
       friendly: true,
     });
     world.shots++;
   }
-  p.fireCd = PLAYER_FIRE_CD * p.rateMul;
+  p.fireCd = w.rate * (over ? OVER_RATE : 1) * p.rateMul;
 }
 
 function foeShot(world: World, e: Foe, ang: number, spd: number): void {

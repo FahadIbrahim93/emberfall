@@ -148,6 +148,11 @@ server.js             the Command Deck: accounts, SQLite, boards, trust boundari
 smoke.sh              API + static-hygiene (T-LEAK) + load battery
 check.sh              syntax gate (modules + inline payload)
 deadscan.js           dead-code, load-order, XSS-sink and static-exposure gates (--check = CI gate)
+packages/sim          TypeScript mirror of the game's pure sim (RNG, catalogs,
+                      combat math) — tests/golden.test.ts extracts the live
+                      constants from index.html and pins every copy, so the
+                      extraction can never silently drift from the payload
+                      that actually ships
 tools/selftest-ci.js  headless CI runner for the in-game ?selftest suite (baselined)
 tools/selftest-baseline.json  the committed suite contract: totals + exact test names
 tools/selftest-probe.js  local harness: totals, failures, name list
