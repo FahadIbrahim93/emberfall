@@ -54,7 +54,7 @@ export const BOSS_DEFS: readonly BossDefPure[] = [
   },
   {
     id: 'gatewarden', name: 'Gate Warden',
-    hp: 320, r: 88, hitR: 48, sc: 7200,
+    hp: 340, r: 80, hitR: 50, sc: 7600,
     nodes: null,
   },
 ];
