@@ -678,14 +678,25 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
     /* v4.10 weekly recap: flew days in the running Monday-UTC week */
     const ws = weekStart(now());
-    const wdRow = db.prepare('SELECT COUNT(*) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
+    const wdRow = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
       .get(user.id, ws);
+    /* v4.11 season-end honors: the running week's flew days (same window the
+       POST counter uses) + the lifetime count of Monday-weeks with all seven
+       days flown. SQLite's %G-%W groups Monday-based weeks like the POST
+       counter does; a week straddling New Year splits across both counters —
+       an accepted, documented edge, not a silent divergence. */
+    const psRow = db.prepare(`SELECT COUNT(*) AS c FROM (
+      SELECT 1 FROM daily_stats WHERE user_id = ?
+      GROUP BY strftime('%G-%W', created_day || 'T00:00:00Z')
+      HAVING COUNT(DISTINCT created_day) >= 7)`).get(user.id);
     return send(res, 200, {
       ok: true, user,
       profile: publicProfile(user.id),
       daily: ds ? { day: today, streak: ds.streak, paid: ds.paid, bestScore: ds.best_score, bestWave: ds.best_wave, total: Number(total) }
                  : { day: today, streak: 0, paid: 0, bestScore: 0, bestWave: 0, total: Number(total) },
-      weekDays: wdRow ? wdRow.n : 0
+      weekDays: wdRow ? wdRow.n : 0,
+      seasonDays: wdRow ? wdRow.n : 0,
+      perfectSeasons: psRow ? psRow.c : 0
     });
   }
 
@@ -799,7 +810,14 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
          belong to the client profile, and SUM(paid) is the deck's total —
          the client adopts it as a watermark and banks the delta itself */
       const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
-      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total) };
+      /* v4.11 season-end honors: did this accepted run land in a week whose
+         every day was flown? Count DISTINCT flew days against the week's
+         seven — a live season still shows the honest running count. */
+      const ws0 = weekStart(now());
+      const sd = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
+        .get(user.id, ws0).n;
+      const perfect = sd >= 7 ? 1 : 0;
+      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total), seasonDays: sd, perfect };
     }
     return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me, daily });
   }

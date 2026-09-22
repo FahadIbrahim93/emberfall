@@ -10,6 +10,7 @@ const NET = {
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
   meDaily: null,   /* last /api/me daily block — streak display on the day board */
   weekDays: 0,     /* flew days in the running Monday-UTC week (deck-counted) */
+  seasonDays: 0,   /* DISTINCT flew days in the running week — perfect-season pulse */
 
   async probe() {
     if (this.probed) return this.on;
@@ -49,6 +50,7 @@ const NET = {
       this.user = j.user || null;
       this.meDaily = j.daily || null;
       this.weekDays = typeof j.weekDays === 'number' ? j.weekDays : (this.weekDays || 0);
+      this.seasonDays = this.meDaily && typeof this.meDaily.seasonDays === 'number' ? this.meDaily.seasonDays : (this.seasonDays || 0);
       if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); }
       return this.user;
     } catch (e) { this.user = null; this.meDaily = null; return null; }

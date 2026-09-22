@@ -1656,7 +1656,11 @@ const FEATS = [
      and the deck's ledger remains the displayed truth. */
   { id: 'streak7', name: 'Seven suns', desc: 'Fly an accepted Daily Gauntlet run 7 days in a row.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 7, prog: () => [Math.min(predictedStreak(META), 7), 7] },
   { id: 'streak14', name: 'Fortnight', desc: 'Fly the Daily 14 days running — the OXBLOOD paint joins your locker, free.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 14, prog: () => [Math.min(predictedStreak(META), 14), 14] },
-  { id: 'streak30', name: 'A pilot&apos;s month', desc: 'Fly the Daily 30 days running — MIDNIGHT joins the locker and stays forever.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 30, prog: () => [Math.min(predictedStreak(META), 30), 30] }
+  { id: 'streak30', name: 'A pilot&apos;s month', desc: 'Fly the Daily 30 days running — MIDNIGHT joins the locker and stays forever.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 30, prog: () => [Math.min(predictedStreak(META), 30), 30] },
+  /* v4.11 the season-end honor: every single day of a Weekly Gauntlet week
+     flown with an accepted run. The deck counts DISTINCT flew days, so two
+     same-day runs cannot fake it; the engraving is the display reward. */
+  { id: 'perfectseason', name: 'Flawless season', desc: 'Fly an accepted Daily every day of a full Gauntlet week — earns the FLAWLESS SEASON engraving on your docked hull.', check: s => s.mode === 'daily' && (s.perfectSeasons || 0) >= 1, prog: () => [Math.min(META.daily && META.daily.perfectSeasons || 0, 1), 1] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1764,6 +1768,15 @@ function streakGiftsDue(feats, paints) {
   return out;
 }
 
+/* v4.11: pure engraving contract — FLAWLESS SEASON once the deck has counted
+   a Gauntlet week flown with an accepted run every single day. Repeats earn
+   Roman numerals up to X; beyond caps honestly. null/0 earns silence. */
+function seasonEngravingText(count) {
+  if (!count || count < 1) return null;
+  const numerals = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+  return 'FLAWLESS SEASON' + (count > 1 ? ' · ' + (count > 10 ? 'X+' : numerals[count]) : '');
+}
+
 /* apply a submit response's daily block: bank the payout, adopt the deck's
    ledger total as the watermark (self-healing after vault restores or a
    fresh device), carry the streak. The deck is the ledger — "paid" is this
@@ -1772,9 +1785,20 @@ function streakGiftsDue(feats, paints) {
 function applyDailyResult(res) {
   if (!res || !res.daily) return [];
   const d = res.daily;
+  /* nextStreak returns a fresh object — carry the season-end count across it */
+  const prevPerfect = (META.daily && META.daily.perfectSeasons) || 0;
   META.daily = nextStreak(META.daily, todaySeedKey());
   META.daily.streak = d.streak;
   META.daily.best = Math.max(META.daily.best || 0, d.streak);
+  META.daily.perfectSeasons = Math.max(prevPerfect, d.perfect || 0);
+  /* the season-end honor: a deck-counted flawless week earns its feat exactly
+     at the adoption point — never from the raw streak, never before the deck
+     has verified the week. Monotonic: once earned, it stands. */
+  if (META.daily.perfectSeasons >= 1 && !META.feats.perfectseason) {
+    META.feats.perfectseason = Date.now();
+    saveMeta();
+    note('Flawless season — a full Gauntlet week, no gap', 'rare');
+  }
   META.dailyPaid = Math.max(META.dailyPaid || 0, d.total || 0);
   if (d.paid > 0) {
     META.alloy += d.paid;
@@ -6025,6 +6049,7 @@ function endRun() {
     hazWaves: GAME.hazWaves || 0,
     mode: GAME.mode,
     dailyStreak: predictedStreak(META),
+    perfectSeasons: (META.daily && META.daily.perfectSeasons) || 0,
     tourWorlds: GAME.mode === 'tour' ? tourWorldsDone(Math.max(1, GAME.wave)) : 0,
     tourVictory: GAME.tourVictory === true,
     sky: META.sky
@@ -6282,12 +6307,19 @@ function drawDock() {
   g.fillText(plq ? '◆ ' + plq.name.toUpperCase() + ' · ' + fmt(kills) + ' KILLS'
     : 'SERVICE RECORD · ' + fmt(kills) + ' / ' + KILL_PLAQUES[0].at + ' KILLS', w / 2, h * .80);
   /* honor plate — the donor's name stays on the deck (Shipwright+ gilds it) */
+  const plaqueText = seasonEngravingText(META.daily && META.daily.perfectSeasons);
   const hon = honorOf(META.donated || 0);
   if (hon) {
     g.font = '600 13px system-ui, sans-serif';
     g.fillStyle = rgba(PAL.gold, hon.at >= 25000 ? .95 : .55);
     g.fillText((hon.at >= 25000 ? '✦ ' : '') + (NET.user ? NET.user.name.toUpperCase() : (DB.get('callsign', '') || 'PILOT').toUpperCase()) +
       ' · ' + hon.name.toUpperCase() + ' OF THE YARD', w / 2, h * .855);
+  }
+/* season-end honor — v4.11: the deck has counted a week with no gap */
+  if (plaqueText) {
+    g.font = '600 11px system-ui, sans-serif';
+    g.fillStyle = rgba(PAL.gold, .9);
+    g.fillText(plaqueText, w / 2, h * .90);
   }
   /* reduced-motion: the machine at rest truly rests — dockT holds its one
      painted instant, so every breathe and bank term freezes with it */
@@ -7113,7 +7145,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, mode: 'daily', dailyStreak: 30, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, mode: 'daily', dailyStreak: 30, perfectSeasons: 3, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
     /* career feats read META — swap identity so the claim is self-contained */
     const svK = META.hullKills, svM = META.mastery, svP = META.paints;
     META.hullKills = { vesper: 2000 }; META.mastery = { vesper: { xp: MASTERY_TIERS[4].xp } };
@@ -8093,6 +8125,31 @@ function runSelfTests() {
     const broken = nextStreak({ streak: 4, best: 6, lastDay: '2026-09-21' }, '2026-09-25');
     eq(broken.streak, 1, 'a missed day resets the streak');
     eq(broken.best, 6, 'best streak never falls');
+  });
+  T('flawless season: feat gate, engraving contract, adoption monotonicity', () => {
+    /* the feat: deck-verified count only — never the raw streak */
+    const f = FEATS.find(x => x.id === 'perfectseason');
+    ok(f, 'the season-end feat exists in the registry');
+    ok(!f.check({ mode: 'main', perfectSeasons: 9 }), 'a classic run cannot earn the season honor');
+    ok(!f.check({ mode: 'daily', perfectSeasons: 0 }), 'no counted week, no honor');
+    ok(f.check({ mode: 'daily', perfectSeasons: 1 }), 'one verified perfect week earns it');
+    /* the engraving: pure text contract, silence until earned */
+    eq(seasonEngravingText(null), null, 'no seasons: no engraving');
+    eq(seasonEngravingText(0), null, 'zero seasons: no engraving');
+    eq(seasonEngravingText(1), 'FLAWLESS SEASON', 'the first perfect week engraves clean');
+    eq(seasonEngravingText(3), 'FLAWLESS SEASON · III', 'repeats earn Roman numerals');
+    eq(seasonEngravingText(11), 'FLAWLESS SEASON · X+', 'beyond X caps the numeral honestly');
+    /* adoption: monotonic across resubmissions — the deck is the only writer
+       of truth, the client only ever raises its count */
+    const pre = META.daily;
+    applyDailyResult({ daily: { streak: 8, paid: 0, total: 830, perfect: 1, medals: [] } });
+    eq(META.daily.perfectSeasons, 1, 'the deck counted a perfect week: adopt it');
+    applyDailyResult({ daily: { streak: 9, paid: 0, total: 830, perfect: 0, medals: [] } });
+    eq(META.daily.perfectSeasons, 1, 'a resubmission without the honor never lowers it');
+    applyDailyResult({ daily: { streak: 16, paid: 0, total: 830, perfect: 2, medals: [] } });
+    eq(META.daily.perfectSeasons, 2, 'a second perfect week raises the count');
+    ok(META.feats.perfectseason, 'the feat auto-earned through the summary path');
+    META.daily = pre; delete META.feats.perfectseason; saveMeta();
   });
   T('daily gauntlet: streak feats predict, gift, and stay mode-honest', () => {
     /* the walk the feats see: yesterday-connected, same-day idempotent */
