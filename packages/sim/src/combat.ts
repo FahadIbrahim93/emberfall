@@ -156,25 +156,76 @@ function updateFoe(world: World, e: Foe, dt: number): void {
       if (k >= 1) {
         e.state = 'hold';
         e.ht = 0;
+        if (e.type === 'ram') e.ht = 6.5;
       }
       break;
     }
     case 'hold': {
       e.ht += dt;
-      e.x = e.tx + Math.sin(e.ht * e.swf + e.ph) * e.swa;
-      e.y = e.ty + Math.sin(e.ht * 1.35 + e.ph) * 9;
-      gunControl(world, e, dt);
-      if (e.ht > 8) {
+      const typ = e.type;
+      if (typ === 'weaver') {
+        e.x = e.tx + Math.sin(e.ht * 2.4 + e.ph) * (e.swa * 1.6);
+        e.y = e.ty + Math.sin(e.ht * 1.1 + e.ph) * 22;
+      } else if (typ === 'orbiter') {
+        const ang = e.ph + e.ht * 1.8;
+        e.x = e.tx + Math.cos(ang) * 90;
+        e.y = e.ty + Math.sin(ang) * 50;
+      } else if (typ === 'sniper') {
+        e.x = e.tx + Math.sin(e.ht * 0.5 + e.ph) * 12;
+        e.y = e.ty;
+      } else if (typ === 'ram') {
+        e.x = e.tx + Math.sin(e.ht * 0.8 + e.ph) * 18;
+        e.y = e.ty + Math.min(40, e.ht * 4);
+      } else {
+        e.x = e.tx + Math.sin(e.ht * e.swf + e.ph) * e.swa;
+        e.y = e.ty + Math.sin(e.ht * 1.35 + e.ph) * 9;
+      }
+      if (typ === 'sniper') {
+        e.fireT -= dt;
+        if (e.fireT <= 0) {
+          e.fireT = e.cd;
+          foeShot(world, e, aimAt(e, world), e.bspd * 1.45);
+        }
+      } else if (typ === 'orbiter') {
+        e.fireT -= dt;
+        if (e.fireT <= 0) {
+          e.fireT = e.cd;
+          for (let i = 0; i < 5; i++) {
+            foeShot(world, e, e.ph + e.ht + (i / 5) * TAU, e.bspd * 0.85);
+          }
+        }
+      } else {
+        gunControl(world, e, dt);
+      }
+      if (typ === 'splitter' && e.ht > 3 && e.ht - dt <= 3) {
+        spawnFoe(world, 'mini', { x: e.x + 20, y: e.y, tx: e.x + 40, ty: e.y + 30 });
+        spawnFoe(world, 'mini', { x: e.x - 20, y: e.y, tx: e.x - 40, ty: e.y + 30 });
+      }
+      if (typ === 'carrier' && e.ht > 4 && e.ht - dt <= 4) {
+        spawnFoe(world, 'drone', { x: e.x, y: e.y + 10, tx: e.x, ty: e.y + 80 });
+      }
+      const diveAt =
+        typ === 'ram' ? 2.2 :
+        typ === 'sniper' ? 14 :
+        typ === 'cruiser' || typ === 'carrier' || typ === 'warden' ? 12 :
+        8;
+      if (e.ht > diveAt) {
         e.state = 'dive';
         const ang = aimAt(e, world);
-        e.vx = Math.cos(ang) * 220;
-        e.vy = Math.sin(ang) * 220;
+        const spd = typ === 'ram' ? 380 : typ === 'mini' ? 280 : 220;
+        e.vx = Math.cos(ang) * spd;
+        e.vy = Math.sin(ang) * spd;
       }
       break;
     }
     case 'dive': {
       e.x += e.vx * dt;
       e.y += e.vy * dt;
+      if (e.type === 'ram') {
+        const ang = aimAt(e, world);
+        e.vx = lerp(e.vx, Math.cos(ang) * 380, 0.04);
+        e.vy = lerp(e.vy, Math.sin(ang) * 380, 0.04);
+      }
       if (e.y > ARENA_H + 80 || e.x < -80 || e.x > ARENA_W + 80) e.dead = true;
       break;
     }
@@ -245,10 +296,8 @@ export function collide(world: World): void {
     }
     if (hit) world.playerBullets.splice(i, 1);
   }
-
   if (!p.alive) return;
   const grazeR = 30 + (world.hullId === 'wraith' ? 14 : 0);
-
   for (let i = world.foeBullets.length - 1; i >= 0; i--) {
     const b = world.foeBullets[i];
     const dx = b.x - p.x;
@@ -268,7 +317,6 @@ export function collide(world: World): void {
       world.score += Math.round(12 * p.grazeMul * world.mult * p.scoreMul);
     }
   }
-
   if (p.inv <= 0) {
     for (const e of world.foes) {
       if (e.dead) continue;
@@ -338,12 +386,18 @@ export function startWave(world: World): void {
   }
   const R = rng(world);
   const n = 3 + Math.min(8, world.wave);
-  const types = ['drone', 'mini', 'striker', 'weaver'] as const;
+  const early = ['drone', 'mini', 'striker', 'weaver'] as const;
+  const mid = ['orbiter', 'ram', 'sniper', 'splitter', 'lancer'] as const;
+  const late = ['cruiser', 'warden', 'minelayer', 'carrier'] as const;
   for (let i = 0; i < n; i++) {
-    const type = types[Math.min(types.length - 1, Math.floor(i / 2) % types.length)];
+    let type: string;
+    if (world.wave >= 8 && i === n - 1) type = late[R.int(0, late.length - 1)];
+    else if (world.wave >= 4 && i % 3 === 2) type = mid[R.int(0, mid.length - 1)];
+    else type = early[Math.min(early.length - 1, Math.floor(i / 2) % early.length)];
+    if (world.wave >= 3 && i === n - 1 && world.wave % 5 !== 0) type = 'cruiser';
     world.spawnQueue.push({
       t: 0.3 + i * 0.45,
-      type: world.wave >= 3 && i === n - 1 ? 'cruiser' : type,
+      type,
       x: R.range(50, ARENA_W - 50),
       y: R.range(90, 180),
     });
