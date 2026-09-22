@@ -1,6 +1,6 @@
 {
-  "total": 58,
-  "passed": 58,
+  "total": 62,
+  "passed": 62,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -59,6 +59,10 @@
     "paint wardrobe stays nameable under colorblind vision (ΔE floor)",
     "backdrop second pass: ring shear, storm swirl, palette tinting",
     "sky traffic cadence scales and floors",
+    "daily gauntlet: weekly tempo curve, shared by every pilot",
+    "daily gauntlet: medals — wave OR score gate, highest tier wins",
+    "daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets",
+    "daily gauntlet: result application banks payouts and updates identity",
     "patch notes data and seen-marker"
   ]
 }

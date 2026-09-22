@@ -170,7 +170,8 @@ const NET = {
       cps: tele ? tele.cps : [],
       paint: extra && extra.paint ? String(extra.paint).slice(0, 24) : null,
       mastery: extra && extra.mastery ? Math.floor(Number(extra.mastery)) || 0 : 0
-    }).then(j => ({ rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe }));
+    }).then(j => ({ rank: j.rank, top: j.top, verdict: j.verdict, season: j.season, seasonMe: j.seasonMe,
+      daily: j.daily }));
   },
 
   async fetchBoard(mode) {

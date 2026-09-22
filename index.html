@@ -438,6 +438,8 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 .unlock{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid rgba(155,107,255,.35);
   background:rgba(155,107,255,.09);font-size:.64rem;letter-spacing:.12em}
 .unlock b{color:var(--violet);letter-spacing:.2em}
+.unlock .daily-medals b{color:var(--gold)}
+.unlock .daily-medals span{margin-left:auto;color:var(--dim);letter-spacing:.18em}
 
 /* boot */
 #s-boot{place-items:center;background:var(--void);z-index:12}
@@ -1680,6 +1682,72 @@ const MUTATORS = [
 ];
 function todayMutator() {
   return MUTATORS[hashStr('mut-' + todaySeedKey()) % MUTATORS.length];
+}
+
+/* ════════ the Daily Gauntlet — weekly tempo, medals, streaks ════════
+   Every pilot flies the same seeded gauntlet; the corridor itself tightens
+   through the week. Monday opens calm (and pays standard scores), the
+   weekend demands mastery and pays for it — one curve, shared by everyone,
+   derived from the same UTC day contract as the seed and the board.
+   Day index: 0 = Monday … 6 = Sunday. */
+function dayDow(day) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || ''));
+  if (!m) return 0;
+  return (Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 + 3) % 7;   /* epoch is a Thursday: +3 → Monday = 0 */
+}
+function dayShift(day, delta) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || ''));
+  if (!m) return String(day || '');
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + delta * 86400000).toISOString().slice(0, 10);
+}
+const DAILY_TEMPO = [
+  { label: 'Opening',   tempo: 0.94, scoreMul: 1    },
+  { label: 'Mobilized', tempo: 0.97, scoreMul: 1    },
+  { label: 'Pressure',  tempo: 1.00, scoreMul: 1.05 },
+  { label: 'Overrun',   tempo: 1.04, scoreMul: 1.10 },
+  { label: 'Crimson',   tempo: 1.08, scoreMul: 1.15 },
+  { label: 'Crucible',  tempo: 1.12, scoreMul: 1.25 },
+  { label: 'Eclipse',   tempo: 1.18, scoreMul: 1.40 }
+];
+function dayTempo(day) { return DAILY_TEMPO[dayDow(day)]; }
+
+/* medals: reach the wave OR the score — the wave gate keeps slow-and-steady
+   pilots in the game, the score gate rewards fast deep runs. Highest tier
+   wins. Alloy is granted once per tier per day, server-enforced. */
+const DAILY_MEDALS = [
+  { id: 'crest',   name: 'Crest',   wave: 5,  score: 4000,  alloy: 120 },
+  { id: 'crown',   name: 'Crown',   wave: 10, score: 12000, alloy: 260 },
+  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 }
+];
+function dailyMedal(score, wave) {
+  let got = null;
+  for (const t of DAILY_MEDALS) if (wave >= t.wave || score >= t.score) got = t;
+  return got;
+}
+
+/* streak: consecutive UTC days with an accepted daily run. A same-day
+   resubmission is idempotent; a missed day resets to 1; best never falls. */
+function nextStreak(prev, day) {
+  const p = prev || {};
+  if (p.lastDay === day) return { streak: p.streak || 0, best: p.best || 0, lastDay: day };
+  const streak = p.lastDay === dayShift(day, -1) ? (p.streak || 0) + 1 : 1;
+  return { streak, best: Math.max(p.best || 0, streak), lastDay: day };
+}
+
+/* apply a submit response's daily block: bank paid medals, update the
+   streak, surface it all. Returns the granted medal names (for game over). */
+function applyDailyResult(res) {
+  if (!res || !res.daily) return [];
+  const d = res.daily;
+  META.daily = nextStreak(META.daily, todaySeedKey());
+  META.daily.streak = d.streak;
+  META.daily.best = Math.max(META.daily.best || 0, d.streak);
+  if (d.paid > 0) {
+    META.alloy += d.paid;
+    saveMeta();
+    note('Daily ' + (d.medals || []).join(' + ') + ' · +' + fmt(d.paid) + ' alloy', 'good');
+  }
+  return d.medals || [];
 }
 /* ══════════════════════════════════════════════════════════════════════
    RENDER CORE
@@ -4425,7 +4493,9 @@ function buildWave(n) {
       if (type === 'ravager') count = Math.min(2, 1 + Math.floor((n - 17) / 9));
       const elite = n >= 10 && R.chance(.16);
       at(t, type, Math.max(1, count), form, { side: i % 2 ? 1 : -1, elite });
-      t += Math.max(3.1, 6.4 - n * .11);
+      /* the Daily Gauntlet's weekly tempo: the shared seed is only half the
+         contract — the corridor itself tightens toward the weekend */
+      t += Math.max(3.1, 6.4 - n * .11) * (GAME.mode === 'daily' ? dayTempo(todaySeedKey()).tempo : 1);
     }
     if (n >= 7) at(t + 1.2, 'cruiser', Math.min(3, 1 + Math.floor((n - 7) / 4)), 'anchor', {});
   }
@@ -6048,6 +6118,14 @@ function endRun() {
         : r.verdict === 'review'
         ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
         : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + r.rank + seasonLine + '</span>';
+      if (mode === 'daily' && r.verdict === 'accepted' && r.daily) {
+        const medals = applyDailyResult(r);
+        if (medals.length) {
+          const st = META.daily || {};
+          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.join(' · ') +
+            '</b><span>day streak ' + (st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + st.best : '') + '</span></div>';
+        }
+      }
     } else {
       if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
         sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
@@ -7850,6 +7928,50 @@ function runSelfTests() {
       ok(Math.abs(comet.next - cn * 1) < 1e-9, 'standard arm is a no-op');
       comet.next = cn; fleet.next = fn; convoy.next = vn; pyre.next = pn;   // armSkyTraffic mutates in place
     } finally { CFG.sky = save; comet.next = saveNext.c; fleet.next = saveNext.f; convoy.next = saveNext.v; pyre.next = saveNext.p; }
+  });
+  T('daily gauntlet: weekly tempo curve, shared by every pilot', () => {
+    ok(dayDow('2026-09-21') === 0, '2026-09-21 is a Monday (index 0)');
+    ok(dayDow('2026-09-27') === 6, '2026-09-27 is a Sunday (index 6)');
+    ok(dayDow('garbage') === 0, 'malformed day falls back to Monday');
+    eq(dayShift('2026-09-01', -1), '2026-08-31', 'shift crosses month boundaries');
+    eq(dayShift('2026-12-31', 1), '2027-01-01', 'shift crosses year boundaries');
+    eq(DAILY_TEMPO.length, 7, 'one tempo per weekday');
+    for (let i = 1; i < 7; i++) ok(DAILY_TEMPO[i].tempo > DAILY_TEMPO[i - 1].tempo, 'tempo tightens monotonically: ' + DAILY_TEMPO[i].label);
+    eq(dayTempo('2026-09-21').tempo, 0.94, 'Monday opens calm');
+    eq(dayTempo('2026-09-27').tempo, 1.18, 'Sunday runs hottest');
+    eq(dayTempo('2026-09-23').scoreMul, 1.05, 'Wednesday pays 1.05');
+    eq(dayTempo('2026-09-27').scoreMul, 1.40, 'Eclipse Sunday pays 1.40');
+  });
+  T('daily gauntlet: medals — wave OR score gate, highest tier wins', () => {
+    eq(dailyMedal(3000, 3), null, 'below every gate: no medal');
+    eq(dailyMedal(0, 5).id, 'crest', 'wave 5 earns the Crest (steady pilot path)');
+    eq(dailyMedal(4000, 2).id, 'crest', 'score 4000 earns the Crest (fast shallow path)');
+    eq(dailyMedal(12000, 2).id, 'crown', 'score 12000 earns the Crown (fast shallow path)');
+    eq(dailyMedal(0, 10).id, 'crown', 'wave 10 earns the Crown');
+    eq(dailyMedal(30000, 20).id, 'eclipse', 'deep rich run earns the Eclipse');
+    let sum = 0; for (const t of DAILY_MEDALS) sum += t.alloy;
+    eq(sum, 830, 'all three medals in one day pay 830 alloy');
+  });
+  T('daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets', () => {
+    eq(nextStreak(null, '2026-09-21').streak, 1, 'first run starts the streak');
+    const s1 = nextStreak({ streak: 1, best: 1, lastDay: '2026-09-21' }, '2026-09-21');
+    eq(s1.streak, 1, 'same-day resubmission is idempotent');
+    eq(nextStreak({ streak: 1, best: 1, lastDay: '2026-09-21' }, '2026-09-22').streak, 2, 'consecutive day extends');
+    const broken = nextStreak({ streak: 4, best: 6, lastDay: '2026-09-21' }, '2026-09-25');
+    eq(broken.streak, 1, 'a missed day resets the streak');
+    eq(broken.best, 6, 'best streak never falls');
+  });
+  T('daily gauntlet: result application banks payouts and updates identity', () => {
+    const pre = { alloy: META.alloy, daily: META.daily };
+    try {
+      const res = { daily: { streak: 3, paid: 380, medals: ['Crown', 'Eclipse'] } };
+      const got = applyDailyResult(res);
+      eq(got.join('|'), 'Crown|Eclipse', 'returns granted medal names');
+      eq(META.alloy, pre.alloy + 380, 'payout lands in the account');
+      eq(META.daily.streak, 3, 'streak updated from the deck');
+      ok(META.daily.best >= 3, 'best tracks the streak');
+      eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');
+    } finally { META.alloy = pre.alloy; META.daily = pre.daily; saveMeta(); }
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
