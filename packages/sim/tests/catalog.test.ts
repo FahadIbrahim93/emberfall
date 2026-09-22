@@ -17,10 +17,10 @@ describe('content catalogs (live counts — G-CONTENT grows later)', () => {
     expect(FOES.carrier.armored).toBe(true);
   });
 
-  it('has 4 bosses', () => {
-    expect(BOSSES).toHaveLength(4);
+  it('has 5 bosses (incl. the rare Wardenfall)', () => {
+    expect(BOSSES).toHaveLength(5);
     expect(BOSSES.map((b) => b.id)).toEqual([
-      'dreadnought', 'matriarch', 'tyrant', 'gatewarden',
+      'dreadnought', 'matriarch', 'tyrant', 'gatewarden', 'wardenfall',
     ]);
   });
 

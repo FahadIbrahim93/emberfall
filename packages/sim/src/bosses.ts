@@ -57,6 +57,14 @@ export const BOSS_DEFS: readonly BossDefPure[] = [
     hp: 340, r: 80, hitR: 50, sc: 7600,
     nodes: null,
   },
+  /* v4.11: rare Sunday encounter — mirrors index.html's BOSSES tail exactly
+     (golden2 pins it). Not in the ordinary rotation; the live director
+     draws it by day key, so the sim treats it as the fifth identity. */
+  {
+    id: 'wardenfall', name: 'Wardenfall',
+    hp: 430, r: 80, hitR: 50, sc: 11000,
+    nodes: null,
+  },
 ];
 
 let _bossRng: Rng = makeRng(1);

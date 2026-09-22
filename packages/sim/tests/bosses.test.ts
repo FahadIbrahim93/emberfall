@@ -9,11 +9,18 @@ import type { InputFrame } from '../src/types.ts';
 const idle: InputFrame = { mx: 0, my: 0, fire: false, dash: false, pulse: false };
 
 describe('BOSS_DEFS', () => {
-  it('has 4 capitals matching live roster', () => {
-    expect(BOSS_DEFS).toHaveLength(4);
+  it('has 5 capitals matching live roster (incl. the rare Wardenfall)', () => {
+    expect(BOSS_DEFS).toHaveLength(5);
     expect(BOSS_DEFS.map((b) => b.id)).toEqual([
-      'dreadnought', 'matriarch', 'tyrant', 'gatewarden',
+      'dreadnought', 'matriarch', 'tyrant', 'gatewarden', 'wardenfall',
     ]);
+  });
+
+  it('wardenfall outstats the warden — the rare Sunday fight must be harder', () => {
+    const fall = BOSS_DEFS.find((b) => b.id === 'wardenfall');
+    const warden = BOSS_DEFS.find((b) => b.id === 'gatewarden');
+    expect(fall.hp).toBeGreaterThan(warden.hp);
+    expect(fall.sc).toBeGreaterThan(warden.sc);
   });
 });
 

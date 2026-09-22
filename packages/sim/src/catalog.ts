@@ -129,6 +129,7 @@ export const BOSSES: readonly BossDef[] = [
   { id: 'matriarch', name: 'Hive Matriarch', art: 'matriarch' },
   { id: 'tyrant', name: 'Solar Tyrant', art: 'tyrant' },
   { id: 'gatewarden', name: 'Gate Warden', art: 'gatewarden' },
+  { id: 'wardenfall', name: 'Wardenfall', art: 'wardenfall' },
 ];
 
 export type BoonDef = {

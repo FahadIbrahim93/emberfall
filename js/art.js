@@ -1380,6 +1380,67 @@ const BOSS_ART = {
     disc(g, 0, 4, 10, flat ? '#fff' : dark(PAL.rare, .5));
     eye(g, b, 0, 4, 5.5, flat ? '#fff' : PAL.rare);
     battleDamage(g, b, [[-30, 26, 10, .4], [34, -16, 8, -.5], [0, 40, 9, .9]]);
+  },
+  /* WARDENFALL — the corrupted warden. The Gate Warden's rotating-arc
+     grammar bolted onto a dreadnought hull: four faster arcs, gold gate
+     emitters, a core eye gone gold. Rare Sundays only. */
+  wardenfall(g, b) {
+    const t = b.t || 0;
+    const flat = b.col === '#fff';
+    for (const sx of [-38, -14, 14, 38]) {
+      g.save();
+      g.translate(sx, -40);
+      g.scale(7, -20);
+      g.fillStyle = vgrad(g, 'wfeng' + b.col, 0, 1, flat ? [
+        [0, '#fff'], [1, 'rgba(255,255,255,0)']
+      ] : [
+        [0, rgba(PAL.rare, .85)], [.45, rgba(PAL.rare, .32)], [1, rgba(PAL.rare, 0)]
+      ]);
+      g.beginPath();
+      g.moveTo(-1, 0); g.quadraticCurveTo(0, .8, 0, 1); g.quadraticCurveTo(0, .8, 1, 0);
+      g.closePath(); g.fill();
+      g.restore();
+    }
+    /* the warden's star hull, with the dreadnought's armour belt bolted on */
+    g.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * TAU - PI / 2;
+      const rr = i % 2 ? 66 : 42;
+      const x = Math.cos(a) * rr, y = Math.sin(a) * rr + 4;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath();
+    carapace(g, b, -62, 70);
+    poly(g, [[-104, -2], [104, -2], [100, 12], [-100, 12]]);
+    g.fillStyle = flat ? '#fff' : dark(PAL.rare, .65);
+    g.fill();
+    g.lineWidth = 1.4; g.strokeStyle = flat ? '#fff' : rgba(PAL.rare, .85); g.stroke();
+    seams(g, b, [[0, -40, 0, 48], [-46, 10, 46, 10]]);
+    /* four arcs — matches the damageFoe guard exactly (4 windows of .4) */
+    for (let i = 0; i < 4; i++) {
+      const a = (b.shieldAng || 0) + i / 4 * TAU;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = rgba(PAL.rare, b.absorbT > 0 ? .95 : .55);
+      g.lineWidth = b.absorbT > 0 ? 5 : 3;
+      g.beginPath(); g.arc(0, 4, 86, a - .4, a + .4); g.stroke();
+      if (b.absorbT > 0) emitLocal(g, SPR.rare, 0, 4, 150, .28);
+      g.restore();
+    }
+    /* gold gate emitters — the fall of the warden burns bright */
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * TAU - PI / 2;
+      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 4.5, '#0a0412');
+      const k = .35 + .55 * Math.max(0, Math.sin(t * 4.4 + i * 1.25));
+      disc(g, Math.cos(a) * 30, Math.sin(a) * 30 + 4, 2, flat ? '#fff' : lit(PAL.gold, .4, k));
+    }
+    /* core eye — the warden's, gone gold */
+    g.save(); g.globalCompositeOperation = 'lighter';
+    emitLocal(g, SPR.rare, 0, 4, 76, .45 + .2 * Math.sin(t * 5));
+    g.restore();
+    disc(g, 0, 4, 10, flat ? '#fff' : dark(PAL.rare, .5));
+    eye(g, b, 0, 4, 5.5, flat ? '#fff' : PAL.gold);
+    battleDamage(g, b, [[-30, 26, 12, .4], [34, -16, 10, -.5], [0, 40, 11, .9], [-18, -20, 7, 1.2]]);
   }
 };
 

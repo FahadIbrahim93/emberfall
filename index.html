@@ -1730,18 +1730,28 @@ function dayTempo(day) { return DAILY_TEMPO[dayDow(day)]; }
 /* medals: reach the wave OR the score — the wave gate keeps slow-and-steady
    pilots in the game, the score gate rewards fast deep runs. Highest tier
    wins. Alloy is granted once per tier per day, server-enforced. */
+  /* v4.11 rare-boss Sundays: the daily's wave-5 capital is drawn from the
+     same day key the seed and the boards already trust — every pilot on
+     Earth shares the verdict. A 1-in-7 Sunday key wakes the warden's
+     corrupted sibling, Wardenfall, in place of the rotation boss. */
+function wardenfallSunday(day) { return dayDow(day) === 6 && hashStr('warden-' + day) % 7 === 0; }
+
 const DAILY_MEDALS = [
   { id: 'crest',   name: 'Crest',   wave: 5,  score: 4000,  alloy: 120 },
   { id: 'crown',   name: 'Crown',   wave: 10, score: 12000, alloy: 260 },
   { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 },
   /* v4.9: the honor guard only flies on Sundays — the medal rides the
      same dow gate as the escort spawn (client mirror of the deck table) */
-  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 }
+  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 },
+  /* v4.11: Wardenfall day — the rare Sunday encounter has its own honor,
+     an AND gate: the rare boss must be up AND felled AND you flew deep */
+  { id: 'wardenfall', name: 'Wardenfall', wave: 16, score: 48000, alloy: 1000, dow: 6, rare: true }
 ];
-function dailyMedal(score, wave, dow) {
+function dailyMedal(score, wave, dow, rareBoss) {
   let got = null;
   for (const t of DAILY_MEDALS) {
     if (t.dow !== undefined && t.dow !== dow) continue;
+    if (t.rare && !rareBoss) continue;
     if (wave >= t.wave || score >= t.score) got = t;
   }
   return got;
@@ -3581,12 +3591,15 @@ function damageFoe(e, dmg, x, y, fromBomb) {
   if (e.type === 'mimic' && x != null) e.lastAim = Math.atan2(y - e.y, x - e.x);
   if (e.dead || e.dying) return;
   // Gate Warden's shield arcs: shots arriving between arcs are absorbed.
-  // Nova pulses ignore it — the pulse is a siege weapon.
-  if (e.boss && e.def && e.def.id === 'gatewarden' && !fromBomb && !e.dying) {
+  // Nova pulses ignore it — the pulse is a siege weapon. v4.11: Wardenfall
+  // corrupts the same grammar — four arcs, tighter windows, faster spin.
+  if (e.boss && e.def && (e.def.id === 'gatewarden' || e.def.id === 'wardenfall') && !fromBomb && !e.dying) {
     const hitAng = Math.atan2(y - e.y, x - e.x);
-    for (let i = 0; i < 3; i++) {
-      const arc = e.shieldAng + i / 3 * TAU;
-      if (Math.abs(angDiff(hitAng, arc)) < .52) {
+    const nArc = e.def.id === 'wardenfall' ? 4 : 3;
+    const wArc = e.def.id === 'wardenfall' ? .4 : .52;
+    for (let i = 0; i < nArc; i++) {
+      const arc = e.shieldAng + i / nArc * TAU;
+      if (Math.abs(angDiff(hitAng, arc)) < wArc) {
         e.absorbT = .2;
         AU.armor();
         part({ x, y, life: .2, size: 18, spr: SPR.rare });
@@ -3789,14 +3802,15 @@ const BOSS_TIPS = {
   dreadnought: 'Two turret weak points worth extra. Break them to cut its beam phase short.',
   matriarch: 'Fires rings with a single gap. Find the gap early and hold it.',
   tyrant: 'Four sweeping spokes and converging walls. Read the rotation, move with it.',
-  gatewarden: 'Three rotating shield arcs drink anything between them. Fire through the gaps; the arcs slow as the phases fall.'
+  gatewarden: 'Three rotating shield arcs drink anything between them. Fire through the gaps; the arcs slow as the phases fall.',
+  wardenfall: 'The warden\'s corrupted sibling — arcs spin faster, the spike comes thicker, and the surge flies twin beams. Sunday only, and only some Sundays.'
 };
 
 /* ═══ codex — a threat card on first sight, so learning never leaves the run ═══ */
 /* v4.9: one codex card, once — the Daily's contract, told at the door.
    Fired on first daily launch only; MUTED by selftests and unread by
    veterans (CODEX.show dedupes through META.codex). */
-const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15, and on Sundays the honor guard escorts the capital for the Solar Guard. Fly accepted runs on consecutive days to build your streak.';
+const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15, and on Sundays the honor guard escorts the capital for the Solar Guard. Rare Sundays wake Wardenfall — the warden\'s corrupted kin — for the Wardenfall medal. Fly accepted runs on consecutive days to build your streak.';
 function dailyGuideCard() {
   CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
 }
@@ -4378,10 +4392,87 @@ const BOSSES = [
       squadron({ type: ph >= 2 ? 'shieldbreaker' : 'striker', count: 2, form: 'arc' });
       if (ph === 3) squadron({ type: 'sniper', count: 2, form: 'orbit' });
     }
+  },
+  /* v4.11 Wardenfall: the warden's corrupted sibling leads the daily rare
+     encounter. Deeper, faster arcs, a harder spike cadence, twin beams in
+     the surge, and phase pressure the warden never brings. It only ever
+     spawns in the rare Sunday slot — never in the ordinary rotation. */
+  {
+    id: 'wardenfall', name: 'Wardenfall', art: 'wardenfall',
+    hp: 430, r: 80, hitR: 50, sc: 11000,
+    nodes: null,
+    enter(b) { b.ty = H * .24; b.shieldAng = 0; b.absorbT = 0; },
+    move(b, dt) {
+      b.shieldAng += dt * (b.phase >= 3 ? 1.3 : b.phase >= 2 ? .92 : .66);
+      if (b.absorbT > 0) b.absorbT -= dt;
+      b.x = W / 2 + Math.sin(b.t * .5) * (W * .5 - 160) * .5;
+      b.y = b.ty + Math.sin(b.t * .95) * 24;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 4;
+      if (mod === 1) {
+        // denser radial spike, spun harder than the warden ever spins
+        ringShot(b, ph >= 3 ? 26 : 20, b.shieldAng, (260 + ph * 18) * D().bulletSpd, { rad: 84, r: 5 });
+        b.absorbT = .22;
+        return 1.45;
+      }
+      if (mod === 2) {
+        // triple ladder: a third stream threading the two flanks
+        for (let i = 0; i < 5; i++) {
+          const a = b.shieldAng * 2 + i * .3;
+          foeShot(b, a, 245 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI, 245 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI / 2, 235 * D().bulletSpd, { rad: 70, r: 4, col: PAL.gold });
+        }
+        return 1.75;
+      }
+      if (mod === 3 && ph >= 2) {
+        // gate surge, but two beams — a pincer the warden never flies
+        makeBeam(b, aimAt(b), { w: 16, charge: 1.05, fire: .85, sweep: (b.cycle % 8 === 0 ? 1 : -1) * .62 });
+        makeBeam(b, aimAt(b), { w: 12, charge: 1.2, fire: .8, sweep: (b.cycle % 8 === 0 ? -.7 : .7) });
+        fan(b, aimAt(b) + PI, 6, .8, 230 * D().bulletSpd, { rad: 70 });
+        return 2.6;
+      }
+      // hunter volley: wider, faster, from behind the arcs
+      fan(b, aimAt(b), ph >= 3 ? 8 : 6, .6, 315 * D().bulletSpd, { rad: 70, r: 5 });
+      b.absorbT = .18;
+      return 1.35;
+    },
+    onPhase(b, ph) {
+      squadron({ type: ph >= 2 ? 'shieldbreaker' : 'striker', count: 2, form: 'arc' });
+      if (ph === 3) squadron({ type: 'sniper', count: 2, form: 'orbit' });
+    }
   }
 ];
 
 function spawnBoss(index, cycle) {
+  /* v4.11: the rare Sunday capital is not a rotation pick — it is drawn
+     from the day key, so a board row and its medal never disagree about
+     whether Wardenfall was actually up. */
+  if (index === -1) {
+    const def = BOSSES.find(b => b.id === 'wardenfall');
+    GAME.wardenfall = true;
+    MUSIC.variant = 'gatewarden';   // kinship in the score, corruption in the patterns
+    const hp = Math.round(def.hp * (1 + GAME.wave * .035) * D().hp);
+    const b = spawnFoe('cruiser', {
+      x: W / 2, y: -190, state: 'boss', boss: true, def,
+      r: def.r * SHIP_SCALE, hitR: def.hitR, sc: def.sc,
+      artScale: SHIP_SCALE * 1.15,
+      hp, maxHp: hp, phase: 1, cycle: 0, spin: 0, fireT: 2.2,
+      glow: 0, arriving: true, charging: false, chargeX: W / 2,
+      shieldAng: 0, absorbT: 0,
+      dieT: 0, exT: 0, phasesFired: {}, nodes: null
+    });
+    def.enter(b);
+    boss = b;
+    $('bossBox').classList.remove('hidden');
+    CODEX.show('boss:wardenfall', def.name, BOSS_TIPS.wardenfall);
+    $('bossName').textContent = def.name;
+    $('bossPips').innerHTML = '<i class="on"></i><i class="on"></i><i class="on"></i>';
+    return b;
+  }
   const def = BOSSES[index % BOSSES.length];
   MUSIC.variant = def.id; // each capital scores differently
   const hp = Math.round(def.hp * (1 + cycle * .55) * (1 + GAME.wave * .035) * D().hp);
@@ -4486,6 +4577,7 @@ function finishBossDeath(b) {
   AU.bomb();
   note('Capital ship destroyed', 'rare', '☠');
   if (b.def.id === 'gatewarden') GAME.killedWarden = true;
+  if (b.def.id === 'wardenfall') GAME.wardenfallKill = true;   // rare Sunday honor rides the kill itself
   offerBoons();
 }
 
@@ -4520,11 +4612,14 @@ function buildWave(n) {
     at(11.2, 'cruiser', 1, 'anchor'); at(13.4, 'weaver', 4, 'sweep', { side: -1 });
   } else if (n % 5 === 0) {
     at(.6, 'drone', 4, 'sweep', { side: 1 });
-    at(2.4, '@boss', 1, 'boss');
-    /* v4.9 Eclipse Sundays: on the daily's hottest day, the capital's honor
-       guard flies. Two elites pincer the boss window — the run must EARN
-       its 1.40x pay. Never active on tour (its waves are scripted worlds). */
-    if (GAME.mode === 'daily' && dayDow(todaySeedKey()) === 6) {
+    /* v4.11 rare Sunday: Wardenfall replaces the rotation capital in the
+       daily's wave-5 slot (never tour — its waves are scripted worlds). */
+    const rare = GAME.mode === 'daily' && wardenfallSunday(todaySeedKey());
+    if (!rare) at(2.4, '@boss', 1, 'boss');
+    if (rare) {
+      at(1.1, 'drone', 6, 'vee', { elite: true });
+      at(5.1, 'sniper', 1, 'pincer', { side: 1, elite: true });
+    } else if (GAME.mode === 'daily' && dayDow(todaySeedKey()) === 6) {
       at(1.2, 'tender', 1, 'pincer', { side: 1, elite: true });
       at(4.8, 'sniper', 2, 'pincer', { side: -1, elite: true });
     }
@@ -8116,6 +8211,30 @@ function runSelfTests() {
     let sum = 0; for (const t of DAILY_MEDALS) if (t.dow === undefined) sum += t.alloy;
     eq(sum, 830, 'the everyday medals still pay 830');
     eq(dailyMedal(0, 20, 6).id, 'solar', 'Sunday honor guard pays 800 more');
+  });
+  T('daily gauntlet: rare Sundays — Wardenfall wakes by seed, the honor rides the kill', () => {
+    /* determinism: the day key is the whole contract — same verdict for
+       every pilot on Earth, forever */
+    const sundays = ['2026-01-04', '2026-01-11', '2026-01-18', '2026-01-25', '2026-02-01', '2026-02-08', '2026-02-15'];
+    const rare = sundays.filter(d => wardenfallSunday(d));
+    ok(rare.length >= 1 && rare.length <= 3, 'roughly one Sunday in seven wakes Wardenfall (got ' + rare.length + '/7)');
+    eq(wardenfallSunday('2026-01-05'), false, 'a Monday never wakes the fall, whatever the hash says');
+    for (const d of sundays) eq(wardenfallSunday(d), wardenfallSunday(d), 'pure function of the day key');
+    /* the medal: an AND gate — rare boss up AND felled AND a deep run */
+    const dow = dayDow(rare[0]);
+    eq(dailyMedal(60000, 20, dow, true).id, 'wardenfall', 'the fall felled on its own Sunday pays the rare honor');
+    eq(dailyMedal(60000, 20, dow, false).id, 'solar', 'same Sunday without the fall: Solar Guard, nothing more');
+    eq(dailyMedal(4000, 5, dow, true).id, 'crest', 'the fall up but the run shallow: no rare honor');
+    eq(dailyMedal(60000, 20, 0, true).id, 'eclipse', 'a midweek claim of the fall is refused — the dow gate holds');
+    /* the ledger: everyday medals untouched, the rare honor sits above */
+    let sum = 0; for (const t of DAILY_MEDALS) if (t.dow === undefined) sum += t.alloy;
+    eq(sum, 830, 'the everyday full house is unchanged');
+    ok(DAILY_MEDALS.find(t => t.rare).alloy > DAILY_MEDALS.find(t => t.id === 'solar').alloy,
+      'the rare honor pays above the Sunday tier');
+    /* the identity: a real capital with art, a tip, and heavier stats */
+    const def = BOSSES.find(b => b.id === 'wardenfall');
+    ok(def && BOSS_ART[def.art] && BOSS_TIPS.wardenfall, 'the fall has art, a codex tip, an identity');
+    ok(def.hp > BOSSES.find(b => b.id === 'gatewarden').hp, 'it outstats its sibling');
   });
   T('daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets', () => {
     eq(nextStreak(null, '2026-09-21').streak, 1, 'first run starts the streak');
