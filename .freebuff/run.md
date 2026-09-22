@@ -79,3 +79,14 @@ node tools/db-backup.js --out D:/emberfall-backups --keep 30 --verify
 - Old snapshots beyond `--keep` are pruned. Restore = stop deck, copy the wanted
   backup over `emberfall.db` (delete its `-wal`/`-shm` sidecars), start deck.
 - Snapshots are plain SQLite files you can inspect with any sqlite client.
+
+## Ops: profile the deck's query load
+
+```bash
+# boot a throwaway deck once to create the schema, stop it, then:
+node tools/profile-deck.js --db <scratch>/emberfall.db --users 40 --days 120
+```
+
+Refuses to run without `--db` (seeded load rows are destructive). Baseline at
+4,800 daily_stats rows: streak walk 0.31 ms, md ledger 0.27 ms, weekDays
+0.014 ms, windowed top10 0.034 ms — all sub-ms with covering-index plans.
