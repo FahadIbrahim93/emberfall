@@ -1,7 +1,8 @@
 # EMBERFALL — how to run this worktree
 
-(release v3.7.0 — deck static allowlist, honest boards, async scrypt, self-hosted
-fonts, FTUE; published live via CI at https://fahadibrahim93.github.io/emberfall/)
+(release v4.5.0 — Yard donations honors, sim golden parity (FOES/WEAPONS/BOSSES/STAGES),
+a11y floor on paints + reduced-motion dock; published live via CI at
+https://fahadibrahim93.github.io/emberfall/)
 
 ## Reproduce artifacts
 
@@ -39,15 +40,21 @@ powershell -NoProfile -Command "(Start-Process -FilePath 'node.exe' -ArgumentLis
 ## Verify
 
 - `bash check.sh` — syntax-verifies every `js/*.js` module AND the inline payload(s)
-- `bash smoke.sh` — dead-code gate (`node deadscan.js --check`, scans modules too) + full API battery, all must pass
-- `http://127.0.0.1:8123/index.html?selftest` — 37 client tests, all must pass
-  (CI runs the same suite headless via `tools/selftest-ci.js` against a committed
-  exact-name baseline)
+- `bash smoke.sh` — dead-code gate (`node deadscan.js --check`) + copy provenance
+  (`node tools/copyguard.js`) + full API battery, all must pass
 - `node tools/econsim.js` — economy simulator; constants are extracted from
   source, so a tuning typo fails here (also run as a CI gate)
+- `node tools/selftest-ci.js` — 55 client tests headless against a committed
+  exact-name baseline (same suite as `index.html?selftest` in a real browser)
+- `npm run test:sim` — packages/sim balance sim (52 tests incl. golden parity
+  against the live `index.html` tables: FOES, WEAPONS, BOSSES, STAGES, RNG)
+- `npm run test:browser` — Playwright pass over the served game (7 tests)
 - CI (GitHub Actions) runs all of the above on every push, then deploys `main`
   to Pages and re-verifies the live URL byte-for-byte
 - Title screen → Settings → Command deck panel shows the account state
+
+Preview hygiene: after a version bump the browser may serve one reload from the
+old SW cache — purge via `caches.keys()` → `caches.delete(k)` → reload.
 
 The game also still runs with **no server at all**: open `index.html` directly
 or serve the folder statically — the client probes `/api/health` and silently

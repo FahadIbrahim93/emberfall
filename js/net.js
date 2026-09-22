@@ -514,7 +514,7 @@ function renderDonations() {
       AU.unlock();
     };
   } else {
-    b.innerHTML = '<span><b>Yardmaster</b><p>The highest honor is yours. The yard flies your colors.</p></span>' +
+    b.innerHTML = '<span><b>' + esc('Yardmaster') + '</b><p>' + esc('The highest honor is yours. The yard flies your colors.') + '</p></span>' +
       '<span class="buy max">✦ ' + fmt(META.donated) + '</span>';
     b.onclick = () => { AU.ui(); };   /* nothing left to buy — by design */
   }

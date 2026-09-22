@@ -684,7 +684,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.4.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.5.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -946,7 +946,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.4.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.5.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6518,6 +6518,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.5.0',
+    items: [
+      '<b>The Yard accepts donations</b> — a prestige sink for pilots the sinks left behind: alloy converts to permanent honors (Patron 5,000 · Shipwright 25,000 · Yardmaster 100,000). The plate on your dock is engraved, Shipwright+ raises a ✦ beside your name on every board, and the title stays for good. Irreversible by design; zero power, all legacy.',
+      '<b>Every pilot can read the sky</b> — reduced-motion now stills the hangar dock and the drifting cloudbanks along with the rest of the ambience, and the paint wardrobe carries a tested colorblind floor: every two paints stay separable under protan, deutan and tritan vision (CIE-Lab ΔE, Machado simulation).',
+      '<b>The mirror now watches the war</b> — the balance sim mirrors boss statlines and all eight Solar Tour worlds, pinned to the live game by CI. Any tuning change that forgets the sim fails the build, and vice versa.'
+    ]
+  },
+  {
     v: '4.4.0',
     items: [
       '<b>The ledger closes</b> — eight new feats across the campaign and the hangar: clear three worlds, complete the Tour, fly ten hazardous waves, finish a run wearing a sigil, take Glasswing to wave 10 on its one life, earn an Ace plaque, bring a hull to Mastery 3, own five paints. Each carries a progress bar where a ladder makes sense; the binary ones do not pretend to.',
@@ -7670,7 +7678,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.4.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.5.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
