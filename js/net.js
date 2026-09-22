@@ -45,13 +45,13 @@ const NET = {
     try {
       const j = await this.req('GET', '/api/me');
       this.user = j.user || null;
-      if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); }
+      if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); }
       return this.user;
     } catch (e) { this.user = null; return null; }
   },
 
   async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
-  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) this.mergeProfile(j.profile); kickOutbox(); return j; },
+  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); } return j; },
   async logout() {
     try { await this.req('POST', '/api/logout'); } catch (e) { }
     this.user = null;
@@ -61,6 +61,40 @@ const NET = {
      The server snapshots on real deltas; restoring is a local replace +
      a normal profile push, so the deck never overwrites a live profile
      on behalf of a snapshot. */
+  /* replace the local save with a validated snapshot, then push the
+     result as a normal profile write (shared by panel + boot offer) */
+  async applySnapshot(clean) {
+    Object.assign(META, clean);
+    META.owned = Array.from(new Set(['vesper'].concat(clean.owned)));
+    META.paints = Array.from(new Set(['yard'].concat(clean.paints)));
+    META.sigils = Array.from(new Set([''].concat(clean.sigils)));
+    saveMeta();
+    renderHangar();
+    await this.pushProfile();
+  },
+
+  /* boot-time restore offer: if the deck remembers a clearly richer save
+     than this device carries (wiped browser, new device, wrecked store),
+     say so once per day and put it back on acceptance. */
+  async vaultOfferRestore() {
+    try {
+      if (!this.on || !this.user || GAME.state === 'playing') return;
+      if (DB.get('vaultOfferSeen', '') === todaySeedKey()) return;
+      const snaps = await this.listSnaps().catch(() => null);
+      if (!snaps || !snaps.length) return;
+      const newest = await this.readSnap(snaps[0].taken).catch(() => null);
+      const clean = sanitizeSnapMeta(newest && newest.meta);
+      if (!vaultOfferWorthy(clean, META)) return;
+      const when = new Date(snaps[0].taken).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      DB.set('vaultOfferSeen', todaySeedKey());          // asked today — accepted or not
+      const owned = clean.owned.length, alloy = clean.alloy || 0;
+      if (!confirm('The deck remembers a richer save from ' + when + ' (' + owned +
+        (owned === 1 ? ' hull' : ' hulls') + ', ' + alloy + ' alloy). Restore it on this device? Your current progress here will be replaced.')) return;
+      await this.applySnapshot(clean);
+      note('Vault restored from ' + when, 'good');
+    } catch (e) { /* an offer must never break boot */ }
+  },
+
   async listSnaps() {
     const j = await this.req('GET', '/api/profile/snaps');
     return j.snaps || [];
@@ -329,6 +363,15 @@ const NET = {
     } else you.classList.add('hidden');
   }
 };
+
+/* restore-worthiness: the deck must remember clearly MORE than this device —
+   richer ownership or a strictly longer service record. Equal-or-lesser
+   snapshots stay in the panel; boot never nags over nothing. */
+function vaultOfferWorthy(clean, local) {
+  if (!clean) return false;
+  return clean.owned.length > (local.owned || []).length ||
+    (clean.totalKills || 0) > (local.totalKills || 0);
+}
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
   const honor = honorOf(META.donated || 0);

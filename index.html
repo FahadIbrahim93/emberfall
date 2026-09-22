@@ -6269,13 +6269,7 @@ function paintVault() {
         if (!snap || !snap.meta) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
         const clean = sanitizeSnapMeta(snap.meta);
         if (!clean) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
-        Object.assign(META, clean);
-        META.owned = Array.from(new Set(['vesper'].concat(clean.owned)));
-        META.paints = Array.from(new Set(['yard'].concat(clean.paints)));
-        META.sigils = Array.from(new Set([''].concat(clean.sigils)));
-        saveMeta();
-        renderHangar();
-        await NET.pushProfile();
+        await NET.applySnapshot(clean);
         note('Vault restored — hangar rebuilt from ' + when, 'good');
         b.disabled = false;
       };
@@ -7508,6 +7502,14 @@ function runSelfTests() {
     const ghost = sanitizeSnapMeta({ ship: 'wraith' });    // unowned ship falls back
     eq(ghost.ship, 'vesper');
     eq(ghost.owned.join(','), 'vesper');
+  });
+
+  T('save vault: boot offer only for strictly richer snapshots', () => {
+    const rich = sanitizeSnapMeta({ owned: ['vesper', 'atlas'], totalKills: 5000, alloy: 8000 });
+    eq(vaultOfferWorthy(rich, { owned: ['vesper'], totalKills: 10 }), true, 'richer vault deserves the offer');
+    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 9000 }), false, 'equal-or-lesser stays quiet');
+    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 5000 }), false, 'equal record stays quiet');
+    eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
   });
 
   T('daily gauntlet day board: seed-key contract, row shape, mutator binding', () => {
