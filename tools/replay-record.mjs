@@ -1,11 +1,12 @@
-#!/usr/bin/env node
 /**
  * P1-7 golden-replay helper.
  * Prefer: npx vite-node tools/replay-record.mjs --seed 42 --steps 2400 --out goldens/combat-42.json
+ *
+ * No shebang on purpose: vite-node loads this file as module source and
+ * chokes on `#!` (node's own loader strips it, vite-node's does not).
  */
 import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname } from 'node:path';
 
 function parseArgs(argv) {
   const o = { seed: 42, steps: 2400, out: null, verify: null };
@@ -22,10 +23,12 @@ const args = parseArgs(process.argv);
 
 async function trySim() {
   try {
-    const base = pathToFileURL(resolve('packages/sim/src/')).href;
-    const { createWorld } = await import(base + 'world.ts');
-    const { step, endHash } = await import(base + 'step.ts');
-    const { STEP } = await import(base + 'constants.ts');
+    /* relative specifiers on purpose: vite-node intercepts and transforms
+       them; a pathToFileURL() absolute URL escapes the module runner and
+       dies on the .ts extension in plain node */
+    const { createWorld } = await import('../packages/sim/src/world.ts');
+    const { step, endHash } = await import('../packages/sim/src/step.ts');
+    const { STEP } = await import('../packages/sim/src/constants.ts');
     return { createWorld, step, endHash, STEP };
   } catch {
     return null;
