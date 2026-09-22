@@ -1,6 +1,6 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.9.0 — streak feats & laurel paints, Eclipse Sundays, deck busy_timeout),
+(release v4.10.0 — medal pips on the day board, weekly recap, deck profiler),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 
