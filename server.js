@@ -253,11 +253,17 @@ function isReplay(hash) {
 const DAILY_MEDALS = [
   { id: 'crest',   name: 'Crest',   wave: 5,  score: 4000,  alloy: 120 },
   { id: 'crown',   name: 'Crown',   wave: 10, score: 12000, alloy: 260 },
-  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 }
+  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 },
+  /* v4.9: the honor guard only flies on Sundays — mirrors the client's
+     dow gate and the wave director's escort spawn (payload pins parity) */
+  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 }
 ];
-function medalsEarned(score, wave) {
+function medalsEarned(score, wave, dow) {
   const out = [];
-  for (const t of DAILY_MEDALS) if (wave >= t.wave || score >= t.score) out.push(t.name);
+  for (const t of DAILY_MEDALS) {
+    if (t.dow !== undefined && t.dow !== dow) continue;
+    if (wave >= t.wave || score >= t.score) out.push(t.name);
+  }
   return out;
 }
 function medalsAlloy(names) {
@@ -755,7 +761,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
          clock the boards use, so a board row and its medal never disagree */
       const d = new Date(now());
       const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
-      const earned = medalsEarned(score, wave);
+      const dow = (Date.parse(today + 'T00:00:00.000Z') / 86400000 + 3) % 7;   /* Monday = 0 */
+      const earned = medalsEarned(score, wave, dow);
       const row = db.prepare('SELECT paid FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
       const already = row ? row.paid : 0;
       const full = medalsAlloy(earned);

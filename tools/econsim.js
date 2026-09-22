@@ -25,7 +25,10 @@ if (hullCosts.length !== 5) throw new Error('expected 5 hull costs, got ' + hull
 /* v4.1 paint shop: cosmetic sinks extracted from source — tracked so the
    simulation reports total outstanding sink including personalization */
 const paintCosts = [...html.matchAll(/hull: '#[0-9a-f]+', lit: '#[0-9a-f]+', cost: (\d+)/g)].map(m => +m[1]);
-if (paintCosts.length !== 8) throw new Error('expected 8 paint costs, got ' + paintCosts.length);
+if (paintCosts.length !== 10) throw new Error('expected 10 paint costs, got ' + paintCosts.length);
+/* yard starter + the two streak laurels are the only zero-cost paints —
+   if that changes, the "laurels are earned, not bought" contract changed */
+if (paintCosts.filter(c => c === 0).length !== 3) throw new Error('expected exactly 3 free paints (yard + 2 laurels), got ' + paintCosts.filter(c => c === 0).length);
 
 /* v4.2 sigil bay: one worn sigil, power priced in weakness — alloy sinks
    extracted from source like every other (anchored on the tier field) */
@@ -38,6 +41,7 @@ if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + si
    day (server-ledgered). Full house = 830/day; the deck also keeps six
    rolling snapshots, so the watermark survives vault restores. */
 const DAILY_MEDAL_ALLOY = [120, 260, 450];   /* Crest / Crown / Eclipse */
+const DAILY_SUNDAY_GUARD = 800;              /* v4.9 Solar Guard — Sundays only */
 const DAILY_MEDAL_TOTAL = DAILY_MEDAL_ALLOY.reduce((a, c) => a + c, 0);
 const donBlock = html.match(/const DONATIONS = \[([\s\S]*?)\n\];/);
 if (!donBlock) throw new Error('constant drifted: DONATIONS table');
@@ -266,8 +270,10 @@ function main() {
   console.log('  grand total to own everything: ' + out.spend.grandTotal + ' (hulls ' + out.spend.hulls + ' + refits ' + out.spend.refits + ')');
 
   console.log('\nDaily gauntlet faucet (v4.8, server-ledgered, once per tier per day):');
-  console.log('  full house: ' + DAILY_MEDAL_TOTAL + '/day · Crest-only: ' + DAILY_MEDAL_ALLOY[0] +
-    '/day · over 30 flew days: ' + (DAILY_MEDAL_TOTAL * 30) + ' (≈' +
-    (DAILY_MEDAL_TOTAL * 30 / out.spend.grandTotal * 100).toFixed(1) + '% of the full-collection price)');
+  console.log('  weekday full house: ' + DAILY_MEDAL_TOTAL + '/day · Sunday with the honor guard: ' +
+    (DAILY_MEDAL_TOTAL + DAILY_SUNDAY_GUARD) + '/day · Crest-only: ' + DAILY_MEDAL_ALLOY[0] +
+    '/day · over a 30-day month (4 Sundays): ' + (DAILY_MEDAL_TOTAL * 30 + DAILY_SUNDAY_GUARD * 4) +
+    ' (≈' + ((DAILY_MEDAL_TOTAL * 30 + DAILY_SUNDAY_GUARD * 4) / out.spend.grandTotal * 100).toFixed(1) +
+    '% of the full-collection price)');
 }
 main();

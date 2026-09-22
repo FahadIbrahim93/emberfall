@@ -1729,11 +1729,17 @@ function dayTempo(day) { return DAILY_TEMPO[dayDow(day)]; }
 const DAILY_MEDALS = [
   { id: 'crest',   name: 'Crest',   wave: 5,  score: 4000,  alloy: 120 },
   { id: 'crown',   name: 'Crown',   wave: 10, score: 12000, alloy: 260 },
-  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 }
+  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 },
+  /* v4.9: the honor guard only flies on Sundays — the medal rides the
+     same dow gate as the escort spawn (client mirror of the deck table) */
+  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 }
 ];
-function dailyMedal(score, wave) {
+function dailyMedal(score, wave, dow) {
   let got = null;
-  for (const t of DAILY_MEDALS) if (wave >= t.wave || score >= t.score) got = t;
+  for (const t of DAILY_MEDALS) {
+    if (t.dow !== undefined && t.dow !== dow) continue;
+    if (wave >= t.wave || score >= t.score) got = t;
+  }
   return got;
 }
 
@@ -4483,6 +4489,13 @@ function buildWave(n) {
   } else if (n % 5 === 0) {
     at(.6, 'drone', 4, 'sweep', { side: 1 });
     at(2.4, '@boss', 1, 'boss');
+    /* v4.9 Eclipse Sundays: on the daily's hottest day, the capital's honor
+       guard flies. Two elites pincer the boss window — the run must EARN
+       its 1.40x pay. Never active on tour (its waves are scripted worlds). */
+    if (GAME.mode === 'daily' && dayDow(todaySeedKey()) === 6) {
+      at(1.2, 'tender', 1, 'pincer', { side: 1, elite: true });
+      at(4.8, 'sniper', 2, 'pincer', { side: -1, elite: true });
+    }
   } else {
     const pool = ['drone', 'striker', 'weaver'];
     if (n >= 4) pool.push('splitter');
@@ -8020,8 +8033,12 @@ function runSelfTests() {
     eq(dailyMedal(12000, 2).id, 'crown', 'score 12000 earns the Crown (fast shallow path)');
     eq(dailyMedal(0, 10).id, 'crown', 'wave 10 earns the Crown');
     eq(dailyMedal(30000, 20).id, 'eclipse', 'deep rich run earns the Eclipse');
-    let sum = 0; for (const t of DAILY_MEDALS) sum += t.alloy;
-    eq(sum, 830, 'all three medals in one day pay 830 alloy');
+    eq(dailyMedal(30000, 20, 6).id, 'solar', 'on a Sunday the honor-guard tier opens');
+    eq(dailyMedal(99999, 20, 0).id, 'eclipse', 'midweek 20-wave run: Solar Guard stays closed');
+    eq(dailyMedal(30000, 20, 0).id, 'eclipse', 'midweek deep run still takes the Eclipse');
+    let sum = 0; for (const t of DAILY_MEDALS) if (t.dow === undefined) sum += t.alloy;
+    eq(sum, 830, 'the everyday medals still pay 830');
+    eq(dailyMedal(0, 20, 6).id, 'solar', 'Sunday honor guard pays 800 more');
   });
   T('daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets', () => {
     eq(nextStreak(null, '2026-09-21').streak, 1, 'first run starts the streak');
