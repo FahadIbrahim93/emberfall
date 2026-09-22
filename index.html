@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.7.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.8.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.7.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.8.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6694,6 +6694,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.8.0',
+    items: [
+      '<b>The week has a shape</b> — the Daily Gauntlet now tightens as the week wears on: Monday opens calm, the weekend runs hot, and Sunday&apos;s Eclipse tempo pays 1.40&times; score. The corridor itself changes with the day, and every pilot flies the same week.',
+      '<b>Crest, Crown, Eclipse</b> — three daily medals, earned by wave depth or score, paying alloy once per tier per day: 120 / 260 / 450. The deck keeps the ledger, plausibility-checked runs only, and your streak counts consecutive days with an accepted run — miss a day, start again at one; the best is kept forever.',
+      '<b>Streaks on the board</b> — your day-board row now carries your streak, and the payout faucet is audited in the economy model: a full house is 830/day, about seventy percent of the full-collection price over a flew month.'
+    ]
+  },
+  {
     v: '4.7.0',
     items: [
       '<b>The Daily goes worldwide</b> — your Gauntlet run now lands on one shared, day-scoped board. Every pilot on the network flies the same seeded gauntlet, midnight UTC resets the field, and the board shows exactly today\u2019s fleet with your rank among them — yesterday\u2019s legends rest, today\u2019s are written live.',
@@ -8002,7 +8010,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.7.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.8.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
