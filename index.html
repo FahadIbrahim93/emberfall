@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.10.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.11.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.10.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.11.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6881,6 +6881,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.11.0',
+    items: [
+      '<b>Rare Sundays: Wardenfall</b> — one Sunday in seven (decided by the day key every pilot already shares) the Daily&apos;s wave-5 capital is replaced by Wardenfall, the Gate Warden&apos;s corrupted sibling: four faster shield arcs, denser spikes, twin beam surge. Fell it and fly deep — wave 16 — for the Wardenfall medal, 1,000 alloy, once that day.',
+      '<b>Flawless season</b> — fly an accepted run every single day of a Gauntlet week and the deck counts it: the FLAWLESS SEASON feat lands, and your dock engraves the honor with Roman numerals for repeats. The deck&apos;s ledger, not your streak, is the judge.',
+      '<b>A harder fall, honestly paid</b> — the rare honor is wave-gated only (a wave-16 daily cannot exist unless the capital fell), and the deck derives the Sunday verdict itself from the same seed hash — no client claim is trusted. Proven across 7,671 days of parity checks.'
+    ]
+  },
+  {
     v: '4.10.0',
     items: [
       '<b>The board wears its medals</b> — the Daily day board now shows each pilot&apos;s earned tiers as gold pips beside their score, straight from the deck&apos;s ledger: two runs in one day pool their honors. Your own row carries them too.',
@@ -8311,7 +8319,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.10.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.11.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

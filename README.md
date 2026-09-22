@@ -1,4 +1,4 @@
-# EMBERFALL v4.10.0 — Orbital Intercept
+# EMBERFALL v4.11.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -68,7 +68,9 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
-## What's new in v4.5 – v4.10 — "The pilot's ledger & the shared sky"
+## What's new in v4.5 – v4.11 — "The pilot's ledger & the shared sky"
+
+- **v4.11 — rare Sundays & the flawless week:** one Sunday in seven (drawn from the shared day key) wakes **Wardenfall**, the Gate Warden's corrupted sibling — four faster shield arcs, denser spikes, a twin-beam surge — worth its own wave-16 medal of 1,000 alloy, authorized by the deck's own derivation of the day. Fly a flawless Gauntlet week (accepted runs, seven UTC days) and the **FLAWLESS SEASON** feat lands with a dock plaque in Roman numerals. Rare-tier anti-cheat is structural: wave-gated only, so the kill is provable from the run itself — parity proven across 7,671 days of client/deck agreement.
 
 - **v4.5 — the yard gives back:** irreversible alloy→honor donations at three tiers (Patron / Shipwright / Yardmaster) paying pure cosmetics — dock plate, gold ✦ board sigil, engraved title; the balance sim reaches 60 tests with golden parity for the boss statlines and the full Solar Tour registry; dock breathing and cloudbank drift honor reduced-motion; the paint wardrobe is pinned to measured CIE76 ΔE floors under protan/deutan/tritan (Machado 2009 matrices).
 - **v4.6 — nothing earned is ever lost again:** the save vault (six rolling deck-side snapshots per account, inline restore), a build stub-guard that would have caught the placeholder-page incident in seconds, deterministic golden replays and type-specific foe AI in the mirror, and live SQLite backup tooling with verification.
