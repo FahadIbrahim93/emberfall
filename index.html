@@ -1417,7 +1417,12 @@ const PAINTS = [
   { id: 'violet',  name: 'Deep violet',   hull: '#a86bff', lit: '#ead9ff', cost: 650 },
   { id: 'glacier', name: 'Glacial',       hull: '#59c8ff', lit: '#dcf3ff', cost: 650 },
   { id: 'gold',    name: 'Victory gold',  hull: '#ffd166', lit: '#fff3d0', cost: 1200 },
-  { id: 'night',   name: 'Night lure',    hull: '#4b5566', lit: '#aebdd4', cost: 1200 }
+  { id: 'night',   name: 'Night lure',    hull: '#4b5566', lit: '#aebdd4', cost: 1200 },
+  /* v4.9 streak laurels — never sold, earned only. Colors are the two
+     pockets the CVD grid search found that keep the whole wardrobe above
+     the pinned protan/deutan/tritan floors (joint min-margin 13.3). */
+  { id: 'oxblood',  name: 'Oxblood',  hull: '#8f0a0a', lit: '#d98a80', cost: 0, gift: 'streak14', giftDesc: '14-day daily streak' },
+  { id: 'midnight', name: 'Midnight', hull: '#040495', lit: '#8a8ae0', cost: 0, gift: 'streak30', giftDesc: '30-day daily streak' }
 ];
 /* ════════════════ SIGILS — the loadout, and what it costs ═════════
    A pilot wears exactly ONE sigil (empty is a legal, quiet choice) and
@@ -1644,7 +1649,14 @@ const FEATS = [
   { id: 'glasswing', name: 'One wing on', desc: 'Reach wave 10 on Glasswing&apos;s one life.', check: s => s.sigil === 'glasswing' && s.wave >= 10 },
   { id: 'ace', name: 'Ace plaquer', desc: 'Earn the ACE plaque on any hull — 2,000 kills in one airframe.', check: s => Object.values(META.hullKills || {}).some(k => k >= 2000), prog: () => [Math.max(0, ...Object.values(META.hullKills || {}), 0), 2000] },
   { id: 'mast3', name: 'Flight instructor', desc: 'Bring any hull to Mastery 3.', check: s => Object.values(META.mastery || {}).some(e => (e.xp || 0) >= MASTERY_TIERS[2].xp), prog: () => [Math.max(0, ...Object.values(META.mastery || {}).map(e => { let l = 0; for (const t of MASTERY_TIERS) if ((e.xp || 0) >= t.xp) l = t.lvl; return l; }), 0), 3] },
-  { id: 'wardrobe', name: 'Paint locker', desc: 'Own five paints.', check: s => (META.paints || []).length >= 5, prog: () => [Math.min((META.paints || []).length, 5), 5] }
+  { id: 'wardrobe', name: 'Paint locker', desc: 'Own five paints.', check: s => (META.paints || []).length >= 5, prog: () => [Math.min((META.paints || []).length, 5), 5] },
+  /* ── v4.9: the daily streak — devotion, measured in consecutive days.
+     Gated on mode: a classic run must not advance a Daily devotion track.
+     Optimism is bounded: the walk predicts what the submission will earn,
+     and the deck's ledger remains the displayed truth. */
+  { id: 'streak7', name: 'Seven suns', desc: 'Fly an accepted Daily Gauntlet run 7 days in a row.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 7, prog: () => [Math.min(predictedStreak(META), 7), 7] },
+  { id: 'streak14', name: 'Fortnight', desc: 'Fly the Daily 14 days running — the OXBLOOD paint joins your locker, free.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 14, prog: () => [Math.min(predictedStreak(META), 14), 14] },
+  { id: 'streak30', name: 'A pilot&apos;s month', desc: 'Fly the Daily 30 days running — MIDNIGHT joins the locker and stays forever.', check: s => s.mode === 'daily' && (s.dailyStreak || 0) >= 30, prog: () => [Math.min(predictedStreak(META), 30), 30] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1732,6 +1744,18 @@ function nextStreak(prev, day) {
   if (p.lastDay === day) return { streak: p.streak || 0, best: p.best || 0, lastDay: day };
   const streak = p.lastDay === dayShift(day, -1) ? (p.streak || 0) + 1 : 1;
   return { streak, best: Math.max(p.best || 0, streak), lastDay: day };
+}
+/* the streak the run being summarized is about to create — feats evaluate
+   before the deck's response lands, so they walk the same pure contract */
+function predictedStreak(meta) {
+  return nextStreak(meta && meta.daily, todaySeedKey()).streak;
+}
+/* streak laurels due to be gifted (feat earned, paint not yet in locker) */
+function streakGiftsDue(feats, paints) {
+  const out = [];
+  if (feats && feats.streak14 && !paints.includes('oxblood')) out.push('oxblood');
+  if (feats && feats.streak30 && !paints.includes('midnight')) out.push('midnight');
+  return out;
 }
 
 /* apply a submit response's daily block: bank the payout, adopt the deck's
@@ -5978,6 +6002,8 @@ function endRun() {
     ghostBeat: GAME.ghostBeat === true, rivalBeat: GAME.rivalBeat === true, rush: GAME.rushCleared === true,
     gold: GAME.goldSighted === true,
     hazWaves: GAME.hazWaves || 0,
+    mode: GAME.mode,
+    dailyStreak: predictedStreak(META),
     tourWorlds: GAME.mode === 'tour' ? tourWorldsDone(Math.max(1, GAME.wave)) : 0,
     tourVictory: GAME.tourVictory === true,
     sky: META.sky
@@ -5988,6 +6014,14 @@ function endRun() {
     let ok = false;
     try { ok = f.check(summary); } catch (e) { ok = false; }
     if (ok) { META.feats[f.id] = Date.now(); newFeats.push(f); }
+  }
+  /* streak laurels: the feat record is the contract (sky.js reads the
+     verified stat, the shop can re-derive this) — a gifted paint is never
+     sold, never bought, and survives a cloud restore only through its feat */
+  for (const id of streakGiftsDue(META.feats, META.paints)) {
+    META.paints.push(id);
+    const p = PAINTS.find(x => x.id === id);
+    if (p) note(p.name + ' · streak laurel — added to your locker', 'rare');
   }
   saveMeta();
 
@@ -7040,7 +7074,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, mode: 'daily', dailyStreak: 30, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
     /* career feats read META — swap identity so the claim is self-contained */
     const svK = META.hullKills, svM = META.mastery, svP = META.paints;
     META.hullKills = { vesper: 2000 }; META.mastery = { vesper: { xp: MASTERY_TIERS[4].xp } };
@@ -7869,6 +7903,9 @@ function runSelfTests() {
     /* floors sit ~75–80% under the measured matrix (27.1 / 20.4 / 17.5 / 11.5);
        a future paint that collapses a pair fails the suite loudly */
     const floors = { normal: 21, protan: 16, deutan: 14, tritan: 9 };
+    /* v4.9: laurels are earned, not bought — the only free paint that is
+       not a laurel is the yard starter every pilot owns from birth */
+    ok(PAINTS.every(p => p.gift ? p.cost === 0 : (p.cost > 0 || p.id === 'yard')), 'laurel paints are gift-flagged and free, earned only');
     for (const t of Object.keys(floors)) {
       const labs = labsUnder(t), ids = PAINTS.map(p => p.id);
       let mn = 1e9, pair = '';
@@ -7994,6 +8031,27 @@ function runSelfTests() {
     const broken = nextStreak({ streak: 4, best: 6, lastDay: '2026-09-21' }, '2026-09-25');
     eq(broken.streak, 1, 'a missed day resets the streak');
     eq(broken.best, 6, 'best streak never falls');
+  });
+  T('daily gauntlet: streak feats predict, gift, and stay mode-honest', () => {
+    /* the walk the feats see: yesterday-connected, same-day idempotent */
+    META.daily = { streak: 6, best: 6, lastDay: dayShift(todaySeedKey(), -1) };
+    eq(predictedStreak(META), 7, 'a run today would be the 7th consecutive day');
+    const blank = { mode: 'main', dailyStreak: 30 };
+    const f7 = FEATS.find(f => f.id === 'streak7');
+    ok(!f7.check(blank), 'a classic run never advances the devotion track');
+    ok(f7.check({ mode: 'daily', dailyStreak: 7 }), 'the 7th accepted daily day earns Seven suns');
+    ok(!FEATS.find(f => f.id === 'streak14').check({ mode: 'daily', dailyStreak: 13 }), '13 days falls short of the laurel');
+    /* the gift: earned feat + missing paint → locker grows, note rings */
+    const paints0 = META.paints.slice();
+    META.feats.streak14 = Date.now();
+    const due = streakGiftsDue(META.feats, META.paints);
+    eq(due.join(','), 'oxblood', 'the 14-day laurel is due when the feat exists');
+    META.paints.push('oxblood');
+    eq(streakGiftsDue(META.feats, META.paints).length, 0, 'gift already in the locker: nothing due');
+    ok(META.paints.length === paints0.length + 1, 'gift path pushed exactly one paint');
+    delete META.feats.streak14;   /* restore: the pre-test snapshot contract */
+    META.paints = paints0;
+    saveMeta();
   });
   T('daily gauntlet: result application banks payouts and updates identity', () => {
     const pre = { alloy: META.alloy, daily: META.daily };

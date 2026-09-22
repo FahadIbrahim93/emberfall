@@ -661,18 +661,20 @@ function renderHangar() {
   pl.innerHTML = '';
   for (const p of PAINTS) {
     const owned = META.paints.includes(p.id), sel = META.paint === p.id;
+    const gifted = !!p.gift;   /* streak laurels: earned, never sold */
     const b = document.createElement('button');
     b.className = 'paint' + (sel ? ' sel' : '') + (owned ? '' : ' locked');
     const d = document.createElement('i');
     d.style.background = 'radial-gradient(circle at 34% 30%, ' + p.lit + ', ' + p.hull + ' 62%, rgba(0,0,0,.55))';
     b.appendChild(d);
     const lbl = document.createElement('b');
-    lbl.textContent = owned ? (sel ? 'worn' : p.name) : fmt(p.cost);
+    lbl.textContent = owned ? (sel ? 'worn' : p.name) : (gifted ? p.giftDesc : fmt(p.cost));
     b.appendChild(lbl);
     b.onclick = () => {
       AU.ui();
       if (sel) return;
       if (owned) { META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
+      else if (gifted) note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim');
       else if (META.alloy >= p.cost) {
         META.alloy -= p.cost; META.paints.push(p.id); META.paint = p.id;
         saveMeta(); applyPaint(); renderHangar(); note(p.name + ' acquired', 'rare'); AU.unlock();
