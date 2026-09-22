@@ -1,8 +1,8 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.5.0 — Yard donations honors, sim golden parity (FOES/WEAPONS/BOSSES/STAGES),
-a11y floor on paints + reduced-motion dock; published live via CI at
-https://fahadibrahim93.github.io/emberfall/)
+(release v4.6.0 — save vault (deck-side snapshots + client restore),
+stubguard release gate, locked T-DET goldens + type-specific foe AI in the
+sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 
 ## Reproduce artifacts
 

@@ -684,7 +684,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.5.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.6.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -951,7 +951,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.5.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.6.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6604,6 +6604,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.6.0',
+    items: [
+      '<b>The save vault opens</b> — the command deck now keeps six rolling snapshots of your account, taken whenever your progress moves for real. Wiped a browser, clobbered a save, trusted the wrong probe? Settings → Command deck → Save vault lists what the deck remembers and puts it back. Earned progress is never more than one restore away from safe.',
+      '<b>Never again a stub</b> — a broken commit chain once replaced the whole game with a placeholder page on the road to main. The build now checks first that the payload IS the game (catalogs, suite, load contract) and fails in seconds with the fix in the message, before any other gate can be fooled.',
+      '<b>The mirror sharpens</b> — deterministic golden replays (locked end-states per seed) join the balance sim, foe AI flies type-specific behaviors in the mirror, and CI installs from the lockfile. Re-recorded on the merged tree: the parity-correct fire model changed the war\u2019s shape.'
+    ]
+  },
+  {
     v: '4.5.0',
     items: [
       '<b>The Yard accepts donations</b> — a prestige sink for pilots the sinks left behind: alloy converts to permanent honors (Patron 5,000 · Shipwright 25,000 · Yardmaster 100,000). The plate on your dock is engraved, Shipwright+ raises a ✦ beside your name on every board, and the title stays for good. Irreversible by design; zero power, all legacy.',
@@ -7793,7 +7801,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.5.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.6.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

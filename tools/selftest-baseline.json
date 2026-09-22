@@ -1,6 +1,6 @@
 {
-  "total": 55,
-  "passed": 55,
+  "total": 56,
+  "passed": 56,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -40,6 +40,7 @@
     "v4.4 feats: every claim in the registry is checkable and progressible",
     "boards wear your paint: local rows, submissions, ghosts",
     "sustained load: 10s of full combat holds 120Hz sim",
+    "save vault: sanitizer clamps, validates and defaults a hostile snapshot",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",
     "persistence: skyLog merge union dedupes and interleaves",
