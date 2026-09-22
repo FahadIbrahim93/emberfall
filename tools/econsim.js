@@ -42,6 +42,12 @@ if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + si
    rolling snapshots, so the watermark survives vault restores. */
 const DAILY_MEDAL_ALLOY = [120, 260, 450];   /* Crest / Crown / Eclipse */
 const DAILY_SUNDAY_GUARD = 800;              /* v4.9 Solar Guard — Sundays only */
+/* v4.11 Wardenfall — the rare Sunday honor. Extracted from the live medal
+   table: the rare row must exist, be Sunday-gated, and pay above the guard. */
+const wfallBlock = html.match(/id: 'wardenfall', name: 'Wardenfall', wave: (\d+), score: (\d+), alloy: (\d+)/);
+if (!wfallBlock) throw new Error('constant drifted: Wardenfall medal row');
+const DAILY_WARDENFALL = +wfallBlock[3];
+if (!(DAILY_WARDENFALL > DAILY_SUNDAY_GUARD)) throw new Error('Wardenfall must pay above the Solar Guard');
 const DAILY_MEDAL_TOTAL = DAILY_MEDAL_ALLOY.reduce((a, c) => a + c, 0);
 const donBlock = html.match(/const DONATIONS = \[([\s\S]*?)\n\];/);
 if (!donBlock) throw new Error('constant drifted: DONATIONS table');
@@ -272,7 +278,8 @@ function main() {
   console.log('\nDaily gauntlet faucet (v4.8, server-ledgered, once per tier per day):');
   console.log('  weekday full house: ' + DAILY_MEDAL_TOTAL + '/day · Sunday with the honor guard: ' +
     (DAILY_MEDAL_TOTAL + DAILY_SUNDAY_GUARD) + '/day · Crest-only: ' + DAILY_MEDAL_ALLOY[0] +
-    '/day · over a 30-day month (4 Sundays): ' + (DAILY_MEDAL_TOTAL * 30 + DAILY_SUNDAY_GUARD * 4) +
+    '/day · rare Sunday with Wardenfall felled: +' + DAILY_WARDENFALL +
+    ' · over a 30-day month (4 Sundays): ' + (DAILY_MEDAL_TOTAL * 30 + DAILY_SUNDAY_GUARD * 4) +
     ' (≈' + ((DAILY_MEDAL_TOTAL * 30 + DAILY_SUNDAY_GUARD * 4) / out.spend.grandTotal * 100).toFixed(1) +
     '% of the full-collection price)');
 }

@@ -270,13 +270,32 @@ const DAILY_MEDALS = [
   { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 },
   /* v4.9: the honor guard only flies on Sundays — mirrors the client's
      dow gate and the wave director's escort spawn (payload pins parity) */
-  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 }
+  { id: 'solar',   name: 'Solar Guard', wave: 20, score: 40000, alloy: 800, dow: 6 },
+  /* v4.11: Wardenfall day — mirrors the client's AND gate: the rare boss
+     must actually be up (the deck derives the same Sunday verdict from the
+     day key the client's seed already trusts), be felled (wave 16+ means
+     the wave-5 capital died long ago), and the run must fly deep */
+  { id: 'wardenfall', name: 'Wardenfall', wave: 16, score: 48000, alloy: 1000, dow: 6, rare: true }
 ];
-function medalsEarned(score, wave, dow) {
+/* the rare-Sunday verdict: FNV-1a over the day string, exact client mirror
+   (hashStr + wardenfallSunday in the payload). Independent derivation — the
+   client never tells the deck whether Wardenfall was up. */
+function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function dayDow(day) { return (Date.parse(day + 'T00:00:00.000Z') / 86400000 + 3) % 7; }   /* Monday = 0 */
+function wardenfallSunday(day) { return dayDow(day) === 6 && hashStr('warden-' + day) % 7 === 0; }
+function medalsEarned(score, wave, dow, day) {
   const out = [];
   for (const t of DAILY_MEDALS) {
     if (t.dow !== undefined && t.dow !== dow) continue;
-    if (wave >= t.wave || score >= t.score) out.push(t.name);
+    if (t.rare && !(day && wardenfallSunday(day))) continue;
+    /* the rare honor is wave-gated only — wave 16 on a daily implies the
+       wave-5 capital fell, so the kill is server-provable. A score shortcut
+       would pay an un-felled fall (the probe caught exactly that). */
+    if (wave >= t.wave || (!t.rare && score >= t.score)) out.push(t.name);
   }
   return out;
 }
@@ -792,7 +811,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const d = new Date(now());
       const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
       const dow = (Date.parse(today + 'T00:00:00.000Z') / 86400000 + 3) % 7;   /* Monday = 0 */
-      const earned = medalsEarned(score, wave, dow);
+      const earned = medalsEarned(score, wave, dow, today);
       const row = db.prepare('SELECT paid FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
       const already = row ? row.paid : 0;
       const full = medalsAlloy(earned);
