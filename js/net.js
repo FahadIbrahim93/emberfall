@@ -57,6 +57,19 @@ const NET = {
     this.user = null;
   },
 
+  /* ---- the vault: deck-side rolling profile snapshots (read-only) ----
+     The server snapshots on real deltas; restoring is a local replace +
+     a normal profile push, so the deck never overwrites a live profile
+     on behalf of a snapshot. */
+  async listSnaps() {
+    const j = await this.req('GET', '/api/profile/snaps');
+    return j.snaps || [];
+  },
+  async readSnap(taken) {
+    const j = await this.req('GET', '/api/profile/snaps/' + Math.floor(Number(taken) || 0));
+    return j.data || null;
+  },
+
   /* cloud save: push local meta+cfg, adopt server copy if it is newer.
      The server is the tiebreaker on equal timestamps? No — local wins
      ties, because the local copy includes the live session's changes. */

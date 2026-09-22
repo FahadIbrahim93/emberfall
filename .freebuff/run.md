@@ -44,7 +44,7 @@ powershell -NoProfile -Command "(Start-Process -FilePath 'node.exe' -ArgumentLis
   (`node tools/copyguard.js`) + full API battery, all must pass
 - `node tools/econsim.js` — economy simulator; constants are extracted from
   source, so a tuning typo fails here (also run as a CI gate)
-- `node tools/selftest-ci.js` — 55 client tests headless against a committed
+- `node tools/selftest-ci.js` — 56 client tests headless against a committed
   exact-name baseline (same suite as `index.html?selftest` in a real browser)
 - `npm run test:sim` — packages/sim balance sim (52 tests incl. golden parity
   against the live `index.html` tables: FOES, WEAPONS, BOSSES, STAGES, RNG)

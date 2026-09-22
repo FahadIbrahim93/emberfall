@@ -832,6 +832,11 @@ body.needrotate #rotate{display:grid}
             <button class="btn warn" id="btnAcctOut">Sign out</button>
           </div>
           <p class="empty" style="padding:6px 0 0;text-align:left">Progress syncs automatically while you fly.</p>
+          <div id="vaultBox" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px">
+            <button class="btn ghost" id="btnVault" style="width:100%">Save vault…</button>
+            <p class="empty" id="vaultNote" style="padding:6px 0 0;text-align:left;display:none"></p>
+            <div id="vaultList" style="display:grid;gap:6px;padding-top:6px"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -6194,6 +6199,85 @@ function saveCallsign() {
   AU.pickup();
 }
 
+/* ── the save vault: inspect and restore deck-side profile snapshots ──
+   Restore REPLACES (not max-merges) local progress with the snapshot —
+   that is the point. Last-good recovery for a wiped or clobbered save. */
+function sanitizeSnapMeta(s) {
+  if (!s || typeof s !== 'object') return null;
+  /* ownership validates against the SNAPSHOT's own records, not the local
+     META — this runs exactly when the local save is the broken thing
+     (wiped, clobbered, probe-wrecked). Restore from its own claim. */
+  const owned = Array.isArray(s.owned) ? s.owned.filter(id => HULLS.some(h => h.id === id)) : ['vesper'];
+  if (!owned.length) owned.push('vesper');
+  const paints = Array.isArray(s.paints) && s.paints.length ? s.paints.filter(id => PAINTS.some(p => p.id === id)) : ['yard'];
+  if (!paints.length) paints.push('yard');
+  const sigils = Array.isArray(s.sigils) && s.sigils.length ? s.sigils.filter(x => x === '' || SIGILS.some(g => g.id === x)) : [''];
+  if (!sigils.length) sigils.push('');
+  const o = {};
+  o.alloy = Math.max(0, Math.min(1e9, Math.floor(+s.alloy || 0)));
+  o.ship = owned.includes(s.ship) ? s.ship : 'vesper';
+  o.owned = owned;
+  const r = {};
+  for (const ref of REFITS) r[ref.id] = clamp(+((s.refits || {})[ref.id]) || 0, 0, ref.max);
+  o.refits = r;
+  o.runs = Math.max(0, Math.floor(+s.runs || 0));
+  o.totalKills = Math.max(0, Math.floor(+s.totalKills || 0));
+  o.bestWave = Math.max(0, Math.floor(+s.bestWave || 0));
+  o.tourBest = Math.max(0, Math.floor(+s.tourBest || 0));
+  o.tourCleared = !!s.tourCleared;
+  o.paint = paints.includes(s.paint) ? s.paint : 'yard';
+  o.paints = paints;
+  o.sigil = sigils.includes(s.sigil) ? s.sigil : null;
+  o.sigils = sigils;
+  o.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : null;
+  o.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
+  o.donated = Math.max(0, Math.min(1e9, Math.floor(+s.donated || 0)));
+  o.sky = (s.sky && typeof s.sky === 'object') ? s.sky : {};
+  o.codex = (s.codex && typeof s.codex === 'object') ? s.codex : {};
+  o.skyLog = Array.isArray(s.skyLog) ? s.skyLog.slice(0, 60) : [];
+  o.school = !!s.school;
+  o.dd = (s.dd && typeof s.dd === 'object') ? s.dd : { wave: 0, falls: 0 };
+  return o;
+}
+let vaultOpen = false;
+function paintVault() {
+  const box = $('vaultBox'), list = $('vaultList'), nt = $('vaultNote');
+  box.classList.toggle('hidden', !NET.on || !NET.user);
+  if (!NET.on || !NET.user) { vaultOpen = false; list.innerHTML = ''; nt.style.display = 'none'; return; }
+  if (!vaultOpen) { list.innerHTML = ''; nt.style.display = 'none'; return; }
+  nt.style.display = 'block';
+  nt.textContent = 'Reading the vault…';
+  NET.listSnaps().then(snaps => {
+    if (!snaps.length) { nt.textContent = 'The vault is empty — snapshots appear as you fly.'; return; }
+    nt.textContent = 'Restoring replaces this device\u2019s progress with the snapshot. Earned items are never lost from the account.';
+    list.innerHTML = '';
+    snaps.slice(0, 6).forEach(s => {
+      const b = document.createElement('button');
+      b.className = 'btn ghost';
+      b.style.cssText = 'text-align:left;font-size:.64rem;letter-spacing:.06em';
+      const when = new Date(s.taken).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      b.textContent = when + ' · ' + s.bytes + ' bytes';
+      b.onclick = async () => {
+        b.disabled = true;
+        const snap = await NET.readSnap(s.taken).catch(() => null);
+        if (!snap || !snap.meta) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
+        const clean = sanitizeSnapMeta(snap.meta);
+        if (!clean) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
+        Object.assign(META, clean);
+        META.owned = Array.from(new Set(['vesper'].concat(clean.owned)));
+        META.paints = Array.from(new Set(['yard'].concat(clean.paints)));
+        META.sigils = Array.from(new Set([''].concat(clean.sigils)));
+        saveMeta();
+        renderHangar();
+        await NET.pushProfile();
+        note('Vault restored — hangar rebuilt from ' + when, 'good');
+        b.disabled = false;
+      };
+      list.appendChild(b);
+    });
+  }).catch(() => { nt.textContent = 'The vault could not be reached — deck offline?'; });
+}
+
 /* settings screen state */
 let setReturn = 'title';
 function openSettings(from) {
@@ -6209,6 +6293,7 @@ function paintAccount() {
   $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
   $('acctFields').classList.toggle('hidden', !on || !!u);
   $('acctSigned').classList.toggle('hidden', !on || !u);
+  paintVault();
   paintLan();
 }
 /* LAN play — the on-the-go story before a public deployment: the deck
@@ -6394,6 +6479,7 @@ addEventListener('load', () => {
 bindClick('btnAcctGo', () => acctGo(false));
 bindClick('btnAcctNew', () => acctGo(true));
 bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
+bindClick('btnVault', () => { vaultOpen = !vaultOpen; paintVault(); AU.ui(); });
 bindClick('btnLanCopy', () => {
   const first = document.querySelector('#lanUrls .btn');
   if (!first) return;
@@ -7381,6 +7467,35 @@ function runSelfTests() {
     GAME.lives = savedLives; GAME.state = savedState;
     R = savedR;
   });
+  T('save vault: sanitizer clamps, validates and defaults a hostile snapshot', () => {
+    const clean = sanitizeSnapMeta({
+      alloy: -50, ship: 'atlas', owned: ['atlas', 'ghost-hull', 42],
+      refits: { plating: 99, ordnance: -3 }, runs: 12.9, totalKills: '140',
+      paint: 'crimson', paints: ['crimson', 'nope'], sigil: 'rampart',
+      sigils: ['rampart', 'bogus'], donated: 1e12, skyLog: new Array(200).fill({ k: 'x' }),
+      dd: null, mastery: 'nope'
+    });
+    eq(clean.alloy, 0);                                    // negative clamps to 0
+    eq(clean.owned.join(','), 'atlas');                    // unknown hulls dropped
+    eq(clean.ship, 'atlas');                               // owned ship survives
+    eq(clean.refits.plating, 5);                           // clamped to the refit max (plating caps at 5)
+    eq(clean.refits.ordnance, 0);
+    eq(clean.runs, 12);                                    // fractional floors
+    eq(clean.totalKills, 140);                             // numeric strings coerce
+    eq(clean.paint, 'crimson');                            // owned paint survives
+    eq(clean.paints.join(','), 'crimson');                 // unknown paints dropped
+    eq(clean.sigil, 'rampart');                            // owned sigil survives
+    eq(clean.sigils.join(','), 'rampart');                 // unknown sigils dropped
+    eq(clean.donated, 1e9);                                // absurd values clamp
+    eq(clean.skyLog.length, 60);                           // log capped at 60
+    eq(clean.mastery, null);
+    eq(clean.dd.wave, 0);
+    eq(sanitizeSnapMeta(null), null);                      // garbage in, nothing out
+    const ghost = sanitizeSnapMeta({ ship: 'wraith' });    // unowned ship falls back
+    eq(ghost.ship, 'vesper');
+    eq(ghost.owned.join(','), 'vesper');
+  });
+
   T('cloud profile merge converges and rejects stale', () => {
     const snap = JSON.stringify(META), savedT = DB.get('meta.updated', 0);
     META.alloy = 100; META.owned = ['vesper']; META.ship = 'vesper';

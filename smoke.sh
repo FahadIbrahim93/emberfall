@@ -57,6 +57,15 @@ expect "register ok"       '"ok":true'                      -X POST "$BASE/api/r
 expect "me (cookie set)"   "Pilot$R"                        "$BASE/api/me"
 expect "profile put"       '"ok":true'                      -X PUT "$BASE/api/profile" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"meta\":{\"alloy\":123},\"cfg\":{},\"updated\":$(date +%s000)}"
 expect "profile fetch"     '"alloy":123'                    "$BASE/api/me"
+# ── the vault: rolling profile snapshots (write seeds one via the big-delta rule) ──
+PAD=$(awk 'BEGIN{for(i=0;i<900;i++)printf "x"}')
+expect "vault seed put"     '"ok":true'                      -X PUT "$BASE/api/profile" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"meta\":{\"alloy\":123,\"pad\":\"$PAD\"},\"cfg\":{},\"updated\":$(date +%s000)}"
+expect "vault list"         '"snaps":\['                      "$BASE/api/profile/snaps"
+SNAP_T=$(curl -s -b "$JAR" "$BASE/api/profile/snaps" | grep -o '"taken":[0-9]*' | head -1 | cut -d: -f2)
+expect "vault read newest"  '"meta":'                        "$BASE/api/profile/snaps/$SNAP_T"
+expect "vault read missing" 'no such snapshot'                "$BASE/api/profile/snaps/123"
+ANON_SNAPS="$(curl -s "$BASE/api/profile/snaps")"
+if printf '%s' "$ANON_SNAPS" | grep -q 'sign in'; then ok "vault reject anon"; else no "vault reject anon  →  ${ANON_SNAPS:0:120}"; fi
 # clean, jar-less call: prove anonymous submission is rejected (bypass the
 # helper, which always attaches the logged-in jar)
 ANON="$(curl -s -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"main","score":1,"wave":1,"ship":"vesper","diff":1}')"

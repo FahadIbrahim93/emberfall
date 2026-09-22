@@ -50,6 +50,7 @@ bash smoke.sh             # API + static-hygiene + load battery, all green
 - **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
+- **Save vault:** the deck keeps six rolling snapshots per account (taken on real deltas — an hour apart or ≥512 bytes of changed content) and serves them read-only at `/api/profile/snaps`; restore is client-side (Settings → Command deck → Save vault…), replacing the local save from the picked snapshot. A bad write, a wiped browser, or a debugging probe can no longer destroy earned progress.
 - **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
 - **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the SQLite file and its WAL files. The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
 
@@ -60,7 +61,7 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **55 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), and a colorblind floor on the paint wardrobe (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **56 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 

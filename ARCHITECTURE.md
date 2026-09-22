@@ -69,10 +69,19 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 3. **The self-test suite is pure logic only** — safe to run inside the live
    game, any time, without polluting the player's profile (it snapshots and
    restores). New mechanics with invariant math get a `T(...)` test.
-4. **CI is the law**: check.sh → deadscan --check → econsim --json → deck boot
-   → smoke.sh (static-hygiene T-LEAK + API + anti-cheat + load) → headless
-   `?selftest` suite against a committed baseline → Playwright smoke → Pages
-   deploy → live byte-fidelity smoke. Green `main` is the live site.
+4b. **The vault is read-only server-side.** Deck-side profile snapshots
+   (`profile_snaps`, six newest per user, taken on real deltas) are served
+   for inspection only — the server NEVER overwrites the live profile on
+   behalf of a snapshot. Restores replace META/CFG locally from a
+   snapshot-validated sanitizer and ride the normal profile push. Ownership
+   validates against the snapshot's own records, never the local wallet —
+   restore must work precisely when the local save is the broken thing.
+4. **CI is the law**: check.sh (stubguard first — a payload that stops looking
+   like the game dies in seconds with the restore recipe) → deadscan --check →
+   econsim --json → deck boot → smoke.sh (static-hygiene T-LEAK + API +
+   anti-cheat + load) → headless `?selftest` suite against a committed baseline
+   → Playwright smoke → Pages deploy → live byte-fidelity smoke. Green `main`
+   is the live site.
 5. **Cache generation bumps on any client payload change** (`sw.js` `CACHE`),
    or installed PWAs never see the update.
 6. **Scored math draws from the run-seeded RNG only.** The cosmetic FX stream

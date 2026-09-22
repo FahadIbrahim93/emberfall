@@ -108,6 +108,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   data     TEXT NOT NULL,
   updated  INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS profile_snaps (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  taken   INTEGER NOT NULL,
+  data    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_snaps_user ON profile_snaps(user_id, taken DESC);
 `);
 /* v3.3 migrations — idempotent column adds */
 function addCol(table, col, decl) {
@@ -499,6 +505,37 @@ function publicProfile(userId) {
   catch (e) { return null; }
 }
 
+/* ---- the vault: rolling hourly profile snapshots (read-only backup) ----
+   Why: the live profile row is one bad write away from ruin — a client
+   bug, a bad merge, or a debugging probe (this actually happened on
+   2026-09-21). A signed-in pilot's earned progress must survive any of
+   it. Every profile write with real distance from the last snapshot
+   (>= 3600s by clock, or >= 512 bytes of changed content) lands a copy
+   in profile_snaps; the six newest per user are kept. Read-only for the
+   client: restoring is done locally by replacing META/CFG from a picked
+   snapshot and pushing the result as a normal profile write. */
+const SNAP_MAX = 6;
+function maybeSnapshot(userId) {
+  try {
+    const last = db.prepare('SELECT taken FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC LIMIT 1').get(userId);
+    const cur = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(userId);
+    if (!cur) return;
+    if (last && Date.now() - last.taken < 3600000 &&
+        last.dataLen != null && Math.abs(cur.data.length - last.dataLen) < 512) return;
+    db.prepare('INSERT INTO profile_snaps (user_id, taken, data) VALUES (?, ?, ?)').run(userId, Date.now(), cur.data);
+    db.prepare(`DELETE FROM profile_snaps WHERE user_id = ? AND id NOT IN (
+      SELECT id FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC LIMIT ${SNAP_MAX})`).run(userId, userId);
+  } catch (e) { /* a failed snapshot must never fail the profile write */ }
+}
+function listSnaps(userId) {
+  return db.prepare('SELECT taken, LENGTH(data) AS bytes FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC').all(userId);
+}
+function readSnap(userId, taken) {
+  const row = db.prepare('SELECT data FROM profile_snaps WHERE user_id = ? AND taken = ?').get(userId, taken);
+  if (!row) return null;
+  try { return JSON.parse(row.data); } catch (e) { return null; }
+}
+
 async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see clientIp */
   /* ---- public ---- */
   if (req.method === 'GET' && pathname === '/api/health') {
@@ -593,7 +630,23 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     db.prepare(`INSERT INTO profiles (user_id, data, updated) VALUES (?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = excluded.updated`)
       .run(user.id, payload, updated);
+    maybeSnapshot(user.id);
     return send(res, 200, { ok: true });
+  }
+
+  /* the vault: list and read this pilot's rolling profile snapshots.
+     Restores are deliberately client-side — the server never overwrites
+     the live profile on behalf of a snapshot. */
+  if (req.method === 'GET' && pathname === '/api/profile/snaps') {
+    if (!user) return bad(res, 'sign in first', 401);
+    return send(res, 200, { ok: true, snaps: listSnaps(user.id) });
+  }
+  const snapRead = req.method === 'GET' && pathname.startsWith('/api/profile/snaps/') ? Number(pathname.slice('/api/profile/snaps/'.length)) : null;
+  if (snapRead) {
+    if (!user) return bad(res, 'sign in first', 401);
+    const data = readSnap(user.id, snapRead);
+    if (!data) return bad(res, 'no such snapshot', 404);
+    return send(res, 200, { ok: true, taken: snapRead, data });
   }
 
   if (req.method === 'POST' && pathname === '/api/scores') {
