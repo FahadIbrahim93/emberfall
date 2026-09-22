@@ -129,6 +129,15 @@ CREATE TABLE IF NOT EXISTS daily_stats (
   PRIMARY KEY (user_id, day)
 );
 `);
+/* v4.10 migration: daily_stats needs a comparable day column for week windows.
+   Pure-UTC ISO strings sort lexicographically, so 'created_day' mirrors 'day'.
+   Existing rows fill from 'day' — INSERT OR IGNORE keeps the backfill runnable
+   on every boot until the schema is universal. */
+addCol('daily_stats', 'created_day', "TEXT NOT NULL DEFAULT ''");
+db.exec("CREATE INDEX IF NOT EXISTS idx_dstats_user_cday ON daily_stats(user_id, created_day)");
+db.prepare("INSERT OR IGNORE INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak) " +
+  "SELECT user_id, day, day, best_score, best_wave, paid, streak FROM daily_stats")
+  .run();
 /* v3.3 migrations — idempotent column adds */
 function addCol(table, col, decl) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
@@ -667,11 +676,16 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
     const ds = db.prepare('SELECT streak, paid, best_score, best_wave FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
     const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
+    /* v4.10 weekly recap: flew days in the running Monday-UTC week */
+    const ws = weekStart(now());
+    const wdRow = db.prepare('SELECT COUNT(*) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
+      .get(user.id, ws);
     return send(res, 200, {
       ok: true, user,
       profile: publicProfile(user.id),
       daily: ds ? { day: today, streak: ds.streak, paid: ds.paid, bestScore: ds.best_score, bestWave: ds.best_wave, total: Number(total) }
-                 : { day: today, streak: 0, paid: 0, bestScore: 0, bestWave: 0, total: Number(total) }
+                 : { day: today, streak: 0, paid: 0, bestScore: 0, bestWave: 0, total: Number(total) },
+      weekDays: wdRow ? wdRow.n : 0
     });
   }
 
@@ -773,14 +787,14 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const full = medalsAlloy(earned);
       const unpaid = Math.max(0, full - already);
       const streak = dailyStreak(user.id, today);
-      db.prepare(`INSERT INTO daily_stats (user_id, day, best_score, best_wave, paid, streak)
-                  VALUES (?, ?, ?, ?, ?, ?)
+      db.prepare(`INSERT INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)
                   ON CONFLICT(user_id, day) DO UPDATE SET
                     best_score = MAX(best_score, excluded.best_score),
                     best_wave = MAX(best_wave, excluded.best_wave),
                     paid = MAX(paid, excluded.paid),
                     streak = excluded.streak`)
-        .run(user.id, today, score, wave, already + unpaid, streak);
+        .run(user.id, today, today, score, wave, already + unpaid, streak);
       /* the payout ledger lives in daily_stats.paid alone: currency balances
          belong to the client profile, and SUM(paid) is the deck's total —
          the client adopts it as a watermark and banks the delta itself */

@@ -9,6 +9,7 @@ const NET = {
   on: false, user: null, probed: false,
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
   meDaily: null,   /* last /api/me daily block — streak display on the day board */
+  weekDays: 0,     /* flew days in the running Monday-UTC week (deck-counted) */
 
   async probe() {
     if (this.probed) return this.on;
@@ -47,6 +48,7 @@ const NET = {
       const j = await this.req('GET', '/api/me');
       this.user = j.user || null;
       this.meDaily = j.daily || null;
+      this.weekDays = typeof j.weekDays === 'number' ? j.weekDays : (this.weekDays || 0);
       if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); }
       return this.user;
     } catch (e) { this.user = null; this.meDaily = null; return null; }
@@ -364,9 +366,11 @@ const NET = {
       you.classList.remove('hidden');
       const streak = this.meDaily && this.meDaily.streak > 1 ? ' · streak ' + this.meDaily.streak : '';
       const myPips = medalPips(dj.me.mds);
+      const recap = weekRecapLine(this.meDaily, this.weekDays);
       you.innerHTML = '<div class="row me"><span class="rk">#' + dj.me.rank + '</span>' +
         '<span class="nm">' + esc(dj.me.name) + '</span>' +
-        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today' + streak + myPips + '</span></div>';
+        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today' + streak + myPips +
+        (recap ? ' · ' + recap : '') + '</span></div>';
     } else you.classList.add('hidden');
   }
 };
@@ -378,6 +382,21 @@ function vaultOfferWorthy(clean, local) {
   if (!clean) return false;
   return clean.owned.length > (local.owned || []).length ||
     (clean.totalKills || 0) > (local.totalKills || 0);
+}
+
+/* v4.10 weekly recap: what the pilot has flown and what the next laurel
+   needs — pure so the suite pins every branch (streak, week, horizon). */
+const STREAK_LAURELS = [7, 14, 30];
+function weekRecapLine(daily, weekDays) {
+  const d = daily || {};
+  const st = d.streak || 0;
+  if (!st && !weekDays) return '';   /* nothing flown: silence, not a nag */
+  const parts = [];
+  if (st > 0) parts.push('streak ' + st);
+  if (weekDays > 0) parts.push(weekDays + (weekDays === 1 ? ' day' : ' days') + ' this week');
+  const next = STREAK_LAURELS.find(n => n > st);
+  if (next) parts.push(next + ' for the next laurel');
+  return parts.join(' · ');
 }
 
 /* v4.10 medal pips: render the deck's earned-medal names as a compact

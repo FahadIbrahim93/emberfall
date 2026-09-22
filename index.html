@@ -7682,6 +7682,15 @@ function runSelfTests() {
     eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
   });
 
+  T('daily gauntlet: weekly recap line covers every branch of the horizon', () => {
+    eq(weekRecapLine(null, 0), '', 'nothing flown: silence');
+    eq(weekRecapLine({ streak: 1 }, 0), 'streak 1 · 7 for the next laurel', 'day one: the horizon shows immediately');
+    eq(weekRecapLine({ streak: 0 }, 2), '2 days this week · 7 for the next laurel', 'a flown week with a broken streak still counts — and is shown the road');
+    eq(weekRecapLine({ streak: 3 }, 3), 'streak 3 · 3 days this week · 7 for the next laurel', 'the full horizon reads in one line');
+    eq(weekRecapLine({ streak: 14 }, 5), 'streak 14 · 5 days this week · 30 for the next laurel', 'the next laurel skips past reached milestones');
+    eq(weekRecapLine({ streak: 30 }, 4), 'streak 30 · 4 days this week', 'a maxed streak drops the horizon clause');
+    eq(weekRecapLine({ streak: 7 }, 1), 'streak 7 · 1 day this week · 14 for the next laurel', 'singular day reads correctly');
+  });
   T('daily gauntlet: medal pips render the deck ledger compactly', () => {
     eq(medalPips(undefined), '', 'no ledger entry: no pips');
     eq(medalPips([]), '', 'empty ledger entry: no pips');
