@@ -7682,6 +7682,16 @@ function runSelfTests() {
     eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
   });
 
+  T('daily gauntlet: medal pips render the deck ledger compactly', () => {
+    eq(medalPips(undefined), '', 'no ledger entry: no pips');
+    eq(medalPips([]), '', 'empty ledger entry: no pips');
+    eq(medalPips(['Crest']), ' <span style="color:var(--gold)">Crest</span>', 'one medal renders as one gold name');
+    eq(medalPips(['Crest', 'Crown', 'Eclipse']).includes('Crest·Crown·Eclipse'), true, 'multiple medals join with interpuncts');
+    /* hostile ledger entry must not inject — the ledger is server-owned but
+       the renderer stays defensive because it interpolates into innerHTML */
+    const evil = medalPips(['<img src=x onerror=alert(1)>']);
+    ok(!evil.includes('<img'), 'ledger names are escaped before interpolation');
+  });
   T('daily gauntlet day board shows the streak beside your row', () => {
     /* mirror of the renderer's exact expression (js/net.js renderDayBoard) */
     const streakLine = me => (me && me.streak > 1) ? ' · streak ' + me.streak : '';

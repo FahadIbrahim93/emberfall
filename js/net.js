@@ -350,20 +350,23 @@ const NET = {
         const mine = this.user && r.n === this.user.name;
         const pt = r.p && PAINTS.find(x => x.id === r.p);
         const dstar = honorOf(META.donated || 0) && honorOf(META.donated || 0).at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
+        /* v4.10 medal pips: the deck's ledger says what this pilot earned today */
+        const pips = medalPips(dj.md && dj.md[r.n]);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
           esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
-          '<span class="wv">D' + pad2(r.w || 1) + '</span></div>';
+          '<span class="wv">D' + pad2(r.w || 1) + pips + '</span></div>';
       }).join('');
     }
     if (dj.me) {
       you.classList.remove('hidden');
       const streak = this.meDaily && this.meDaily.streak > 1 ? ' · streak ' + this.meDaily.streak : '';
+      const myPips = medalPips(dj.me.mds);
       you.innerHTML = '<div class="row me"><span class="rk">#' + dj.me.rank + '</span>' +
         '<span class="nm">' + esc(dj.me.name) + '</span>' +
-        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today' + streak + '</span></div>';
+        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today' + streak + myPips + '</span></div>';
     } else you.classList.add('hidden');
   }
 };
@@ -375,6 +378,14 @@ function vaultOfferWorthy(clean, local) {
   if (!clean) return false;
   return clean.owned.length > (local.owned || []).length ||
     (clean.totalKills || 0) > (local.totalKills || 0);
+}
+
+/* v4.10 medal pips: render the deck's earned-medal names as a compact
+   gold tag — pure so the suite pins its exact output. Always gold: medals
+   are achievements, and they must never read as a second callsign color. */
+function medalPips(md) {
+  if (!md || !md.length) return '';
+  return ' <span style="color:var(--gold)">' + md.map(esc).join('·') + '</span>';
 }
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {

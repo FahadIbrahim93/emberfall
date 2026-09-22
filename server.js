@@ -816,6 +816,25 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       FROM scores s JOIN users u ON u.id = s.user_id
       WHERE s.mode = ? AND s.verdict = 'accepted'${win}
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode, ...winArgs);
+    /* v4.10: medal pips — a pilot's daily_stats bests are the ledger of what
+       they EARNED today (two runs pool their tiers), so the day board renders
+       the ledger, not one run's gates. Keyed by callsign; me-row uses it too. */
+    let md = {};
+    if (mode === 'daily' && day) {
+      const dow = (Date.parse(day + 'T00:00:00.000Z') / 86400000 + 3) % 7;
+      const names = topN.map(r => r.n);
+      if (user) names.push(user.name);
+      if (names.length) {
+        const ph = names.map(() => '?').join(',');
+        const mdRows = db.prepare(`SELECT u.name AS n, ds.best_score AS bs, ds.best_wave AS bw
+          FROM daily_stats ds JOIN users u ON u.id = ds.user_id
+          WHERE ds.day = ? AND u.name IN (${ph})`).all(day, ...names);
+        for (const r of mdRows) {
+          const earned = medalsEarned(r.bs, r.bw, dow);
+          if (earned.length) md[r.n] = earned;
+        }
+      }
+    }
     let me = null;
     if (user) {
       /* ranked like every board query: accepted runs only — a review/rejected
@@ -826,10 +845,11 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
           SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted'${win} AND
             s.score > (SELECT MAX(score) FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${win})`)
           .get(mode, ...winArgs, mode, user.id, ...winArgs);   /* sub binds (mode, user_id, lo, hi) */
-        me = { name: user.name, s: Number(best.s), w: best.w, ship: best.ship, rank: Number(better.n) + 1, day };
+        me = { name: user.name, s: Number(best.s), w: best.w, ship: best.ship, rank: Number(better.n) + 1, day,
+               mds: md[user.name] || [] };
       }
     }
-    return send(res, 200, { ok: true, day, top: topN, me });
+    return send(res, 200, { ok: true, day, top: topN, me, md });
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {
