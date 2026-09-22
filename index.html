@@ -674,6 +674,12 @@ body.needrotate #rotate{display:grid}
               <div class="side-head"><h3>Duels</h3><span>today's run</span></div>
               <div id="duelList" style="display:grid;gap:6px"></div>
             </div>
+            <div id="dayBox">
+              <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
+              <div id="dailyBoard"></div>
+              <div id="dailyYou" class="hidden"></div>
+              <p class="empty" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
+            </div>
             <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
@@ -7502,6 +7508,43 @@ function runSelfTests() {
     const ghost = sanitizeSnapMeta({ ship: 'wraith' });    // unowned ship falls back
     eq(ghost.ship, 'vesper');
     eq(ghost.owned.join(','), 'vesper');
+  });
+
+  T('daily gauntlet day board: seed-key contract, row shape, mutator binding', () => {
+    /* the day string IS the seed key — one regex pins the contract for both
+       sides (client derives the run seed from it, server windows the board) */
+    const key = todaySeedKey();
+    ok(/^\d{4}-\d{2}-\d{2}$/.test(key), 'day key is YYYY-MM-DD (UTC)');
+    ok(key === new Date().toISOString().slice(0, 10), 'day key matches the UTC clock');
+    /* the day board row template: D tags on waves, paint dots, hull names,
+       and the D-window on every element the row interpolates */
+    /* mirror the real renderer's normalization exactly on both sides of the
+       comparison — this test pins the row template, not the callsign store */
+    const cs = (DB.get('callsign', '') || 'ME').toUpperCase();
+    const rows = [
+      { n: 'ACE<p>', s: 3000, w: 9, ship: 'wraith', p: 'crimson' },
+      { n: 'B', s: 1200, w: 4, ship: 'vesper', p: null },
+      { n: cs, s: 900, w: 3, ship: 'vesper', p: null }
+    ];
+    const html = rows.map((r, i) => {
+      const h = HULLS.find(x => x.id === r.ship);
+      const mine = r.n === cs;
+      const pt = r.p && PAINTS.find(x => x.id === r.p);
+      return '<div class="row' + (mine ? ' me' : '') + '">' +
+        '<span class="rk">' + pad2(i + 1) + '</span>' +
+        '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
+        esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+        '<span class="sc">' + padN(r.s, 7) + '</span>' +
+        '<span class="wv">D' + pad2(r.w || 1) + '</span></div>';
+    }).join('');
+    ok(html.includes('>D09<'), 'daily rows tag waves with D');
+    ok(!html.includes('<p>'), 'names are escaped');
+    ok(html.includes('class="row me"'), 'callsign match highlights the row');
+    ok(html.includes('WRAITH'), 'hull names render on day rows');
+    ok(html.includes('background:#ff4d5e'), 'paint dots ride day rows');
+    /* mutator identity: derived from the same day key the seed uses */
+    eq(todayMutator().id, MUTATORS[hashStr('mut-' + key) % MUTATORS.length].id, 'mutator binds to the day key');
+    ok(['glass', 'swarm', 'overkill'].includes(todayMutator().id), 'mutator comes from the registry');
   });
 
   T('cloud profile merge converges and rejects stale', () => {

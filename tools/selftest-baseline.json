@@ -1,6 +1,6 @@
 {
-  "total": 56,
-  "passed": 56,
+  "total": 57,
+  "passed": 57,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -41,6 +41,7 @@
     "boards wear your paint: local rows, submissions, ghosts",
     "sustained load: 10s of full combat holds 120Hz sim",
     "save vault: sanitizer clamps, validates and defaults a hostile snapshot",
+    "daily gauntlet day board: seed-key contract, row shape, mutator binding",
     "cloud profile merge converges and rejects stale",
     "quality presets degrade in order",
     "persistence: skyLog merge union dedupes and interleaves",

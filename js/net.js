@@ -147,6 +147,13 @@ const NET = {
     } catch (e) { return null; }
   },
 
+  /* the shared Daily Gauntlet board: day is the seed contract itself, so a
+     board can never disagree with a run about what "today" was */
+  async fetchDayBoard(day) {
+    if (!this.on) return null;
+    return this.req('GET', '/api/scores?mode=daily&day=' + encodeURIComponent(day));
+  },
+
   async fetchSeason() {
     if (!this.on) return null;
     try { return await this.req('GET', '/api/season'); } catch (e) { return null; }
@@ -258,6 +265,7 @@ const NET = {
     body.classList.remove('hidden');
     this.renderSeason();
     this.renderDuels();
+    this.renderDayBoard();
     const j = await this.fetchBoard(boardMode());
     const box = $('globalBoard');
     if (!j || !j.top || !j.top.length) {
@@ -285,6 +293,40 @@ const NET = {
         '<span class="sc">' + padN(j.me.s, 7) + '</span><span class="wv">you</span></div>';
     } else you.classList.add('hidden');
     $('globalSignin').classList.toggle('hidden', !!this.user);
+  },
+
+  /* today's gauntlet, worldwide — everyone flew the same seed */
+  async renderDayBoard() {
+    const box = $('dailyBoard'), stat = $('dailyStat'), you = $('dailyYou');
+    if (!box) return;
+    const day = todaySeedKey();
+    stat.textContent = 'today · ' + day + ' · ' + todayMutator().name;
+    box.innerHTML = '<div class="empty">Reading today\u2019s gauntlet…</div>';
+    if (!this.on) { box.innerHTML = '<div class="empty">Deck offline — the day board needs the command deck.</div>'; you.classList.add('hidden'); return; }
+    const dj = await this.fetchDayBoard(day).catch(() => null);
+    if (!dj) { box.innerHTML = '<div class="empty">The day board could not be reached.</div>'; you.classList.add('hidden'); return; }
+    if (!dj.top || !dj.top.length) {
+      box.innerHTML = '<div class="empty">Nobody has flown today\u2019s seed.<br>The first one is yours.</div>';
+    } else {
+      box.innerHTML = dj.top.map((r, i) => {
+        const h = HULLS.find(x => x.id === r.ship);
+        const mine = this.user && r.n === this.user.name;
+        const pt = r.p && PAINTS.find(x => x.id === r.p);
+        const dstar = honorOf(META.donated || 0) && honorOf(META.donated || 0).at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
+        return '<div class="row' + (mine ? ' me' : '') + '">' +
+          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
+          esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<span class="sc">' + padN(r.s, 7) + '</span>' +
+          '<span class="wv">D' + pad2(r.w || 1) + '</span></div>';
+      }).join('');
+    }
+    if (dj.me) {
+      you.classList.remove('hidden');
+      you.innerHTML = '<div class="row me"><span class="rk">#' + dj.me.rank + '</span>' +
+        '<span class="nm">' + esc(dj.me.name) + '</span>' +
+        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today</span></div>';
+    } else you.classList.add('hidden');
   }
 };
 

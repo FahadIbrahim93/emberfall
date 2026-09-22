@@ -66,6 +66,13 @@ expect "vault read newest"  '"meta":'                        "$BASE/api/profile/
 expect "vault read missing" 'no such snapshot'                "$BASE/api/profile/snaps/123"
 ANON_SNAPS="$(curl -s "$BASE/api/profile/snaps")"
 if printf '%s' "$ANON_SNAPS" | grep -q 'sign in'; then ok "vault reject anon"; else no "vault reject anon  →  ${ANON_SNAPS:0:120}"; fi
+# ── the Daily Gauntlet day board: day-scoped worldwide rankings ──
+DAY=$(date -u +%F)
+DPS=$(node -e "const t=88;process.stdout.write(JSON.stringify({mode:'daily',score:6800,wave:8,ship:'vesper',diff:1,runT:t,kills:120,cps:[[0,0,0,0,0,0,0,1],[t,8,6800,120,420,240,15,1.5]]}))")
+expect "daily board post"   '"ok":true'                      -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "$DPS"
+expect "daily board today"  "\"day\":\"$DAY\""                "$BASE/api/scores?mode=daily&day=$DAY"
+expect "daily day empty"    '"top":\[\]'                     "$BASE/api/scores?mode=daily&day=2001-01-01"
+expect "daily bad day"      'bad day'                        "$BASE/api/scores?mode=daily&day=nope"
 # clean, jar-less call: prove anonymous submission is rejected (bypass the
 # helper, which always attaches the logged-in jar)
 ANON="$(curl -s -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"mode":"main","score":1,"wave":1,"ship":"vesper","diff":1}')"

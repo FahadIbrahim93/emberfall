@@ -701,25 +701,42 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const url = new URL(req.url, 'http://x');
     const mode = url.searchParams.get('mode') || 'main';
     if (!MODES.has(mode)) return bad(res, 'bad mode');
+    /* day window: ?day=YYYY-MM-DD scopes the board to that UTC day's runs —
+       the shared Daily Gauntlet board. The day string is the seed contract
+       itself (the same key the game derives its daily RNG from), so a board
+       can never disagree with a run about what "today" was. Self-contained
+       regex: DAY_RE below is still in its temporal dead zone up here. */
+    let day = null, win = '', winArgs = [];
+    const dayParam = url.searchParams.get('day');
+    if (dayParam != null) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dayParam)) return bad(res, 'bad day');
+      day = dayParam;
+      const lo = Date.parse(dayParam + 'T00:00:00.000Z');
+      const hi = Date.parse(dayParam + 'T23:59:59.999Z');
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return bad(res, 'bad day');
+      win = ' AND s.created >= ? AND s.created <= ?';
+      winArgs = [lo, hi];
+    }
     const topN = db.prepare(`
       SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d,
         MAX(s.paint) AS p, MAX(s.mastery) AS m
       FROM scores s JOIN users u ON u.id = s.user_id
-      WHERE s.mode = ? AND s.verdict = 'accepted'
-      GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
+      WHERE s.mode = ? AND s.verdict = 'accepted'${win}
+      GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode, ...winArgs);
     let me = null;
     if (user) {
       /* ranked like every board query: accepted runs only — a review/rejected
          run must not hand the pilot a rank they do not have */
-      const best = db.prepare("SELECT MAX(score) AS s FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted'").get(mode, user.id);
+      const best = db.prepare(`SELECT score AS s, wave AS w, ship FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${win} ORDER BY score DESC LIMIT 1`).get(mode, user.id, ...winArgs);   /* (mode, user_id, lo, hi) */
       if (best && best.s != null) {
         const better = db.prepare(`
-          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted' AND
-            s.score > (SELECT MAX(score) FROM scores WHERE mode = ? AND user_id = ? AND verdict = 'accepted')`).get(mode, mode, user.id);
-        me = { name: user.name, s: Number(best.s), rank: Number(better.n) + 1 };
+          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted'${win} AND
+            s.score > (SELECT MAX(score) FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${win})`)
+          .get(mode, ...winArgs, mode, user.id, ...winArgs);   /* sub binds (mode, user_id, lo, hi) */
+        me = { name: user.name, s: Number(best.s), w: best.w, ship: best.ship, rank: Number(better.n) + 1, day };
       }
     }
-    return send(res, 200, { ok: true, top: topN, me });
+    return send(res, 200, { ok: true, day, top: topN, me });
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {
