@@ -76,6 +76,11 @@ if (fs.existsSync(LEGACY_DB) && !fs.existsSync(DB_PATH)) {
 const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
+/* v4.9: brief write contention (a backup tool, a hung foreign writer) must
+   self-heal instead of 500-ing. Proven live: an EXCLUSIVE lock held by
+   another process used to surface as 'database is locked' → 500. 2s matches
+   the per-user write windows; a lock held longer is a real ops incident. */
+db.exec('PRAGMA busy_timeout = 2000');
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
