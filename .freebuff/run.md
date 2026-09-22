@@ -59,3 +59,23 @@ old SW cache — purge via `caches.keys()` → `caches.delete(k)` → reload.
 The game also still runs with **no server at all**: open `index.html` directly
 or serve the folder statically — the client probes `/api/health` and silently
 stays in local mode when the deck is absent.
+
+## Ops: back up the command deck's database
+
+The deck's SQLite store (accounts, boards, profiles, vault snapshots) is the
+only copy of server-side state. `tools/db-backup.js` snapshots it live:
+
+```bash
+# daily job (cron / Task Scheduler); the deck keeps running — no stop needed
+node tools/db-backup.js --verify            # snapshot → ./backups/, keep 14
+node tools/db-backup.js --out D:/emberfall-backups --keep 30 --verify
+```
+
+- Reads the same data dir as `server.js` (`EF_DATA_DIR`, default `<repo>/state`);
+  set `EF_DATA_DIR` when the deck runs elsewhere. Remember on Windows: node and
+  Git Bash resolve `/tmp` differently — pass a Windows path or `$(cygpath -w …)`.
+- `--verify` opens the fresh snapshot and proves it has the expected tables —
+  a backup that was never validated is not a backup. Corruption fails loudly.
+- Old snapshots beyond `--keep` are pruned. Restore = stop deck, copy the wanted
+  backup over `emberfall.db` (delete its `-wal`/`-shm` sidecars), start deck.
+- Snapshots are plain SQLite files you can inspect with any sqlite client.
