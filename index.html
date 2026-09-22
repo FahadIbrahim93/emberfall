@@ -1734,14 +1734,18 @@ function nextStreak(prev, day) {
   return { streak, best: Math.max(p.best || 0, streak), lastDay: day };
 }
 
-/* apply a submit response's daily block: bank paid medals, update the
-   streak, surface it all. Returns the granted medal names (for game over). */
+/* apply a submit response's daily block: bank the payout, adopt the deck's
+   ledger total as the watermark (self-healing after vault restores or a
+   fresh device), carry the streak. The deck is the ledger — "paid" is this
+   run's delta, "total" is what the deck has ever paid this pilot. Returns
+   the granted medal names (for game over). */
 function applyDailyResult(res) {
   if (!res || !res.daily) return [];
   const d = res.daily;
   META.daily = nextStreak(META.daily, todaySeedKey());
   META.daily.streak = d.streak;
   META.daily.best = Math.max(META.daily.best || 0, d.streak);
+  META.dailyPaid = Math.max(META.dailyPaid || 0, d.total || 0);
   if (d.paid > 0) {
     META.alloy += d.paid;
     saveMeta();
@@ -6299,6 +6303,14 @@ function sanitizeSnapMeta(s) {
   if (!sigils.length) sigils.push('');
   const o = {};
   o.alloy = Math.max(0, Math.min(1e9, Math.floor(+s.alloy || 0)));
+  /* the daily-payout watermark MUST survive a snapshot round-trip: the deck
+     pays "full − paidBefore", so losing this field re-banks old medals */
+  o.dailyPaid = Math.max(0, Math.min(1e9, Math.floor(+s.dailyPaid || 0)));
+  o.daily = (s.daily && typeof s.daily === 'object')
+    ? { streak: Math.max(0, Math.floor(+s.daily.streak || 0)),
+        best: Math.max(0, Math.floor(+s.daily.best || 0)),
+        lastDay: typeof s.daily.lastDay === 'string' ? s.daily.lastDay.slice(0, 10) : null }
+    : null;
   o.ship = owned.includes(s.ship) ? s.ship : 'vesper';
   o.owned = owned;
   const r = {};
@@ -7597,6 +7609,20 @@ function runSelfTests() {
     eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
   });
 
+  T('daily gauntlet day board shows the streak beside your row', () => {
+    /* mirror of the renderer's exact expression (js/net.js renderDayBoard) */
+    const streakLine = me => (me && me.streak > 1) ? ' · streak ' + me.streak : '';
+    eq(streakLine({ streak: 1 }), '', 'a single day shows no streak tag');
+    eq(streakLine({ streak: 4 }), ' · streak 4', 'a running streak is advertised');
+    eq(streakLine(null), '', 'no daily block: no streak tag');
+    const you = { rank: 2, name: 'PILOT', s: 12345 };
+    NET.meDaily = { streak: 4 };
+    const html = '<div class="row me"><span class="rk">#' + you.rank + '</span>' +
+      '<span class="nm">' + esc(you.name) + '</span>' +
+      '<span class="sc">' + padN(you.s, 7) + '</span><span class="wv">you · today' + streakLine(NET.meDaily) + '</span></div>';
+    ok(html.includes(' · streak 4</span>'), 'streak renders inside the you-row');
+    NET.meDaily = null;
+  });
   T('daily gauntlet day board: seed-key contract, row shape, mutator binding', () => {
     /* the day string IS the seed key — one regex pins the contract for both
        sides (client derives the run seed from it, server windows the board) */
@@ -7964,10 +7990,11 @@ function runSelfTests() {
   T('daily gauntlet: result application banks payouts and updates identity', () => {
     const pre = { alloy: META.alloy, daily: META.daily };
     try {
-      const res = { daily: { streak: 3, paid: 380, medals: ['Crown', 'Eclipse'] } };
+      const res = { daily: { streak: 3, paid: 380, total: 1230, medals: ['Crown', 'Eclipse'] } };
       const got = applyDailyResult(res);
       eq(got.join('|'), 'Crown|Eclipse', 'returns granted medal names');
       eq(META.alloy, pre.alloy + 380, 'payout lands in the account');
+      eq(META.dailyPaid, Math.max(pre.dailyPaid || 0, 1230), 'watermark adopts the deck total');
       eq(META.daily.streak, 3, 'streak updated from the deck');
       ok(META.daily.best >= 3, 'best tracks the streak');
       eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');

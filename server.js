@@ -114,6 +114,15 @@ CREATE TABLE IF NOT EXISTS profile_snaps (
   data    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_snaps_user ON profile_snaps(user_id, taken DESC);
+CREATE TABLE IF NOT EXISTS daily_stats (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day        TEXT NOT NULL,
+  best_score INTEGER NOT NULL DEFAULT 0,
+  best_wave  INTEGER NOT NULL DEFAULT 0,
+  paid       INTEGER NOT NULL DEFAULT 0,
+  streak     INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day)
+);
 `);
 /* v3.3 migrations — idempotent column adds */
 function addCol(table, col, decl) {
@@ -235,6 +244,43 @@ function isReplay(hash) {
   const row = db.prepare('SELECT created FROM scores WHERE run_hash = ? AND created > ? LIMIT 1')
     .get(hash, now() - 86400000);
   return !!row;
+}
+
+/* ─────────── daily gauntlet: medals, payouts, streaks ───────────
+   Pure functions, mirroring the client's DAILY_MEDALS/nextStreak contract
+   (the client displays; the deck authorizes — one can drift only if a test
+   stops failing). Waves OR score gates; highest reached tier pays. */
+const DAILY_MEDALS = [
+  { id: 'crest',   name: 'Crest',   wave: 5,  score: 4000,  alloy: 120 },
+  { id: 'crown',   name: 'Crown',   wave: 10, score: 12000, alloy: 260 },
+  { id: 'eclipse', name: 'Eclipse', wave: 15, score: 26000, alloy: 450 }
+];
+function medalsEarned(score, wave) {
+  const out = [];
+  for (const t of DAILY_MEDALS) if (wave >= t.wave || score >= t.score) out.push(t.name);
+  return out;
+}
+function medalsAlloy(names) {
+  let sum = 0;
+  for (const t of DAILY_MEDALS) if (names.includes(t.name)) sum += t.alloy;
+  return sum;
+}
+/* streak = consecutive UTC days with an accepted run, walked from today;
+   a same-day resubmission is idempotent, a missed day resets to 1. */
+function dailyStreak(userId, today) {
+  const rows = db.prepare('SELECT day FROM daily_stats WHERE user_id = ? ORDER BY day DESC').all(userId);
+  const have = new Set(rows.map(r => r.day));
+  if (have.has(today)) {
+    let n = 1;
+    while (have.has(dayOffset(today, -n))) n++;
+    return n;
+  }
+  let n = 0;
+  while (have.has(dayOffset(today, -(n + 1)))) n++;
+  return n + 1;
+}
+function dayOffset(day, delta) {
+  return new Date(Date.parse(day + 'T00:00:00.000Z') + delta * 86400000).toISOString().slice(0, 10);
 }
 
 /* ───────────────────── weekly gauntlet: seasons ───────────────────── */
@@ -606,7 +652,16 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
   if (req.method === 'GET' && pathname === '/api/me') {
     const user = sessionUser(req);
     if (!user) return send(res, 200, { ok: true, user: null });
-    return send(res, 200, { ok: true, user, profile: publicProfile(user.id) });
+    const d = new Date(now());
+    const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+    const ds = db.prepare('SELECT streak, paid, best_score, best_wave FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
+    const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
+    return send(res, 200, {
+      ok: true, user,
+      profile: publicProfile(user.id),
+      daily: ds ? { day: today, streak: ds.streak, paid: ds.paid, bestScore: ds.best_score, bestWave: ds.best_wave, total: Number(total) }
+                 : { day: today, streak: 0, paid: 0, bestScore: 0, bestWave: 0, total: Number(total) }
+    });
   }
 
   /* ---- authenticated ---- */
@@ -694,7 +749,33 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       WHERE s.mode = ? AND s.verdict = 'accepted'
       GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode);
     const sb = seasonBoard(now(), user.id);
-    return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me });
+    let daily = null;
+    if (mode === 'daily' && v.verdict === 'accepted') {
+      /* the day is decided by the deck's UTC clock, not the client's — same
+         clock the boards use, so a board row and its medal never disagree */
+      const d = new Date(now());
+      const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+      const earned = medalsEarned(score, wave);
+      const row = db.prepare('SELECT paid FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
+      const already = row ? row.paid : 0;
+      const full = medalsAlloy(earned);
+      const unpaid = Math.max(0, full - already);
+      const streak = dailyStreak(user.id, today);
+      db.prepare(`INSERT INTO daily_stats (user_id, day, best_score, best_wave, paid, streak)
+                  VALUES (?, ?, ?, ?, ?, ?)
+                  ON CONFLICT(user_id, day) DO UPDATE SET
+                    best_score = MAX(best_score, excluded.best_score),
+                    best_wave = MAX(best_wave, excluded.best_wave),
+                    paid = MAX(paid, excluded.paid),
+                    streak = excluded.streak`)
+        .run(user.id, today, score, wave, already + unpaid, streak);
+      /* the payout ledger lives in daily_stats.paid alone: currency balances
+         belong to the client profile, and SUM(paid) is the deck's total —
+         the client adopts it as a watermark and banks the delta itself */
+      const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
+      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total) };
+    }
+    return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me, daily });
   }
 
   if (req.method === 'GET' && pathname === '/api/scores') {

@@ -34,6 +34,11 @@ if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + si
 
 /* v4.5 yard donations: the audit's prestige sink (§5.1) — extracted so the
    honor ladder stays in the model like every other sink */
+/* v4.8 daily gauntlet medals: a tested faucet, paid once per tier per UTC
+   day (server-ledgered). Full house = 830/day; the deck also keeps six
+   rolling snapshots, so the watermark survives vault restores. */
+const DAILY_MEDAL_ALLOY = [120, 260, 450];   /* Crest / Crown / Eclipse */
+const DAILY_MEDAL_TOTAL = DAILY_MEDAL_ALLOY.reduce((a, c) => a + c, 0);
 const donBlock = html.match(/const DONATIONS = \[([\s\S]*?)\n\];/);
 if (!donBlock) throw new Error('constant drifted: DONATIONS table');
 const donationTiers = [...donBlock[1].matchAll(/at: (\d+),\s*name: '(\w+)'/g)].map(m => ({ at: +m[1], name: m[2] }));
@@ -259,5 +264,10 @@ function main() {
   console.log('  all hulls owned: run ~' + out.milestones.seraphOwned);
   console.log('  full completion: run ~' + out.milestones.fullCompletion);
   console.log('  grand total to own everything: ' + out.spend.grandTotal + ' (hulls ' + out.spend.hulls + ' + refits ' + out.spend.refits + ')');
+
+  console.log('\nDaily gauntlet faucet (v4.8, server-ledgered, once per tier per day):');
+  console.log('  full house: ' + DAILY_MEDAL_TOTAL + '/day · Crest-only: ' + DAILY_MEDAL_ALLOY[0] +
+    '/day · over 30 flew days: ' + (DAILY_MEDAL_TOTAL * 30) + ' (≈' +
+    (DAILY_MEDAL_TOTAL * 30 / out.spend.grandTotal * 100).toFixed(1) + '% of the full-collection price)');
 }
 main();

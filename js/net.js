@@ -8,6 +8,7 @@
 const NET = {
   on: false, user: null, probed: false,
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
+  meDaily: null,   /* last /api/me daily block — streak display on the day board */
 
   async probe() {
     if (this.probed) return this.on;
@@ -45,9 +46,10 @@ const NET = {
     try {
       const j = await this.req('GET', '/api/me');
       this.user = j.user || null;
+      this.meDaily = j.daily || null;
       if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); }
       return this.user;
-    } catch (e) { this.user = null; return null; }
+    } catch (e) { this.user = null; this.meDaily = null; return null; }
   },
 
   async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
@@ -358,9 +360,10 @@ const NET = {
     }
     if (dj.me) {
       you.classList.remove('hidden');
+      const streak = this.meDaily && this.meDaily.streak > 1 ? ' · streak ' + this.meDaily.streak : '';
       you.innerHTML = '<div class="row me"><span class="rk">#' + dj.me.rank + '</span>' +
         '<span class="nm">' + esc(dj.me.name) + '</span>' +
-        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today</span></div>';
+        '<span class="sc">' + padN(dj.me.s, 7) + '</span><span class="wv">you · today' + streak + '</span></div>';
     } else you.classList.add('hidden');
   }
 };
