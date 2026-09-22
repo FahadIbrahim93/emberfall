@@ -690,7 +690,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.6.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.7.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -957,7 +957,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.6.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.7.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6604,6 +6604,13 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.7.0',
+    items: [
+      '<b>The Daily goes worldwide</b> — your Gauntlet run now lands on one shared, day-scoped board. Every pilot on the network flies the same seeded gauntlet, midnight UTC resets the field, and the board shows exactly today\u2019s fleet with your rank among them — yesterday\u2019s legends rest, today\u2019s are written live.',
+      '<b>The vault speaks up</b> — sign in on a device the deck remembers as richer than this one, and the hangar now offers the snapshot restore the moment you arrive: once a day, one confirm, never nagging. A fresh browser no longer means starting from zero while your real record sits one restore away.'
+    ]
+  },
+  {
     v: '4.6.0',
     items: [
       '<b>The save vault opens</b> — the command deck now keeps six rolling snapshots of your account, taken whenever your progress moves for real. Wiped a browser, clobbered a save, trusted the wrong probe? Settings → Command deck → Save vault lists what the deck remembers and puts it back. Earned progress is never more than one restore away from safe.',
@@ -7846,7 +7853,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.6.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.7.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

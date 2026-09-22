@@ -1,4 +1,4 @@
-# EMBERFALL v4.6.0 — Orbital Intercept
+# EMBERFALL v4.7.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -52,7 +52,9 @@ bash smoke.sh             # API + static-hygiene + load battery, all green
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
 - **Save vault:** the deck keeps six rolling snapshots per account (taken on real deltas — an hour apart or ≥512 bytes of changed content) and serves them read-only at `/api/profile/snaps`; restore is client-side (Settings → Command deck → Save vault…), replacing the local save from the picked snapshot. A bad write, a wiped browser, or a debugging probe can no longer destroy earned progress.
 - **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
-- **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the SQLite file and its WAL files. The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
+- **Daily Gauntlet board:** daily runs rank on one shared, day-scoped board (`GET /api/scores?mode=daily&day=YYYY-MM-DD`, UTC days) — every pilot flies the same seeded gauntlet, the field resets at midnight UTC, and the world screen carries the day board beside the Weekly Gauntlet
+- **Vault restore offer:** sign in on a device the deck remembers as clearly richer (more hulls, no fewer kills), and the hangar offers the snapshot restore once a day — one confirm, never nagging
+- **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the database with `node tools/db-backup.js --verify` (live snapshots, no deck stop; see `.freebuff/run.md` § Ops). The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
 
 When no server is present the client probes `/api/health` once, fails silently,
 and stays 100% local — the exact same game, stored in the browser.
@@ -64,6 +66,12 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 - Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **58 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## What's new in v4.5 – v4.7 — "The pilot's ledger & the shared sky"
+
+- **v4.5 — the yard gives back:** irreversible alloy→honor donations at three tiers (Patron / Shipwright / Yardmaster) paying pure cosmetics — dock plate, gold ✦ board sigil, engraved title; the balance sim reaches 60 tests with golden parity for the boss statlines and the full Solar Tour registry; dock breathing and cloudbank drift honor reduced-motion; the paint wardrobe is pinned to measured CIE76 ΔE floors under protan/deutan/tritan (Machado 2009 matrices).
+- **v4.6 — nothing earned is ever lost again:** the save vault (six rolling deck-side snapshots per account, inline restore), a build stub-guard that would have caught the placeholder-page incident in seconds, deterministic golden replays and type-specific foe AI in the mirror, and live SQLite backup tooling with verification.
+- **v4.7 — the Daily goes worldwide:** one shared, day-scoped board for the seeded Daily Gauntlet (UTC days, server-windowed queries, today's fleet only) plus a once-a-day vault restore offer when the deck remembers a richer save than this device.
 
 ## What's new in v4.0 – v4.4 — "Worlds that fight back & the pilot's hangar"
 

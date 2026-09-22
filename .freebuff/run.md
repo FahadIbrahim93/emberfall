@@ -1,6 +1,6 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.6.0 — save vault (deck-side snapshots + client restore),
+(release v4.7.0 — shared Daily board, vault boot-time restore offer, DB backup ops),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 
