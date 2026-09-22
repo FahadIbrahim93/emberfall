@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.8.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.9.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.8.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.9.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -3769,6 +3769,14 @@ const BOSS_TIPS = {
 };
 
 /* ═══ codex — a threat card on first sight, so learning never leaves the run ═══ */
+/* v4.9: one codex card, once — the Daily's contract, told at the door.
+   Fired on first daily launch only; MUTED by selftests and unread by
+   veterans (CODEX.show dedupes through META.codex). */
+const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15, and on Sundays the honor guard escorts the capital for the Solar Guard. Fly accepted runs on consecutive days to build your streak.';
+function dailyGuideCard() {
+  CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
+}
+
 const CODEX = {
   mute: false,   // selftest harness sets this — no cards while probing AI
   show(id, name, text) {
@@ -5920,7 +5928,7 @@ function startRun(mode) {
   document.body.classList.add('flying');
   blurActive();
   startWave(1);
-  if (GAME.mode === 'daily') note('Daily seed · ' + GAME.seedLabel);
+  if (GAME.mode === 'daily') { note('Daily seed · ' + GAME.seedLabel); dailyGuideCard(); }
   AU.uiBig();
 }
 
@@ -6290,7 +6298,9 @@ function refreshTitleMeta() {
   const h = hull();
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
-  $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name;
+  const tempo = dayTempo(todaySeedKey());
+  $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name +
+    ' · ' + tempo.label + (tempo.scoreMul > 1 ? ' · score ×' + tempo.scoreMul : '');
   $('schoolSub').textContent = META.school ? 'Drills complete · replay anytime' : 'Three drills · +120 alloy once';
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
@@ -6740,6 +6750,14 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.9.0',
+    items: [
+      '<b>Streak laurels</b> — fly an accepted Daily 7, 14 and 30 days running: Seven suns, Fortnight and A pilot&apos;s month enter the record, and the 14- and 30-day laurels gift two paints that can never be bought — OXBLOOD and MIDNIGHT, chosen by a colorblind-safety search so every pilot can tell them apart on the boards.',
+      '<b>Eclipse Sundays</b> — on the week&apos;s hottest day the capital&apos;s honor guard escorts it, and a fourth medal tier — Solar Guard, wave 20 or score 40,000, 800 alloy — opens only while the guard flies. A Sunday full house pays 1,630; the deck&apos;s ledger keeps every payout honest.',
+      '<b>The Gauntlet explains itself</b> — the first Daily launch tells you the contract: one seed, one week-tightening curve, medals once per tier per day, streaks for consecutive flew days.'
+    ]
+  },
   {
     v: '4.8.0',
     items: [
@@ -8085,7 +8103,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.8.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.9.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

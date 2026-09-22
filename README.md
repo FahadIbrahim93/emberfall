@@ -1,4 +1,4 @@
-# EMBERFALL v4.8.0 — Orbital Intercept
+# EMBERFALL v4.9.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -48,12 +48,12 @@ bash smoke.sh             # API + static-hygiene + load battery, all green
 - **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare
 - **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry
 - **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
-- **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, security headers + CSP; production requires HTTPS
+- **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, 2s busy_timeout so brief write contention self-heals, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
 - **Save vault:** the deck keeps six rolling snapshots per account (taken on real deltas — an hour apart or ≥512 bytes of changed content) and serves them read-only at `/api/profile/snaps`; restore is client-side (Settings → Command deck → Save vault…), replacing the local save from the picked snapshot. A bad write, a wiped browser, or a debugging probe can no longer destroy earned progress.
 - **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
 - **Daily Gauntlet board:** daily runs rank on one shared, day-scoped board (`GET /api/scores?mode=daily&day=YYYY-MM-DD`, UTC days) — every pilot flies the same seeded gauntlet, the field resets at midnight UTC, and the world screen carries the day board beside the Weekly Gauntlet
-- **Daily medals & streaks:** three medal tiers — Crest 120 / Crown 260 / Eclipse 450 alloy, earned by wave depth or score, paid once per tier per UTC day from a server-side ledger — accepted, plausibility-checked runs only; consecutive flew days build a streak (best kept forever), shown beside your row on the day board; the Daily's tempo tightens through the week (Monday 0.94× → Sunday 1.18×, weekend waves pay 1.05–1.40×)
+- **Daily medals & streaks:** four medal tiers — Crest 120 / Crown 260 / Eclipse 450 alloy any day, Solar Guard 800 on Sundays only (when the honor guard escorts the capital), earned by wave depth or score, paid once per tier per UTC day from a server-side ledger — accepted, plausibility-checked runs only; consecutive flew days build a streak (best kept forever), shown beside your row on the day board; the 14- and 30-day streaks gift the OXBLOOD and MIDNIGHT paints — earned, never sold; the Daily's tempo tightens through the week (Monday 0.94× → Sunday 1.18×, weekend waves pay 1.05–1.40×)
 - **Vault restore offer:** sign in on a device the deck remembers as clearly richer (more hulls, no fewer kills), and the hangar offers the snapshot restore once a day — one confirm, never nagging
 - **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the database with `node tools/db-backup.js --verify` (live snapshots, no deck stop; see `.freebuff/run.md` § Ops). The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
 
@@ -68,12 +68,13 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
-## What's new in v4.5 – v4.8 — "The pilot's ledger & the shared sky"
+## What's new in v4.5 – v4.9 — "The pilot's ledger & the shared sky"
 
 - **v4.5 — the yard gives back:** irreversible alloy→honor donations at three tiers (Patron / Shipwright / Yardmaster) paying pure cosmetics — dock plate, gold ✦ board sigil, engraved title; the balance sim reaches 60 tests with golden parity for the boss statlines and the full Solar Tour registry; dock breathing and cloudbank drift honor reduced-motion; the paint wardrobe is pinned to measured CIE76 ΔE floors under protan/deutan/tritan (Machado 2009 matrices).
 - **v4.6 — nothing earned is ever lost again:** the save vault (six rolling deck-side snapshots per account, inline restore), a build stub-guard that would have caught the placeholder-page incident in seconds, deterministic golden replays and type-specific foe AI in the mirror, and live SQLite backup tooling with verification.
 - **v4.7 — the Daily goes worldwide:** one shared, day-scoped board for the seeded Daily Gauntlet (UTC days, server-windowed queries, today's fleet only) plus a once-a-day vault restore offer when the deck remembers a richer save than this device.
 - **v4.8 — the week has a shape:** the Daily's tempo tightens Monday→Sunday with weekend score pay (Eclipse Sunday 1.40×), three once-per-tier-per-day medals from the deck's ledger (Crest / Crown / Eclipse), day streaks with the best kept forever, and the faucet audited in the economy model.
+- **v4.9 — devotion, decorated:** streak feats at 7/14/30 days gifting two colorblind-verified laurel paints, Eclipse Sundays with an elite honor guard and the day-gated Solar Guard medal, a one-time in-game guide to the Gauntlet's contract, and a deck busy_timeout proven against foreign write locks.
 
 ## What's new in v4.0 – v4.4 — "Worlds that fight back & the pilot's hangar"
 
