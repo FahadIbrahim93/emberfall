@@ -1752,7 +1752,10 @@ function dailyMedal(score, wave, dow, rareBoss) {
   for (const t of DAILY_MEDALS) {
     if (t.dow !== undefined && t.dow !== dow) continue;
     if (t.rare && !rareBoss) continue;
-    if (wave >= t.wave || score >= t.score) got = t;
+    /* the rare honor is wave-gated ONLY: a wave-16 daily cannot exist unless
+       the wave-5 capital died, so the kill is server-provable. A score
+       shortcut would pay an un-felled fall. */
+    if (wave >= t.wave || (!t.rare && score >= t.score)) got = t;
   }
   return got;
 }
@@ -8226,6 +8229,8 @@ function runSelfTests() {
     eq(dailyMedal(60000, 20, dow, false).id, 'solar', 'same Sunday without the fall: Solar Guard, nothing more');
     eq(dailyMedal(4000, 5, dow, true).id, 'crest', 'the fall up but the run shallow: no rare honor');
     eq(dailyMedal(60000, 20, 0, true).id, 'eclipse', 'a midweek claim of the fall is refused — the dow gate holds');
+    eq(dailyMedal(60000, 2, dow, true).id, 'solar', 'a huge score at wave 2 cannot claim the fall — the rare tier is wave-gated ONLY (wave 16 implies the kill)');
+    eq(dailyMedal(0, 16, dow, true).id, 'wardenfall', 'a steady grind through the fall earns the honor on waves alone');
     /* the ledger: everyday medals untouched, the rare honor sits above */
     let sum = 0; for (const t of DAILY_MEDALS) if (t.dow === undefined) sum += t.alloy;
     eq(sum, 830, 'the everyday full house is unchanged');
