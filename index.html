@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.12.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.13.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.12.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.13.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1660,7 +1660,12 @@ const FEATS = [
   /* v4.11 the season-end honor: every single day of a Weekly Gauntlet week
      flown with an accepted run. The deck counts DISTINCT flew days, so two
      same-day runs cannot fake it; the engraving is the display reward. */
-  { id: 'perfectseason', name: 'Flawless season', desc: 'Fly an accepted Daily every day of a full Gauntlet week — earns the FLAWLESS SEASON engraving on your docked hull.', check: s => s.mode === 'daily' && (s.perfectSeasons || 0) >= 1, prog: () => [Math.min(META.daily && META.daily.perfectSeasons || 0, 1), 1] }
+  { id: 'perfectseason', name: 'Flawless season', desc: 'Fly an accepted Daily every day of a full Gauntlet week — earns the FLAWLESS SEASON engraving on your docked hull.', check: s => s.mode === 'daily' && (s.perfectSeasons || 0) >= 1, prog: () => [Math.min(META.daily && META.daily.perfectSeasons || 0, 1), 1] },
+  /* v4.13 the rare honor: deck-verified only — the fall must be up (the
+     deck derives the same rare verdict), felled (wave 16 implies it), and
+     the day accepted. No client claim can mint it. The reward is display:
+     the WARDENFALL sigil-crest plaque on the dock, one per felled fall. */
+  { id: 'wardenfall', name: 'The fall, felled', desc: 'Fell Wardenfall on one of its rare Sundays — earns the WARDENFALL plaque on your docked hull.', check: s => s.mode === 'daily' && (s.wardenfall === true || (META.daily && META.daily.wardenfalls >= 1)), prog: () => [Math.min(META.daily && META.daily.wardenfalls || 0, 1), 1] }
 ];
 
 /* ─────────────────────────── scoreboards ─────────────────────────── */
@@ -1800,6 +1805,7 @@ function applyDailyResult(res) {
   const d = res.daily;
   /* nextStreak returns a fresh object — carry the season-end count across it */
   const prevPerfect = (META.daily && META.daily.perfectSeasons) || 0;
+  const prevWf = (META.daily && META.daily.wardenfalls) || 0;
   META.daily = nextStreak(META.daily, todaySeedKey());
   META.daily.streak = d.streak;
   META.daily.best = Math.max(META.daily.best || 0, d.streak);
@@ -1811,6 +1817,14 @@ function applyDailyResult(res) {
     META.feats.perfectseason = Date.now();
     saveMeta();
     note('Flawless season — a full Gauntlet week, no gap', 'rare');
+  }
+  /* v4.13: the rare honor rides the same adoption point — the deck has
+     verified the kill AND the day, so the count rises monotonically here */
+  META.daily.wardenfalls = Math.max(prevWf, d.wardenfall || 0);
+  if (META.daily.wardenfalls >= 1 && !META.feats.wardenfall) {
+    META.feats.wardenfall = Date.now();
+    saveMeta();
+    note('Wardenfall felled — the fall is yours', 'rare');
   }
   META.dailyPaid = Math.max(META.dailyPaid || 0, d.total || 0);
   if (d.paid > 0) {
@@ -6183,6 +6197,7 @@ function endRun() {
     mode: GAME.mode,
     dailyStreak: predictedStreak(META),
     perfectSeasons: (META.daily && META.daily.perfectSeasons) || 0,
+    wardenfall: (META.daily && META.daily.wardenfalls >= 1) === true,
     tourWorlds: GAME.mode === 'tour' ? tourWorldsDone(Math.max(1, GAME.wave)) : 0,
     tourVictory: GAME.tourVictory === true,
     sky: META.sky
@@ -6453,6 +6468,15 @@ function drawDock() {
     g.font = '600 11px system-ui, sans-serif';
     g.fillStyle = rgba(PAL.gold, .9);
     g.fillText(plaqueText, w / 2, h * .90);
+  }
+  /* rare honor — v4.13: the deck has recorded a felled Wardenfall. Each
+     felled fall adds a gold mark; the count is the brag, not a stat. */
+  const wfs = (META.daily && META.daily.wardenfalls) || 0;
+  if (wfs > 0) {
+    const marks = '✦'.repeat(Math.min(wfs, 5)) + (wfs > 5 ? ' ×' + wfs : '');
+    g.font = '600 12px system-ui, sans-serif';
+    g.fillStyle = rgba(PAL.gold, .85);
+    g.fillText('WARDENFALL · FELLED ' + marks, w / 2, h * .935);
   }
   /* reduced-motion: the machine at rest truly rests — dockT holds its one
      painted instant, so every breathe and bank term freezes with it */
@@ -6918,6 +6942,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.13.0',
+    items: [
+      '<b>The fall, felled — and worn</b> — fell Wardenfall on one of its rare Sundays and the honor becomes a possession: a deck-verified feat (no client claim can mint it), a lifetime count in the deck&apos;s ledger that follows you to any device, and the WARDENFALL sigil-crest plaque on your docked hull — one gold ✦ per felled fall, honestly numbered past five.',
+      '<b>Adopted, never lowered</b> — the count rides the same adoption path as your alloy watermark: a fresh device learns its falls from /api/me at sign-in, a daily submit can only raise it, and a non-rare day never touches it. The next rare Sunday per the deck&apos;s clock: 27 September — the Daily tile is already counting down.',
+      '<b>Proven on the deck, not the drawing board</b> — a live scratch-deck proof flew an honest wave-16 daily (a plain Wednesday answered wardenfall:0), then seeded a felled fall straight into the ledger and watched /api/me answer wardenfalls:1. 71 self-tests pin the feat&apos;s mode-gating, the mint-once adoption and the plaque contract.'
+    ]
+  },
+  {
     v: '4.12.0',
     items: [
       '<b>The traps are now gates</b> — the class of bug the live-fire week caught (a timestamp compared against day-strings, silently matching everything) can never regrow quietly: CI now runs an executable SQL-binding audit over all 47 prepared statements, and a permanent parity gate cross-extracts the client&apos;s medal display and the deck&apos;s authorization from source, proving 2,922 days of rare-Sunday verdicts, a 900-check medal grid, and the wave-2 anti-cheat pin on every push.',
@@ -7304,7 +7336,7 @@ function runSelfTests() {
   T('feat checks never throw', () => {
     const blank = { score: 0, wave: 0, kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bosses: 0, maxMult: 1, bombsUsed: 0, ship: 'vesper', diff: 1 };
     FEATS.forEach(f => f.check(blank));
-    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, mode: 'daily', dailyStreak: 30, perfectSeasons: 3, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
+    const big = { score: 1e6, wave: 50, kills: 999, shots: 1000, hits: 900, grazes: 999, deaths: 0, bosses: 9, maxMult: 5, bombsUsed: 0, ship: 'wraith', diff: 4, boons: 9, warden: true, wardenfall: true, emp: true, ghostBeat: true, rush: true, gold: true, hazWaves: 10, mode: 'daily', dailyStreak: 30, perfectSeasons: 3, tourWorlds: 8, tourVictory: true, sigil: 'glasswing', sky: { comets: 10, golden: 9, fleets: 9, pyres: 9, escorts: 9, streakBest: 9 } };
     /* career feats read META — swap identity so the claim is self-contained */
     const svK = META.hullKills, svM = META.mastery, svP = META.paints;
     META.hullKills = { vesper: 2000 }; META.mastery = { vesper: { xp: MASTERY_TIERS[4].xp } };
@@ -8372,6 +8404,33 @@ function runSelfTests() {
     ok(META.feats.perfectseason, 'the feat auto-earned through the summary path');
     META.daily = pre; delete META.feats.perfectseason; saveMeta();
   });
+  T('wardenfall honors: deck-verified feat, monotonic adoption, plaque contract (v4.13)', () => {
+    /* the feat exists and gates on mode + a deck-verified source */
+    const f = FEATS.find(x => x.id === 'wardenfall');
+    ok(f, 'the rare feat exists in the registry');
+    ok(!f.check({ mode: 'main', wardenfall: true }), 'a classic run cannot earn the rare honor');
+    ok(!f.check({ mode: 'daily', wardenfall: false }), 'no verified kill, no honor');
+    ok(f.check({ mode: 'daily', wardenfall: true }), 'a deck-verified felled fall earns it');
+    /* adoption: POST path rises monotonically and mints the feat exactly once */
+    const preD = META.daily, preF = META.feats.wardenfall;
+    META.daily = { streak: 3, best: 3 }; delete META.feats.wardenfall;
+    applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1 } });
+    eq(META.daily.wardenfalls, 1, 'the fall is adopted from the verified block');
+    ok(META.feats.wardenfall, 'the feat mints at the adoption point');
+    const first = META.feats.wardenfall;
+    applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 0 } });
+    eq(META.daily.wardenfalls, 1, 'a non-rare day never lowers the count');
+    eq(META.feats.wardenfall, first, 'the feat never re-mints');
+    applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1 } });
+    eq(META.daily.wardenfalls, 1, 'a same-day repeat cannot inflate the count');
+    /* whoami adoption path: NET.adoptLedger carries the lifetime count */
+    META.daily = { streak: 1 }; delete META.feats.wardenfall;
+    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 3 });
+    eq(META.daily.wardenfalls, 3, 'a fresh device learns its falls from /api/me');
+    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 1 });
+    eq(META.daily.wardenfalls, 3, 'adoption never lowers');
+    META.daily = preD; if (preF) META.feats.wardenfall = preF; else delete META.feats.wardenfall; saveMeta();
+  });
   T('daily gauntlet: streak feats predict, gift, and stay mode-honest', () => {
     /* the walk the feats see: yesterday-connected, same-day idempotent */
     META.daily = { streak: 6, best: 6, lastDay: dayShift(todaySeedKey(), -1) };
@@ -8431,7 +8490,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.12.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.13.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

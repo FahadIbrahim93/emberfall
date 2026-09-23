@@ -1,9 +1,11 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.12.0 — the traps became gates: executable SQL-binding audit
-+ permanent client↔deck parity gate in CI, the Gauntlet guide rendered
-from the live tables, Wardenfall horizon on the Daily tile; duels-week
-drill #2 green 24/24 on a scratch deck. Ops note: live-fire drills boot
+(release v4.13.0 — the fall becomes a possession: deck-verified Wardenfall
+feat + lifetime wardenfalls count (server migration + POST carry + /api/me
+answer) + the WARDENFALL sigil-crest dock plaque in gold; adoption is
+monotonic on both paths and proven live on a scratch deck (honest Wed
+daily → wardenfall:0, seeded fall → wardenfalls:1). Rare Sunday lands
+2026-09-27. Ops note: live-fire drills boot
 a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
 (8127/8131/8133 used so far), are torn down after, and never touch the
 preview deck's data dir),

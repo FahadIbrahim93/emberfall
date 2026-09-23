@@ -10,10 +10,11 @@
      pilot / stale-day / bad-paint refusals.
 
    Limiter budget (per IP, shared window): register ≤10/min, login ≤15/min.
-   This drill spends 3 registers + 3 logins and asserts the FINAL login is
-   still under budget (429 = budget exhausted = FAIL with a clean message).
-   CI: 15-minute-old scratch decks are well inside budget. Idempotent on
-   rerun: existing callsigns log in instead of registering.
+   This drill spends 3 registers + 3 logins — inside budget on a cold deck.
+   In CI it runs directly after smoke, whose 20-concurrent-login burst fills
+   the same per-IP login window; that 429 is the limiter being honest, so
+   the drill drain-waits one 61s window and retries once instead of failing.
+   Idempotent on rerun: existing callsigns log in instead of registering.
 
    Exit 0 = all green · exit 1 = any failure. Wired into CI (smoke job).
    ═══════════════════════════════════════════════════════════════════════ */
@@ -67,10 +68,21 @@ async function main() {
     const reg = await req('POST', '/api/register', { body: { name, password: pw } });
     if (reg.json && reg.json.ok) good(`${name} registered`);
     else bad(`${name} register: ${reg.status} ${JSON.stringify(reg.json)}`);
-    const login = await req('POST', '/api/login', { body: { name, password: pw } });
-    const tok = tokenOf(login.setCookie);
-    if (tok) { T[name] = tok; good(`${name} signed in`); }
-    else { bad(`${name} login: ${login.status} ${JSON.stringify(login.json)}`); }
+    /* the limiter is honest, not hostile: this drill runs right after smoke
+       on the same deck, and smoke's 20-concurrent-login burst shares the
+       same per-IP window. A 429 here is the deck defending itself, not the
+       drill failing — so drain-wait one 61s window (a 60s sliding budget
+       fully ages out), then retry once. No sleeps on the happy path. */
+    let tok = null, wasLimited = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const login = await req('POST', '/api/login', { body: { name, password: pw } });
+      tok = tokenOf(login.setCookie);
+      if (tok) { T[name] = tok; good(`${name} signed in`); break; }
+      if (login.status !== 429) { bad(`${name} login: ${login.status} ${JSON.stringify(login.json)}`); break; }
+      wasLimited = true;
+      if (attempt === 0) { say(`  ..   ${name} met the login limiter (smoke's burst shares the window) — draining 61s`); await new Promise(r => setTimeout(r, 61000)); }
+    }
+    if (!tok && wasLimited) bad(`${name} still limited after one drain — window busier than smoke's burst can explain`);
   }
   if (fail) { say('drill: cannot continue without sessions'); process.exit(1); }
 

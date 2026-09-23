@@ -41,6 +41,14 @@ const NET = {
       }
       saveMeta();
     }
+    /* v4.13 Wardenfall honors: the deck's lifetime count of felled falls —
+       monotonic adoption, like every ledger number. The dock plaque reads
+       META.daily.wardenfalls; the sigil feat reads the same source. */
+    if (typeof j.wardenfalls === 'number' && j.wardenfalls > ((META.daily && META.daily.wardenfalls) || 0)) {
+      META.daily = META.daily || {};
+      META.daily.wardenfalls = j.wardenfalls;
+      saveMeta();
+    }
     if (j.daily && typeof j.daily.total === 'number') {
       META.dailyPaid = Math.max(META.dailyPaid || 0, j.daily.total);
       saveMeta();

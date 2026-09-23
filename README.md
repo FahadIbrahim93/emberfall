@@ -1,4 +1,4 @@
-# EMBERFALL v4.12.0 — Orbital Intercept
+# EMBERFALL v4.13.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -64,7 +64,7 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **70 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **71 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
@@ -93,6 +93,12 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.13 — "The fall, felled"
+
+- **The WARDENFALL plaque** — fell the rare Sunday boss and the honor becomes a possession: a deck-verified feat (`The fall, felled`), a lifetime `wardenfalls` count in the deck's ledger, and a gold sigil-crest plaque on the dock (one ✦ per fall, `×N` past five). No client claim can mint it — the deck derives the rare verdict itself and only an accepted daily run can carry it.
+- **Monotonic adoption, cross-device** — the count rides the same contract as the alloy watermark: `/api/me` answers `wardenfalls` at sign-in (fresh devices learn their history), the daily submit response carries the per-run flag, and both adoption paths only ever rise. A known simplification, stated honestly: two falls on two rare Sundays reconcile to the deck's lifetime count on the next `/api/me`.
+- **Proven live on a scratch deck** — an honest wave-16 daily run on a plain Wednesday answered `wardenfall: 0`, a felled fall seeded into the ledger flipped `/api/me` to `wardenfalls: 1`, and 71 self-tests pin the feat's mode-gating, mint-once adoption and plaque contract.
 
 ## What's new in v4.12 — "The gates that watch the gates"
 

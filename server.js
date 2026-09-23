@@ -134,6 +134,10 @@ CREATE TABLE IF NOT EXISTS daily_stats (
    Existing rows fill from 'day' — INSERT OR IGNORE keeps the backfill runnable
    on every boot until the schema is universal. */
 addCol('daily_stats', 'created_day', "TEXT NOT NULL DEFAULT ''");
+/* v4.13: Wardenfall honors need the RARE verdict at award time, not the
+   verdict of today's clock — a run flown on a rare Sunday must be provable
+   weeks later when the plaque renders. added TEXT day (ISO, mirrors day). */
+addCol('daily_stats', 'wardenfall', "INTEGER NOT NULL DEFAULT 0");
 db.exec("CREATE INDEX IF NOT EXISTS idx_dstats_user_cday ON daily_stats(user_id, created_day)");
 db.prepare("INSERT OR IGNORE INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak) " +
   "SELECT user_id, day, day, best_score, best_wave, paid, streak FROM daily_stats")
@@ -716,6 +720,10 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       SELECT 1 FROM daily_stats WHERE user_id = ?
       GROUP BY strftime('%G-%W', created_day || 'T00:00:00Z')
       HAVING COUNT(DISTINCT created_day) >= 7)`).get(user.id);
+    /* v4.13 Wardenfall honors: lifetime count of rare Sundays this pilot
+       felled the fall — deck-recorded at award time, so a plaque renders
+       from the ledger even years later, whatever today's seed says. */
+    const wfRow = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(user.id);
     return send(res, 200, {
       ok: true, user,
       profile: publicProfile(user.id),
@@ -723,7 +731,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
                  : { day: today, streak: 0, paid: 0, bestScore: 0, bestWave: 0, total: Number(total) },
       weekDays: wdRow ? wdRow.n : 0,
       seasonDays: wdRow ? wdRow.n : 0,
-      perfectSeasons: psRow ? psRow.c : 0
+      perfectSeasons: psRow ? psRow.c : 0,
+      wardenfalls: wfRow ? wfRow.c : 0
     });
   }
 
@@ -820,19 +829,21 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
       const dow = (Date.parse(today + 'T00:00:00.000Z') / 86400000 + 3) % 7;   /* Monday = 0 */
       const earned = medalsEarned(score, wave, dow, today);
-      const row = db.prepare('SELECT paid FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
+      const row = db.prepare('SELECT paid, wardenfall FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
+      const wf = earned.includes('Wardenfall');
       const already = row ? row.paid : 0;
       const full = medalsAlloy(earned);
       const unpaid = Math.max(0, full - already);
       const streak = dailyStreak(user.id, today);
-      db.prepare(`INSERT INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)
+      db.prepare(`INSERT INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak, wardenfall)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                   ON CONFLICT(user_id, day) DO UPDATE SET
                     best_score = MAX(best_score, excluded.best_score),
                     best_wave = MAX(best_wave, excluded.best_wave),
                     paid = MAX(paid, excluded.paid),
-                    streak = excluded.streak`)
-        .run(user.id, today, today, score, wave, already + unpaid, streak);
+                    streak = excluded.streak,
+                    wardenfall = MAX(wardenfall, excluded.wardenfall)`)
+        .run(user.id, today, today, score, wave, already + unpaid, streak, wf ? 1 : 0);
       /* the payout ledger lives in daily_stats.paid alone: currency balances
          belong to the client profile, and SUM(paid) is the deck's total —
          the client adopts it as a watermark and banks the delta itself */
@@ -844,7 +855,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const sd = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
         .get(user.id, ws0).n;
       const perfect = sd >= 7 ? 1 : 0;
-      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total), seasonDays: sd, perfect };
+      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total), seasonDays: sd, perfect, wardenfall: wf ? 1 : 0 };
     }
     return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me, daily });
   }

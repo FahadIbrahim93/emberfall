@@ -1,6 +1,6 @@
 {
-  "total": 70,
-  "passed": 70,
+  "total": 71,
+  "passed": 71,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -68,6 +68,7 @@
     "daily gauntlet: rare Sundays — Wardenfall wakes by seed, the honor rides the kill",
     "daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets",
     "flawless season: feat gate, engraving contract, adoption monotonicity",
+    "wardenfall honors: deck-verified feat, monotonic adoption, plaque contract (v4.13)",
     "daily gauntlet: streak feats predict, gift, and stay mode-honest",
     "daily gauntlet: result application banks payouts and updates identity",
     "two-device ledger adoption — fresh device raises, never lowers, never double-banks",
