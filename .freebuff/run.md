@@ -1,6 +1,12 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.14.0 — the day of the fall: the rare-Sunday countdown reads 0
+(release v4.14.1 — the ledger travels, rehearsed: NEW tests/ledger.spec.js
+runs a real two-device drill through Playwright (register via the panel,
+seed a felled fall into the deck ledger with the day stamped from
+/api/health's clock, fresh-profile sign-in adopts count + feat); it caught
+the whoami adoption path skipping the feat mint — net.js now mints the
+honor at every adoption point. Browser suite 8/8 in CI. Prior: v4.14.0
+— the day of the fall: the rare-Sunday countdown reads 0
 on the rare day itself (tile: WARDENFALL IS UP; guide announces it; never
 points past a live fall), pinned in selftests + a parity display-contract
 across all 74 rare Sundays; NEW tools/drill-limiters.mjs boots its own

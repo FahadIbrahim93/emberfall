@@ -1,4 +1,4 @@
-# EMBERFALL v4.14.0 — Orbital Intercept
+# EMBERFALL v4.14.1 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -97,6 +97,7 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 ## What's new in v4.14 — "The day of the fall"
 
 - **The rare day announces itself** — the countdown read the rare Sunday itself as "the next window is Nd away": on the one day the call-to-action matters most, the UI pointed *past* the live boss. The countdown now reads **0** on the rare day, the Daily tile says **WARDENFALL IS UP**, and the guide says "Wardenfall is up today" — pinned by a selftest that walks the seed to the next rare day and re-renders on it, and by a new parity-gate display contract checked across all 74 rare Sundays in the 2,922-day sweep.
+- **The ledger travels, rehearsed end-to-end (v4.14.1)** — a two-device browser spec registers through the real account panel, seeds a felled fall into the deck ledger (day stamped from the deck's own clock), then signs in on a fresh profile: the plaque and the feat arrive with no run flown. The E2E caught the `/api/me` adoption path skipping the feat mint — fixed; the honor mints at every adoption point.
 - **The deck's self-defense, executable** — `tools/drill-limiters.mjs` boots its own scratch deck and proves every rate-limit bucket honestly answers 429 at its budget (register 10, login 15, score 20, challenge 12, beat 12) with telemetry-backed probes so nothing 429s for the wrong reason. Until now the limiters were proven only by accident — a smoke burst and a drill stumbling into a 429. A CI step on every push.
 
 ## What's new in v4.13 — "The fall, felled"

@@ -47,6 +47,14 @@ const NET = {
     if (typeof j.wardenfalls === 'number' && j.wardenfalls > ((META.daily && META.daily.wardenfalls) || 0)) {
       META.daily = META.daily || {};
       META.daily.wardenfalls = j.wardenfalls;
+      /* v4.14.1: the feat mints at THIS adoption point too — a fresh device
+         signed in mid-history wears the honor; it must not sit locked until
+         the pilot's next rare Sunday happens to land a run. The ledger is
+         the judge, on every device, at every adoption. */
+      if (!META.feats.wardenfall) {
+        META.feats.wardenfall = Date.now();
+        note('Wardenfall felled — the fall is yours', 'rare');
+      }
       saveMeta();
     }
     if (j.daily && typeof j.daily.total === 'number') {
