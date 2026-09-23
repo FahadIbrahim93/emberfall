@@ -99,7 +99,7 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 - **Executable SQL-binding audit** (`tools/audit-sql-bindings.js`, in CI) — the trap class behind the v4.11.1 week-window bug (epoch-ms bound against TEXT `created_day`) is now scanner-guarded across all 47 prepared statements. Mutation-verified: it fails on the pre-fix server.
 - **Permanent parity gate** (`tools/parity-daily.js`, in CI) — the client's medal *display* and the deck's medal *authorization* are cross-extracted from source on every push: 2,922 days of rare-Sunday verdict agreement, a 900-check medal grid with cross-summed payouts, and the wave-2 anti-cheat pin (a score shortcut can never pay an un-felled Wardenfall). Mutation-verified with a drifted tier.
 - **The guide renders itself** — the in-game Daily Gauntlet card is derived live from `DAILY_MEDALS`/`DAILY_TEMPO` (mutation-pinned: edit a table, the text follows), and the Daily tile walks the seed forward for a **Wardenfall horizon** — "in Nd" — with an honest 56-day cap where silence is the answer.
-- **Live-fire drill #2: the duels week** — the full challenge loop flown against a scratch deck: create → inbox → ghost ownership → beat → idempotence → ownership refusals → the limiter's own 429. 24/24 green.
+- **Live-fire drill #2: the duels week — now a CI step** — the full challenge loop flown against a running deck: create → inbox → ghost ownership → beat → idempotence → ownership refusals. Proven green on a scratch deck (24/24) and promoted to `tools/drill-duels.mjs`, replayed on every push by the smoke job (the drill's session budget stays inside the limiter window by construction; verified idempotent on rerun).
 
 ## What's new in v4.5 – v4.11 — "The pilot's ledger & the shared sky"
 
@@ -206,6 +206,9 @@ tools/selftest-baseline.json  the committed suite contract: totals + exact test 
 tools/selftest-probe.js  local harness: totals, failures, name list
 tools/selftest-baseline.js  regenerate the baseline from a live green run
 tools/econsim.js      meta-economy simulator, constants extracted from source
+tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a running deck (CI step)
+tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
+tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
 tests/game.spec.js    Playwright browser smoke (boot, local-only assets, core flow)
 docs/economy-audit.md economy tuning report, calibrated on real telemetry

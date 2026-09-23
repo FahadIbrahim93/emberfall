@@ -70,6 +70,9 @@ jobs:
       - name: API smoke (smoke.sh)
         run: bash smoke.sh
 
+      - name: Duels drill (full challenge loop, live deck)
+        run: node tools/drill-duels.mjs
+
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &
