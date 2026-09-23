@@ -329,6 +329,14 @@ function weekStart(ts) {
   d.setUTCDate(d.getUTCDate() - day);
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
+/* ISO Monday-UTC for created_day windows. The window MUST be bound as a
+   day string: binding the epoch-ms number instead silently matches every
+   TEXT day (SQLite sorts INTEGER < TEXT) and counts the pilot's lifetime
+   — found by live-fire week simulation, kept honest by this comment. */
+function weekStartDay(ts) {
+  const d = new Date(weekStart(ts));
+  return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+}
 function seasonKey(ts) {
   const d = new Date(ts);
   const jan1 = Date.UTC(d.getUTCFullYear(), 0, 1);
@@ -696,7 +704,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const ds = db.prepare('SELECT streak, paid, best_score, best_wave FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
     const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
     /* v4.10 weekly recap: flew days in the running Monday-UTC week */
-    const ws = weekStart(now());
+    const ws = weekStartDay(now());
     const wdRow = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
       .get(user.id, ws);
     /* v4.11 season-end honors: the running week's flew days (same window the
@@ -832,7 +840,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       /* v4.11 season-end honors: did this accepted run land in a week whose
          every day was flown? Count DISTINCT flew days against the week's
          seven — a live season still shows the honest running count. */
-      const ws0 = weekStart(now());
+      const ws0 = weekStartDay(now());
       const sd = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
         .get(user.id, ws0).n;
       const perfect = sd >= 7 ? 1 : 0;
@@ -881,7 +889,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
           FROM daily_stats ds JOIN users u ON u.id = ds.user_id
           WHERE ds.day = ? AND u.name IN (${ph})`).all(day, ...names);
         for (const r of mdRows) {
-          const earned = medalsEarned(r.bs, r.bw, dow);
+          const earned = medalsEarned(r.bs, r.bw, dow, day);   /* day passed: rare-tier pips honor the rare verdict */
           if (earned.length) md[r.n] = earned;
         }
       }

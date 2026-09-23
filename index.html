@@ -8317,6 +8317,29 @@ function runSelfTests() {
       eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');
     } finally { META.alloy = pre.alloy; META.daily = pre.daily; saveMeta(); }
   });
+  T('two-device ledger adoption — fresh device raises, never lowers, never double-banks', () => {
+    /* the live-fire drill's contract, pinned: whoami()/login() adopt the
+       deck's lifetime view — watermark and flawless count rise to the
+       ledger, the feat rings once, and no alloy coin is minted client-side */
+    const pre = { paid: META.dailyPaid || 0, seasons: (META.daily && META.daily.perfectSeasons) || 0, feat: !!META.feats.perfectseason };
+    try {
+      NET.adoptLedger({ daily: { total: 4290 }, perfectSeasons: 0 });
+      eq(META.dailyPaid, 4290, 'watermark rises to the deck total');
+      eq(META.alloy, 0, 'adoption mints nothing — the payout was banked elsewhere');
+      ok(!META.feats.perfectseason, 'no seasons, no feat');
+      NET.adoptLedger({ daily: { total: 5120 }, perfectSeasons: 1 });
+      eq(META.dailyPaid, 5120, 'watermark tracks the ledger upward');
+      eq(META.daily && META.daily.perfectSeasons, 1, 'a fresh device learns its flawless season');
+      ok(META.feats.perfectseason, 'the feat returns with the pilot');
+      NET.adoptLedger({ daily: { total: 100 }, perfectSeasons: 0 });
+      eq(META.dailyPaid, 5120, 'a smaller or stale total never lowers the watermark');
+      eq(META.daily && META.daily.perfectSeasons, 1, 'the count never falls');
+      eq(NET.req ? typeof NET.adoptLedger : 'missing', 'function', 'the seam is real');
+    } finally {
+      META.dailyPaid = pre.paid; if (META.daily) META.daily.perfectSeasons = pre.seasons;
+      if (!pre.feat) delete META.feats.perfectseason; saveMeta();
+    }
+  });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
     ok(NOTES[0].v === '4.11.0', 'newest entry matches current release');

@@ -5,6 +5,7 @@
 set -u
 BASE="${BASE:-http://127.0.0.1:8123}"
 JAR="$(mktemp)"
+JAR2="$(mktemp)"
 PASS=0; FAIL=0
 say() { printf '%s\n' "$*"; }
 ok()  { PASS=$((PASS+1)); say "PASS  $*"; }
@@ -148,6 +149,24 @@ wait
 LOAD_T1=$(date +%s)
 if [ $((LOAD_T1 - LOAD_T0)) -le 10 ]; then ok "20 concurrent logins complete (async scrypt): ${LOAD_T1}s-${LOAD_T0}s"; else no "concurrent logins stalled: $((LOAD_T1 - LOAD_T0))s"; fi
 
+say ""; say "── P0-10: the week window is a TEXT-day filter, not a lifetime count ──"
+# Regression for the live-fire drill's catch: weekStart was bound as epoch-ms
+# against TEXT created_day, so SQLite's INTEGER < TEXT ordering matched every
+# row — weekDays silently counted the pilot's lifetime. The discriminator is
+# a ledger row from BEFORE this week flown by the already-logged-in pilot:
+# it must stay outside the window (only this Monday's row counts).
+WDB="${EF_DATA_DIR_DB:-$(dirname "$0")/../emberfall-data/emberfall.db}"
+WD0="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
+node -e "
+const { DatabaseSync } = require('node:sqlite');
+const db = new DatabaseSync(process.argv[1]);
+const u = db.prepare('SELECT id FROM users WHERE name = ?').get(process.argv[2]);
+if (!u) { console.error('seed target pilot missing'); process.exit(1); }
+db.prepare('INSERT OR REPLACE INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak) VALUES (?,?,?,?,?,?,?)')
+  .run(u.id, '2026-01-05', '2026-01-05', 5000, 8, 120, 1);   /* ten weeks old: outside every current window */
+db.close();" "$WDB" "Pilot$R"
+WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
+if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
 say ""
 say "── $PASS passed, $FAIL failed ─────────────────────"
 [ "$FAIL" -eq 0 ]

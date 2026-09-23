@@ -28,6 +28,25 @@ const NET = {
     return this.on;
   },
 
+  /* adopt the deck's ledger view (monotonic — the deck is the only writer of
+     truth; the client raises, never lowers). Separate pure-ish seam so the
+     selftest can pin the two-device contract without a server. */
+  adoptLedger(j) {
+    if (typeof j.perfectSeasons === 'number' && j.perfectSeasons > ((META.daily && META.daily.perfectSeasons) || 0)) {
+      META.daily = META.daily || {};
+      META.daily.perfectSeasons = j.perfectSeasons;
+      if (!META.feats.perfectseason) {
+        META.feats.perfectseason = Date.now();
+        note('Flawless season — a full Gauntlet week, no gap', 'rare');
+      }
+      saveMeta();
+    }
+    if (j.daily && typeof j.daily.total === 'number') {
+      META.dailyPaid = Math.max(META.dailyPaid || 0, j.daily.total);
+      saveMeta();
+    }
+  },
+
   async req(method, path, body) {
     const r = await fetch(path, {
       method, headers: this.hdrs, credentials: 'same-origin',
@@ -50,14 +69,21 @@ const NET = {
       this.user = j.user || null;
       this.meDaily = j.daily || null;
       this.weekDays = typeof j.weekDays === 'number' ? j.weekDays : (this.weekDays || 0);
-      this.seasonDays = this.meDaily && typeof this.meDaily.seasonDays === 'number' ? this.meDaily.seasonDays : (this.seasonDays || 0);
+      this.seasonDays = typeof j.seasonDays === 'number' ? j.seasonDays : (this.seasonDays || 0);
+      /* v4.11 returning-device adoption: the deck's lifetime flawless-week
+         count and payout total are the ledger — the client only ever raises
+         its own. This is how a fresh device learns its seasons and plaque
+         WITHOUT waiting for its next daily post. Found by live-fire drill:
+         the old wiring read seasonDays from inside the daily block, where
+         the deck never puts it, and adopted nothing. */
+      this.adoptLedger(j);
       if (j.user && j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); }
       return this.user;
     } catch (e) { this.user = null; this.meDaily = null; return null; }
   },
 
   async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
-  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); } return j; },
+  async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.user) await this.whoami();   /* login refreshes the whole deck view: streak, week, ledger adoption */ if (j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); } return j; },
   async logout() {
     try { await this.req('POST', '/api/logout'); } catch (e) { }
     this.user = null;
