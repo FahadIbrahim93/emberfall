@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.11.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.12.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.11.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.12.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6918,6 +6918,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.12.0',
+    items: [
+      '<b>The traps are now gates</b> — the class of bug the live-fire week caught (a timestamp compared against day-strings, silently matching everything) can never regrow quietly: CI now runs an executable SQL-binding audit over all 47 prepared statements, and a permanent parity gate cross-extracts the client&apos;s medal display and the deck&apos;s authorization from source, proving 2,922 days of rare-Sunday verdicts, a 900-check medal grid, and the wave-2 anti-cheat pin on every push.',
+      '<b>The Gauntlet renders its own truth</b> — the in-game guide is no longer hand-written prose: it is derived live from the medal and tempo tables (a suite mutation-pin proves a table edit moves the text), and the Daily tile shows a Wardenfall horizon — "in Nd" — walked from the same seed players already trust.',
+      '<b>The duels week, live-fired</b> — a second scratch-deck drill flew the full challenge loop: create, inbox, ghost ownership, beat, idempotence, ownership refusals and the limiter&apos;s own 429 — 24/24 green. 70 self-tests.'
+    ]
+  },
+  {
     v: '4.11.1',
     items: [
       '<b>The week, counted honestly</b> — a live-fire week simulation caught the deck counting your whole ledger as "this week": the window filter bound a timestamp against day strings, and SQLite&apos;s ordering quietly matched everything. The recap, the season pulse and the flawless-week verdict now window correctly — a veteran&apos;s July flight no longer counts toward a Monday.' ,
@@ -8423,7 +8431,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.11.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.12.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

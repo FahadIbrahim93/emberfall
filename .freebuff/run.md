@@ -1,8 +1,12 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.11.1 — week-window + ledger-adoption fixes from the live-fire
-week drill, pilot's guide; rare Sundays wake Wardenfall + flawless-season
-honor, medal pips on the day board, weekly recap, deck profiler),
+(release v4.12.0 — the traps became gates: executable SQL-binding audit
++ permanent client↔deck parity gate in CI, the Gauntlet guide rendered
+from the live tables, Wardenfall horizon on the Daily tile; duels-week
+drill #2 green 24/24 on a scratch deck. Ops note: live-fire drills boot
+a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
+(8127/8131/8133 used so far), are torn down after, and never touch the
+preview deck's data dir),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 

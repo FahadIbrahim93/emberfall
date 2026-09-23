@@ -1,4 +1,4 @@
-# EMBERFALL v4.11.1 — Orbital Intercept
+# EMBERFALL v4.12.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,13 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.12 — "The gates that watch the gates"
+
+- **Executable SQL-binding audit** (`tools/audit-sql-bindings.js`, in CI) — the trap class behind the v4.11.1 week-window bug (epoch-ms bound against TEXT `created_day`) is now scanner-guarded across all 47 prepared statements. Mutation-verified: it fails on the pre-fix server.
+- **Permanent parity gate** (`tools/parity-daily.js`, in CI) — the client's medal *display* and the deck's medal *authorization* are cross-extracted from source on every push: 2,922 days of rare-Sunday verdict agreement, a 900-check medal grid with cross-summed payouts, and the wave-2 anti-cheat pin (a score shortcut can never pay an un-felled Wardenfall). Mutation-verified with a drifted tier.
+- **The guide renders itself** — the in-game Daily Gauntlet card is derived live from `DAILY_MEDALS`/`DAILY_TEMPO` (mutation-pinned: edit a table, the text follows), and the Daily tile walks the seed forward for a **Wardenfall horizon** — "in Nd" — with an honest 56-day cap where silence is the answer.
+- **Live-fire drill #2: the duels week** — the full challenge loop flown against a scratch deck: create → inbox → ghost ownership → beat → idempotence → ownership refusals → the limiter's own 429. 24/24 green.
 
 ## What's new in v4.5 – v4.11 — "The pilot's ledger & the shared sky"
 
