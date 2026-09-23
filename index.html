@@ -3813,7 +3813,42 @@ const BOSS_TIPS = {
 /* v4.9: one codex card, once — the Daily's contract, told at the door.
    Fired on first daily launch only; MUTED by selftests and unread by
    veterans (CODEX.show dedupes through META.codex). */
-const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15 — and Sundays add the honor-guard Solar Guard (wave 20 / 40k, 800). One Sunday in seven wakes Wardenfall, the warden\'s corrupted kin: fell it and reach wave 16 for 1,000 more. Accepted runs on consecutive UTC days build your streak (7/14/30 earn laurels); fly a whole week with no gap for the FLAWLESS SEASON plaque. The deck pays each tier once a day — re-flights pay nothing.';
+/* v4.12: the guide is RENDERED from the live tables, never hand-written —
+   when DAILY_MEDALS or DAILY_TEMPO changes, the text changes with it and
+   the drift test in the suite fails if the prose stops being derivable. */
+function wardenfallCountdown(fromDay) {
+  /* walk forward until a rare Sunday; the gap is geometric (1-in-7 Sundays,
+     mean ≈ 7 weeks) so the horizon is 56 days — beyond it, null and the UI
+     stays silent rather than promising a date the seed does not hold */
+  let d = fromDay;
+  for (let i = 1; i <= 56; i++) { d = dayShift(d, 1); if (wardenfallSunday(d)) return i; }
+  return null;
+}
+function medalTierText(t) {
+  const wavePart = 'wave ' + t.wave;
+  const scorePart = t.rare ? null : fmt(t.score);
+  const dowPart = t.dow === undefined ? null : (t.rare ? 'rare Sundays' : 'Sundays only');
+  return t.name + ' (' + wavePart + (scorePart ? ' / ' + scorePart : '') + (dowPart ? ', ' + dowPart : '') + ') — ' + t.alloy;
+}
+function dailyGuideText(dayKey) {
+  const everyday = DAILY_MEDALS.filter(t => t.dow === undefined);
+  const sunday = DAILY_MEDALS.find(t => t.id === 'solar');
+  const rare = DAILY_MEDALS.find(t => t.rare);
+  const open = dayTempo(dayKey);
+  const close = DAILY_TEMPO[6];
+  const parts = [
+    'One seed for every pilot. The week tightens — ' + open.label + ' opens the week, ' +
+      close.label + ' is Sunday, worth ' + close.scoreMul.toFixed(2) + 'x score.',
+    'Medals pay once per tier per day: ' + everyday.map(medalTierText).join(' · ') + '.',
+    'Sundays add the honor guard: ' + medalTierText(sunday) + '.',
+    'One Sunday in seven wakes Wardenfall, the warden\'s corrupted kin — fell it and reach wave ' +
+      rare.wave + ' for ' + rare.alloy + ' more.' +
+      (wardenfallCountdown(dayKey) ? ' Next window: ' + wardenfallCountdown(dayKey) + ' day' + (wardenfallCountdown(dayKey) > 1 ? 's' : '') + '.' : ''),
+    'Accepted runs on consecutive UTC days build your streak (7/14/30 earn laurels); fly a whole week with no gap for the FLAWLESS SEASON plaque. The deck pays each tier once a day — re-flights pay nothing.'
+  ];
+  return parts.join(' ');
+}
+const DAILY_GUIDE = dailyGuideText(todaySeedKey());
 function dailyGuideCard() {
   CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
 }
@@ -6429,8 +6464,10 @@ function refreshTitleMeta() {
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
   const tempo = dayTempo(todaySeedKey());
+  const wfIn = wardenfallCountdown(todaySeedKey());
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name +
-    ' · ' + tempo.label + (tempo.scoreMul > 1 ? ' · score ×' + tempo.scoreMul : '');
+    ' · ' + tempo.label + (tempo.scoreMul > 1 ? ' · score ×' + tempo.scoreMul : '') +
+    (wfIn === 1 ? ' · WARDENFALL TOMORROW' : wfIn && wfIn <= 14 ? ' · Wardenfall in ' + wfIn + 'd' : '');
   $('schoolSub').textContent = META.school ? 'Drills complete · replay anytime' : 'Three drills · +120 alloy once';
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
@@ -8230,6 +8267,42 @@ function runSelfTests() {
     let sum = 0; for (const t of DAILY_MEDALS) if (t.dow === undefined) sum += t.alloy;
     eq(sum, 830, 'the everyday medals still pay 830');
     eq(dailyMedal(0, 20, 6).id, 'solar', 'Sunday honor guard pays 800 more');
+  });
+  T('daily gauntlet: the guide is rendered from the tables, not hand-written (v4.12)', () => {
+    /* the renderer derives every number from the live constants — a table
+       edit must move the text, or the prose is a lie with a straight face */
+    const txt = dailyGuideText('2026-09-23');                    // a Wednesday
+    for (const t of DAILY_MEDALS) {
+      if (t.dow !== undefined) continue;                          // Sunday tiers named in their own sentence
+      ok(txt.includes(t.name + ' (wave ' + t.wave), t.name + ' renders its wave gate');
+      ok(txt.includes('— ' + t.alloy), t.name + ' renders its payout');
+    }
+    ok(txt.includes('1.40x'), 'Eclipse Sunday renders its score multiplier');
+    const eclipse = DAILY_MEDALS.find(t => t.id === 'eclipse');
+    ok(txt.includes('wave ' + eclipse.wave), 'Eclipse renders its wave gate');
+    ok(txt.includes('Next window: ') || wardenfallCountdown('2026-09-23') === null, 'the rare-Sunday horizon is rendered when within reach');
+    /* mutation pins: the renderer must EAT a table change, not ignore it */
+    const keep = DAILY_MEDALS.find(t => t.id === 'crest').alloy;
+    DAILY_MEDALS.find(t => t.id === 'crest').alloy = 777;
+    ok(dailyGuideText('2026-09-23').includes('— 777'), 'a Crest payout edit flows into the text');
+    DAILY_MEDALS.find(t => t.id === 'crest').alloy = keep;
+    ok(!dailyGuideText('2026-09-23').includes('777'), 'restore: text is back in step');
+    /* countdown: a pure forward walk with an honest horizon — the gap
+       between rare Sundays is geometric (1-in-7 Sundays), so null is a real
+       answer, not a failure. The pin re-walks the same 56 days. */
+    const c0 = wardenfallCountdown('2026-01-04');
+    ok(c0 === null || (c0 >= 1 && c0 <= 56), 'countdown within horizon or honestly null, got ' + c0);
+    let firstRare = null;
+    { let d = '2026-01-04'; for (let i = 1; i <= 56; i++) { d = dayShift(d, 1); if (wardenfallSunday(d)) { firstRare = i; break; } } }
+    eq(c0, firstRare, 'countdown is the first rare Sunday ahead');
+    if (c0 !== null) {
+      ok(wardenfallSunday(dayShift('2026-01-04', c0)), 'the countdown lands on a true rare Sunday');
+      for (let i = 1; i < c0; i++) { const dd = dayShift('2026-01-04', i); if (dayDow(dd) === 6) ok(!wardenfallSunday(dd), 'no earlier Sunday claims it'); }
+    }
+    eq(wardenfallCountdown('2026-01-05'), wardenfallCountdown('2026-01-05'), 'pure function of the day');
+    /* the guide's horizon sentence exists exactly when the countdown does */
+    eq(dailyGuideText('2026-09-23').includes('Next window: '), wardenfallCountdown('2026-09-23') !== null,
+      'horizon sentence iff a window is within reach');
   });
   T('daily gauntlet: rare Sundays — Wardenfall wakes by seed, the honor rides the kill', () => {
     /* determinism: the day key is the whole contract — same verdict for

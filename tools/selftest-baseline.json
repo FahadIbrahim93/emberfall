@@ -1,6 +1,6 @@
 {
-  "total": 69,
-  "passed": 69,
+  "total": 70,
+  "passed": 70,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -64,6 +64,7 @@
     "sky traffic cadence scales and floors",
     "daily gauntlet: weekly tempo curve, shared by every pilot",
     "daily gauntlet: medals — wave OR score gate, highest tier wins",
+    "daily gauntlet: the guide is rendered from the tables, not hand-written (v4.12)",
     "daily gauntlet: rare Sundays — Wardenfall wakes by seed, the honor rides the kill",
     "daily gauntlet: streaks — consecutive days, idempotent same-day, honest resets",
     "flawless season: feat gate, engraving contract, adoption monotonicity",
