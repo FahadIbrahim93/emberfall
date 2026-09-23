@@ -1,4 +1,4 @@
-# EMBERFALL v4.11.0 — Orbital Intercept
+# EMBERFALL v4.11.1 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -64,9 +64,35 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **68 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs in a panel (bottom right): **69 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
+
+## The Daily Gauntlet — a pilot's guide
+
+One seeded Gauntlet a day, shared by every pilot on Earth. Everything below is ledgered by the Command Deck and enforced there — the client displays, the deck authorizes.
+
+**The week has a shape.** The day key (`YYYY-MM-DD`, UTC) seeds the run, so every pilot flies the same corridor. A seven-step tempo tightens Monday → Sunday: *Opening* (0.94× squad cadence) through *Eclipse* (1.18×), and the weekend pays for it — waves score 1.05× midweek, 1.25× Saturday, **1.40× Sunday**.
+
+**Medals — paid once per tier per UTC day, by the deck.** Highest tier reached wins the display, but every tier reached pays:
+
+| Medal | Wave gate | Score gate | Alloy | When |
+|---|---|---|---|---|
+| Crest | 5 | 4,000 | 120 | every day |
+| Crown | 10 | 12,000 | 260 | every day |
+| Eclipse | 15 | 26,000 | 450 | every day |
+| Solar Guard | 20 | 40,000 | 800 | Sundays — the honor guard escorts the capital |
+| Wardenfall | 16 | — | 1,000 | rare Sundays only — see below |
+
+Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sunday pays **2,630**. Waves *or* score opens each tier — steady pilots and fast shooters both stay in the game. Only runs the deck marks **accepted** rank and pay; a reviewed or rejected run pays nothing, and re-flying a tier the same day pays exactly zero.
+
+**Rare Sundays.** One Sunday in seven — decided by a hash of the day key every pilot already shares, so the whole world knows at the same moment — the wave-5 capital is replaced by **Wardenfall**, the Gate Warden's corrupted sibling: four faster shield arcs, denser spikes, a twin-beam surge. Fell it and fly to wave 16 for the 1,000-alloy honor. The rare tier is wave-gated *only*: a wave-16 daily cannot exist unless the capital fell, so the kill is provable from the run itself — a huge score at wave 2 claims nothing.
+
+**Streaks.** Consecutive UTC days with an accepted daily run. Same-day re-runs are idempotent, a missed day resets to 1, and the best streak is kept forever. Streak feats at **7 / 14 / 30** days (*Seven suns, Fortnight, A pilot's month*) enter the feat record — the 14- and 30-day laurels gift two paints that can never be bought: OXBLOOD and MIDNIGHT, chosen by a colorblind-safety search so every pilot can tell them apart on the boards.
+
+**The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
+
+**Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
 ## What's new in v4.5 – v4.11 — "The pilot's ledger & the shared sky"
 

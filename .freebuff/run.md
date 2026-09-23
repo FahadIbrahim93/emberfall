@@ -1,9 +1,14 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.11.0 — rare Sundays wake Wardenfall + flawless-season honor,
-medal pips on the day board, weekly recap, deck profiler),
+(release v4.11.1 — week-window + ledger-adoption fixes from the live-fire
+week drill, pilot's guide; rare Sundays wake Wardenfall + flawless-season
+honor, medal pips on the day board, weekly recap, deck profiler),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
+
+## Live-fire drill (proven procedure)
+
+To re-run the medals-economy drill: boot a scratch deck (`PORT=8131 EF_DATA_DIR="$(cygpath -w /tmp/ef-<name>)" node server.js &`), register a pilot, seed prior ledger days directly into the scratch `daily_stats` (deck-open WAL allows a concurrent writer), then POST valid daily runs and check streak/paid/total against the ledger. **Trust the deck's UTC clock, not your calendar** — a day rolled mid-drill once and "looked like" a double-payout until the ledger row was read. The week-window regression lives in smoke.sh P0-10 (seed an ancient row; the window must ignore it).
 
 ## Reproduce artifacts
 

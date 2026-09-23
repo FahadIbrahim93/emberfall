@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.11.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.11.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.11.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.11.1 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -3813,7 +3813,7 @@ const BOSS_TIPS = {
 /* v4.9: one codex card, once — the Daily's contract, told at the door.
    Fired on first daily launch only; MUTED by selftests and unread by
    veterans (CODEX.show dedupes through META.codex). */
-const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15, and on Sundays the honor guard escorts the capital for the Solar Guard. Rare Sundays wake Wardenfall — the warden\'s corrupted kin — for the Wardenfall medal. Fly accepted runs on consecutive days to build your streak.';
+const DAILY_GUIDE = 'One seed for every pilot. The week tightens — Monday opens calm, Sunday is Eclipse, worth 1.40x score. Medals pay once per tier per day: Crest wave 5 · Crown wave 10 · Eclipse wave 15 — and Sundays add the honor-guard Solar Guard (wave 20 / 40k, 800). One Sunday in seven wakes Wardenfall, the warden\'s corrupted kin: fell it and reach wave 16 for 1,000 more. Accepted runs on consecutive UTC days build your streak (7/14/30 earn laurels); fly a whole week with no gap for the FLAWLESS SEASON plaque. The deck pays each tier once a day — re-flights pay nothing.';
 function dailyGuideCard() {
   CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
 }
@@ -6881,6 +6881,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.11.1',
+    items: [
+      '<b>The week, counted honestly</b> — a live-fire week simulation caught the deck counting your whole ledger as "this week": the window filter bound a timestamp against day strings, and SQLite&apos;s ordering quietly matched everything. The recap, the season pulse and the flawless-week verdict now window correctly — a veteran&apos;s July flight no longer counts toward a Monday.' ,
+      '<b>Your ledger travels with you</b> — signing in on any device now adopts the deck&apos;s watermark and flawless-season count immediately (previously only a new daily run would reveal them), and never mints a coin in the process. Pinned by a new two-device test.',
+      '<b>The Gauntlet explains itself</b> — README gains a full pilot&apos;s guide to the week&apos;s tempo, every medal gate, rare Sundays, streaks and the flawless season; the in-game card now tells the same contract. 69 self-tests, one new smoke regression.'
+    ]
+  },
+  {
     v: '4.11.0',
     items: [
       '<b>Rare Sundays: Wardenfall</b> — one Sunday in seven (decided by the day key every pilot already shares) the Daily&apos;s wave-5 capital is replaced by Wardenfall, the Gate Warden&apos;s corrupted sibling: four faster shield arcs, denser spikes, twin beam surge. Fell it and fly deep — wave 16 — for the Wardenfall medal, 1,000 alloy, once that day.',
@@ -8342,7 +8350,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.11.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.11.1', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
