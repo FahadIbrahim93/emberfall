@@ -848,6 +848,10 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
          belong to the client profile, and SUM(paid) is the deck's total —
          the client adopts it as a watermark and banks the delta itself */
       const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
+      /* v4.13.1: the response carries the deck's LIFETIME fall count next to
+         the per-run flag — adoption on any device self-heals the same day a
+         second rare Sunday lands, instead of waiting for an /api/me pass. */
+      const wfCount = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(user.id).c;
       /* v4.11 season-end honors: did this accepted run land in a week whose
          every day was flown? Count DISTINCT flew days against the week's
          seven — a live season still shows the honest running count. */
@@ -855,7 +859,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const sd = db.prepare('SELECT COUNT(DISTINCT created_day) AS n FROM daily_stats WHERE user_id = ? AND created_day >= ?')
         .get(user.id, ws0).n;
       const perfect = sd >= 7 ? 1 : 0;
-      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total), seasonDays: sd, perfect, wardenfall: wf ? 1 : 0 };
+      daily = { medals: earned, paid: unpaid, streak, day: today, total: Number(total), seasonDays: sd, perfect, wardenfall: wf ? 1 : 0, wardenfalls: wfCount };
     }
     return send(res, 200, { ok: true, rank, top, verdict: v.verdict, season: seasonKey(now()), seasonMe: sb.me, daily });
   }

@@ -1,14 +1,17 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.13.0 — the fall becomes a possession: deck-verified Wardenfall
+(release v4.13.1 — v4.13's honor made fully self-healing: the daily submit
+response now carries the deck's LIFETIME wardenfalls count beside the
+per-run flag, so two rare-Sunday falls reconcile same-day on every device.
+v4.13 itself: deck-verified Wardenfall
 feat + lifetime wardenfalls count (server migration + POST carry + /api/me
 answer) + the WARDENFALL sigil-crest dock plaque in gold; adoption is
 monotonic on both paths and proven live on a scratch deck (honest Wed
 daily → wardenfall:0, seeded fall → wardenfalls:1). Rare Sunday lands
 2026-09-27. Ops note: live-fire drills boot
 a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
-(8127/8131/8133 used so far), are torn down after, and never touch the
-preview deck's data dir),
+(8127/8131/8133/8137/8139 used so far), are torn down after, and never
+touch the preview deck's data dir),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 

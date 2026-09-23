@@ -1,4 +1,4 @@
-# EMBERFALL v4.13.0 — Orbital Intercept
+# EMBERFALL v4.13.1 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -97,7 +97,8 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 ## What's new in v4.13 — "The fall, felled"
 
 - **The WARDENFALL plaque** — fell the rare Sunday boss and the honor becomes a possession: a deck-verified feat (`The fall, felled`), a lifetime `wardenfalls` count in the deck's ledger, and a gold sigil-crest plaque on the dock (one ✦ per fall, `×N` past five). No client claim can mint it — the deck derives the rare verdict itself and only an accepted daily run can carry it.
-- **Monotonic adoption, cross-device** — the count rides the same contract as the alloy watermark: `/api/me` answers `wardenfalls` at sign-in (fresh devices learn their history), the daily submit response carries the per-run flag, and both adoption paths only ever rise. A known simplification, stated honestly: two falls on two rare Sundays reconcile to the deck's lifetime count on the next `/api/me`.
+- **Monotonic adoption, cross-device** — the count rides the same contract as the alloy watermark: `/api/me` answers `wardenfalls` at sign-in (fresh devices learn their history), the daily submit response carries both the per-run flag and the deck's lifetime count (v4.13.1 — same-day reconciliation), and both adoption paths only ever rise.
+- **Same-day reconciliation (v4.13.1)** — the daily submit response carries the deck's *lifetime* `wardenfalls` count beside the per-run flag, so two falls on two rare Sundays read honestly everywhere the same day — no `/api/me` pass needed.
 - **Proven live on a scratch deck** — an honest wave-16 daily run on a plain Wednesday answered `wardenfall: 0`, a felled fall seeded into the ledger flipped `/api/me` to `wardenfalls: 1`, and 71 self-tests pin the feat's mode-gating, mint-once adoption and plaque contract.
 
 ## What's new in v4.12 — "The gates that watch the gates"

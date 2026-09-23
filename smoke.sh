@@ -56,6 +56,7 @@ expect "register guard (no header)" 'missing origin header'  -X POST "$BASE/api/
 expect "register bad name" 'callsign'                       -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"x\",\"password\":\"hunter2\"}"
 expect "register ok"       '"ok":true'                      -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
 expect "me (cookie set)"   "Pilot$R"                        "$BASE/api/me"
+expect "me answers wardenfalls"  '"wardenfalls":0'          "$BASE/api/me"
 expect "profile put"       '"ok":true'                      -X PUT "$BASE/api/profile" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"meta\":{\"alloy\":123},\"cfg\":{},\"updated\":$(date +%s000)}"
 expect "profile fetch"     '"alloy":123'                    "$BASE/api/me"
 # ── the vault: rolling profile snapshots (write seeds one via the big-delta rule) ──

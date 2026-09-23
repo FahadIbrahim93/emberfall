@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.13.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.13.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.13.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.13.1 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1819,8 +1819,10 @@ function applyDailyResult(res) {
     note('Flawless season — a full Gauntlet week, no gap', 'rare');
   }
   /* v4.13: the rare honor rides the same adoption point — the deck has
-     verified the kill AND the day, so the count rises monotonically here */
-  META.daily.wardenfalls = Math.max(prevWf, d.wardenfall || 0);
+     verified the kill AND the day, so the count rises monotonically here.
+     v4.13.1: the response also carries the deck's lifetime count, so a
+     second rare Sunday reconciles the same day, on every device. */
+  META.daily.wardenfalls = Math.max(prevWf, d.wardenfall || 0, d.wardenfalls || 0);
   if (META.daily.wardenfalls >= 1 && !META.feats.wardenfall) {
     META.feats.wardenfall = Date.now();
     saveMeta();
@@ -6942,8 +6944,9 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
-    v: '4.13.0',
+    v: '4.13.1',
     items: [
+      '<b>The count travels with every run</b> — the daily submit response now carries the deck&apos;s lifetime fall count beside the per-run flag: a second rare Sunday reconciles on every device the same day it happens, no sign-in pass required. The plaque number is the deck&apos;s word, always.',
       '<b>The fall, felled — and worn</b> — fell Wardenfall on one of its rare Sundays and the honor becomes a possession: a deck-verified feat (no client claim can mint it), a lifetime count in the deck&apos;s ledger that follows you to any device, and the WARDENFALL sigil-crest plaque on your docked hull — one gold ✦ per felled fall, honestly numbered past five.',
       '<b>Adopted, never lowered</b> — the count rides the same adoption path as your alloy watermark: a fresh device learns its falls from /api/me at sign-in, a daily submit can only raise it, and a non-rare day never touches it. The next rare Sunday per the deck&apos;s clock: 27 September — the Daily tile is already counting down.',
       '<b>Proven on the deck, not the drawing board</b> — a live scratch-deck proof flew an honest wave-16 daily (a plain Wednesday answered wardenfall:0), then seeded a felled fall straight into the ledger and watched /api/me answer wardenfalls:1. 71 self-tests pin the feat&apos;s mode-gating, the mint-once adoption and the plaque contract.'
@@ -8421,8 +8424,8 @@ function runSelfTests() {
     applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 0 } });
     eq(META.daily.wardenfalls, 1, 'a non-rare day never lowers the count');
     eq(META.feats.wardenfall, first, 'the feat never re-mints');
-    applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1 } });
-    eq(META.daily.wardenfalls, 1, 'a same-day repeat cannot inflate the count');
+    applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1, wardenfalls: 3 } });
+    eq(META.daily.wardenfalls, 3, 'the deck\'s lifetime count reconciles a second fall instantly');
     /* whoami adoption path: NET.adoptLedger carries the lifetime count */
     META.daily = { streak: 1 }; delete META.feats.wardenfall;
     NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 3 });
@@ -8490,7 +8493,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.13.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.13.1', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
