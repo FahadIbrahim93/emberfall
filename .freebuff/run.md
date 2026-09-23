@@ -1,9 +1,12 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.13.1 — v4.13's honor made fully self-healing: the daily submit
-response now carries the deck's LIFETIME wardenfalls count beside the
-per-run flag, so two rare-Sunday falls reconcile same-day on every device.
-v4.13 itself: deck-verified Wardenfall
+(release v4.14.0 — the day of the fall: the rare-Sunday countdown reads 0
+on the rare day itself (tile: WARDENFALL IS UP; guide announces it; never
+points past a live fall), pinned in selftests + a parity display-contract
+across all 74 rare Sundays; NEW tools/drill-limiters.mjs boots its own
+scratch deck and proves every rate-limit bucket 429s at its budget with
+telemetry-backed probes (CI step). Prior: v4.13.1's self-healing lifetime
+count; v4.13 itself: deck-verified Wardenfall
 feat + lifetime wardenfalls count (server migration + POST carry + /api/me
 answer) + the WARDENFALL sigil-crest dock plaque in gold; adoption is
 monotonic on both paths and proven live on a scratch deck (honest Wed

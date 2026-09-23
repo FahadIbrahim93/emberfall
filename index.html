@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.13.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.14.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.13.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.14.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -3833,9 +3833,13 @@ const BOSS_TIPS = {
    when DAILY_MEDALS or DAILY_TEMPO changes, the text changes with it and
    the drift test in the suite fails if the prose stops being derivable. */
 function wardenfallCountdown(fromDay) {
-  /* walk forward until a rare Sunday; the gap is geometric (1-in-7 Sundays,
-     mean ≈ 7 weeks) so the horizon is 56 days — beyond it, null and the UI
-     stays silent rather than promising a date the seed does not hold */
+  /* v4.14: the rare day itself reads ZERO — the fall is up today, and the
+     tile and guide must announce it, never point past it at the next
+     window. Forward walk for future windows; the gap is geometric (1-in-7
+     Sundays, mean ≈ 7 weeks) so the horizon is 56 days — beyond it, null
+     and the UI stays silent rather than promising a date the seed does
+     not hold. */
+  if (wardenfallSunday(fromDay)) return 0;
   let d = fromDay;
   for (let i = 1; i <= 56; i++) { d = dayShift(d, 1); if (wardenfallSunday(d)) return i; }
   return null;
@@ -3859,7 +3863,8 @@ function dailyGuideText(dayKey) {
     'Sundays add the honor guard: ' + medalTierText(sunday) + '.',
     'One Sunday in seven wakes Wardenfall, the warden\'s corrupted kin — fell it and reach wave ' +
       rare.wave + ' for ' + rare.alloy + ' more.' +
-      (wardenfallCountdown(dayKey) ? ' Next window: ' + wardenfallCountdown(dayKey) + ' day' + (wardenfallCountdown(dayKey) > 1 ? 's' : '') + '.' : ''),
+      (wardenfallCountdown(dayKey) === 0 ? ' Wardenfall is up today — fell it and reach wave ' + rare.wave + ' for ' + rare.alloy + ' more.' :
+        wardenfallCountdown(dayKey) ? ' Next window: ' + wardenfallCountdown(dayKey) + ' day' + (wardenfallCountdown(dayKey) > 1 ? 's' : '') + '.' : ''),
     'Accepted runs on consecutive UTC days build your streak (7/14/30 earn laurels); fly a whole week with no gap for the FLAWLESS SEASON plaque. The deck pays each tier once a day — re-flights pay nothing.'
   ];
   return parts.join(' ');
@@ -6493,7 +6498,7 @@ function refreshTitleMeta() {
   const wfIn = wardenfallCountdown(todaySeedKey());
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name +
     ' · ' + tempo.label + (tempo.scoreMul > 1 ? ' · score ×' + tempo.scoreMul : '') +
-    (wfIn === 1 ? ' · WARDENFALL TOMORROW' : wfIn && wfIn <= 14 ? ' · Wardenfall in ' + wfIn + 'd' : '');
+    (wfIn === 0 ? ' · WARDENFALL IS UP' : wfIn === 1 ? ' · WARDENFALL TOMORROW' : wfIn && wfIn <= 14 ? ' · Wardenfall in ' + wfIn + 'd' : '');
   $('schoolSub').textContent = META.school ? 'Drills complete · replay anytime' : 'Three drills · +120 alloy once';
   const rb = loadBoard('rush')[0];
   $('rushSub').textContent = rb ? 'Best ' + fmt(rb.s) + ' · clear all four' : 'Four capitals, no warm-up';
@@ -6943,6 +6948,14 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.14.0',
+    items: [
+      '<b>The day of the fall announces itself</b> — on a rare Sunday the Daily tile now reads WARDENFALL IS UP and the guide says so plainly; the countdown used to point past the live boss at the next window. Zero means today.',
+      '<b>The deck proves its own reflexes</b> — a new drill boots a scratch deck and fires every rate-limit bucket until it answers 429 at its exact budget, with honest telemetry so nothing is refused for the wrong reason. The deck&apos;s self-defense is no longer taken on faith.',
+      '<b>Still one seed, one sky</b> — the rare-Sunday verdict, the countdown and the announcement are all derived from the same day key on both sides of the wire, cross-proven across 74 rare Sundays in 2,922 days.'
+    ]
+  },
   {
     v: '4.13.1',
     items: [
@@ -8346,6 +8359,20 @@ function runSelfTests() {
     /* the guide's horizon sentence exists exactly when the countdown does */
     eq(dailyGuideText('2026-09-23').includes('Next window: '), wardenfallCountdown('2026-09-23') !== null,
       'horizon sentence iff a window is within reach');
+    /* v4.14: on the rare day itself the display must point HERE, not past it —
+       find the next rare Sunday from a known seed, then re-render the guide
+       ON that day and demand the today-sentence, never a forward countdown */
+    { let d = '2026-09-23', hops = 0;
+      while (!wardenfallSunday(d) && hops < 60) { d = dayShift(d, 1); hops++; }
+      ok(wardenfallSunday(d), 'a rare Sunday was found within the walk (' + d + ')');
+      const on = wardenfallCountdown(d);
+      eq(on, 0, 'on the rare day the countdown reads zero');
+      const txtOn = dailyGuideText(d);
+      ok(txtOn.includes('Wardenfall is up today'), 'the guide announces the fall on the day itself');
+      ok(!txtOn.includes('Next window: '), 'the guide never points past a live fall');
+      const tomorrow = dailyGuideText(dayShift(d, 1));
+      eq(tomorrow.includes('Wardenfall is up today'), false, 'the day after, the announcement is gone');
+    }
   });
   T('daily gauntlet: rare Sundays — Wardenfall wakes by seed, the honor rides the kill', () => {
     /* determinism: the day key is the whole contract — same verdict for
@@ -8493,7 +8520,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.13.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.14.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -73,6 +73,9 @@ jobs:
       - name: Duels drill (full challenge loop, live deck)
         run: node tools/drill-duels.mjs
 
+      - name: Limiter drill (every bucket answers 429 at its budget, own scratch deck)
+        run: node tools/drill-limiters.mjs
+
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &

@@ -1,4 +1,4 @@
-# EMBERFALL v4.13.1 — Orbital Intercept
+# EMBERFALL v4.14.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,11 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.14 — "The day of the fall"
+
+- **The rare day announces itself** — the countdown read the rare Sunday itself as "the next window is Nd away": on the one day the call-to-action matters most, the UI pointed *past* the live boss. The countdown now reads **0** on the rare day, the Daily tile says **WARDENFALL IS UP**, and the guide says "Wardenfall is up today" — pinned by a selftest that walks the seed to the next rare day and re-renders on it, and by a new parity-gate display contract checked across all 74 rare Sundays in the 2,922-day sweep.
+- **The deck's self-defense, executable** — `tools/drill-limiters.mjs` boots its own scratch deck and proves every rate-limit bucket honestly answers 429 at its budget (register 10, login 15, score 20, challenge 12, beat 12) with telemetry-backed probes so nothing 429s for the wrong reason. Until now the limiters were proven only by accident — a smoke burst and a drill stumbling into a 429. A CI step on every push.
 
 ## What's new in v4.13 — "The fall, felled"
 
@@ -214,6 +219,7 @@ tools/selftest-probe.js  local harness: totals, failures, name list
 tools/selftest-baseline.js  regenerate the baseline from a live green run
 tools/econsim.js      meta-economy simulator, constants extracted from source
 tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a running deck (CI step)
+tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and proves every rate-limit bucket answers 429 at its budget (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)

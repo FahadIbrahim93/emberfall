@@ -50,7 +50,9 @@ const clientBody = `
   ${grab(clientSrc, /function wardenfallSunday\(/, 'client wardenfallSunday')}
   ${grab(clientSrc, /const DAILY_MEDALS = \[/, 'client DAILY_MEDALS')}
   ${grab(clientSrc, /function dailyMedal\(/, 'client dailyMedal')}
-  return { hashStr: hashStr, dayDow: dayDow, wardenfallSunday: wardenfallSunday, DAILY_MEDALS: DAILY_MEDALS, dailyMedal: dailyMedal };
+  ${grab(clientSrc, /function dayShift\(/, 'client dayShift')}
+  ${grab(clientSrc, /function wardenfallCountdown\(/, 'client wardenfallCountdown')}
+  return { hashStr: hashStr, dayDow: dayDow, wardenfallSunday: wardenfallSunday, DAILY_MEDALS: DAILY_MEDALS, dailyMedal: dailyMedal, dayShift: dayShift, wardenfallCountdown: wardenfallCountdown };
 `;
 const C = new Function(clientBody)();
 
@@ -88,6 +90,25 @@ for (let d = 0; d < DAYS; d++) {
 }
 console.log(`[parity-daily] rare verdict: ${DAYS} days agree, ${rareCount} rare of ${sundays} Sundays (${(rareCount / Math.max(sundays, 1) * 100).toFixed(1)}% — designed ~1/7 ≈ 14.3%)`);
 if (rareCount === 0 || rareCount / sundays < 0.05 || rareCount / sundays > 0.25) fail('rare-Sunday rate outside plausible band');
+
+/* 1b — the display contract for the rare day: the client's countdown must
+   read ZERO on a rare Sunday (the fall is UP — the UI announces, never
+   points past at the next window) and the next window after it must be
+   strictly future on both sides of the boundary day. */
+{
+  let zeroDays = 0;
+  for (let d = 0; d < DAYS; d++) {
+    const day = new Date(epoch + d * 86400000).toISOString().slice(0, 10);
+    if (!C.wardenfallSunday(day)) continue;
+    zeroDays++;
+    if (C.wardenfallCountdown(day) !== 0) fail(`countdown on rare day ${day} must be 0, got ${C.wardenfallCountdown(day)}`);
+    const next = C.wardenfallCountdown(C.dayShift(day, 1));
+    if (next !== null && next < 1) fail(`day after rare ${day}: countdown ${next} is not future`);
+  }
+  if (zeroDays === 0) fail('no rare Sundays found in the sweep — fixtures broken?');
+  const wf = C.wardenfallCountdown('2026-09-23');
+  console.log(`[parity-daily] display contract: ${zeroDays} rare days read 0 (the fall is announced, never pointed past); horizon from 2026-09-23: ${wf === null ? 'beyond 56d' : wf + 'd'}`);
+}
 
 /* 2 — medal grid: cross-check every table tier across the run shapes.
    The client derives rareBoss from the DAY (never self-reports); the deck
