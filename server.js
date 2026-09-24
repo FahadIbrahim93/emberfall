@@ -955,8 +955,10 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
   /* ── duels: same-day daily ghost, challenged pilot races it ── */
   const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
   function utcToday() {
-    const d = new Date();
-    return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+    /* v4.15.1: duels read the same day-clock as the gauntlet — the
+       rehearsal override pins duels too, so create, inbox and retention
+       stay coherent on a pinned deck (the drill caught the drift). */
+    return deckDayOf(now());
   }
 
   if (req.method === 'POST' && pathname === '/api/challenges') {
@@ -1074,6 +1076,29 @@ const server = http.createServer(async (req, res) => {
 
 process.on('uncaughtException', err => console.error('[cmd-deck] uncaught:', err.message));
 process.on('unhandledRejection', err => console.error('[cmd-deck] unhandled:', err));
+
+/* ── duel ghost retention (v4.15.1) ─────────────────────────────────
+   A duel is only flyable on its own day — "today's run only" is the
+   create-time rule — so a challenge older than the retention window is
+   dead weight: its ghost can never be beaten again. The sweep deletes
+   challenges (and, by cascade, their beats) whose day fell out of the
+   window. The cutoff derives from deckDayOf, so a rehearsal deck prunes
+   on its pinned day too. Bounded batches: node:sqlite is synchronous
+   and a backlog must never stall the event loop. EF_DUEL_RETENTION_DAYS
+   tunes the window (default 7, floors at 1 — today always survives). */
+const RETENTION_DAYS = Math.max(1, Math.floor(Number(process.env.EF_DUEL_RETENTION_DAYS) || 7));
+function retentionCutoff() {
+  return new Date(Date.parse(deckDayOf(now()) + 'T00:00:00.000Z') - RETENTION_DAYS * 86400000)
+    .toISOString().slice(0, 10);
+}
+function pruneDuels() {
+  try {
+    const info = db.prepare('DELETE FROM challenges WHERE id IN (SELECT id FROM challenges WHERE day < ? LIMIT 500)').run(retentionCutoff());
+    if (info.changes > 0) console.log(`[cmd-deck] ghost retention: pruned ${info.changes} stale duels (window ${RETENTION_DAYS}d)`);
+  } catch (e) { console.error('[cmd-deck] ghost retention failed:', e.message); }
+}
+setInterval(pruneDuels, 6 * 3600000).unref();
+pruneDuels();   /* boot-time sweep: a restarted deck sheds its dead ghosts immediately */
 
 server.listen(PORT, () => {
   console.log(`[cmd-deck] EMBERFALL backend on http://localhost:${PORT}  (db: ${DB_PATH})`);

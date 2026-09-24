@@ -1,4 +1,4 @@
-# EMBERFALL v4.15.0 — Orbital Intercept
+# EMBERFALL v4.15.1 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,12 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.15.1 — "Dead ghosts never pile up"
+
+- **Duel ghost retention** — a duel is only flyable on its own day ("today's run only" is the create-time rule), so the deck now prunes challenges older than the retention window (7 days default, `EF_DUEL_RETENTION_DAYS`-tunable, floored at 1) at boot and every six hours — ghost payloads and their beats (by cascade) go with them. The cutoff derives from the same day-clock as the gauntlet, so a rehearsal deck prunes on its pinned day too.
+- **One day-clock for duels** — the retention drill caught duels reading a third, private day derivation (`utcToday()` with `new Date()`) that ignored the rehearsal clock entirely; create, inbox and retention now read the same `deckDayOf` clock. On a pinned deck, a duel for the pinned day is accepted *and served* — proven in the drill, and the SQL-binding scanner still finds every day binding string-proven.
+- **`tools/drill-retention.mjs`** (CI step) — four sequential deck boots on one data dir: the 10-day-old duel pruned at boot, the 2-day-old kept, the pinned cutoff followed (09-27 prunes 09-18), the strictly-`<` boundary honored (09-25 keeps 09-18), the env window honored (14d keeps both), and the pinned-day duel coherent end to end.
 
 ## What's new in v4.15 — "The rehearsal clock"
 
@@ -227,6 +233,7 @@ tools/econsim.js      meta-economy simulator, constants extracted from source
 tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a running deck (CI step)
 tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and proves every rate-limit bucket answers 429 at its budget (CI step)
 tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
+tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)

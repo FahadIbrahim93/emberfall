@@ -79,6 +79,9 @@ jobs:
       - name: Rare-Sunday drill (the Wardenfall honor loop, rehearsed on the pinned day)
         run: node tools/drill-rare-sunday.mjs
 
+      - name: Ghost-retention drill (stale duels pruned, boundary + env window proven)
+        run: node tools/drill-retention.mjs
+
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &

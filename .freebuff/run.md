@@ -1,6 +1,13 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.15.0 — the rehearsal clock: EF_DECK_DAY pins the deck's DAY
+(release v4.15.1 — dead ghosts never pile up: challenges older than the
+retention window (7d default, EF_DUEL_RETENTION_DAYS-tunable) are pruned
+at boot + every 6h with the cutoff on deckDayOf; the retention drill
+caught duels reading a third private day derivation (utcToday/new Date)
+that ignored the rehearsal clock — unified on deckDayOf, so pinned decks
+fly duels on the pinned day; tools/drill-retention.mjs proves four boot
+cycles incl. strictly-< boundary + env window (CI step, 10 checks).
+Prior: v4.15.0 — the rehearsal clock: EF_DECK_DAY pins the deck's DAY
 (narrow: sessions/limiters/replay/seasons stay real; boot log announces
 it) so the Wardenfall honor loop is rehearsed before the real rare
 Sunday — NEW tools/drill-rare-sunday.mjs boots a pinned scratch deck,
@@ -25,9 +32,9 @@ monotonic on both paths and proven live on a scratch deck (honest Wed
 daily → wardenfall:0, seeded fall → wardenfalls:1). Rare Sunday lands
 2026-09-27. Ops note: live-fire drills boot
 a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
-(8127/8131/8133/8137/8139/8141/8143/8151/8155/8157 used so far; drills
-that boot their own deck use a temp dir), are torn down after, and never
-touch the preview deck's data dir),
+(8127/8131/8133/8137/8139/8141/8143/8151/8155/8157/8159/8161 used so
+far; drills that boot their own deck use a temp dir), are torn down
+after, and never touch the preview deck's data dir),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 
