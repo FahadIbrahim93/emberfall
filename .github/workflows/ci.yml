@@ -82,6 +82,9 @@ jobs:
       - name: Ghost-retention drill (stale duels pruned, boundary + env window proven)
         run: node tools/drill-retention.mjs
 
+      - name: Session drill (login survives SIGKILL, expired rows swept, logout honored)
+        run: node tools/drill-sessions.mjs
+
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &

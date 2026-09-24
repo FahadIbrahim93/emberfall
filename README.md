@@ -1,4 +1,4 @@
-# EMBERFALL v4.15.1 — Orbital Intercept
+# EMBERFALL v4.15.2 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,11 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.15.2 — "The deck remembers"
+
+- **Sign-ins already survived restarts — now it's proven** — sessions are SQLite-backed (SHA-256 token hash, HttpOnly cookie), and `tools/drill-sessions.mjs` (CI step) proves the contract the hard way: SIGKILL the deck, reboot on the same ledger, and the same cookie still authenticates with the pilot's data intact. The actual gap was the opposite of lost logins: expired session rows were only removed lazily (when that exact dead token was presented again), so rows accumulated forever.
+- **Session hygiene** — expired rows are now swept at boot and daily; live sessions are untouched (only `expires < now` is deleted), and explicit logout still ends the session immediately. All three behaviors pinned by the drill (13 checks).
 
 ## What's new in v4.15.1 — "Dead ghosts never pile up"
 
@@ -234,6 +239,7 @@ tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a 
 tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and proves every rate-limit bucket answers 429 at its budget (CI step)
 tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
 tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
+tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)

@@ -1100,6 +1100,23 @@ function pruneDuels() {
 setInterval(pruneDuels, 6 * 3600000).unref();
 pruneDuels();   /* boot-time sweep: a restarted deck sheds its dead ghosts immediately */
 
+/* ── session housekeeping (v4.15.2) ──────────────────────────────────
+   Sessions already live in SQLite — logins survive crashes and restarts
+   by construction (proven live: a taskkill //F + reboot kept a pilot's
+   cookie valid; the WAL takes the writes with it). What was missing is
+   the other half of hygiene: expired rows were only deleted LAZILY, when
+   that exact dead token was presented again — a pilot who never returns
+   leaves their row forever. The sweep deletes expired sessions at boot
+   and once a day; live sessions are untouched (only expires < now). */
+function pruneSessions() {
+  try {
+    const info = db.prepare('DELETE FROM sessions WHERE expires < ?').run(now());
+    if (info.changes > 0) console.log(`[cmd-deck] session hygiene: pruned ${info.changes} expired session(s)`);
+  } catch (e) { console.error('[cmd-deck] session hygiene failed:', e.message); }
+}
+setInterval(pruneSessions, 86400000).unref();
+pruneSessions();   /* boot-time sweep: a restarted deck sheds its dead sessions immediately */
+
 server.listen(PORT, () => {
   console.log(`[cmd-deck] EMBERFALL backend on http://localhost:${PORT}  (db: ${DB_PATH})`);
   if (DECK_DAY_OVERRIDE) console.log(`[cmd-deck] REHEARSAL CLOCK: EF_DECK_DAY=${DECK_DAY_OVERRIDE} — days are pinned; sessions, limiters and seasons are NOT`);

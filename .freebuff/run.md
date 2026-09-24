@@ -1,6 +1,12 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.15.1 — dead ghosts never pile up: challenges older than the
+(release v4.15.2 — the deck remembers: sessions were ALREADY SQLite-backed
+(SHA-256 hash, HttpOnly) — the drill proves login survives SIGKILL + reboot
+with data intact, correcting my earlier wrong claim that restarts logged
+pilots out; the real gap was hygiene: expired session rows only died
+lazily, so pruneSessions() sweeps them at boot + daily (live rows
+untouched, logout immediate). tools/drill-sessions.mjs (CI, 13 checks).
+Prior: v4.15.1 — dead ghosts never pile up: challenges older than the
 retention window (7d default, EF_DUEL_RETENTION_DAYS-tunable) are pruned
 at boot + every 6h with the cutoff on deckDayOf; the retention drill
 caught duels reading a third private day derivation (utcToday/new Date)
@@ -32,7 +38,8 @@ monotonic on both paths and proven live on a scratch deck (honest Wed
 daily → wardenfall:0, seeded fall → wardenfalls:1). Rare Sunday lands
 2026-09-27. Ops note: live-fire drills boot
 a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
-(8127/8131/8133/8137/8139/8141/8143/8151/8155/8157/8159/8161 used so
+(8127/8131/8133/8137/8139/8141/8143/8151/8155/8157/8159/8161/8163/8165
+used so
 far; drills that boot their own deck use a temp dir), are torn down
 after, and never touch the preview deck's data dir),
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
