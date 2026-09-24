@@ -142,6 +142,8 @@ SPOOF="$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/register" -H 
 if [ "$SPOOF" = "400" ]; then ok "XFF ignored without TRUST_PROXY (validation still applied)"; else no "XFF handling wrong: $SPOOF"; fi
 # 20 concurrent logins on one account: every request must answer within the
 # smoke timeout — the point is that scrypt no longer serializes the event loop.
+# (This burst shares the per-IP login window with everything after it: the
+# duels drill drain-waits one window rather than racing this.)
 LOAD_T0=$(date +%s)
 for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
   curl -s -o /dev/null -X POST "$BASE/api/login" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"wrong$RANDOM\"}" &

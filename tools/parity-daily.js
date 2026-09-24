@@ -77,7 +77,7 @@ const S = new Function('db', sandboxBody)(dbStub);
 let fails = 0;
 const fail = (msg) => { console.error('[parity-daily] FAIL ' + msg); fails++; };
 
-/* 1 — rare-Sunday verdict across 7,671 days (2020-01-01 → 2027-12-31) */
+/* 1 — rare-Sunday verdict across 2,922 days (2020-01-01 → 2027-12-31) */
 const epoch = Date.parse('2020-01-01T00:00:00.000Z');
 const DAYS = 2922;
 let rareCount = 0, sundays = 0;

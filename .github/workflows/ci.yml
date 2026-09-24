@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 22   # floor: node:sqlite + DatabaseSync need >=22; drill-limiters spawns 'server.js' via process.execPath
 
       - name: Install dependencies
         run: npm ci
