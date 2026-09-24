@@ -245,6 +245,7 @@ tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and pro
 tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
 tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
 tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
+tools/release.mjs      release choreography: audit/stamp every version site, gated selftest-baseline regen, annotated tag (refuses dirty trees and drifted stamps)
 tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad values die loudly, the default is proven free AND busy (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)

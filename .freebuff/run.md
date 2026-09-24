@@ -48,6 +48,9 @@ a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
 used so
 far; drills that boot their own deck use a temp dir), are torn down
 after, and never touch the preview deck's data dir).
+Release choreography (since 2026-09-25): node tools/release.mjs —
+audit | stamp <ver> "<codename>" "<note>" | baseline | tag "<msg>";
+the audit refuses drifted stamps, the tag refuses dirty trees.
 Ops gotcha (proven 2026-09-25, FIXED in v4.15.3): some shells carry an
 ambient PORT env (ours had PORT=0) and the old chain let env PORT win
 over --port. The flag now always wins; invalid values exit loudly.
