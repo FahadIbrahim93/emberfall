@@ -7,3 +7,4 @@ dist/
 .freebuff/*.log
 .freebuff/*.log.err
 *.tsbuildinfo
+.freebuff/scratch/
