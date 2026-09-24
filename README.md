@@ -1,4 +1,4 @@
-# EMBERFALL v4.14.1 — Orbital Intercept
+# EMBERFALL v4.15.0 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,11 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.15 — "The rehearsal clock"
+
+- **Rehearse the rare Sunday before it arrives** — `EF_DECK_DAY=YYYY-MM-DD` pins the deck's *day* (and nothing else) for live-fire drills: the daily gauntlet day, the medal window and the Wardenfall verdict become rehearsal-able on any calendar day. Deliberately narrow: sessions, rate limits, replay windows and board seasons stay on the honest wall clock, and the boot log announces a pinned deck loudly.
+- **The honor loop, proven on the day itself** — `tools/drill-rare-sunday.mjs` (CI step) boots a pinned scratch deck on the deck's next real rare Sunday (2026-09-27) and flies the whole loop: an honest wave-16 run earns the Wardenfall medal with `wardenfall: 1` and the pinned day in the ledger, `/api/me` answers the lifetime count, a same-day repeat cannot inflate it, a wave-15 pilot on the same day is refused — and `/api/health`'s epoch proves the override never moved real time.
 
 ## What's new in v4.14 — "The day of the fall"
 
@@ -221,6 +226,7 @@ tools/selftest-baseline.js  regenerate the baseline from a live green run
 tools/econsim.js      meta-economy simulator, constants extracted from source
 tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a running deck (CI step)
 tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and proves every rate-limit bucket answers 429 at its budget (CI step)
+tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)

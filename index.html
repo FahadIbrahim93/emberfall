@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.14.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.15.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.14.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.15.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6949,6 +6949,14 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.15.0',
+    items: [
+      '<b>The fall, rehearsed</b> — the deck can pin its DAY for drills (a deliberate, narrow override): the whole Wardenfall honor loop — rare Sunday, honest run, wave 16, medal, lifetime count — was flown and proven on the calendar before the real rare Sunday arrives. Sessions, limiters and seasons stay on the honest clock.',
+      '<b>Proven on the day itself</b> — the new drill flies an honest wave-16 run on the pinned rare Sunday and watches the medal pay; a wave-15 pilot on the same day is refused, a same-day repeat cannot inflate the count, and the health clock does not move. Every push, in CI.',
+      '<b>Still the deck&apos;s word</b> — the day in the ledger is the day the deck says it is, rehearsal or not: the SQL-binding scanner knows the new day producer, and the parity gate still cross-extracts both sides.'
+    ]
+  },
+  {
     v: '4.14.1',
     items: [
       '<b>Mid-history devices wear the honor</b> — a two-device browser rehearsal caught it: a fresh sign-in adopted the fall count but left the feat locked until the pilot&apos;s next rare-Sunday run. The honor now mints at every adoption point — the ledger is the judge, on every device.',
@@ -8528,7 +8536,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.14.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.15.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

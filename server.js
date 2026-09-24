@@ -333,6 +333,25 @@ function weekStart(ts) {
   d.setUTCDate(d.getUTCDate() - day);
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
+/* ── the rehearsal clock (v4.15) ─────────────────────────────────────
+   EF_DECK_DAY="YYYY-MM-DD" pins the deck's DAY (and nothing else) for
+   live-fire drills: the daily gauntlet day, the medal window and the
+   Wardenfall rare-Sunday verdict can be rehearsed on any calendar day,
+   before the real one arrives. Deliberately narrow: sessions, rate
+   limits, replay windows and board seasons stay on the honest wall
+   clock, so an override can never widen a trust boundary or resurrect
+   a paid day outside a drill. Unset (the default) = the real clock,
+   and the boot log says so loudly either way. */
+const DECK_DAY_OVERRIDE = (() => {
+  const v = process.env.EF_DECK_DAY;
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+})();
+const deckDayOf = ts => {
+  if (DECK_DAY_OVERRIDE) return DECK_DAY_OVERRIDE;
+  const d = new Date(ts);
+  return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+};
+
 /* ISO Monday-UTC for created_day windows. The window MUST be bound as a
    day string: binding the epoch-ms number instead silently matches every
    TEXT day (SQLite sorts INTEGER < TEXT) and counts the pilot's lifetime
@@ -703,8 +722,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
   if (req.method === 'GET' && pathname === '/api/me') {
     const user = sessionUser(req);
     if (!user) return send(res, 200, { ok: true, user: null });
-    const d = new Date(now());
-    const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+    const today = deckDayOf(now());
     const ds = db.prepare('SELECT streak, paid, best_score, best_wave FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
     const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
     /* v4.10 weekly recap: flew days in the running Monday-UTC week */
@@ -824,9 +842,9 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     let daily = null;
     if (mode === 'daily' && v.verdict === 'accepted') {
       /* the day is decided by the deck's UTC clock, not the client's — same
-         clock the boards use, so a board row and its medal never disagree */
-      const d = new Date(now());
-      const today = d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+         clock the boards use, so a board row and its medal never disagree
+         (EF_DECK_DAY rehearses the day for drills; see deckDayOf) */
+      const today = deckDayOf(now());
       const dow = (Date.parse(today + 'T00:00:00.000Z') / 86400000 + 3) % 7;   /* Monday = 0 */
       const earned = medalsEarned(score, wave, dow, today);
       const row = db.prepare('SELECT paid, wardenfall FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
@@ -1059,4 +1077,5 @@ process.on('unhandledRejection', err => console.error('[cmd-deck] unhandled:', e
 
 server.listen(PORT, () => {
   console.log(`[cmd-deck] EMBERFALL backend on http://localhost:${PORT}  (db: ${DB_PATH})`);
+  if (DECK_DAY_OVERRIDE) console.log(`[cmd-deck] REHEARSAL CLOCK: EF_DECK_DAY=${DECK_DAY_OVERRIDE} — days are pinned; sessions, limiters and seasons are NOT`);
 });

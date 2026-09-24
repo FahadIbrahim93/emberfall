@@ -68,7 +68,7 @@ for (let i = 0; i < lines.length; i++) {
   const argMatch = sqlLines.length > 1
     ? jsCtx.slice(jsCtx.indexOf(sql.trim()))
     : '';
-  const producerRe = /utcToday\(\)|todayKey|weekStartDay|dayKey\b|isoDay|toDayKey|Day\(now\(\)\)|d\.getUTCFullYear\(\)[^\n]*pad2|substr\(|strftime\(|\.all\(day[,)]|\.all\(today[,)]/;
+  const producerRe = /utcToday\(\)|todayKey|weekStartDay|dayKey\b|isoDay|toDayKey|deckDayOf|Day\(now\(\)\)|d\.getUTCFullYear\(\)[^\n]*pad2|substr\(|strftime\(|\.all\(day[,)]|\.all\(today[,)]/;
   for (const sqlLine of sqlLines) {
     const cmpRe = new RegExp('\\b(' + [...TEXT_DAY_COLS].join('|') + ')\\s*(>=|<=|>|<|=)\\s*\\?', 'g');
     let cm;
