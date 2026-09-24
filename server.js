@@ -8,8 +8,12 @@
    when the API is absent the client simply stays in local mode.
 
      node server.js            → http://localhost:8123
+     node server.js --port 9000 → the flag wins, even if PORT is also set
      PORT=9000 node server.js  → any port
-     node server.js --port 9000
+   Port resolution: --port flag > PORT env > 8123 default. A value that is
+   not an integer 1-65535 exits with an error instead of silently falling
+   back (an ambient PORT must never hijack an explicitly pinned boot), and
+   an occupied port dies loudly instead of stack-tracing.
 
    Security posture (the boring, correct kind):
    - passwords: scrypt (N=16384) with per-user random salt, constant-time compare
@@ -31,7 +35,22 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { DatabaseSync } = require('node:sqlite');
 
-const PORT = Number(process.env.PORT || (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : 0)) || 8123;
+/* port resolution: --port flag > PORT env > 8123 default. A flag is the
+   operator's explicit answer and outranks an ambient env var — some shells
+   export PORT (this worktree's had PORT=0), and the old chain let env beat
+   the flag, silently landing a pinned boot on 8123. Anything that does not
+   parse to an integer 1-65535 exits loudly: a silent fallback hides the
+   one misconfiguration that decides where the whole deck lives. */
+const flagPort = (() => {
+  const i = process.argv.indexOf('--port');
+  return i === -1 ? null : process.argv[i + 1];
+})();
+const rawPort = flagPort !== null ? flagPort : (process.env.PORT || undefined);
+const PORT = rawPort === undefined ? 8123 : Number(rawPort);
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`[cmd-deck] bad port: ${flagPort !== null ? '--port ' + flagPort : 'PORT=' + rawPort} — pass an integer 1-65535`);
+  process.exit(1);
+}
 const ROOT = __dirname;
 /* server-side state lives OUTSIDE the served root by default. The DB holds
    scrypt password hashes and session-token hashes; serving it would hand the
@@ -1117,6 +1136,11 @@ function pruneSessions() {
 setInterval(pruneSessions, 86400000).unref();
 pruneSessions();   /* boot-time sweep: a restarted deck sheds its dead sessions immediately */
 
+server.on('error', e => {
+  console.error('[cmd-deck] cannot listen on port ' + PORT + ': ' + (e.code || e.message) +
+    (e.code === 'EADDRINUSE' ? ' — is another deck already running there?' : ''));
+  process.exit(1);
+});
 server.listen(PORT, () => {
   console.log(`[cmd-deck] EMBERFALL backend on http://localhost:${PORT}  (db: ${DB_PATH})`);
   if (DECK_DAY_OVERRIDE) console.log(`[cmd-deck] REHEARSAL CLOCK: EF_DECK_DAY=${DECK_DAY_OVERRIDE} — days are pinned; sessions, limiters and seasons are NOT`);

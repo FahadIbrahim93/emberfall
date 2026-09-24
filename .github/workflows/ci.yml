@@ -113,6 +113,12 @@ jobs:
         if: failure()
         run: tail -40 server.log
 
+      # after the deck is stopped so the drill's default-port probe finds a
+      # free 8123 (it must boot and answer there; the busy world is proven
+      # locally against the preview deck — there it must die on EADDRINUSE)
+      - name: Port-resolution drill (flag beats poisoned env PORT, bad values die loudly)
+        run: node tools/drill-port.mjs
+
   deploy:
     name: publish to GitHub Pages
     needs: verify

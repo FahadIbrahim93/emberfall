@@ -1,6 +1,12 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.15.2 — the deck remembers: sessions were ALREADY SQLite-backed
+(release v4.15.3 — pinned boots stay pinned: server.js resolves --port >
+PORT env > 8123, an invalid value exits loudly instead of silently
+defaulting, an occupied port dies with one honest line, and
+tools/drill-port.mjs (CI, 7 checks) pins the contract incl. the
+flag-beats-poisoned-env case that started it. The run-doc gotcha below is
+now the FIX, not a workaround.
+Prior: v4.15.2 — the deck remembers: sessions were ALREADY SQLite-backed
 (SHA-256 hash, HttpOnly) — the drill proves login survives SIGKILL + reboot
 with data intact, correcting my earlier wrong claim that restarts logged
 pilots out; the real gap was hygiene: expired session rows only died
@@ -38,10 +44,15 @@ monotonic on both paths and proven live on a scratch deck (honest Wed
 daily → wardenfall:0, seeded fall → wardenfalls:1). Rare Sunday lands
 2026-09-27. Ops note: live-fire drills boot
 a scratch deck with EF_DATA_DIR pointed at scratch data on a spare port
-(8127/8131/8133/8137/8139/8141/8143/8151/8155/8157/8159/8161/8163/8165
+(8127/8131/8133/8137/8139/8141/8143/8145/8151/8155/8157/8159/8161/8163/8165
 used so
 far; drills that boot their own deck use a temp dir), are torn down
-after, and never touch the preview deck's data dir),
+after, and never touch the preview deck's data dir).
+Ops gotcha (proven 2026-09-25, FIXED in v4.15.3): some shells carry an
+ambient PORT env (ours had PORT=0) and the old chain let env PORT win
+over --port. The flag now always wins; invalid values exit loudly.
+Detached boots may pin via flag or env:
+powershell -NoProfile -Command "$env:PORT='8145'; (Start-Process -FilePath 'node.exe' -ArgumentList 'server.js','--port','8145' -WorkingDirectory 'G:/emberfall' -WindowStyle Hidden -PassThru).Id"
 stubguard release gate, locked T-DET goldens + type-specific foe AI in the
 sim; published live via CI at https://fahadibrahim93.github.io/emberfall/)
 

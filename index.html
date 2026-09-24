@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.15.2</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.15.3</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -959,7 +959,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.15.2 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.15.3 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6949,6 +6949,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.15.3',
+    items: [
+      '<b>Pinned boots stay pinned</b> — the deck now resolves its port with the operator&apos;s intent first: an explicit <b>--port</b> flag beats an ambient <b>PORT</b> variable (a stray shell export once silently hijacked a pinned boot onto 8123), a bad value exits with a loud error instead of quietly defaulting, and an occupied port fails with one honest line instead of a stack trace. <b>tools/drill-port.mjs</b> (CI step, 7 checks) pins the whole contract: flag beats poisoned env, env honored without a flag, the 8123 default (free it boots, busy it dies honestly), garbage exits 1, and the boot log announces the port it actually took.'
+    ]
+  },
+  {
     v: '4.15.2',
     items: [
       '<b>Your sign-in already outlives the deck</b> — sessions live in the deck&apos;s ledger, and a drill now proves it the hard way: the deck is killed without warning, rebooted, and the same cookie still knows your name and your alloy. What changed is hygiene: expired session rows are swept at boot and daily instead of lingering forever.'
@@ -8548,7 +8554,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.15.2', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.15.3', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

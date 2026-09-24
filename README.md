@@ -1,4 +1,4 @@
-# EMBERFALL v4.15.2 — Orbital Intercept
+# EMBERFALL v4.15.3 — Orbital Intercept
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
@@ -93,6 +93,11 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 **The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
+
+## What's new in v4.15.3 — "Pinned boots stay pinned"
+
+- **Port resolution with intent** — an explicit `--port` flag now outranks an ambient `PORT` variable (previously `Number(env.PORT || flag) || 8123` let a stray shell export — this worktree's had `PORT=0` — silently hijack a pinned boot onto the default port). Values that don't parse to an integer 1–65535 exit with a loud error instead of silently falling back, and an occupied port fails with one honest line instead of a stack trace.
+- **`tools/drill-port.mjs`** (CI step) — seven checks pin the whole contract: the flag beats a poisoned ambient `PORT`, `PORT` is honored without a flag, the 8123 default (proven two-world: on a free port it boots and answers, on a busy one the child must die on `EADDRINUSE` — never squat elsewhere), `PORT=0` without a flag exits loudly (the old chain silently defaulted), garbage flag/env values exit 1, and the boot log announces the port it actually took.
 
 ## What's new in v4.15.2 — "The deck remembers"
 
@@ -240,6 +245,7 @@ tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and pro
 tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
 tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
 tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
+tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad values die loudly, the default is proven free AND busy (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
