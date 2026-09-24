@@ -133,9 +133,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS profile_snaps (
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  taken   INTEGER NOT NULL,
-  data    TEXT NOT NULL
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  taken    INTEGER NOT NULL,
+  data     TEXT NOT NULL,
+  data_len INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_snaps_user ON profile_snaps(user_id, taken DESC);
 CREATE TABLE IF NOT EXISTS daily_stats (
@@ -146,6 +148,14 @@ CREATE TABLE IF NOT EXISTS daily_stats (
   paid       INTEGER NOT NULL DEFAULT 0,
   streak     INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, day)
+);
+/* v4.16: retired callsigns. A user-initiated deletion cascades every owned
+   row but keeps the NAME out of circulation — scoreboard history that
+   displays a callsign cannot be rewritten by re-registering it. */
+CREATE TABLE IF NOT EXISTS deleted_accounts (
+  name_lower TEXT PRIMARY KEY,
+  deleted_at INTEGER NOT NULL,
+  reason     TEXT NOT NULL
 );
 `);
 /* v4.10 migration: daily_stats needs a comparable day column for week windows.
@@ -200,6 +210,32 @@ CREATE TABLE IF NOT EXISTS beats (
 `);
 addCol('beats', 'score', 'INTEGER');
 addCol('beats', 'run_hash', 'TEXT');
+/* v4.16 snapshot-vault repair: tables predating the rebuild keep NO id and
+   NO data_len — the prune (id NOT IN ...) threw on every write and was
+   swallowed, so vaults grew unboundedly and the throttle never engaged.
+   Rebuild idempotently, carrying rows across. */
+(function repairSnapsTable() {
+  const cols = db.prepare('PRAGMA table_info(profile_snaps)').all().map(c => c.name);
+  if (cols.includes('id') && cols.includes('data_len')) return;
+  db.exec(`ALTER TABLE profile_snaps RENAME TO profile_snaps_old;
+    CREATE TABLE profile_snaps (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      taken    INTEGER NOT NULL,
+      data     TEXT NOT NULL,
+      data_len INTEGER
+    );
+    INSERT INTO profile_snaps (user_id, taken, data, data_len)
+      SELECT user_id, taken, data, LENGTH(data) FROM profile_snaps_old;
+    DROP TABLE profile_snaps_old;`);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_snaps_user ON profile_snaps(user_id, taken DESC)');
+  db.exec(`DELETE FROM profile_snaps WHERE id NOT IN (
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY taken DESC) AS rn
+      FROM profile_snaps
+    ) WHERE rn <= 6)`);
+  console.log('[cmd-deck] rebuilt profile_snaps (pre-v4.16 shape had no id/data_len — vaults could not prune)');
+})();
 /* challenges must EXIST before it can be altered — this line lives below
    the CREATE TABLE for exactly that reason (a fresh CI database has no
    table to alter if the migration runs first) */
@@ -652,12 +688,16 @@ function publicProfile(userId) {
 const SNAP_MAX = 6;
 function maybeSnapshot(userId) {
   try {
-    const last = db.prepare('SELECT taken FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC LIMIT 1').get(userId);
+    const last = db.prepare('SELECT taken, data_len FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC LIMIT 1').get(userId);
     const cur = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(userId);
     if (!cur) return;
+    /* throttle: real copies land on real distance — an hour apart OR ≥512 bytes
+       of changed content (data_len is stored at write time; length() on the
+       TEXT is the byte count, so comparisons stay apples-to-apples) */
     if (last && Date.now() - last.taken < 3600000 &&
-        last.dataLen != null && Math.abs(cur.data.length - last.dataLen) < 512) return;
-    db.prepare('INSERT INTO profile_snaps (user_id, taken, data) VALUES (?, ?, ?)').run(userId, Date.now(), cur.data);
+        last.data_len != null && Math.abs(cur.data.length - last.data_len) < 512) return;
+    db.prepare('INSERT INTO profile_snaps (user_id, taken, data, data_len) VALUES (?, ?, ?, ?)')
+      .run(userId, Date.now(), cur.data, cur.data.length);
     db.prepare(`DELETE FROM profile_snaps WHERE user_id = ? AND id NOT IN (
       SELECT id FROM profile_snaps WHERE user_id = ? ORDER BY taken DESC LIMIT ${SNAP_MAX})`).run(userId, userId);
   } catch (e) { /* a failed snapshot must never fail the profile write */ }
@@ -705,6 +745,9 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (password.length < 6 || password.length > 128) return bad(res, 'password: 6-128 characters');
     if (db.prepare('SELECT id FROM users WHERE name_lower = ?').get(name.toLowerCase())) {
       return bad(res, 'callsign already registered', 409);
+    }
+    if (db.prepare('SELECT name_lower FROM deleted_accounts WHERE name_lower = ?').get(name.toLowerCase())) {
+      return bad(res, 'this callsign is retired', 409);
     }
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = await hashPassword(password, salt);
@@ -811,6 +854,73 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const data = readSnap(user.id, snapRead);
     if (!data) return bad(res, 'no such snapshot', 404);
     return send(res, 200, { ok: true, taken: snapRead, data });
+  }
+
+  /* v4.16 — account self-management. Three powers every account system
+     needs and this deck lacked: change your credentials, list the machines
+     that hold your session, and walk away entirely. Deletion is a real
+     transaction: sessions, profile, vault snapshots, scores, challenges,
+     beats and the daily ledger all carry REFERENCES users(id) ON DELETE
+     CASCADE, so one DELETE evicts the pilot from every rank and board the
+     moment it commits. The callsign itself (users.name, users.name_lower)
+     is preserved in a tombstone row — scoreboard history that displays a
+     name cannot be rewritten by the deletion, and the name can never be
+     re-registered. Passwords are re-scrypted with a fresh salt; sessions
+     are SHA-256-hashed at rest like every other token. */
+  if (req.method === 'POST' && pathname === '/api/account/password') {
+    if (!user) return bad(res, 'sign in first', 401);
+    if (!rateLimit(ip, 'account:' + user.id, 6, 60000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res); if (!body) return;
+    const current = String(body.current || '');
+    const next = String(body.next || '');
+    if (next.length < 6 || next.length > 128) return bad(res, 'password: 6-128 characters');
+    const row = db.prepare('SELECT salt, hash FROM users WHERE id = ?').get(user.id);
+    if (!row || !(await verifyPassword(current, row.salt, row.hash))) {
+      return bad(res, 'wrong password', 401);
+    }
+    const salt = crypto.randomBytes(16).toString('hex');
+    db.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').run(salt, await hashPassword(next, salt), user.id);
+    return send(res, 200, { ok: true });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/account/sessions') {
+    if (!user) return bad(res, 'sign in first', 401);
+    const rows = db.prepare('SELECT created, expires FROM sessions WHERE user_id = ? ORDER BY created DESC').all(user.id);
+    /* identify the caller's own row by matching the presented cookie's hash
+       server-side — token hashes never leave the deck */
+    const token = readCookie(req, COOKIE);
+    const currentHash = token ? crypto.createHash('sha256').update(token).digest('hex') : '';
+    const curRow = db.prepare('SELECT created FROM sessions WHERE user_id = ? AND token_hash = ?').get(user.id, currentHash);
+    return send(res, 200, { ok: true, current: curRow ? curRow.created : null, sessions: rows });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/account/delete') {
+    if (!user) return bad(res, 'sign in first', 401);
+    if (!rateLimit(ip, 'account:' + user.id, 6, 60000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res); if (!body) return;
+    const password = String(body.password || '');
+    const row = db.prepare('SELECT name_lower, salt, hash FROM users WHERE id = ?').get(user.id);
+    if (!row || !(await verifyPassword(password, row.salt, row.hash))) {
+      return bad(res, 'wrong password', 401);
+    }
+    /* node:sqlite has no wrapper API — an explicit IMMEDIATE transaction:
+       either the pilot and their tombstone land together, or nothing moves.
+       ON DELETE CASCADE carries sessions, profile, snaps, scores,
+       challenges, beats and daily_stats with the one DELETE. */
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+      db.prepare('INSERT INTO deleted_accounts (name_lower, deleted_at, reason) VALUES (?, ?, ?)')
+        .run(row.name_lower, now(), 'user-initiated');
+      db.exec('COMMIT');
+    } catch (e) {
+      try { db.exec('ROLLBACK'); } catch (_) { /* already rolled back */ }
+      throw e;
+    }
+    clearSession(req, res);
+    return send(res, 200, { ok: true, deleted: true });
   }
 
   if (req.method === 'POST' && pathname === '/api/scores') {

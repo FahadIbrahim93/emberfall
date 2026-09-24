@@ -112,3 +112,28 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   invariant math) a suite test client-side.
 - New economy constant → keep `tools/econsim.js` extraction patterns in sync —
   they fail loudly when a constant moves.
+
+## The Command Deck (server.js) — the same contract, server-side
+
+One process, one origin, one SQLite file (`node:sqlite`, zero npm deps).
+The data layer is documented in `docs/DATABASE.md`; the architectural
+invariants:
+
+- **The client displays, the deck authorizes.** Medals, streaks, verdicts,
+  duel wins and ranks are derived server-side from the deck's own clocks
+  (`deckDayOf`, one day derivation for the whole API) and its own seed
+  mirrors (`wardenfallSunday` re-derives the rare verdict — the client
+  never tells the deck what was up).
+- **Best-effort code still gets a drill.** A swallowed catch is a design
+  decision, and every one of them is executable proof in CI
+  (`drill-vault.mjs` exists because one swallowed catch hid a broken
+  prune for weeks).
+- **Account lifecycle is one transaction.** Deletion is a single CASCADE
+  DELETE plus a callsign tombstone — boards cannot keep a ghost, and the
+  retired name cannot be re-registered.
+- **Boot migrations are idempotent** and log loudly; fresh and
+  fully-migrated databases take the same code path.
+
+See `docs/DATABASE.md` (schema, retention, backups), `docs/DEPLOYMENT.md`
+(hosting, rollback, environment) and `docs/performance.md` (measured
+CPU/GPU baselines).

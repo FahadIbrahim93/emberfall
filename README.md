@@ -1,7 +1,27 @@
-# EMBERFALL v4.15.3 — Orbital Intercept
+# EMBERFALL v4.16.0 — Orbital Intercept
+
+<p align="center">
+  <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
+</p>
+
+**A zero-build arcade space shooter that fits in your browser and never stops proving itself.**
+Everything — art, music, sound — is generated procedurally at runtime: no asset files, no build
+step, no runtime npm dependencies. Play it offline, host it anywhere, or attach the self-hosted
+**Command Deck** for accounts, cloud saves, duels and worldwide boards.
+
+<p align="center">
+  <a href="https://fahadibrahim93.github.io/emberfall/">▶ Play live</a> ·
+  <a href="#command-deck--accounts-cloud-saves-worldwide-boards-optional">Command Deck</a> ·
+  <a href="docs/DATABASE.md">Database</a> ·
+  <a href="docs/DEPLOYMENT.md">Deployment</a> ·
+  <a href="ARCHITECTURE.md">Architecture</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
+![tests](https://img.shields.io/badge/tests-76%20smoke%20%2B%2071%20selftest%20%2B%2080%20drill-blue)
+![license](https://img.shields.io/badge/license-MIT-green)
 
 A zero-build, static orbital intercept shooter. Art, music, and sound are generated procedurally at runtime. The game has no runtime package dependencies and plays locally from `index.html`; hosted installs work offline after their first successful service-worker install.
 
@@ -12,11 +32,15 @@ A zero-build, static orbital intercept shooter. Art, music, and sound are genera
 - **Keyboard:** `WASD`/arrows fly · `Space` fire · `Shift` dash · `E` pulse · `P` pause · `M` mute · `F` fullscreen
 - **Touch:** drag anywhere to fly (fires for you); DASH / PULSE buttons bottom-right
 - **Gamepad:** sticks/buttons auto-detected
+
+<p align="center">
+  <img src="docs/screenshots/gameplay.png" alt="Deep-range intercept: the corridor, hostile fire, the HUD" width="880">
+</p>
 - **Campaign, progression, personality:** fly the **Solar Tour** (8 worlds, Mercury to the Kuiper Gate, each with its own sky, hazard and hostile doctrine), bank **hull mastery** (+8%→+15% score, dash, salvage sight) and **kill plaques** (Blooded 200 → Legend of the Yard 5,000, engraved on your docked hull), wear **paints** and a **sigil** — one worn sigil, its price stated in a real weakness — and see your colors on every leaderboard, worldwide, and on the rival ghosts that race you.
 
 ## CI & deployment
 
-Every push runs the full gate battery (syntax, dead-code + module load order, economy model, API smoke) via GitHub Actions; green builds of `main` auto-publish the playable game to **GitHub Pages**. The Pages build is the static game only — leaderboards/accounts need the self-hosted `node server.js` command deck (the game detects this and runs in local mode, saving to the device).
+Every push runs the full gate battery (syntax, dead-code + module load order, economy model, API smoke) via GitHub Actions; green builds of `main` auto-publish the playable game to **GitHub Pages** — and the deploy job re-fetches the published URL and asserts it is byte-identical to what just merged. **Every release is an annotated tag**, so rollback is one command (`git checkout v4.15.3`). Full story: `docs/DEPLOYMENT.md`. The Pages build is the static game only — leaderboards/accounts need the self-hosted `node server.js` command deck (the game detects this and runs in local mode, saving to the device).
 
 ## Install as an app (PWA)
 
@@ -38,7 +62,8 @@ It's one HTML file plus an optional `sw.js`. Any static host works: GitHub Pages
 
 The game is complete offline. Add the self-hosted backend and it gains a real
 account system, cloud saves, and plausibility-checked community leaderboards — with
-**zero npm dependencies** (Node ≥ 22, built-in SQLite):
+**zero npm dependencies** (Node ≥ 22, built-in SQLite). The full data layer is
+documented in [`docs/DATABASE.md`](docs/DATABASE.md); the short version:
 
 ```bash
 node server.js            # http://localhost:8123 — serves game + API
@@ -46,6 +71,7 @@ bash smoke.sh             # API + static-hygiene + load battery, all green
 ```
 
 - **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare
+- **Account self-management:** pilots change their password, see where they're signed in, and delete the account outright — one CASCADE transaction evicts every board entry, ledger row and cloud save, and the callsign is tombstoned so it can never be re-registered (all pinned in smoke)
 - **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry
 - **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, 2s busy_timeout so brief write contention self-heals, security headers + CSP; production requires HTTPS
@@ -94,6 +120,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.16.0 — "Own your ledger"
+
+- Accounts can now change their password, list their sessions, and delete themselves outright — one CASCADE transaction evicts every board entry and the callsign is retired forever — while the save vault actually holds six snapshots again (the old prune threw silently; rebuilt and drilled).
 ## What's new in v4.15.3 — "Pinned boots stay pinned"
 
 - **Port resolution with intent** — an explicit `--port` flag now outranks an ambient `PORT` variable (previously `Number(env.PORT || flag) || 8123` let a stray shell export — this worktree's had `PORT=0` — silently hijack a pinned boot onto the default port). Values that don't parse to an integer 1–65535 exit with a loud error instead of silently falling back, and an occupied port fails with one honest line instead of a stack trace.
@@ -245,6 +274,7 @@ tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and pro
 tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
 tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
 tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
+tools/drill-vault.mjs     save-vault drill: snapshot lands, throttle engages, the six-newest prune holds (CI step)
 tools/release.mjs      release choreography: audit/stamp every version site, gated selftest-baseline regen, annotated tag (refuses dirty trees and drifted stamps)
 tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad values die loudly, the default is proven free AND busy (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)

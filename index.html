@@ -692,7 +692,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.15.3</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.16.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -838,8 +838,21 @@ body.needrotate #rotate{display:grid}
         <div id="acctSigned" class="hidden">
           <div class="pair">
             <button class="btn warn" id="btnAcctOut">Sign out</button>
+            <button class="btn ghost" id="btnAcctMgmt">Account…</button>
           </div>
           <p class="empty" style="padding:6px 0 0;text-align:left">Progress syncs automatically while you fly.</p>
+          <div id="acctMgmt" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px;display:grid;gap:8px">
+            <p class="empty" style="padding:0;text-align:left;font-size:.66rem">Change your password, check where you are signed in, or leave the deck for good. Deletion removes every board entry, ledger row and cloud save — the callsign can never be reused.</p>
+            <p class="empty" id="mgmtSess" style="padding:0;text-align:left;font-size:.66rem;color:var(--dimmer)"></p>
+            <input id="mgmtPassCur" type="password" maxlength="128" placeholder="CURRENT PASSWORD" spellcheck="false"
+              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
+            <input id="mgmtPassNew" type="password" maxlength="128" placeholder="NEW PASSWORD (6+ chars)" spellcheck="false" autocomplete="new-password"
+              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
+            <button class="btn ghost" id="btnAcctPass" style="width:100%">Change password</button>
+            <input id="mgmtDelPass" type="password" maxlength="128" placeholder="PASSWORD TO CONFIRM DELETION" spellcheck="false"
+              style="background:rgba(184,44,58,.08);border:1px solid var(--crimson);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
+            <button class="btn warn" id="btnAcctDel" style="width:100%">Delete account forever…</button>
+          </div>
           <div id="vaultBox" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px">
             <button class="btn ghost" id="btnVault" style="width:100%">Save vault…</button>
             <p class="empty" id="vaultNote" style="padding:6px 0 0;text-align:left;display:none"></p>
@@ -959,7 +972,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.15.3 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.16.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6823,6 +6836,55 @@ addEventListener('load', () => {
 });
 bindClick('btnAcctGo', () => acctGo(false));
 bindClick('btnAcctNew', () => acctGo(true));
+/* ── account management: change password · sessions · delete account ──
+   Server endpoints carry the authority; this panel is the honest surface.
+   Deletion asks twice and states the consequences in plain words — a
+   one-keystroke catastrophe is not a feature. */
+let acctMgmtOpen = false;
+async function paintAcctMgmt() {
+  const box = $('acctMgmt');
+  if (!acctMgmtOpen) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  try {
+    const r = await NET.req('GET', '/api/account/sessions');
+    $('mgmtSess').textContent = r && r.ok && r.sessions
+      ? r.sessions.length + ' active session' + (r.sessions.length === 1 ? '' : 's') + ' on the deck'
+      : 'session list unavailable';
+  } catch (e) { $('mgmtSess').textContent = 'session list unavailable'; }
+}
+bindClick('btnAcctMgmt', () => { acctMgmtOpen = !acctMgmtOpen; paintAcctMgmt(); AU.ui(); });
+bindClick('btnAcctPass', async () => {
+  const cur = $('mgmtPassCur').value, next = $('mgmtPassNew').value;
+  if (next.length < 6) { note('New password: 6+ characters', 'bad'); AU.ui(); return; }
+  try {
+    const r = await NET.req('POST', '/api/account/password', { current: cur, next });
+    if (r && r.ok) {
+      $('mgmtPassCur').value = ''; $('mgmtPassNew').value = '';
+      note('Password changed — other sessions keep working until they expire', 'good');
+    } else note((r && r.error) || 'Password change failed', 'bad');
+  } catch (e) { note('Password change failed', 'bad'); }
+  AU.ui();
+});
+bindClick('btnAcctDel', async () => {
+  const pw = $('mgmtDelPass').value;
+  const who = NET.user ? NET.user.name : 'this pilot';
+  const first = confirm('Delete the account "' + who + '"?\n\nEvery record leaves the boards — scores, duels, daily ledger, cloud saves, the vault. This cannot be undone.');
+  if (!first) return;
+  const second = prompt('Type ' + who + ' to confirm permanent deletion:');
+  if (!second || second.trim().toUpperCase() !== who.toUpperCase()) return;
+  try {
+    const r = await NET.req('POST', '/api/account/delete', { password: pw });
+    if (r && r.ok && r.deleted) {
+      acctMgmtOpen = false;
+      $('mgmtDelPass').value = '';
+      NET.user = null;
+      try { localStorage.removeItem('ef.remember'); } catch (e) { }
+      paintAccount();
+      note('Account deleted. This device keeps its local save; the callsign is retired.', 'good');
+    } else note((r && r.error) || 'Deletion failed', 'bad');
+  } catch (e) { note('Deletion failed', 'bad'); }
+  AU.ui();
+});
 bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
 bindClick('btnVault', () => { vaultOpen = !vaultOpen; paintVault(); AU.ui(); });
 bindClick('btnLanCopy', () => {
@@ -6948,6 +7010,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.16.0',
+    items: [
+      'Accounts can now change their password, list their sessions, and delete themselves outright — one CASCADE transaction evicts every board entry and the callsign is retired forever — while the save vault actually holds six snapshots again (the old prune threw silently; rebuilt and drilled).'
+    ]
+  },
   {
     v: '4.15.3',
     items: [
@@ -8554,7 +8622,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.15.3', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.16.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

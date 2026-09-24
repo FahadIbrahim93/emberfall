@@ -51,6 +51,12 @@ after, and never touch the preview deck's data dir).
 Release choreography (since 2026-09-25): node tools/release.mjs —
 audit | stamp <ver> "<codename>" "<note>" | baseline | tag "<msg>";
 the audit refuses drifted stamps, the tag refuses dirty trees.
+v4.16 added account self-management (password change, session list,
+delete-with-cascade + callsign tombstone — smoke-pinned), the vault
+repair (profile_snaps had no id — prune threw silently, vaults grew
+forever; rebuilt + tools/drill-vault.mjs in CI), and the showcase docs
+set (LICENSE MIT, SECURITY, CONTRIBUTING, DATABASE, DEPLOYMENT, hero
+screenshots in docs/screenshots/, repo topics + homepage → Pages).
 Ops gotcha (proven 2026-09-25, FIXED in v4.15.3): some shells carry an
 ambient PORT env (ours had PORT=0) and the old chain let env PORT win
 over --port. The flag now always wins; invalid values exit loudly.

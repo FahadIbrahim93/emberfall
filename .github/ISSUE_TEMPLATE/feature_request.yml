@@ -1,0 +1,31 @@
+name: Feature request
+description: An idea for the game or the deck
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What should exist, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: The proof
+      description: |
+        Behavior changes need a check in the battery (see CONTRIBUTING.md).
+        If you already know which drill, smoke check or selftest would pin
+        it, say so here — "no proof, no merge" is the one rule.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Game client (index.html / js/)
+        - Command deck (server.js)
+        - Tools / CI / battery
+        - Docs
+        - Multiple
+    validations:
+      required: true

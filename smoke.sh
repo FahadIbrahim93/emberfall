@@ -170,6 +170,41 @@ db.prepare('INSERT OR REPLACE INTO daily_stats (user_id, day, created_day, best_
 db.close();" "$WDB" "Pilot$R"
 WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
 if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
+
+say ""; say "── v4.16: account self-management ──"
+# A dedicated pilot + dedicated jar, so the deletion cascade is proven
+# without touching the battery's main identity. The register limiter
+# (10/min/IP) has ~5 spent at this point — these three fit in the rest.
+# Every probe here uses $JAR2 (expect() hardcodes $JAR on purpose).
+REG2="$(curl -s -c "$JAR2" -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot2$R\",\"password\":\"hunter22\"}")"
+if printf '%s' "$REG2" | grep -q '"ok":true'; then ok "account pilot registered (own jar)"; else no "account pilot registered  →  ${REG2:0:140}"; fi
+ACCT() { curl -s -b "$JAR2" -c "$JAR2" "$@"; }
+PWR="$(ACCT -X POST "$BASE/api/account/password" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"current":"nope","next":"brave42"}')"
+if printf '%s' "$PWR" | grep -q 'wrong password'; then ok "password change refuses a wrong current"; else no "password wrong-current  →  ${PWR:0:140}"; fi
+PWR="$(ACCT -X POST "$BASE/api/account/password" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"current":"hunter22","next":"brave42"}')"
+if printf '%s' "$PWR" | grep -q '"ok":true'; then ok "password change accepts the right one"; else no "password change  →  ${PWR:0:140}"; fi
+# The swap proof rides the account endpoint, not /api/login — the battery's
+# own 20-login burst has already drained that per-IP bucket by this point.
+PWR="$(ACCT -X POST "$BASE/api/account/password" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"current":"hunter22","next":"brave42x"}')"
+if printf '%s' "$PWR" | grep -q 'wrong password'; then ok "OLD password no longer unlocks the account"; else no "old password still valid  →  ${PWR:0:140}"; fi
+PWR="$(ACCT -X POST "$BASE/api/account/password" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"current":"brave42","next":"brave42"}')"
+if printf '%s' "$PWR" | grep -q '"ok":true'; then ok "NEW password unlocks the account"; else no "new password invalid  →  ${PWR:0:140}"; fi
+SESS="$(ACCT "$BASE/api/account/sessions")"
+if printf '%s' "$SESS" | grep -Eq '"current":[0-9]'; then ok "sessions list marks the caller's own row"; else no "sessions current marker  →  ${SESS:0:140}"; fi
+# Deletion: refusal, then the real thing. The pilot ranked on main above,
+# so the board-eviction cascade is observable in the same battery.
+DELW="$(ACCT -X POST "$BASE/api/account/delete" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"password":"nope"}')"
+if printf '%s' "$DELW" | grep -q 'wrong password'; then ok "deletion refuses a wrong password"; else no "deletion wrong-pw  →  ${DELW:0:140}"; fi
+DEL="$(ACCT -X POST "$BASE/api/account/delete" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"password":"brave42"}')"
+if printf '%s' "$DEL" | grep -q '"deleted":true'; then ok "deletion commits"; else no "deletion commits  →  ${DEL:0:160}"; fi
+DEAD="$(curl -s -b "$JAR2" "$BASE/api/me")"
+if printf '%s' "$DEAD" | grep -q '"user":null'; then ok "deleted pilot's cookie is dead"; else no "deleted cookie still alive  →  ${DEAD:0:140}"; fi
+BOARD2="$(curl -s "$BASE/api/scores?mode=main")"
+if printf '%s' "$BOARD2" | grep -q "Pilot2${R}"; then no "deleted pilot evicted from boards  →  ${BOARD2:0:140}"; else ok "deleted pilot evicted from boards"; fi
+RET1="$(curl -s -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot2$R\",\"password\":\"zzzzzz\"}")"
+RET2="$(curl -s -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"pilot2$R\",\"password\":\"zzzzzz\"}")"
+if printf '%s' "$RET1$RET2" | grep -q 'retired'; then ok "retired callsign cannot re-register (case-insensitive)"; else no "retired callsign  →  ${RET1:0:100} / ${RET2:0:100}"; fi
+
 say ""
 say "── $PASS passed, $FAIL failed ─────────────────────"
 [ "$FAIL" -eq 0 ]
