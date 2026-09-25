@@ -10,3 +10,6 @@ dist/
 .freebuff/scratch/
 .env
 *.mirror.sql
+
+# db-backup snapshots are the user table — never commit a ledger
+backups/

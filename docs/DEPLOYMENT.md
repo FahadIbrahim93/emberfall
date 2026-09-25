@@ -50,6 +50,35 @@ NODE_ENV=production TRUST_PROXY=1 PORT=8123 node server.js
 - Keep `main` green and you can redeploy anywhere from any tag — the
   whole state is one SQLite file plus the process
 
+### The deck as a container (v4.19.0)
+
+The deck also ships as an image whose **build IS the gate battery**:
+the multi-stage `Dockerfile` runs the no-browser gates (syntax,
+dead-code, copy-guard, SQL audit, parity, economy sim, sim tests) in a
+first stage, and the runtime stage copies one artifact out of it — a
+red gate can never produce a runnable image.
+
+```bash
+docker build -t emberfall-deck .
+docker run -d --name deck -p 127.0.0.1:8123:8123 \
+  -v emberfall-data:/data -e TRUST_PROXY=1 emberfall-deck
+```
+
+- Runtime is `node:22-alpine`, **non-root** (uid 1001), with the ledger
+  on the `/data` volume (`EF_DATA_DIR=/data`) and a HEALTHCHECK wired to
+  `/api/health`. `server.js` imports only node builtins, so the runtime
+  stage needs no npm at all.
+- CI proves the image every push: boot → `/api/health` → a real
+  register → **container restart → login survives** (volume
+  persistence) → the runtime user is not root.
+- Behind a proxy keep `TRUST_PROXY=1` and publish the port on
+  `127.0.0.1` only; terminate TLS at nginx/Caddy.
+- Backups inside the container: `docker exec deck node
+  /app/tools/db-backup.js --verify --keep 14` — snapshots are the user
+  table (scrypt password hashes, session-token hashes) and `backups/`
+  is **git-ignored on purpose**; for machine-loss durability point
+  `--out` at storage outside the repo.
+
 ### A note on the Vercel previews
 
 Vercel auto-connects to this repo and builds **preview** deployments for

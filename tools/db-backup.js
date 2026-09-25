@@ -4,12 +4,15 @@
  *
  *   node tools/db-backup.js [--out DIR] [--keep N] [--verify]
  *
- * Reads the same data dir as server.js (EF_DATA_DIR, default <repo>/state)
- * and writes timestamped, WAL-consistent snapshots via node:sqlite's backup
- * API — safe against a LIVE deck, no stop required. Default out dir is
- * <repo>/backups/: outside .gitignore's rules on purpose, so snapshots can
- * be committed deliberately and a destroyed machine is recoverable from the
- * repo alone. Old snapshots beyond --keep (default 14) are pruned.
+ * Reads the same data dir as server.js (EF_DATA_DIR, default the repo-
+ * sibling emberfall-data) and writes timestamped, WAL-consistent snapshots
+ * via node:sqlite's backup API — safe against a LIVE deck, no stop
+ * required. Default out dir is <repo>/backups/ and it is GIT-IGNORED on
+ * purpose: a snapshot is the user table (scrypt password hashes, session-
+ * token hashes, every run) — committing one once leaked the real ledger
+ * to the repo (caught 2026-09-26, v4.19.0 follow-up). For machine-loss
+ * durability point --out at a directory OUTSIDE the repo that you back up
+ * by other means. Old snapshots beyond --keep (default 14) are pruned.
  *
  *   --verify   open the fresh snapshot read-only and prove it is a real
  *              database with the expected tables — a backup that was never

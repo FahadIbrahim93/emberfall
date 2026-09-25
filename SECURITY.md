@@ -52,5 +52,10 @@ You can also reach the maintainer through the repository owner profile.
 One process, one origin. Put production behind TLS (nginx/Caddy) with
 `NODE_ENV=production TRUST_PROXY=1`, and back up
 `../emberfall-data/emberfall.db` with `node tools/db-backup.js --verify`.
-See `docs/DATABASE.md` for the data layer and `docs/DEPLOYMENT.md` for
-hosting the game + deck.
+Snapshots contain the whole user table (scrypt password hashes,
+session-token hashes) — `backups/` is **git-ignored on purpose** and a
+snapshot must never be committed; keep machine-loss copies outside the
+repo (`--out`). See `docs/DATABASE.md` for the data layer,
+`docs/DEPLOYMENT.md` for hosting the game + deck (bare metal or the
+gates-in-build container), and the incident note in `tools/db-backup.js`
+for why the ignore rule exists.
