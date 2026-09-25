@@ -28,7 +28,7 @@ const ROOT = path.resolve(__dirname, '..');
 /* mirror server.js's resolution exactly — the two must never disagree */
 const DATA_DIR = process.env.EF_DATA_DIR
   ? path.resolve(process.env.EF_DATA_DIR)
-  : path.join(ROOT, 'state');
+  : path.join(path.dirname(ROOT), 'emberfall-data');   /* same default as server.js — 'state' never existed and the mismatch once made this tool back up NOTHING while claiming success (caught live, 2026-09-25) */
 const src = path.join(DATA_DIR, 'emberfall.db');
 
 let out = path.join(ROOT, 'backups');

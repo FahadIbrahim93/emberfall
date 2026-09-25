@@ -69,6 +69,18 @@ for (const f of FILES) {
   }
 }
 
+/* 4. numeric smoke/drill badge counts are BANNED, not checked: the battery
+   grows every release (loop-generated checks make static counting wrong by
+   construction — two counting attempts both lied), so any badge of the shape
+   tests-<N> smoke ... drill is drift waiting to ship. The truthful badge is
+   non-numeric; the ONLY numeric test count allowed is the selftest baseline,
+   which copyguard genuinely verifies above. */
+for (const [ln, text] of collect('README.md')) {
+  if (/tests-[0-9]+%20smoke/.test(text)) {
+    complain('README.md', ln, text, 'numeric smoke/drill badge counts are unverifiable by construction — use the non-numeric battery badge');
+  }
+}
+
 if (fail) {
   console.error(`copyguard: ${fail} violation(s)`);
   process.exit(1);

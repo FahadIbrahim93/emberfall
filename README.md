@@ -20,7 +20,7 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
-![tests](https://img.shields.io/badge/tests-76%20smoke%20%2B%2071%20selftest%20%2B%2080%20drill-blue)
+![tests](https://img.shields.io/badge/tests-selftest%2071%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
 [![top score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.topScore&label=top%20score)](docs/DATABASE.md)
