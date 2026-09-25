@@ -1,5 +1,12 @@
 # EMBERFALL — how to run this worktree
 
+(2026-09-26 IR: the backups/ ledger blob was scrubbed from ALL history
+(git-filter-repo --path backups --invert-paths) and force-pushed after a
+dress rehearsal — pre-rewrite full bundle at G:\emberfall-ir-bundle\,
+new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
+older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
+draft is in the same folder; the rehearsal (clone + rewrite + verify)
+proves the exact procedure for any future scrub.)
 (release v4.19.0 — gates in the build: tools/drill-replay.mjs (CI, 18
 checks) pins the 24h replay window — same arc twice 422s, per-pilot guard
 (twin accepted), one-point variant accepted, 25h backdate re-accepts (the
