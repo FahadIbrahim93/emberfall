@@ -1,4 +1,4 @@
-# EMBERFALL v4.17.0 — Orbital Intercept
+# EMBERFALL v4.17.1 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -143,6 +143,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.17.1 — "The world page"
+
+- stats.html puts the global leaderboard and gauntlet history on the open web — reading the locked public mirror with the world's key, styled to the game, failing gracefully when the mirror sleeps; the game's CSP now allows the mirror origin on that one page and nothing else.
 ## What's new in v4.17.0 — "The mirror"
 
 - The deck's SQLite stays the only authoritative store, and a read-only Supabase mirror now publishes the public facts — callsigns, accepted scores, gauntlet days, lifetime totals — with row-level security letting the world read and no one write; tools/db-sync.mjs pumps it keylessly or by operator key, the deck answers /api/stats straight from the source, and no gameplay path ever touches the cloud.

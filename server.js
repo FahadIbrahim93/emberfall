@@ -609,7 +609,7 @@ const MIME = {
    audit's P0 leak (GET /data/emberfall.db → 200) and is regression-tested
    by the static-hygiene battery in smoke.sh (T-LEAK). */
 const STATIC_OK = new Set([
-  '/index.html', '/sw.js', '/manifest.webmanifest',
+  '/index.html', '/stats.html', '/sw.js', '/manifest.webmanifest',
   '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
@@ -643,8 +643,13 @@ function serveStatic(req, res, urlPath) {
       'Referrer-Policy': 'no-referrer'
     };
     if (ext === '.html') {
+      /* stats.html reads the anon-read-only public mirror (ADR 0001); every
+         other page keeps a closed connect-src. game pages never talk to it. */
+      const connect = file.endsWith('stats.html')
+        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co"
+        : "connect-src 'self'";
       headers['Content-Security-Policy'] =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'";
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; " + connect;
       headers['Cache-Control'] = 'no-cache';
     } else if (file.endsWith('sw.js')) {
       headers['Cache-Control'] = 'no-cache';

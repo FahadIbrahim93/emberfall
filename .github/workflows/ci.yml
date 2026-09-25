@@ -139,7 +139,7 @@ jobs:
       - name: Assemble static site
         run: |
           mkdir -p _site/js _site/icons _site/fonts
-          cp index.html sw.js manifest.webmanifest _site/
+          cp index.html stats.html sw.js manifest.webmanifest _site/
           cp js/*.js _site/js/
           cp icons/*.png _site/icons/
           cp fonts/*.woff2 _site/fonts/
