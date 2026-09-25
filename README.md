@@ -22,6 +22,8 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
 ![tests](https://img.shields.io/badge/tests-76%20smoke%20%2B%2071%20selftest%20%2B%2080%20drill-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
+[![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
+[![top score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.topScore&label=top%20score)](docs/DATABASE.md)
 
 A zero-build, static orbital intercept shooter. Art, music, and sound are generated procedurally at runtime. The game has no runtime package dependencies and plays locally from `index.html`; hosted installs work offline after their first successful service-worker install.
 
@@ -300,6 +302,8 @@ tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pr
 tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
 tools/drill-vault.mjs     save-vault drill: snapshot lands, throttle engages, the six-newest prune holds (CI step)
 tools/release.mjs      release choreography: audit/stamp every version site, gated selftest-baseline regen, annotated tag (refuses dirty trees and drifted stamps)
+tools/db-sync.mjs      public-mirror pump: accepted scores + gauntlet aggregates → Supabase (REST push / keyless SQL / verify; ADR 0001)
+tools/stats-snapshot.mjs  living-badge feed: public mirror totals → docs/stats.json (keyless, hourly via CI)
 tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad values die loudly, the default is proven free AND busy (CI step)
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)

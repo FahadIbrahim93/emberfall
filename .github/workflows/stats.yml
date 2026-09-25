@@ -1,0 +1,41 @@
+name: Mirror stats refresh
+
+on:
+  schedule:
+    - cron: '23 * * * *'   # hourly; the mirror itself is fed by the operator's own sync cadence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror-stats
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # keyless by design: the publishable key lives in tools/stats-snapshot.mjs
+      # and the mirror grants the world read-only access (ADR 0001)
+      - name: Snapshot the public mirror totals
+        run: node tools/stats-snapshot.mjs
+
+      - name: Commit when the numbers moved
+        run: |
+          if [ -z "$(git status --porcelain docs/stats.json)" ]; then
+            echo "no change — nothing to commit"
+            exit 0
+          fi
+          git config user.name "emberfall-stats-bot"
+          git config user.email "noreply@github.com"
+          git add docs/stats.json
+          git commit -m "stats: refresh the living-badge snapshot"
+          git push
