@@ -56,8 +56,12 @@ COPY fonts ./fonts
 # non-root runtime user; /data owned by it (EF_DATA_DIR default)
 RUN addgroup -S ember && adduser -S -G ember -u 1001 ember \
  && mkdir -p /data && chown -R ember:ember /data
-ENV NODE_ENV=production \
-    PORT=8123 \
+# NODE_ENV is deliberately NOT set here: it is the deployer's decision
+# (the deck's static allowlist keeps the ledger unreadable either way).
+# With NODE_ENV=production the deck 426s every /api call without TLS —
+# correct for a public deployment behind a TLS-terminating proxy; the
+# default image stays plain-HTTP so orchestrator probes work bare.
+ENV PORT=8123 \
     EF_DATA_DIR=/data
 VOLUME ["/data"]
 USER ember

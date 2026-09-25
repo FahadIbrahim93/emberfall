@@ -1215,7 +1215,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://x');
     if (url.pathname.startsWith('/api/')) {
-      if (!requireSecure(req, res)) return;
+      /* /api/health is the orchestrator's probe and stays answerable over
+         plain HTTP even in production mode (it leaks the service name and
+         a timestamp, nothing else) — behind a TLS-terminating proxy the
+         container only ever sees plain HTTP, so a gated healthcheck could
+         never pass. Every real endpoint still 426s without TLS. */
+      if (url.pathname !== '/api/health' && !requireSecure(req, res)) return;
       if (!rateLimit(ip, 'api', 240, 60000)) return bad(res, 'slow down', 429);
       return await handleApi(req, res, url.pathname, ip);
     }
