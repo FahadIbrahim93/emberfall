@@ -73,11 +73,20 @@ test('the ledger travels: a fresh device adopts a felled fall at sign-in', async
   const day = new Date(health.json.t).toISOString().slice(0, 10);
 
   /* ── seed one felled fall straight into the deck's SQLite ledger ──
-     The deck's default data dir is a SIBLING of the repo (dirname(repo) —
-     the same location smoke.sh's P0-10 seeds; a deck started without
-     EF_DATA_DIR writes there). */
+     The deck ANNOUNCES its own data dir through EF_E2E_MARKER (written by
+     server.js at boot — the deck knows its EF_DATA_DIR with certainty;
+     every second-process derivation failed live). EF_DATA_DIR_DB
+     overrides; no marker (E2E_REUSE against a real deck) falls back to
+     the deck's default external dir. */
+  const fs2 = require('node:fs');
+  let markerDir = null;
+  try {
+    const markerPath = path.join(require('node:os').tmpdir(), 'ef-e2e-active-dir.txt');
+    if (fs2.existsSync(markerPath)) markerDir = fs2.readFileSync(markerPath, 'utf8').trim();
+  } catch { /* fall through to the default */ }
   const dbPath = process.env.EF_DATA_DIR_DB
-    || path.join(__dirname, '..', '..', 'emberfall-data', 'emberfall.db');
+    || (markerDir ? path.join(markerDir, 'emberfall.db')
+      : path.join(__dirname, '..', '..', 'emberfall-data', 'emberfall.db'));
   const tmp = path.join(os.tmpdir(), 'ef-seed-' + Date.now() + '.js');
   fs.writeFileSync(tmp, `
     const { DatabaseSync } = require('node:sqlite');

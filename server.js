@@ -60,6 +60,13 @@ const DATA_DIR = process.env.EF_DATA_DIR
   ? path.resolve(process.env.EF_DATA_DIR)
   : path.join(path.dirname(ROOT), 'emberfall-data');
 const DB_PATH = path.join(DATA_DIR, 'emberfall.db');
+/* E2E hook: when the test suite boots this deck, it wants to know where the
+   state lives without re-deriving it in a second process (that derivation
+   failed live twice). Write the marker AFTER the data dir is real. */
+if (process.env.EF_E2E_MARKER) {
+  try { fs.writeFileSync(process.env.EF_E2E_MARKER, DATA_DIR, 'utf8'); }
+  catch (e) { console.error('[cmd-deck] e2e marker write failed:', e.message); }
+}
 const IS_PROD = process.env.NODE_ENV === 'production';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 

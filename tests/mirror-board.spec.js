@@ -29,10 +29,14 @@ async function openGlobalTab(page) {
 test('Global tab paints with a linked deck (the honor ReferenceError regression)', async ({ page }) => {
   await openGlobalTab(page);
   await expect(page.locator('#globalStatus')).toContainText('Linked to command deck');
-  /* the deck battery seeds ranked main-mode runs on every fresh boot, so a
-     healthy render has rows; a ReferenceError would leave the box empty */
+  /* the regression: a bare `honor` threw a ReferenceError inside the ranked
+     row map — the terminal-state wait in openGlobalTab covers both honest
+     shapes (rows on a populated deck, the no-runs message on a fresh one);
+     what it must NEVER be is an empty box under a 'Linked' status, which is
+     exactly what the old crash produced. */
   const rows = await page.locator('#globalBoard .row').count();
-  expect(rows).toBeGreaterThanOrEqual(1);
+  const emptyMsg = await page.locator('#globalBoard .empty').count();
+  expect(rows + emptyMsg).toBeGreaterThanOrEqual(1);
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.click('[data-tab="global"]');
