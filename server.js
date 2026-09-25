@@ -724,8 +724,10 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
 
   /* public, unauthenticated deck totals — the same facts the Supabase
      mirror publishes (ADR 0001), served straight from the authoritative
-     store. Counts accepted runs only; no pilot names, no per-user rows. */
+     store. Counts accepted runs only; no pilot names, no per-user rows.
+     Limiter: per-IP, generous for humans, hostile to scrapers. */
   if (req.method === 'GET' && pathname === '/api/stats') {
+    if (!rateLimit(ip, 'stats', 30, 60000)) return bad(res, 'slow down', 429);
     const pilots = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
     const runs = db.prepare("SELECT COUNT(*) AS n FROM scores WHERE verdict = 'accepted'").get().n;
     const top = db.prepare("SELECT COALESCE(MAX(score), 0) AS n FROM scores WHERE verdict = 'accepted'").get().n;

@@ -51,6 +51,10 @@ after, and never touch the preview deck's data dir).
 Release choreography (since 2026-09-25): node tools/release.mjs —
 audit | stamp <ver> "<codename>" "<note>" | baseline | tag "<msg>";
 the audit refuses drifted stamps, the tag refuses dirty trees.
+Scheduled op (2026-09-25): Windows task 'Emberfall daily deck backup'
+runs tools/db-backup.js --verify --keep 14 daily 03:40. db-backup's
+default data dir matched server.js only as of the same day (state/ was
+never real).
 v4.16 added account self-management (password change, session list,
 delete-with-cascade + callsign tombstone — smoke-pinned), the vault
 repair (profile_snaps had no id — prune threw silently, vaults grew

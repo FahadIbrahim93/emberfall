@@ -1,4 +1,4 @@
-# EMBERFALL v4.17.1 — Orbital Intercept
+# EMBERFALL v4.18.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -143,6 +143,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.18.0 — "The world, even offline"
+
+- Deckless players now see the worldwide leaderboard — the Global tab falls back to the read-only public mirror with the world's publishable key, and the deck-linked boards render again after a shipped ReferenceError left them blank for anyone with ranked runs; account self-management is UI-proven end to end, /api/stats is rate-limited, and the deck database earns a daily verified backup.
 ## What's new in v4.17.1 — "The world page"
 
 - stats.html puts the global leaderboard and gauntlet history on the open web — reading the locked public mirror with the world's key, styled to the game, failing gracefully when the mirror sleeps; the game's CSP now allows the mirror origin on that one page and nothing else.

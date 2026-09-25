@@ -23,6 +23,14 @@ trap 'rm -f "$JAR"' EXIT
 
 STATS="$(curl -s "$BASE/api/stats")"
 if printf '%s' "$STATS" | grep -q '"ok":true'; then ok "public stats endpoint answers"; else no "stats endpoint  →  ${STATS:0:140}"; fi
+# the stats limiter: 31 rapid pulls, one must 429 (generous for humans,
+# hostile to scrapers — and it proves the bucket exists)
+ST429=0
+for i in $(seq 1 31); do
+  C=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/stats")
+  [ "$C" = "429" ] && ST429=1 && break
+done
+if [ "$ST429" = "1" ]; then ok "stats limiter 429s within 31 rapid pulls"; else no "stats limiter never fired in 31 pulls"; fi
 
 # ── static hygiene gate — runs before the API battery, no server needed.
 # Fails the battery when true-positive dead code appears anywhere in the repo:
@@ -55,16 +63,19 @@ if [ "$SHELL_CODE" = "200" ]; then ok "allowlisted asset serves: /sw.js"; else n
 R=$RANDOM$RANDOM
 expect "health"            '"ok":true'                      "$BASE/api/health"
 expect "static index"      'EMBERFALL'                      "$BASE/"
-# the stats page must serve AND keep the game pages' CSP closed: the mirror
-# origin is allowed on stats.html only (ADR 0001)
+# the stats page must serve AND the mirror-origin CSP allowance must be
+# exactly where it belongs: stats.html (public boards) + index.html (the
+# deckless worldwide tab) — and nowhere else, e.g. sw.js never carries it
 expect "stats page serves" 'world stats'                    "$BASE/stats.html"
 CSP_STATS="$(curl -s -I "$BASE/stats.html" | grep -i content-security-policy)"
 CSP_INDEX="$(curl -s -I "$BASE/index.html" | grep -i content-security-policy)"
-if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && ! printf '%s' "$CSP_INDEX" | grep -q 'supabase.co'; then
-  ok "CSP: mirror origin allowed on stats.html, closed on the game"
+CSP_SW="$(curl -s -I "$BASE/sw.js" | grep -i content-security-policy)"
+if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && printf '%s' "$CSP_INDEX" | grep -q 'supabase.co'; then
+  ok "CSP: mirror origin allowed on stats.html + index.html (the deckless worldwide tab)"
 else
-  no "CSP split wrong — stats: $(printf '%s' "$CSP_STATS" | head -c 80) index: $(printf '%s' "$CSP_INDEX" | head -c 80)"
+  no "CSP missing mirror origin — stats: $(printf '%s' "$CSP_STATS" | head -c 80) index: $(printf '%s' "$CSP_INDEX" | head -c 80)"
 fi
+if [ -z "$CSP_SW" ]; then ok "sw.js carries no CSP (nothing to leak)"; else no "unexpected CSP on sw.js: $(printf '%s' "$CSP_SW" | head -c 80)"; fi
 expect "register guard (no header)" 'missing origin header'  -X POST "$BASE/api/register" -H 'Content-Type: application/json' -d '{"name":"x","password":"y"}'
 expect "register bad name" 'callsign'                       -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"x\",\"password\":\"hunter2\"}"
 expect "register ok"       '"ok":true'                      -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
