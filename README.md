@@ -1,4 +1,4 @@
-# EMBERFALL v4.19.0 — Orbital Intercept
+# EMBERFALL v4.19.1 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -143,6 +143,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.19.1 — "The probe-able deck"
+
+- Production mode keeps /api/health answerable over plain HTTP (it leaks nothing); every real endpoint still 426s without TLS, and the container deck proves it in CI — bare probe, prod 426, named-volume persistence, non-root.
 ## What's new in v4.19.0 — "Gates in the build"
 
 - The replay window is drilled; the deck ships as a container whose build IS the battery; the world stats page is one click from the mirror.
