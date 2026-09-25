@@ -63,7 +63,11 @@ test('deckless Global tab shows the worldwide mirror or an honest fallback', asy
   const mirrorRows = await page.locator('#globalBoard .row').count();
   if (mirrorRows > 0) {
     expect(text).toContain('public mirror');
+    /* the mirror footer hands the pilot the full stats page (v4.19.0):
+       present with rows, absent on the fallback (it lives IN the footer) */
+    await expect(page.locator('#globalBoard a[href="stats.html"]')).toHaveCount(1);
   } else {
     expect(text).toContain('not answering');
+    await expect(page.locator('#globalBoard a[href="stats.html"]')).toHaveCount(0);
   }
 });

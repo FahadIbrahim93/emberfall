@@ -1,6 +1,20 @@
 # EMBERFALL — how to run this worktree
 
-(release v4.15.3 — pinned boots stay pinned: server.js resolves --port >
+(release v4.19.0 — gates in the build: tools/drill-replay.mjs (CI, 18
+checks) pins the 24h replay window — same arc twice 422s, per-pilot guard
+(twin accepted), one-point variant accepted, 25h backdate re-accepts (the
+window genuinely expires), beat lane dedupes via the (challenge_id,user_id)
+PK while duel hashes stay 'duel:'+id-scoped; NEW tools/wardenfall-check.mjs
+(pure rare-Sunday verdict math — FNV-1a recipe + payout proofs + 2026-2036
+horizon: 88 rare Sundays; note Solar Guard's score gate pays on ANY Sunday)
+and tools/testpilot-report.mjs (READ-ONLY production census — pilots, runs,
+duels, wardenfalls, integrity); NEW Dockerfile (multi-stage: the gates
+stage RUNS the no-browser battery, the runtime stage copies ONE artifact
+out of it so a red gate can never ship; non-root uid 1001, /data volume,
+HEALTHCHECK on /api/health) + CI docker job (boot → register → RESTART →
+login → non-root proof) + DEPLOYMENT.md; the mirror-board footer links
+stats.html (spec asserts present-with-rows / absent-on-fallback).
+Prior: v4.15.3 — pinned boots stay pinned: server.js resolves --port >
 PORT env > 8123, an invalid value exits loudly instead of silently
 defaulting, an occupied port dies with one honest line, and
 tools/drill-port.mjs (CI, 7 checks) pins the contract incl. the

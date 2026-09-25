@@ -55,6 +55,9 @@ jobs:
       - name: Daily-economy parity gate (client display ↔ deck authorization)
         run: node tools/parity-daily.js
 
+      - name: Rare-Sunday verdict math (wardenfall-check, pure)
+        run: node tools/wardenfall-check.mjs
+
       - name: Start Command Deck (detached)
         run: |
           PORT="$SERVER_PORT" node server.js > server.log 2>&1 &
@@ -81,6 +84,9 @@ jobs:
 
       - name: Ghost-retention drill (stale duels pruned, boundary + env window proven)
         run: node tools/drill-retention.mjs
+
+      - name: Replay drill (24h anti-cheat window — same arc twice 422s, expires at 25h, per-pilot)
+        run: node tools/drill-replay.mjs
 
       - name: Session drill (login survives SIGKILL, expired rows swept, logout honored)
         run: node tools/drill-sessions.mjs
@@ -121,6 +127,49 @@ jobs:
       # locally against the preview deck — there it must die on EADDRINUSE)
       - name: Port-resolution drill (flag beats poisoned env PORT, bad values die loudly)
         run: node tools/drill-port.mjs
+
+  docker:
+    name: deck image (gates stage must pass, runtime must answer /api/health)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image (the gates stage runs the no-browser battery)
+        run: docker build -t emberfall-deck:ci .
+
+      - name: Boot the image and prove /api/health + a full register/login loop
+        run: |
+          docker run -d --name deck -p 8123:8123 emberfall-deck:ci
+          up=0
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true'; then up=1; break; fi
+            sleep 0.5
+          done
+          [ "$up" = "1" ] || { docker logs deck; exit 1; }
+          R=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8123/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"name":"ContainerPilot","password":"container-pass"}')
+          [ "$R" = "200" ] || { echo "register through the image failed: $R"; docker logs deck; exit 1; }
+          echo "container deck: healthy + register 200 (ledger on the /data volume)"
+
+      - name: Prove the ledger survives a container restart
+        run: |
+          docker rm -f deck
+          docker run -d --name deck2 -p 8123:8123 emberfall-deck:ci
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true' && break; sleep 0.5; done
+          L=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8123/api/login -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"name":"ContainerPilot","password":"container-pass"}')
+          [ "$L" = "200" ] || { echo "pilot lost across restart: $L"; docker logs deck2; exit 1; }
+          echo "pilot survived the restart — /data volume persistence proven"
+
+      - name: Non-root runtime proof (the deck user cannot be root)
+        run: |
+          U=$(docker exec deck2 sh -c 'id -u')
+          [ "$U" != "0" ] || { echo "deck runs as root — hardened image contract broken"; exit 1; }
+          echo "deck runs as uid $U (ember)"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f deck deck2 2>/dev/null || true
 
   deploy:
     name: publish to GitHub Pages

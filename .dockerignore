@@ -1,0 +1,20 @@
+# EMBERFALL deck image — context kept lean: the gates stage needs tools/, #
+# packages/sim, index.html + the shell files, and the docs copyguard reads. #
+# Everything else (history, ledgers, backups, test reports) stays out.      #
+.git
+.gitignore
+node_modules
+backups
+emberfall-data
+*.db
+*.db-shm
+*.db-wal
+.freebuff
+tests
+test-results
+playwright-report
+server.log
+*.log
+.github
+LICENSE
+AGENTS.md
