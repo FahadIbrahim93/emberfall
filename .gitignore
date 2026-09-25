@@ -16,3 +16,6 @@ backups/
 
 # fun-audit artifacts (regenerated every run)
 docs/audit/
+
+# battery scratch decks — ledgers never ship, again
+.freebuff/scratch-*/
