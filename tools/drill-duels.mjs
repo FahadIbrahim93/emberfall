@@ -56,6 +56,16 @@ function arc(wave, score, runT, kills) {
 }
 
 async function main() {
+  /* the duels drill REGISTERS pilots. Same fence as smoke.sh: if the deck
+     is not a scratch ledger (or an explicitly owned one), refuse. The
+     2026-09-26 purge happened because a battery ran against the real
+     ledger on the canonical port. */
+  const probe = await fetch(BASE + '/api/health').then(r => r.json()).catch(() => null);
+  const census = (probe && probe.pilots) || 0;
+  if (census > 30 && process.env.ALLOW_DIRTY_LEDGER !== '1') {
+    console.error(`drill-duels: REFUSING — ${BASE} reports ${census} pilots; not a scratch deck (ALLOW_DIRTY_LEDGER=1 overrides)`);
+    process.exit(1);
+  }
   say(`── drill-duels vs ${BASE}`);
   const uniq = 'Drill' + Math.random().toString(36).slice(2, 7);
   const pilots = [

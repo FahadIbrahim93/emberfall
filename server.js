@@ -726,7 +726,12 @@ function readSnap(userId, taken) {
 async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see clientIp */
   /* ---- public ---- */
   if (req.method === 'GET' && pathname === '/api/health') {
-    return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now() });
+    /* pilot census (no names, no PII): ops sees the fleet at a glance and
+       battery scripts can refuse to run against a ledger they must not
+       touch (the 2026-09-26 purge: 136 test pilots reached the real
+       ledger through a battery running on the canonical port). */
+    const pilots = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+    return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now(), pilots });
   }
 
   /* public, unauthenticated deck totals — the same facts the Supabase

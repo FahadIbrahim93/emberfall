@@ -4,6 +4,19 @@
 #   BASE=http://host:port bash smoke.sh
 set -u
 BASE="${BASE:-http://127.0.0.1:8123}"
+
+# the battery REGISTERS PILOTS. Against a deck whose ledger holds real
+# players that is contamination (136 test pilots were purged on 2026-09-26
+# for exactly this). If the census looks too big to be a scratch deck,
+# refuse unless the operator explicitly owns it.
+HC=$(curl -s --max-time 5 "$BASE/api/health" || true)
+HC_PIL=$(printf '%s' "$HC" | grep -o '"pilots":[0-9]*' | grep -o '[0-9]*')
+HC_PIL="${HC_PIL:-0}"
+if [ "$HC_PIL" -gt 30 ] && [ "${ALLOW_DIRTY_LEDGER:-}" != "1" ]; then
+  echo "REFUSING: $BASE reports $HC_PIL pilots — not a scratch deck."
+  echo "Set ALLOW_DIRTY_LEDGER=1 to run anyway (you take the rows you make)."
+  exit 1
+fi
 JAR="$(mktemp)"
 JAR2="$(mktemp)"
 PASS=0; FAIL=0
