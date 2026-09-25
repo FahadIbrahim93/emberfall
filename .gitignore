@@ -8,3 +8,5 @@ dist/
 .freebuff/*.log.err
 *.tsbuildinfo
 .freebuff/scratch/
+.env
+*.mirror.sql

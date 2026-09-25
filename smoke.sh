@@ -21,6 +21,9 @@ expect() {
 
 trap 'rm -f "$JAR"' EXIT
 
+STATS="$(curl -s "$BASE/api/stats")"
+if printf '%s' "$STATS" | grep -q '"ok":true'; then ok "public stats endpoint answers"; else no "stats endpoint  →  ${STATS:0:140}"; fi
+
 # ── static hygiene gate — runs before the API battery, no server needed.
 # Fails the battery when true-positive dead code appears anywhere in the repo:
 # client (inline payload + js/*.js), server.js, shell functions, CSS classes.

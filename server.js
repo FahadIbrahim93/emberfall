@@ -717,6 +717,16 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now() });
   }
 
+  /* public, unauthenticated deck totals — the same facts the Supabase
+     mirror publishes (ADR 0001), served straight from the authoritative
+     store. Counts accepted runs only; no pilot names, no per-user rows. */
+  if (req.method === 'GET' && pathname === '/api/stats') {
+    const pilots = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+    const runs = db.prepare("SELECT COUNT(*) AS n FROM scores WHERE verdict = 'accepted'").get().n;
+    const top = db.prepare("SELECT COALESCE(MAX(score), 0) AS n FROM scores WHERE verdict = 'accepted'").get().n;
+    return send(res, 200, { ok: true, pilots, runs, topScore: top, t: now() });
+  }
+
   /* LAN play helper — the on-the-go story for phones before a public deploy.
      The deck already binds 0.0.0.0, so any device on the same Wi-Fi can play
      against this server; this endpoint just answers the one hard part

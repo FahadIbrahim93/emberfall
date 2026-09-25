@@ -41,6 +41,11 @@ You can also reach the maintainer through the repository owner profile.
   arcs, economy ceilings, velocity + depth floors, 24h replay hashes) —
   the deck is honest that this is detection, not prevention: `accepted`
   runs rank, `review` runs are stored but never rank
+- **The public mirror:** the Supabase project holds read-only projections
+  of public facts only (callsigns, accepted scores, aggregates); RLS
+  grants `anon` SELECT and nothing else, the deck never holds a Supabase
+  key, and the service key lives only in the operator's environment —
+  see [ADR 0001](docs/adr/0001-sqlite-authoritative-supabase-mirror.md)
 
 ## Deployment posture
 

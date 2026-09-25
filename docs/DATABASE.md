@@ -2,7 +2,8 @@
 
 *The database behind accounts, leaderboards, duels and the daily gauntlet.
 One SQLite file, zero dependencies (Node ≥ 22 ships `node:sqlite`), one
-process owning it.*
+process owning it — with a read-only public mirror on Supabase for the
+world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).*
 
 ## The file
 
@@ -68,6 +69,38 @@ that was never selected. Two lessons, both enforced now:
    proves snapshot-lands, throttle-engages, the six-newest prune holds,
    and readback is byte-for-byte
 2. the repair rebuilds old tables in place and logs loudly at boot
+
+## The public mirror (Supabase, read-only)
+
+Per [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md), the deck's
+SQLite is the only authoritative store; a Supabase Postgres project
+(`emberfall`, us-east-1) carries **public projections only** — callsigns,
+accepted scores, gauntlet day aggregates, lifetime totals. Password hashes,
+sessions, telemetry, profiles and the vault never leave SQLite.
+
+- **Schema:** `pilots`, `scores`, `gauntlet_days`, `deck_stats` (+ the
+  `leaderboard` view) — RLS enabled everywhere, `anon` gets SELECT and
+  nothing else (anon INSERT is refused, proven by probe)
+- **Sync:** `node tools/db-sync.mjs` — REST push with the operator's
+  service key (`SUPABASE_URL` + `SUPABASE_SERVICE_KEY`), or keyless
+  `--print-sql` to stage idempotent SQL, or `--verify` to read back
+  through the publishable key and diff against the authoritative store
+- **Public read (publishable key, safe to embed):**
+
+```bash
+curl "https://bhcczyyhadornihhzpsu.supabase.co/rest/v1/leaderboard?select=*" \
+  -H "apikey: sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O"
+curl "https://bhcczyyhadornihhzpsu.supabase.co/rest/v1/deck_stats?select=*" \
+  -H "apikey: sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O"
+```
+
+- **Freshness:** eventual by design — the operator syncs on their cadence
+  (hourly cron is the documented shape). The deck itself also answers
+  `GET /api/stats` (accepted-only totals) straight from the authoritative
+  store, no mirror required.
+- **Deletion follows the pilot out:** a sync after an account deletion
+  removes the pilot and their scores from the mirror too (the tool emits
+  the deletes; tombstones stay on the deck only).
 
 ## Backups
 

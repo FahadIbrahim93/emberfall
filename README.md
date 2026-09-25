@@ -1,4 +1,4 @@
-# EMBERFALL v4.16.0 — Orbital Intercept
+# EMBERFALL v4.17.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -94,6 +94,27 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
+## The global leaderboard, mirrored
+
+The deck's SQLite is the only authoritative store (one file, zero
+dependencies, backed up live). A read-only **Supabase mirror** publishes
+the public facts — callsigns, accepted scores, gauntlet days, lifetime
+totals — so the world can query real numbers without touching the game
+server. Row-level security allows the world to read and no one to write;
+password hashes, sessions and telemetry never leave the deck.
+Architecture: [`docs/adr/0001`](docs/adr/0001-sqlite-authoritative-supabase-mirror.md) ·
+data layer: [`docs/DATABASE.md`](docs/DATABASE.md).
+
+```bash
+# the public leaderboard, right now, from any machine:
+curl "https://bhcczyyhadornihhzpsu.supabase.co/rest/v1/leaderboard?select=*" \
+  -H "apikey: sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O"
+```
+
+Sync is operator-side and opt-in (`node tools/db-sync.mjs`, service key by
+env, never committed); the deck also answers `GET /api/stats` directly from
+the authoritative store for a no-mirror deployment.
+
 ## The Daily Gauntlet — a pilot's guide
 
 One seeded Gauntlet a day, shared by every pilot on Earth. Everything below is ledgered by the Command Deck and enforced there — the client displays, the deck authorizes.
@@ -120,6 +141,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.17.0 — "The mirror"
+
+- The deck's SQLite stays the only authoritative store, and a read-only Supabase mirror now publishes the public facts — callsigns, accepted scores, gauntlet days, lifetime totals — with row-level security letting the world read and no one write; tools/db-sync.mjs pumps it keylessly or by operator key, the deck answers /api/stats straight from the source, and no gameplay path ever touches the cloud.
 ## What's new in v4.16.0 — "Own your ledger"
 
 - Accounts can now change their password, list their sessions, and delete themselves outright — one CASCADE transaction evicts every board entry and the callsign is retired forever — while the save vault actually holds six snapshots again (the old prune threw silently; rebuilt and drilled).
