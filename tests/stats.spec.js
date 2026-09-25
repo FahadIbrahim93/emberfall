@@ -9,12 +9,21 @@ const { test, expect } = require('@playwright/test');
 test('stats page renders the public totals or fails gracefully', async ({ page }) => {
   await page.goto('http://127.0.0.1:8123/stats.html', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('h1')).toContainText('EMBER');
-  await expect(page.locator('#board'))
-    .toContainText(/loading|ranked runs yet|unavailable|\d/, { timeout: 15000 });
-  const pilots = await page.locator('#cPilots').textContent();
+  /* wait for a TERMINAL state: the board stops saying loading — either the
+     data landed, the honest empty state rendered, or the error panel showed.
+     (Matching /loading/ in a containText race read the counters too early;
+     CI's slower mirror turned that into a red flake. Terminal states only.) */
+  await page.waitForFunction(() => {
+    const b = document.querySelector('#board');
+    return b && !/loading/i.test(b.textContent || '');
+  }, null, { timeout: 20000 });
   const errShown = await page.locator('#err').evaluate(el => el.style.display === 'block');
-  if (!errShown) {
-    expect(Number(pilots)).toBeGreaterThanOrEqual(0);
+  if (errShown) {
+    /* graceful degradation is a pass: the mirror is allowed to sleep */
+    await expect(page.locator('#err')).toContainText('play on');
+  } else {
+    const pilots = Number(await page.locator('#cPilots').textContent());
+    expect(pilots).toBeGreaterThanOrEqual(0);
   }
   /* the page must never offer a way to write to the mirror */
   const html = await page.content();
