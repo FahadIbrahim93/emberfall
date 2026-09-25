@@ -158,10 +158,16 @@ jobs:
           [ "$C" = "200" ] || { echo "bare image health over plain HTTP: $C"; docker logs deck; exit 1; }
           docker rm -f deck
           docker run -d --name deckprod -p 8123:8123 -e NODE_ENV=production emberfall-deck:ci
-          for i in $(seq 1 40); do docker inspect -f '{{.State.Running}}' deckprod 2>/dev/null | grep -q true && break; sleep 0.5; done
-          H=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/health)
-          G=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/scores?mode=daily)
-          S=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/index.html)
+          # wait for a real HTTP answer — 'docker inspect Running' is true
+          # before node binds the port (the exit-56 race this step caught)
+          H=000
+          for i in $(seq 1 40); do
+            H=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/health || true)
+            [ "$H" != "000" ] && [ -n "$H" ] && break
+            sleep 0.5
+          done
+          G=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/scores?mode=daily || true)
+          S=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/index.html || true)
           [ "$H" = "200" ] || { echo "prod health must stay probe-able over HTTP behind a proxy: $H"; docker logs deckprod; exit 1; }
           [ "$G" = "426" ] || { echo "prod mode must 426 real API endpoints without TLS: $G"; docker logs deckprod; exit 1; }
           [ "$S" = "200" ] || { echo "prod mode still serves the static shell: $S"; docker logs deckprod; exit 1; }
