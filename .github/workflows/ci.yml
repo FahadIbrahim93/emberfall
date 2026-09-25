@@ -141,7 +141,7 @@ jobs:
 
       - name: Boot the image and prove /api/health + a full register/login loop
         run: |
-          docker run -d --name deck -p 8123:8123 emberfall-deck:ci
+          docker run -d --name deck -p 8123:8123 -v ef-ci-data:/data emberfall-deck:ci
           up=0
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true'; then up=1; break; fi
@@ -176,8 +176,10 @@ jobs:
 
       - name: Prove the ledger survives a container restart
         run: |
-          docker rm -f deck
-          docker run -d --name deck2 -p 8123:8123 emberfall-deck:ci
+          # persistence is only real across a NAMED volume — each container
+          # otherwise gets its own anonymous /data (the 401 this step caught)
+          docker rm -f deck 2>/dev/null || true
+          docker run -d --name deck2 -p 8123:8123 -v ef-ci-data:/data emberfall-deck:ci
           for i in $(seq 1 40); do curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true' && break; sleep 0.5; done
           L=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8123/api/login -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"name":"ContainerPilot","password":"container-pass"}')
           [ "$L" = "200" ] || { echo "pilot lost across restart: $L"; docker logs deck2; exit 1; }
@@ -191,7 +193,9 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker rm -f deck deck2 2>/dev/null || true
+        run: |
+          docker rm -f deck deck2 deckprod 2>/dev/null || true
+          docker volume rm ef-ci-data 2>/dev/null || true
 
   deploy:
     name: publish to GitHub Pages
