@@ -82,6 +82,8 @@ export const FOES: Readonly<Record<string, FoeDef>> = {
   ravager: { hp: 12, r: 19, hit: 17, sc: 420, guns: true, cd: 2.2, armored: true },
   arbalest: { hp: 7, r: 17, hit: 15, sc: 350, guns: true, cd: 3.8 },
   mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 },
+  /* v4.20 wisp — blink flanker. Parity: index.html FOES. */
+  wisp: { hp: 3, r: 10, hit: 8, sc: 190, guns: true, cd: 1.15 },
 };
 
 export const FOE_IDS = Object.keys(FOES) as readonly string[];

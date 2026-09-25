@@ -222,6 +222,21 @@ kbd{border:1px solid var(--line-soft);padding:2px 6px;font-size:.62rem;color:var
   padding:calc(40px + var(--sat)) 0 calc(56px + var(--sab));
   /* density for short viewports: the whole column must fit 720p (audit 3.7) */
   row-gap:clamp(16px,3vh,40px)}
+/* title hero (v4.20): the hull you will fly, breathing on its pad behind the
+   grid — the title shows the machine, not a void. The fun audit measured the
+   old title at brightness 13/255 with 60% of the frame empty. */
+#s-title{position:relative;overflow:hidden}
+.hero-canvas{position:absolute;top:46%;left:58%;transform:translate(-50%,-50%);
+  width:min(72vmin,680px);height:auto;opacity:.58;pointer-events:none;z-index:0}
+.hero-tag{position:absolute;left:58%;top:76%;transform:translateX(-50%);z-index:1;
+  font:600 11px/1.4 Michroma,system-ui,sans-serif;letter-spacing:.22em;color:rgba(255,138,43,.5);
+  text-transform:uppercase;pointer-events:none;white-space:nowrap}
+@media (max-width:900px){
+  .hero-canvas{left:50%;top:40%;width:min(88vw,480px);opacity:.14}
+  .hero-tag{display:none}
+}
+.creds.pulse{color:var(--amber)}
+.creds.pulse kbd{border-color:var(--amber);color:var(--amber)}
 @media (max-height:820px){
   .title-grid{padding:calc(22px + var(--sat)) 0 calc(22px + var(--sab))}
   h1{font-size:clamp(2.2rem,8.5vh,5rem)}
@@ -621,6 +636,8 @@ body.needrotate #rotate{display:grid}
 
 <!-- ════════ TITLE ════════ -->
 <section id="s-title" class="screen">
+  <canvas id="heroCanvas" class="hero-canvas" width="680" height="680" aria-hidden="true"></canvas>
+  <div class="hero-tag" id="heroTag" aria-hidden="true"></div>
   <div class="title-grid">
     <div>
       <p class="eyebrow">Sol Defense Command · deep-range intercept</p>
@@ -692,7 +709,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.19.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.20.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -972,7 +989,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.19.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.20.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -3798,14 +3815,19 @@ const FOES = {
   tender: { hp: 6, r: 14, hit: 12, sc: 380, guns: true, cd: 2.6 },
   ravager: { hp: 12, r: 19, hit: 17, sc: 420, guns: true, cd: 2.2, armored: true },
   arbalest: { hp: 7, r: 17, hit: 15, sc: 350, guns: true, cd: 3.8 },
-  mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 }
+  mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 },
+  /* v4.20 wisp: a tiny flanker with the quickest small-foe gun in the game
+     (cd 1.15 — potshots, not volleys). The threat is its crossing angle and
+     the surprise of rapid small shots, not hull mass. Wave 16+. */
+  wisp: { hp: 3, r: 10, hit: 8, sc: 190, guns: true, cd: 1.15 }
 };
 const FOE_LABEL = {
   drone: 'Drone', mini: 'Shard', striker: 'Striker', weaver: 'Weaver', splitter: 'Splitter',
   cruiser: 'Cruiser', lancer: 'Lancer', orbiter: 'Orbiter', warden: 'Warden',
   minelayer: 'Minelayer', carrier: 'Carrier',
   ram: 'Ram', sniper: 'Sniper', shieldbreaker: 'Shieldbreaker',
-  hound: 'Hound', weeper: 'Weeper', tender: 'Tender', ravager: 'Ravager', arbalest: 'Arbalest', mimic: 'Mimic'
+  hound: 'Hound', weeper: 'Weeper', tender: 'Tender', ravager: 'Ravager', arbalest: 'Arbalest', mimic: 'Mimic',
+  wisp: 'Wisp'
 };
 /* one-line threat doctrine — the single source the in-game codex cards and
    the Registry's Threats tab both read */
@@ -4672,7 +4694,13 @@ function buildWave(n) {
   const q = [];
   const at = (t, type, count, form, extra) => q.push(Object.assign({ t, type, count, form }, extra || {}));
   if (n === 1) {
-    at(.6, 'drone', 5, 'vee'); at(5.4, 'drone', 6, 'sweep', { side: 1 }); at(10.6, 'drone', 5, 'column');
+    /* the first wave TEACHES: contact at 0.6s, but the first SHOOTER lands
+       ~6s — dodge instinct engaged inside the first 10s, and two striker
+       groups give chasable kills so the combo/mult lights up in wave one
+       (the fun audit measured 0 enemy bullets for 22s under the old line). */
+    at(.6, 'drone', 5, 'vee'); at(3.4, 'drone', 4, 'sweep', { side: 1 });
+    at(6.2, 'striker', 3, 'vee'); at(10.2, 'drone', 5, 'column');
+    at(13.2, 'striker', 3, 'sweep', { side: -1 });
   } else if (n === 2) {
     at(.6, 'striker', 3, 'vee'); at(4.2, 'drone', 6, 'sweep', { side: -1 });
     at(8.4, 'striker', 3, 'column'); at(12, 'drone', 6, 'vee');
@@ -4713,6 +4741,7 @@ function buildWave(n) {
     if (n >= 17) pool.push('arbalest');
     if (n >= 18) pool.push('ravager');
     if (n >= 19) pool.push('mimic');
+    if (n >= 16) pool.push('wisp');   /* v4.20: the blink flanker joins mid-depth */
     const forms = ['vee', 'sweep', 'column', 'arc', 'pincer', 'orbit'];
     let t = .6;
     const groups = Math.min(8, 3 + Math.floor(n / 2));
@@ -6415,7 +6444,9 @@ function toTitle() {
   document.body.classList.remove('flying');
   closeAllScreens();
   showScreen('s-title', true);
-  renderBoard($('tab-scores'), 'main', null);
+  if (!heroRaf) heroRaf = requestAnimationFrame(drawHero);
+  const hh = hull();
+  $('heroTag').textContent = hh.name + ' · ' + hh.cls;
   refreshTitleMeta();
   refreshNotesMarker();
   if (!notesAutoOffered) {               // first title this load: offer an unread release once
@@ -6503,11 +6534,50 @@ function drawDock() {
   if (!REDUCE) dockT += 1 / 60;
   dockRaf = requestAnimationFrame(drawDock);
 }
+
+/* ── v4.20 the title hero: the hull you will fly, breathing on its pad ──
+   The same HULL_ART the dock and the field use — the title is the machine.
+   Self-stopping exactly like drawDock (only fires while the title is on);
+   REDUCE freezes the one painted instant. */
+let heroRaf = 0;
+let heroT = 0;
+function drawHero() {
+  const cv = $('heroCanvas');
+  if (!cv || !document.getElementById('s-title').classList.contains('on')) { heroRaf = 0; return; }
+  const g = cv.getContext('2d');
+  const w = cv.width, h = cv.height;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const t = heroT;
+  /* pad light: one soft ember wash under the machine — a hero needs a light
+     source, and this is the same above-left key the flight art follows */
+  const glow = g.createRadialGradient(w / 2, h * .46, 10, w / 2, h * .48, w * .46);
+  glow.addColorStop(0, rgba(PAL.hull, .16));
+  glow.addColorStop(.5, rgba(PAL.hull, .055));
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = glow;
+  g.fillRect(0, 0, w, h);
+  /* pad ring, breathing on two clocks — a machine at rest before the launch */
+  g.strokeStyle = rgba(PAL.hull, .16); g.lineWidth = 2;
+  g.beginPath(); g.ellipse(w / 2, h * .56, 190, 64, 0, 0, TAU); g.stroke();
+  g.strokeStyle = rgba(PAL.hull, .06 + .05 * Math.sin(t * 1.4));
+  g.beginPath(); g.ellipse(w / 2, h * .56, 228, 80, 0, 0, TAU); g.stroke();
+  const ghost = { thrust: .4 + .18 * Math.sin(t * 1.9), boost: false, t, bank: .07 * Math.sin(t * .6) };
+  g.save();
+  g.translate(w / 2, h * .44);
+  g.scale(13, 13);
+  const art = HULL_ART[META.ship] || HULL_ART.vesper;
+  art(g, ghost);
+  g.restore();
+  if (!REDUCE) heroT += 1 / 60;
+  heroRaf = requestAnimationFrame(drawHero);
+}
 function refreshTitleMeta() {
   const h = hull();
   $('launchSub').textContent = h.name + ' · ' + D().name;
   $('hangarSub').textContent = fmt(META.alloy) + ' alloy · ' + META.owned.length + ' of ' + HULLS.length + ' hulls';
   const tempo = dayTempo(todaySeedKey());
+  document.querySelector('.creds').classList.toggle('pulse', !META.runs);   /* first flight: the controls line glows */
   const wfIn = wardenfallCountdown(todaySeedKey());
   $('dailySub').textContent = 'Seed ' + todaySeedKey() + ' · ' + todayMutator().name +
     ' · ' + tempo.label + (tempo.scoreMul > 1 ? ' · score ×' + tempo.scoreMul : '') +
@@ -7010,6 +7080,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.20.0',
+    items: [
+      'Wave 1 fights back (first shooter at ~6s), the title shows your hull breathing on its pad, the blink-flanker Wisp joins wave 16+, a nine-lane tier-7 capstone weapon lands, and a new instrumented audit plays the game and pins the first-60-seconds contract.'
+    ]
+  },
   {
     v: '4.19.1',
     items: [
@@ -8652,7 +8728,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.19.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.20.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

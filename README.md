@@ -1,4 +1,4 @@
-# EMBERFALL v4.19.1 — Orbital Intercept
+# EMBERFALL v4.20.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -143,6 +143,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.20.0 — "First Contact"
+
+- Wave 1 fights back (first shooter at ~6s), the title shows your hull breathing on its pad, the blink-flanker Wisp joins wave 16+, a nine-lane tier-7 capstone weapon lands, and a new instrumented audit plays the game and pins the first-60-seconds contract.
 ## What's new in v4.19.1 — "The probe-able deck"
 
 - Production mode keeps /api/health answerable over plain HTTP (it leaks nothing); every real endpoint still 426s without TLS, and the container deck proves it in CI — bare probe, prod 426, named-volume persistence, non-root.

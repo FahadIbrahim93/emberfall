@@ -29,6 +29,10 @@ module.exports = defineConfig({
   testDir: './tests',
   timeout: 30000,
   use: { browserName: 'chromium', headless: true, baseURL: BASE },
+  /* local CPUs juggle the suite (three consecutive full runs flaked a
+     DIFFERENT timing test each time; each passed on retry). CI keeps one
+     retry — the report shows retried tests transparently. */
+  retries: 1,
   webServer: process.env.E2E_REUSE ? undefined : {
     command: 'node server.js --port ' + PORT,
     env: {

@@ -958,6 +958,27 @@ const FOE_ART = {
     eye(g, e, 0, 2, 2);
   },
 
+  /* WISP — v4.20 blink flanker. A sliver: swept crescent, one eye, twin
+     finlets. Reads as pure speed at 20px — thin, bright-edged, no mass. */
+  wisp(g, e) {
+    exhaust(g, e, 0, -8, 2.0, 9);
+    /* swept crescent wing under */
+    mirrorPoly(g, [[2, 4], [10.5, -1.5], [12.5, -6], [5, -5], [1.6, -2]]);
+    chassis(g, e);
+    g.lineWidth = 1; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .6); g.stroke();
+    /* needle body */
+    mirrorPoly(g, [[0, 11], [2.4, 4], [3.2, -3], [1.8, -8], [0, -9]]);
+    carapace(g, e, -9, 11);
+    seams(g, e, [[0, -6, 0, 9]]);
+    /* twin finlets at the tail — the speed silhouette */
+    for (const sx of [-1, 1]) {
+      poly(g, [[sx * 1.6, -4], [sx * 6.4, -9.5], [sx * 4.2, -2.5]]);
+      chassis(g, e);
+      g.lineWidth = .9; g.strokeStyle = e.col === '#fff' ? '#fff' : rgba(e.col, .65); g.stroke();
+    }
+    eye(g, e, 0, 2.5, 1.7);
+  },
+
   /* WEEPER — mortar tub. A heavy shouldered lobber with a visible bore. */
   weeper(g, e) {
     exhaust(g, e, -4.5, -8, 2.2, 8);

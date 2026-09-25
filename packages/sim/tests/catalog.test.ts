@@ -11,8 +11,8 @@ describe('content catalogs (live counts — G-CONTENT grows later)', () => {
     expect(HULLS[0].cost).toBe(0);
   });
 
-  it('has 20 foe types (14 launch + 6 gen-2 v4.0 — parity with index.html)', () => {
-    expect(FOE_IDS).toHaveLength(20);
+  it('has 21 foe types (14 launch + 6 gen-2 v4.0 + v4.20 wisp — parity with index.html)', () => {
+    expect(FOE_IDS).toHaveLength(21);
     expect(FOES.drone.sc).toBe(50);
     expect(FOES.carrier.armored).toBe(true);
   });
