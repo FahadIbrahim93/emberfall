@@ -335,13 +335,17 @@ const NET = {
   },
 
   /* render into the title screen Global tab */
+  /* worldwide boards — with or without a deck. With one: the full live
+     boards below. Without one: the public mirror (ADR 0001) still shows the
+     world's best through its publishable key — read-only, no accounts, and
+     the page must never block or error when even that is unreachable. */
   async renderGlobal() {
     const status = $('globalStatus'), body = $('globalBody');
     if (!status) return;
     await this.probe();
     if (!this.on) {
-      status.textContent = 'Command deck offline — playing in local mode.\nHost server.js to enable accounts and worldwide boards.';
-      body.classList.add('hidden');
+      status.textContent = 'Command deck offline — playing in local mode.';
+      this.renderMirrorBoards();
       return;
     }
     status.textContent = 'Linked to command deck' + (this.user ? ' · signed in as ' + this.user.name : '');
@@ -354,6 +358,7 @@ const NET = {
     if (!j || !j.top || !j.top.length) {
       box.innerHTML = '<div class="empty">No worldwide runs yet.<br>Be the first. Make it count.</div>';
     } else {
+      const honor = honorOf(META.donated || 0);   /* the donor honor is LOCAL and must be read here — the bare `honor` this once replaced was an undeclared identifier that killed the whole board with a ReferenceError */
       box.innerHTML = j.top.map((r, i) => {
         const h = HULLS.find(x => x.id === r.ship);
         const mine = this.user && r.n === this.user.name;
@@ -376,6 +381,37 @@ const NET = {
         '<span class="sc">' + padN(j.me.s, 7) + '</span><span class="wv">you</span></div>';
     } else you.classList.add('hidden');
     $('globalSignin').classList.toggle('hidden', !!this.user);
+  },
+
+  /* the deckless world view: read-only projections from the public mirror.
+     Everything here is best-effort — any failure just leaves the honest
+     local-mode line above. No writes exist on this path. */
+  async renderMirrorBoards() {
+    const body = $('globalBody');
+    body.classList.remove('hidden');
+    $('globalSignin').classList.add('hidden');
+    const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';
+    const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
+    const box = $('globalBoard');
+    box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
+    try {
+      const r = await fetch(SB + '/leaderboard?select=*', { headers: { apikey: KEY } });
+      if (!r.ok) throw new Error('mirror ' + r.status);
+      const rows = await r.json();
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
+        return;
+      }
+      box.innerHTML = rows.map((r2, i) =>
+        '<div class="row">' +
+        '<span class="rk">' + pad2(i + 1) + '</span>' +
+        '<span class="nm">' + esc(r2.callsign) + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
+        '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
+        '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
+        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed hourly. Fly a deck-linked run to climb it.</p>';
+    } catch (e) {
+      box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
+    }
   },
 
   /* today's gauntlet, worldwide — everyone flew the same seed */

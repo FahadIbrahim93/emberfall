@@ -645,7 +645,7 @@ function serveStatic(req, res, urlPath) {
     if (ext === '.html') {
       /* stats.html reads the anon-read-only public mirror (ADR 0001); every
          other page keeps a closed connect-src. game pages never talk to it. */
-      const connect = file.endsWith('stats.html')
+      const connect = file.endsWith('stats.html') || file.endsWith('index.html')
         ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co"
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
