@@ -32,6 +32,7 @@ COPY docs ./docs
 COPY vitest.config.ts ./
 COPY tools ./tools
 COPY packages ./packages
+COPY goldens ./goldens
 COPY js ./js
 RUN bash check.sh \
  && node deadscan.js --check \
