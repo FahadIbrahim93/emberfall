@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.21.2",
+      "date": "2026-09-26",
+      "codename": "Always Reachable",
+      "loop": {
+        "wave": 2,
+        "kills": 28,
+        "grazes": 3,
+        "combo": 13,
+        "mult": 3,
+        "medianFps": 25
+      },
+      "first60": {
+        "medianFps": 23,
+        "firstPlayingMs": 838,
+        "firstKillMs": 838,
+        "fbSeen": 3
+      }
+    },
+    {
       "version": "4.21.1",
       "date": "2026-09-26",
       "codename": "The Curve",
