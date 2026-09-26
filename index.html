@@ -473,7 +473,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 #touch{position:fixed;inset:0;z-index:7;pointer-events:none;display:none}
 body.touchmode #touch{display:none}   /* overridden while flying, below */
 body.touchmode.flying #touch{display:block}
-body.touchmode.flying #touch[hidden]{display:none}   /* [hidden] must win */
 #stick{position:absolute;width:var(--tstick,118px);height:var(--tstick,118px);border-radius:50%;
   border:1px solid rgba(255,138,43,.3);background:rgba(8,13,26,.3);opacity:0;transition:opacity .16s}
 #stick.on{opacity:1}
@@ -485,7 +484,7 @@ body.touchmode.flying #touch[hidden]{display:none}   /* [hidden] must win */
   display:grid;place-items:center;font-size:.55rem;letter-spacing:.14em;
   backdrop-filter:blur(4px);transition:transform .1s,background .1s}
 .tbtn:active{transform:scale(.9);background:rgba(53,224,255,.22)}
-.tbtn.cool{opacity:.35}
+.tbtn.cool{opacity:.5}
 .tbtn b{display:block;font-size:.9rem;font-family:Michroma,sans-serif;margin-bottom:2px}
 /* action buttons: positions derive from the button size itself, so any
    scale (base, bigbtns, future) re-flows without per-size rules */
@@ -616,9 +615,11 @@ body.needrotate #rotate{display:grid}
 <div id="feed" role="status" aria-live="polite"></div>
 
 <!-- ════════ TOUCH ════════ -->
-<!-- hidden until a run starts (audit 3.7: buttons floated over the title
-     screen in phone landscape); body.flying shows them -->
-<div id="touch" hidden>
+<!-- v4.21.1 fix: the `hidden` attribute here was never removed by any code,
+     and the old [hidden] CSS guard made it win forever — the DASH and PULSE
+     buttons could not appear on ANY device. The body.flying gate alone keeps
+     them off the title screen (audit 3.7). -->
+<div id="touch">
   <div id="stick"><i></i></div>
   <button class="tbtn" id="bDash" aria-label="Dash"><b>⟫</b>DASH</button>
   <button class="tbtn" id="bBomb" aria-label="Nova pulse"><b>✸</b>PULSE</button>
@@ -709,7 +710,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.21.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.21.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -989,7 +990,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.21.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.21.1 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7081,6 +7082,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.21.1',
+    items: [
+      'The fun curve ships — one measured row per release (bot depth, kills, median fps) in a committed scoreboard and README trend table, recorded by CI. Plus the touch fix: DASH and PULSE can actually appear now — a never-removed hidden attribute had blocked them on every device.'
+    ]
+  },
+  {
     v: '4.21.0',
     items: [
       'An autopilot bot now proves the core loop THROUGH PLAY (wave 3, 28 kills, grazes, combo x2 — pinned in CI), a fresh pilot is taught the striker at first sight, the press kit ships with a real wave-1 GIF, /api/health exposes a pilot census, and the battery refuses to touch a ledger that is not a scratch deck.'
@@ -8734,7 +8741,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.21.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.21.1', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

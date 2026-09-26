@@ -19,6 +19,9 @@ jobs:
     name: gates (syntax · dead-code · tests · smoke · economy)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # the fun-curve recorder may commit + push a newly-measured version's point
+    permissions:
+      contents: write
     env:
       SERVER_PORT: 8123
     steps:
@@ -110,6 +113,29 @@ jobs:
 
       - name: Browser smoke
         run: npm run test:browser
+
+      # The bot's own flight record is the fun curve: when the browser suite
+      # just flew a NEW version for the first time on main, distill its
+      # audited artifacts into the committed snapshot + README trend table
+      # and commit (no loop: pushes made with GITHUB_TOKEN don't retrigger).
+      # Runs only after the suite passed — a failed or flaked flight never
+      # records a number.
+      - name: Record the fun-curve point when the browser suite flew a new version (main)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          node tools/fun-scoreboard.mjs
+          if [ -n "$(git status --porcelain docs/audit/fun-curve.json README.md)" ]; then
+            git config user.name "emberfall-funbot"
+            git config user.email "noreply@github.com"
+            git add docs/audit/fun-curve.json README.md
+            git commit -m "fun-curve: record v$(grep -o '<span>EMBERFALL v[0-9.]*' index.html | grep -o '[0-9.]*') from the browser suite's audited play"
+            git push
+          else
+            echo "fun-curve: no change — this version's point is already recorded"
+          fi
+
+      - name: Fun-curve scoreboard gate (snapshot sanity + README table agreement)
+        run: node tools/fun-scoreboard.mjs --check
 
       - name: In-game self-test suite (?selftest, headless)
         run: node tools/selftest-ci.js

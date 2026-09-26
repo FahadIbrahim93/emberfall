@@ -16,7 +16,7 @@ the server doesn't.
 Play: **https://fahadibrahim93.github.io/emberfall/** — click Launch, that's
 the whole tutorial.
 
-## Measured facts (v4.20.0, CI-verified)
+## Measured facts (v4.21.0, CI-verified — the trend across releases lives in the README's fun-curve table)
 
 - **Armed 1.4s after load** — click to arm, click Launch, flying in under
   1 second. First shot inside 1s of spawn.

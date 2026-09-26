@@ -1,0 +1,47 @@
+{
+  "what": "the fun curve — one measured point per release, distilled from the fun-audit artifacts (written by tools/fun-scoreboard.mjs)",
+  "sources": [
+    "docs/audit/timeline.json — tests/fun-audit.spec.js (first 60 seconds)",
+    "docs/audit/fun-loop.json — tests/fun-loop.spec.js (autopilot bot, 56s of real play)"
+  ],
+  "points": [
+    {
+      "version": "4.21.0",
+      "date": "2026-09-26",
+      "codename": "Proof of Play",
+      "loop": {
+        "wave": 3,
+        "kills": 28,
+        "grazes": 4,
+        "combo": 5,
+        "mult": 2,
+        "medianFps": 46
+      },
+      "first60": {
+        "medianFps": 48,
+        "firstPlayingMs": 551,
+        "firstKillMs": 551,
+        "fbSeen": 5
+      }
+    },
+    {
+      "version": "4.20.0",
+      "date": "2026-09-26",
+      "codename": "First Contact",
+      "loop": {
+        "wave": 2,
+        "kills": 17,
+        "grazes": 4,
+        "combo": 6,
+        "mult": 2,
+        "medianFps": 24
+      },
+      "first60": {
+        "medianFps": 48,
+        "firstPlayingMs": 623,
+        "firstKillMs": 623,
+        "fbSeen": 5
+      }
+    }
+  ]
+}

@@ -88,5 +88,22 @@ if (wardenfallers > 0) {
 const orphanScores = one(`SELECT COUNT(*) AS c FROM scores s LEFT JOIN users u ON u.id = s.user_id WHERE u.id IS NULL`);
 orphanScores === 0 ? console.log('── integrity: no orphan rows') : console.log(`── integrity: WARNING ${orphanScores} orphan score rows`);
 
+/* the fun curve: how the game's own measured play trends release over
+   release (same snapshot the README table renders) — best-effort, census
+   must never fail for it */
+try {
+  const { readFileSync } = await import('node:fs');
+  const curvePath = path.join(__dirname, '..', 'docs', 'audit', 'fun-curve.json');
+  const curve = JSON.parse(readFileSync(curvePath, 'utf8'));
+  const pts = (curve.points || []).slice(0, 3);
+  if (pts.length) {
+    console.log('── fun curve (56s bot probe, newest first):');
+    for (const p of pts) {
+      const l = p.loop || {};
+      console.log(`   v${p.version}: wave ${l.wave ?? '—'} · kills ${l.kills ?? '—'} · grazes ${l.grazes ?? '—'} · median fps ${l.medianFps ?? '—'}`);
+    }
+  }
+} catch { /* no snapshot yet — fine */ }
+
 console.log('TESTPILOT-REPORT: READ-ONLY CENSUS OK');
 db.close();

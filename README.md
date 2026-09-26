@@ -1,4 +1,4 @@
-# EMBERFALL v4.21.0 — Orbital Intercept
+# EMBERFALL v4.21.1 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -96,6 +96,19 @@ Every push runs the gates on GitHub Actions (badge above); the live-smoke job ad
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
+<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
+## The fun curve — the game, measured release over release
+
+Every release, the repo's own instrumented play — the first-60-seconds audit (`tests/fun-audit.spec.js`) and the autopilot bot (`tests/fun-loop.spec.js`) — flies the game, and the numbers become a row here: how deep the bot flies, what it kills, how smoothly it runs. Best-wave counts the wave the bot REACHED in its 56-second headless flight — a depth probe, not a feat claim. Median-fps is environment-sensitive (CI's software renderer vs your GPU) — read the trend within a column, not the absolute.
+
+Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, written by `tools/fun-scoreboard.mjs` from the run's own artifacts). The raw artifacts are regenerated every run and stay git-ignored — only the distilled curve ships.
+
+| Release | Date | Bot wave | Bot kills | Bot grazes | Combo × | Bot median fps | First-60s median fps |
+|---|---|---|---|---|---|---|---|
+| v4.21.0 "Proof of Play" | 2026-09-26 | 3 | 28 | 4 | ×2 | 46 | 48 |
+| v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
+<!-- fun-curve:end -->
+
 ## The global leaderboard, mirrored
 
 The deck's SQLite is the only authoritative store (one file, zero
@@ -143,6 +156,10 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.21.1 — "The Curve"
+
+- **The fun curve ships** — every release now leaves one measured row (bot wave depth, kills, grazes, median fps) in a committed scoreboard, rendered as a README trend table, recorded by CI after the browser suite flies each new version, and gated so the table can never drift from the data.
+- **The touch controls actually exist now** — a `hidden` attribute on the touch layer was never removed by any code (and the old CSS guard made it win forever), so the advertised DASH/PULSE buttons could not appear on any device; the `body.flying` gate alone keeps them off the title screen, with a regression test pinning both sides.
 ## What's new in v4.21.0 — "Proof of Play"
 
 - An autopilot bot now proves the core loop THROUGH PLAY (wave 3, 28 kills, grazes, combo x2 — pinned in CI), a fresh pilot is taught the striker at first sight, the press kit ships with a real wave-1 GIF, /api/health exposes a pilot census, and the battery refuses to touch a ledger that is not a scratch deck.

@@ -22,7 +22,17 @@ test('phone landscape title: no DASH/PULSE buttons floating over it', async ({ p
   await titleUp(page);
   await expect(page.locator('#s-title')).toHaveClass(/on/);
   const touch = page.locator('#touch');
-  await expect(touch).toBeHidden();   // visibility:hidden via [hidden] + CSS
+  await expect(touch).toBeHidden();   // body.flying gate: display:none off the title
+});
+
+test('touch controls appear while flying (v4.21.1: the never-unhidden regression)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await titleUp(page);
+  await expect(page.locator('#touch')).toBeHidden();   // title: still hidden
+  // simulate the touchmode+flying state a real coarse-pointer device gets
+  await page.evaluate(() => document.body.classList.add('touchmode', 'flying'));
+  await expect(page.locator('#bDash')).toBeVisible();
+  await expect(page.locator('#bBomb')).toBeVisible();
 });
 
 test('desktop 1280x720: logo, launch and settings all on-screen and apart', async ({ page }) => {

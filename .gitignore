@@ -14,8 +14,11 @@ dist/
 # db-backup snapshots are the user table — never commit a ledger
 backups/
 
-# fun-audit artifacts (regenerated every run)
-docs/audit/
+# fun-audit artifacts (regenerated every run) — EXCEPT the committed
+# fun-curve snapshot (docs/audit/ is a dir, so ignore its CONTENTS to let
+# one negation through)
+docs/audit/*
+!docs/audit/fun-curve.json
 
 # battery scratch decks — ledgers never ship, again
 .freebuff/scratch-*/
