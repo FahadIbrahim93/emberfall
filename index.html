@@ -710,7 +710,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.21.2</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.22.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -841,11 +841,20 @@ body.needrotate #rotate{display:grid}
     <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
       <div class="opt full">
         <label id="lAcct">Command deck <span id="acctStat" style="color:var(--dimmer);letter-spacing:.08em">local mode</span></label>
+        <div id="deckRow" style="display:grid;gap:6px">
+          <input id="deckUrl" placeholder="DECK ADDRESS (OPTIONAL)" spellcheck="false" autocapitalize="off" autocomplete="url"
+            style="background:rgba(53,224,255,.04);border:1px solid var(--line-soft);font-size:.68rem;letter-spacing:.1em;padding:8px 10px;outline:none;color:var(--ink)">
+          <p class="empty" id="deckHint" style="padding:0;text-align:left;font-size:.62rem;line-height:1.7">Fly a remote deck: type its address (https://deck.example.com) — accounts, worldwide boards and duels come from there. Blank = the deck on this network.</p>
+        </div>
         <div id="acctFields" style="display:grid;gap:8px">
-          <input id="acctName" maxlength="16" placeholder="CALLSIGN" spellcheck="false" autocomplete="username"
+          <input id="acctName" maxlength="16" placeholder="CALLSIGN" spellcheck="false" autocomplete="username" autocapitalize="none" autocorrect="off"
             style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;text-transform:uppercase;outline:none;color:var(--ink)">
-          <input id="acctPass" type="password" maxlength="128" placeholder="PASSWORD (6+ chars)" autocomplete="current-password"
-            style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
+          <div style="position:relative">
+            <input id="acctPass" type="password" maxlength="128" placeholder="PASSWORD (6+ chars)" autocomplete="current-password"
+              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 44px 10px 12px;outline:none;color:var(--ink)">
+            <button id="btnPassVis" type="button" aria-label="Show password" aria-pressed="false"
+              style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dimmer);font-size:.58rem;letter-spacing:.12em;padding:8px;cursor:pointer">show</button>
+          </div>
           <div class="pair">
             <button class="btn key" id="btnAcctGo">Sign in</button>
             <button class="btn" id="btnAcctNew">Create account</button>
@@ -990,7 +999,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.21.2 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.22.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1008,6 +1017,13 @@ const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const hyp = (x, y) => Math.sqrt(x * x + y * y);
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
+/* v4.22: a pilot's name is a LINK on the global board — it opens the
+   deck's /pilot/<name> profile page. The deck address rides along:
+   NET.deck when the game flies a remote deck, otherwise this origin. */
+function pilotUrl(name) {
+  const base = (typeof NET !== 'undefined' && NET.deck) || location.origin;
+  return base + '/pilot/' + encodeURIComponent(String(name || ''));
+}
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -6722,8 +6738,33 @@ function paintAccount() {
   $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
   $('acctFields').classList.toggle('hidden', !on || !!u);
   $('acctSigned').classList.toggle('hidden', !on || !u);
+  paintDeckRow();
   paintVault();
   paintLan();
+}
+/* v4.22 — the deck address row: the one field that decides WHICH deck the
+   game flies. Committed on change (blur/Enter); a wrong address is not an
+   error state, it is local mode with the hint still in front of you. */
+function paintDeckRow() {
+  const inp = $('deckUrl');
+  if (!inp) return;
+  if (document.activeElement !== inp) inp.value = NET.deck;
+  $('deckHint').textContent = NET.deck
+    ? 'Flying ' + NET.deck + ' — accounts, boards and duels come from there. Clear the field to return to this network.'
+    : 'Fly a remote deck: type its address (https://deck.example.com) — accounts, worldwide boards and duels come from there. Blank = the deck on this network.';
+}
+function bindPassToggle() {
+  const inp = $('acctPass'), btn = $('btnPassVis');
+  if (!inp || !btn) return;
+  btn.onclick = () => {
+    AU.ui();
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    btn.textContent = show ? 'hide' : 'show';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    inp.focus();
+  };
 }
 /* LAN play — the on-the-go story before a public deployment: the deck
    answers on every interface, so any device on the same Wi-Fi can open
@@ -6794,6 +6835,20 @@ bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
+bindPassToggle();
+(function () {
+  const inp = $('deckUrl');
+  if (!inp) return;
+  inp.addEventListener('change', async () => {
+    const v = inp.value.trim().replace(/\/+$/, '');
+    if (v === NET.deck) return;
+    NET.setDeck(v);
+    note(v ? 'Probing ' + v.replace(/^https?:\/\//, '') + '…' : 'Back to the local deck…', 'dim');
+    const on = await NET.probe();
+    note(on ? 'Deck linked' + (NET.deck ? ' (remote)' : '') : 'No deck answered there — staying in local mode', on ? 'good' : 'bad');
+    paintAccount();
+  });
+})();
 bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
@@ -7081,6 +7136,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.22.0',
+    items: [
+      'The global leaderboard actually works now: the deck learns a CORS allowlist and issues bearer sessions so the Pages game can sign up, sign in, climb the live boards and duel across origins, every pilot name links to a /pilot profile page, boards page past the top ten, and a deck-address field in settings aims any copy of the game at any deck.'
+    ]
+  },
   {
     v: '4.21.2',
     items: [
@@ -8326,6 +8387,27 @@ function runSelfTests() {
     const part = profStats(r, 2);   // half-filled ring reads only the filled prefix
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
+  T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
+    const savedDeck = NET.deck;
+    NET.deck = '';
+    eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
+    eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
+    NET.deck = 'https://deck.example.com';
+    eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
+    NET.deck = savedDeck;
+  });
+  T('v4.22 setDeck: trims the address, clears the bearer, restores clean', () => {
+    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
+    try { localStorage.setItem('emberfall2.token', 'tok-abc'); } catch (e) { }
+    NET.token = 'tok-abc';
+    NET.setDeck('  https://deck.example.com/  ');
+    eq(NET.deck, 'https://deck.example.com', 'address trimmed, trailing slash gone');
+    ok(!NET.token, 'switching decks drops the old bearer');
+    ok(!localStorage.getItem('emberfall2.token'), 'bearer removed from the store');
+    NET.setDeck(savedDeck);
+    NET.token = savedTok;
+    try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+  });
   T('battery default: touch devices cap at 60, desktop uncapped', () => {
     eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
     const save = CFG.fpscap, saveS = DB.get('cfg', null);
@@ -8747,7 +8829,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.21.2', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.22.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

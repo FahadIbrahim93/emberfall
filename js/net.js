@@ -11,13 +11,53 @@ const NET = {
   meDaily: null,   /* last /api/me daily block — streak display on the day board */
   weekDays: 0,     /* flew days in the running Monday-UTC week (deck-counted) */
   seasonDays: 0,   /* DISTINCT flew days in the running week — perfect-season pulse */
+  boardOffset: 0,  /* Global-tab pagination cursor (v4.22) */
+
+  /* ── ADR 0002: the deck ADDRESS ──
+     Empty = auto: probe this origin's own server (LAN + self-hosted play,
+     unchanged since v3.2). Set = a remote deck: the Pages game (or any
+     mirror of the shell) flies that deck's boards, accounts and duels
+     cross-origin. '?deck=<url>' on the address bar wins once and
+     persists; '?deck=' (empty) clears back to auto. */
+  deck: (function () {
+    let q = null;
+    try { q = new URLSearchParams(location.search).get('deck'); } catch (e) { }
+    if (q !== null) {
+      const v = q.trim().replace(/\/+$/, '');
+      try { localStorage.setItem('emberfall2.deck', v); } catch (e) { }
+      return v;
+    }
+    try { return localStorage.getItem('emberfall2.deck') || ''; } catch (e) { return ''; }
+  })(),
+
+  /* the bearer half of a cross-origin session (empty for same-origin
+     decks — the HttpOnly cookie already carries those) */
+  token: (function () {
+    try { return localStorage.getItem('emberfall2.token') || ''; } catch (e) { return ''; }
+  })(),
+
+  setDeck(v) {
+    this.deck = (v || '').trim().replace(/\/+$/, '');
+    /* a new deck means a new session world: drop the old bearer */
+    this.token = '';
+    try { localStorage.removeItem('emberfall2.token'); } catch (e) { }
+    try { localStorage.setItem('emberfall2.deck', this.deck); } catch (e) { }
+    this.probed = false; this.on = false; this.user = null; this.meDaily = null;
+  },
 
   async probe() {
     if (this.probed) return this.on;
     this.probed = true;
+    if (this.deck) {
+      /* a hand-typed address must look like one before we dial it */
+      try {
+        const u = new URL(this.deck);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
+      } catch (e) { this.on = false; return false; }
+    }
     try {
       const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 2500);
-      const r = await fetch('/api/health', { signal: ctl.signal, cache: 'no-store' });
+      const r = await fetch(this.deck + '/api/health', { signal: ctl.signal, cache: 'no-store' });
       clearTimeout(kill);
       if (!r.ok) return false;
       const j = await r.json();
@@ -64,10 +104,22 @@ const NET = {
   },
 
   async req(method, path, body) {
-    const r = await fetch(path, {
-      method, headers: this.hdrs, credentials: 'same-origin',
+    const headers = Object.assign({}, this.hdrs);
+    if (this.token) headers.Authorization = 'Bearer ' + this.token;
+    const r = await fetch(this.deck + path, {
+      method, headers,
+      /* cross-origin pilots authenticate by bearer token (ADR 0002): a
+         SameSite=Lax cookie would never ride the fetch anyway */
+      credentials: this.deck ? 'omit' : 'same-origin',
       body: body === undefined ? undefined : JSON.stringify(body)
     });
+    /* a deck minting a session for an allowed origin returns the token in
+       an exposed header — capture it wherever it appears (register/login) */
+    const tk = r.headers.get('x-emberfall-token');
+    if (tk) {
+      this.token = tk;
+      try { localStorage.setItem('emberfall2.token', tk); } catch (e) { }
+    }
     const j = await r.json().catch(() => ({}));
     if (!r.ok || j.ok === false) {
       // status rides the error so callers can tell definitive rejections
@@ -103,6 +155,8 @@ const NET = {
   async logout() {
     try { await this.req('POST', '/api/logout'); } catch (e) { }
     this.user = null;
+    this.token = '';
+    try { localStorage.removeItem('emberfall2.token'); } catch (e) { }
   },
 
   /* ---- the vault: deck-side rolling profile snapshots (read-only) ----
@@ -222,10 +276,11 @@ const NET = {
       daily: j.daily }));
   },
 
-  async fetchBoard(mode) {
+  async fetchBoard(mode, offset) {
     if (!this.on) return null;
     try {
-      const j = await this.req('GET', '/api/scores?mode=' + encodeURIComponent(mode));
+      const j = await this.req('GET', '/api/scores?mode=' + encodeURIComponent(mode) +
+        (offset ? '&offset=' + Math.floor(offset) : ''));
       return j;
     } catch (e) { return null; }
   },
@@ -344,22 +399,39 @@ const NET = {
     if (!status) return;
     await this.probe();
     if (!this.on) {
-      status.textContent = 'Command deck offline — playing in local mode.';
+      status.textContent = this.deck
+        ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
+        : 'Command deck offline — playing in local mode.';
       this.renderMirrorBoards();
       return;
     }
-    status.textContent = 'Linked to command deck' + (this.user ? ' · signed in as ' + this.user.name : '');
+    status.textContent = 'Linked to command deck' + (this.deck ? ' (remote)' : '') +
+      (this.user ? ' · signed in as ' + this.user.name : '');
     body.classList.remove('hidden');
     this.renderSeason();
     this.renderDuels();
     this.renderDayBoard();
-    const j = await this.fetchBoard(boardMode());
+    /* v4.22: the board pages. Rows are DISTINCT pilots, so "more" is a
+       fresh page of names, not this pilot's second-best run. */
+    this._gbMode = boardMode();
+    this._gbRows = [];
+    await this.renderGlobalPage();
+  },
+
+  async renderGlobalPage() {
     const box = $('globalBoard');
-    if (!j || !j.top || !j.top.length) {
+    if (!box) return;
+    const j = await this.fetchBoard(this._gbMode, this._gbRows.length);
+    if (j && j.top) {
+      const known = new Set(this._gbRows.map(r => r.n));
+      for (const r of j.top) if (!known.has(r.n)) { this._gbRows.push(r); known.add(r.n); }
+      this._gbMore = !!j.more;
+    }
+    if (!this._gbRows.length) {
       box.innerHTML = '<div class="empty">No worldwide runs yet.<br>Be the first. Make it count.</div>';
     } else {
       const honor = honorOf(META.donated || 0);   /* the donor honor is LOCAL and must be read here — the bare `honor` this once replaced was an undeclared identifier that killed the whole board with a ReferenceError */
-      box.innerHTML = j.top.map((r, i) => {
+      box.innerHTML = this._gbRows.map((r, i) => {
         const h = HULLS.find(x => x.id === r.ship);
         const mine = this.user && r.n === this.user.name;
         const gpt = r.p && PAINTS.find(x => x.id === r.p);
@@ -367,11 +439,20 @@ const NET = {
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
           '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
-          esc(r.n) + (h ? ' · ' + esc(h.name) : '') +
+          '<a href="' + pilotUrl(r.n) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          (h ? ' · ' + esc(h.name) : '') +
           (r.m ? ' <span style="color:var(--gold);font-size:.6rem">M' + r.m + '</span>' : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
       }).join('');
+      if (this._gbMore) {
+        const more = document.createElement('button');
+        more.className = 'up';
+        more.style.textAlign = 'center';
+        more.textContent = 'Show more pilots';
+        more.onclick = () => { AU.ui(); this.renderGlobalPage(); };
+        box.appendChild(more);
+      }
     }
     const you = $('globalYou');
     if (j && j.me) {

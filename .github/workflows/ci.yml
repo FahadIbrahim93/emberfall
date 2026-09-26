@@ -79,6 +79,9 @@ jobs:
       - name: Duels drill (full challenge loop, live deck)
         run: node tools/drill-duels.mjs
 
+      - name: Cross-origin drill (ADR 0002: CORS grants, bearer sessions, pagination, pilot profiles — own scratch deck)
+        run: node tools/drill-cross-origin.mjs
+
       - name: Limiter drill (every bucket answers 429 at its budget, own scratch deck)
         run: node tools/drill-limiters.mjs
 

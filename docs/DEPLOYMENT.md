@@ -98,3 +98,50 @@ it is self-hosted by design, one Node process with its local SQLite.
 | `EF_DUEL_RETENTION_DAYS` | duel retention window (default 7) |
 | `NODE_ENV=production` | require HTTPS, `Secure` cookies |
 | `TRUST_PROXY=1` | trust one proxy hop for X-Forwarded-For |
+| `EF_CORS_ORIGINS` | ADR 0002: comma-separated origins allowed to call the API (e.g. `https://fahadibrahim93.github.io`); `*` = any origin for public data; empty = same-origin only |
+| `EF_CONNECT_SRC` | ADR 0002: extra origins this deck's SERVED pages may dial (deck-to-deck); Pages needs no such permission |
+
+## Serving the Pages game from your deck (v4.22)
+
+One deployment turns the published Pages game into a full client of your
+deck — accounts, worldwide boards, duels, cloud saves for every player on
+Earth, no fork of the game required:
+
+```bash
+NODE_ENV=production TRUST_PROXY=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io \
+  node server.js --port 8123
+```
+
+- behind your TLS-terminating proxy (Caddy/nginx), as always — the 426
+  contract already forces that
+- every Pages player now gets the **sign in / create account** panel
+  linked to YOUR deck; sessions ride bearer tokens (ADR 0002) because
+  cookies cannot cross origins
+- the global tab reads YOUR live boards with pagination; names link to
+  `https://<your-deck>/pilot/<callsign>` profiles
+- players can also point ANY copy of the game at any deck themselves:
+  Settings → Command deck → "deck address" field, or `?deck=<url>` on the
+  address bar — both persist on the device
+- prove the door before you open it: `node tools/drill-cross-origin.mjs`
+  (CI runs it on every push; 23 checks incl. the disallowed-origin
+  silence and the bearer-logout kill)
+
+### A one-command host: the Fly.io blueprint
+
+The container path is proven (see ROADMAP "The container path" for the
+gaps a real rollout still owns: TLS, off-box backups, log shipping). The
+short version on Fly:
+
+```bash
+fly launch --no-deploy --name emberfall-deck --region iad
+fly volumes create ef_data --size 1 --region iad
+fly deploy                      # builds the Dockerfile — gates run in-build
+fly secrets set NODE_ENV=production TRUST_PROXY=1 \
+  EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+fly scale memory 256            # the deck is one process; stay small
+```
+
+Fly terminates TLS at the edge (the deck stays plain HTTP behind it),
+`fly.toml` mounts the volume at `/data` and wires the health check to
+`/api/health`. Backups: `fly ssh console -C "node /app/tools/db-backup.js
+--verify --keep 14"` on a schedule, `--out` a directory you sync off-box.

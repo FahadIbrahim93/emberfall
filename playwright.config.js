@@ -38,7 +38,13 @@ module.exports = defineConfig({
     env: {
       ...process.env,
       EF_DATA_DIR: E2E_DATA_DIR,
-      EF_E2E_MARKER: E2E_MARKER
+      EF_E2E_MARKER: E2E_MARKER,
+      /* the suite's deck also plays the CORS game: deck-link.spec aims a
+         second deck HERE (EF_CORS_ORIGINS names who may call this deck),
+         and EF_CONNECT_SRC lets this deck's SERVED page dial that second
+         deck back — the two knobs of ADR 0002's cross-origin story */
+      EF_CORS_ORIGINS: 'http://127.0.0.1:8123',
+      EF_CONNECT_SRC: 'http://127.0.0.1:8165'
     },
     url: BASE + '/api/health',
     reuseExistingServer: true /* a deck already on this port is reused AS-IS —

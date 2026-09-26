@@ -1,6 +1,6 @@
 {
-  "total": 71,
-  "passed": 71,
+  "total": 73,
+  "passed": 73,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -54,6 +54,8 @@
     "SKY_EVENTS extension: escort convoy records through the single owner",
     "viewport cull rejects NaN",
     "profiler stats: percentiles monotone, empty ring safe",
+    "v4.22 pilot links: pilotUrl encodes names and rides the deck address",
+    "v4.22 setDeck: trims the address, clears the bearer, restores clean",
     "battery default: touch devices cap at 60, desktop uncapped",
     "seraph prism lance: heat math, duty cycle, and hull contract",
     "reduced motion freezes ambient drift, keeps rare events",

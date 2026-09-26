@@ -1,4 +1,4 @@
-# EMBERFALL v4.21.2 — Orbital Intercept
+# EMBERFALL v4.22.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -158,6 +158,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.22.0 — "The World Stage"
+
+- The global leaderboard actually works now: the deck learns a CORS allowlist and issues bearer sessions so the Pages game can sign up, sign in, climb the live boards and duel across origins, every pilot name links to a /pilot profile page, boards page past the top ten, and a deck-address field in settings aims any copy of the game at any deck.
 ## What's new in v4.21.2 — "Always Reachable"
 
 - The DASH and PULSE buttons are now reachable on every device: hybrid pointer setups (touch second, mouse primary) get the touch controls via any-pointer detection with a first-touch upgrade as backstop, and the buttons answer Enter and Space for keyboard and screen-reader pilots with a guard so a real tap never double-spends a pulse; the roadmap also gains the container deployment path — the proven docker guarantees and the three gaps to a real rollout.

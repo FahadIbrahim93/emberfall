@@ -69,6 +69,22 @@ if (process.env.EF_E2E_MARKER) {
 }
 const IS_PROD = process.env.NODE_ENV === 'production';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+/* ADR 0002 — cross-origin pilots. The game ships from GitHub Pages while the
+   deck self-hosts, so a public deck MUST be reachable from other origins.
+   Comma-separated exact origins; '*' means any origin may read PUBLIC data
+   (boards, stats — still no accounts without a signed pilot). Empty = the
+   historical same-origin-only deck. The game's own origin is always allowed
+   when the deck serves it. */
+const CORS_ORIGINS = (process.env.EF_CORS_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const CORS_ANY = CORS_ORIGINS.includes('*');
+/* ADR 0002 — origins the deck's SERVED game pages may dial (connect-src).
+   This is the deck-to-deck knob: a LAN game served by THIS deck that joins
+   a REMOTE deck needs that remote origin here. The Pages build needs no
+   such permission — GitHub Pages serves no CSP header at all. Empty = the
+   historical closed posture. */
+const PAGE_CONNECT = (process.env.EF_CONNECT_SRC || '')
+  .split(/\s+/).map(s => s.trim()).filter(Boolean);
 
 /* ─────────────────────────── database ─────────────────────────── */
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -501,6 +517,13 @@ async function verifyPassword(password, salt, expected) {
   const a = Buffer.from(got), b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+/* Sessions, two carriers. The cookie (HttpOnly, SameSite=Lax) is for the
+   deck's own origin — LAN and self-hosted play, unchanged since v3.2. The
+   BEARER TOKEN return is for cross-origin pilots (ADR 0002): a cookie set
+   by another origin would be third-party (blocked in Safari, never sent by
+   SameSite=Lax), so the Pages game holds the token in localStorage and
+   presents it as `Authorization: Bearer`. Same rows, same expiry, same
+   sweep — the token is a second handle on the SAME session. */
 function newSession(req, res, userId) {
   const token = crypto.randomBytes(32).toString('base64url');
   const exp = now() + SESSION_DAYS * 86400000;
@@ -509,9 +532,18 @@ function newSession(req, res, userId) {
   const secure = IS_PROD || isSecureRequest(req);
   res.setHeader('Set-Cookie',
     `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=${SESSION_DAYS * 86400}`);
+  if (isAllowedOrigin(req.headers.origin || '')) {
+    res.setHeader('X-Emberfall-Token', token);
+    res.setHeader('Access-Control-Expose-Headers',
+      (res.getHeader('Access-Control-Expose-Headers') ? res.getHeader('Access-Control-Expose-Headers') + ', ' : '') +
+      'X-Emberfall-Token');
+  }
 }
 function clearSession(req, res) {
-  const token = readCookie(req, COOKIE);
+  /* bearer first — a cross-origin pilot's logout must kill the SAME session
+     row its token names, not silently no-op because no cookie rode along */
+  const m = /^Bearer\s+(.+)$/.exec(req.headers.authorization || '');
+  const token = (m && m[1]) || readCookie(req, COOKIE);
   if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?')
     .run(crypto.createHash('sha256').update(token).digest('hex'));
   /* Secure matches newSession: a logout must be able to clear the very
@@ -529,7 +561,11 @@ function readCookie(req, name) {
   return null;
 }
 function sessionUser(req) {
-  const token = readCookie(req, COOKIE);
+  /* bearer first: a cross-origin pilot presents the token; the cookie path
+     below stays authoritative for same-origin decks (HttpOnly beats JS) */
+  const auth = req.headers.authorization || '';
+  const m = /^Bearer\s+(.+)$/.exec(auth);
+  const token = (m && m[1]) || readCookie(req, COOKIE);
   if (!token) return null;
   const row = db.prepare(`
     SELECT u.id, u.name, s.expires FROM sessions s JOIN users u ON u.id = s.user_id
@@ -564,12 +600,46 @@ const MODES = new Set(['main', 'daily', 'rush']);
 const SHIPS = new Set(['vesper', 'halcyon', 'atlas', 'wraith', 'seraph']);
 
 /* ─────────────────────────── http plumbing ─────────────────────────── */
+/* ADR 0002 — the CORS layer, one door for every API answer. Exact-origin
+   echo against the allowlist (never reflect-and-trust), Vary: Origin so
+   caches never serve one origin's grant to another, and credentials stay
+   OUT of the grant: cross-origin pilots authenticate by BEARER TOKEN
+   (returned by register/login), because SameSite=Lax cookies never ride
+   cross-site fetches and Safari blocks third-party cookies outright. */
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  return CORS_ANY || CORS_ORIGINS.includes(origin);
+}
+function corsHeaders(req, res) {
+  const origin = req.headers.origin || '';
+  if (origin && isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Emberfall-Rank, X-Emberfall-Token');
+  }
+}
+function handlePreflight(req, res) {
+  const origin = req.headers.origin || '';
+  const method = (req.headers['access-control-request-method'] || '').toUpperCase();
+  const reqHeaders = String(req.headers['access-control-request-headers'] || '');
+  if (!method || !isAllowedOrigin(origin)) return false;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Max-Age', '600');
+  if (reqHeaders) res.setHeader('Access-Control-Allow-Headers', reqHeaders);
+  res.writeHead(204);
+  res.end();
+  return true;
+}
+
 function send(res, code, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+    'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin') || ''
   });
   res.end(body);
 }
@@ -651,9 +721,13 @@ function serveStatic(req, res, urlPath) {
     };
     if (ext === '.html') {
       /* stats.html reads the anon-read-only public mirror (ADR 0001); every
-         other page keeps a closed connect-src. game pages never talk to it. */
+         other page keeps a closed connect-src. game pages never talk to it.
+         v4.22: EF_CONNECT_SRC names the remote decks a page served HERE is
+         allowed to fly (the deck-to-deck story); CORS_ORIGINS is a different
+         knob — who may call THIS deck's API. */
+      const extra = PAGE_CONNECT.map(o => ' ' + o).join('');
       const connect = file.endsWith('stats.html') || file.endsWith('index.html')
-        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co"
+        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + extra
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; " + connect;
@@ -1060,12 +1134,18 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       win = ' AND s.created >= ? AND s.created <= ?';
       winArgs = [lo, hi];
     }
+    /* v4.22 pagination: ?offset= pages past the top 10. Hard cap 200 and
+       integer-floor guard — the ladder is public, unauthenticated data. */
+    const offRaw = parseInt(url.searchParams.get('offset') || '0', 10);
+    const offset = Number.isFinite(offRaw) && offRaw > 0 ? Math.min(offRaw, 190) : 0;
     const topN = db.prepare(`
       SELECT u.name AS n, MAX(s.score) AS s, s.wave AS w, s.ship, s.diff, MIN(s.created) AS d,
         MAX(s.paint) AS p, MAX(s.mastery) AS m
       FROM scores s JOIN users u ON u.id = s.user_id
       WHERE s.mode = ? AND s.verdict = 'accepted'${win}
-      GROUP BY s.user_id ORDER BY s DESC LIMIT 10`).all(mode, ...winArgs);
+      GROUP BY s.user_id ORDER BY s DESC LIMIT 11 OFFSET ${offset}`).all(mode, ...winArgs);
+    const more = topN.length > 10;
+    if (more) topN.length = 10;   /* one extra row fetched: the honest "more exist" probe */
     /* v4.10: medal pips — a pilot's daily_stats bests are the ledger of what
        they EARNED today (two runs pool their tiers), so the day board renders
        the ledger, not one run's gates. Keyed by callsign; me-row uses it too. */
@@ -1099,7 +1179,32 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
                mds: md[user.name] || [] };
       }
     }
-    return send(res, 200, { ok: true, day, top: topN, me, md });
+    return send(res, 200, { ok: true, day, top: topN, me, md, more, offset });
+  }
+
+  /* ADR 0002 — the pilot profile: the minimum public fact set a leader-
+     board row promises (callsign, hull, paint colors, honors). The global
+     tab links every name to /pilot/<name>; 404 keeps retired callsigns
+     honest. Cookie or bearer, session optional. */
+  if (req.method === 'GET' && /^\/pilot\/[^/]+$/.test(pathname)) {
+    const name = decodeURIComponent(pathname.slice('/pilot/'.length));
+    const row = db.prepare('SELECT id, name, created FROM users WHERE name_lower = ?').get(name.toLowerCase());
+    if (!row) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no such pilot'); }
+    const bests = {};
+    for (const m2 of MODES) {
+      const b = db.prepare("SELECT MAX(score) AS s, MAX(wave) AS w FROM scores WHERE user_id = ? AND mode = ? AND verdict = 'accepted'").get(row.id, m2);
+      if (b && b.s != null) bests[m2] = { s: Number(b.s), w: Number(b.w) };
+    }
+    const falls = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(row.id).c;
+    const days = db.prepare('SELECT COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM daily_stats WHERE user_id = ?').get(row.id);
+    const paintRow = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(row.id);
+    let paint = null;
+    try { const pd = JSON.parse(paintRow ? paintRow.data : '{}'); paint = pd && pd.meta && pd.meta.paint ? String(pd.meta.paint).slice(0, 24) : null; } catch (e) { }
+    return send(res, 200, {
+      ok: true, name: row.name, since: row.created, bests,
+      wardenfalls: Number(falls), flewDays: Number(days.c), alloyPaid: Number(days.paid),
+      paint: paint && PAINT_IDS.has(paint) ? paint : null
+    });
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {
@@ -1219,13 +1324,20 @@ const server = http.createServer(async (req, res) => {
   const ip = clientIp(req);
   try {
     const url = new URL(req.url, 'http://x');
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pilot/')) {
       /* /api/health is the orchestrator's probe and stays answerable over
          plain HTTP even in production mode (it leaks the service name and
          a timestamp, nothing else) — behind a TLS-terminating proxy the
          container only ever sees plain HTTP, so a gated healthcheck could
          never pass. Every real endpoint still 426s without TLS. */
       if (url.pathname !== '/api/health' && !requireSecure(req, res)) return;
+      if (req.method === 'OPTIONS') {
+        /* a preflight that fails the allowlist gets a 204 with NO grant —
+         the browser blocks the real request; never leave it hanging */
+        if (!handlePreflight(req, res)) { res.writeHead(204); res.end(); }
+        return;
+      }
+      corsHeaders(req, res);
       if (!rateLimit(ip, 'api', 240, 60000)) return bad(res, 'slow down', 429);
       return await handleApi(req, res, url.pathname, ip);
     }
