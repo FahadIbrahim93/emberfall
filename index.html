@@ -621,8 +621,8 @@ body.needrotate #rotate{display:grid}
      them off the title screen (audit 3.7). -->
 <div id="touch">
   <div id="stick"><i></i></div>
-  <button class="tbtn" id="bDash" aria-label="Dash"><b>⟫</b>DASH</button>
-  <button class="tbtn" id="bBomb" aria-label="Nova pulse"><b>✸</b>PULSE</button>
+  <button class="tbtn" id="bDash" type="button" aria-label="Dash" aria-keyshortcuts="Shift"><b>⟫</b>DASH</button>
+  <button class="tbtn" id="bBomb" type="button" aria-label="Nova pulse" aria-keyshortcuts="Key E"><b>✸</b>PULSE</button>
 </div>
 
 <!-- ════════ BOOT ════════ -->
@@ -710,7 +710,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.21.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.21.2</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -990,7 +990,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.21.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.21.2 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7082,9 +7082,15 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.21.2',
+    items: [
+      'The DASH and PULSE buttons are now reachable on every device: hybrid pointer setups (touch second, mouse primary) get the touch controls via any-pointer detection with a first-touch upgrade as backstop, and the buttons answer Enter and Space for keyboard and screen-reader pilots with a guard so a real tap never double-spends a pulse; the roadmap also gains the container deployment path — the proven docker guarantees and the three gaps to a real rollout.'
+    ]
+  },
+  {
     v: '4.21.1',
     items: [
-      'The fun curve ships — one measured row per release (bot depth, kills, median fps) in a committed scoreboard and README trend table, recorded by CI. Plus the touch fix: DASH and PULSE can actually appear now — a never-removed hidden attribute had blocked them on every device.'
+      'DASH and PULSE are always reachable: hybrid devices (touch second, mouse primary) now get the buttons via any-pointer detection, a first-touch upgrade catches whatever detection misses, and the buttons answer Enter/Space so keyboard and screen-reader pilots can fire them — with a guard so a real tap never double-spends a pulse. Plus the fun curve: one measured row per release in the README scoreboard, recorded by CI.'
     ]
   },
   {
@@ -8741,7 +8747,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.21.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.21.2', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

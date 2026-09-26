@@ -20,7 +20,13 @@ let padPrev = {};
 let wakeLock = null;
 
 function isTouchDevice() {
-  return matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+  /* any-pointer:coarse catches hybrids whose PRIMARY pointer is a mouse
+     (touch monitors, convertibles, kiosks) — pointer:coarse + ontouchstart
+     both missed them on some browsers; the runtime upgrade in onTouchStart
+     backstops whatever detection still misses: the first real touch wins. */
+  return matchMedia('(pointer:coarse)').matches ||
+         matchMedia('(any-pointer:coarse)').matches ||
+         'ontouchstart' in window;
 }
 
 /* one reusable movement-vector slot, written per poll */
@@ -150,6 +156,9 @@ function onPointerCancel(e) {
 
 /* ── touch: relative drag, which beats absolute follow on a small screen ── */
 function onTouchStart(e) {
+  /* a real touch is ground truth: a hybrid device whose detection missed
+     joins touchmode on first contact — the DASH/PULSE buttons appear */
+  document.body.classList.add('touchmode');
   if (INPUT.touchId !== null) return;
   INPUT.touchId = e.pointerId;
   INPUT.mode = 'touch';
@@ -182,7 +191,20 @@ function onTouchEnd(e) {
 function bindTouchButton(id, onDown) {
   const el = $(id);
   if (!el) return;
-  el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); onDown(); }, { passive: false });
+  /* pointerdown = zero-latency touch. A guarded click adds keyboard and
+     assistive-tech activation (Enter/Space on focus, AT double-tap fires
+     click only) WITHOUT double-firing after a real pointerdown — the
+     guard is what keeps a touch from spending two pulse bombs. */
+  let lastPointer = 0;
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    lastPointer = performance.now();
+    onDown();
+  }, { passive: false });
+  el.addEventListener('click', () => {
+    if (performance.now() - lastPointer < 700) return;
+    onDown();
+  });
 }
 
 /* ── gamepad ── */

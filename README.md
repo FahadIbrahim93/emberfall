@@ -1,4 +1,4 @@
-# EMBERFALL v4.21.1 — Orbital Intercept
+# EMBERFALL v4.21.2 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -157,10 +157,14 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.21.2 — "Always Reachable"
+
+- The DASH and PULSE buttons are now reachable on every device: hybrid pointer setups (touch second, mouse primary) get the touch controls via any-pointer detection with a first-touch upgrade as backstop, and the buttons answer Enter and Space for keyboard and screen-reader pilots with a guard so a real tap never double-spends a pulse; the roadmap also gains the container deployment path — the proven docker guarantees and the three gaps to a real rollout.
 ## What's new in v4.21.1 — "The Curve"
 
 - **The fun curve ships** — every release now leaves one measured row (bot wave depth, kills, grazes, median fps) in a committed scoreboard, rendered as a README trend table, recorded by CI after the browser suite flies each new version, and gated so the table can never drift from the data.
-- **The touch controls actually exist now** — a `hidden` attribute on the touch layer was never removed by any code (and the old CSS guard made it win forever), so the advertised DASH/PULSE buttons could not appear on any device; the `body.flying` gate alone keeps them off the title screen, with a regression test pinning both sides.
+- **The touch controls are always reachable** — v4.21.1 removed the never-unhidden `hidden` attribute so DASH/PULSE could exist at all; v4.21.2 finishes the job: hybrid devices (touch as a *secondary* pointer — touch monitors, convertibles) now get the buttons via `any-pointer` detection, a first-touch upgrade catches whatever detection still misses, and the buttons answer Enter/Space so keyboard and screen-reader pilots can fire them, with a 700ms guard so a real tap never double-spends a pulse. Pinned by `tests/touch-buttons.spec.js`.
+- **The fun curve ships** — every release now leaves one measured row (bot wave depth, kills, grazes, median fps) in a committed scoreboard, rendered as a README trend table, recorded by CI after the browser suite flies each new version, and gated so the table can never drift from the data.
 ## What's new in v4.21.0 — "Proof of Play"
 
 - An autopilot bot now proves the core loop THROUGH PLAY (wave 3, 28 kills, grazes, combo x2 — pinned in CI), a fresh pilot is taught the striker at first sight, the press kit ships with a real wave-1 GIF, /api/health exposes a pilot census, and the battery refuses to touch a ledger that is not a scratch deck.

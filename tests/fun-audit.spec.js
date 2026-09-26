@@ -19,6 +19,8 @@ const path = require('path');
 
 const OUT = path.join(__dirname, '..', 'docs', 'audit');
 
+test.setTimeout(120000);   // the 22s flight + boot/launch/retry overhead exceeds the 30s default under contention
+
 test('first 60 seconds, instrumented', async ({ page }) => {
   fs.mkdirSync(OUT, { recursive: true });
   const t0 = Date.now();
