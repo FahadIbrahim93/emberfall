@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.21.1",
+      "date": "2026-09-26",
+      "codename": "The Curve",
+      "loop": {
+        "wave": 3,
+        "kills": 29,
+        "grazes": 2,
+        "combo": 12,
+        "mult": 2,
+        "medianFps": 39
+      },
+      "first60": {
+        "medianFps": 23,
+        "firstPlayingMs": 857,
+        "firstKillMs": 857,
+        "fbSeen": 2
+      }
+    },
+    {
       "version": "4.21.0",
       "date": "2026-09-26",
       "codename": "Proof of Play",
