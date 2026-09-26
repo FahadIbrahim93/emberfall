@@ -7,6 +7,32 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.21.1 "The Curve" — the fun curve ships: docs/audit/fun-curve.json
+is a committed, write-once-per-version scoreboard distilled by
+tools/fun-scoreboard.mjs from the fun-audit artifacts (append/--readme/--check/--force;
+first-60s median falls back to deriving from fpsCurve when timeline.json lacks
+the juice.medianFps field), rendered into the README trend table between
+fun-curve:start/end markers, recorded by CI itself after the browser suite on
+main (emberfall-funbot; verify needs contents:write; GITHUB_TOKEN pushes don't
+retrigger CI — same as the stats bot) and gated (--check: table byte-locked to
+snapshot, no dup versions, newest-first). .gitignore: docs/audit/* +
+!docs/audit/fun-curve.json — a DIRECTORY pattern can't be negated through; the
+snapshot must sit beside the ignored artifacts. testpilot-report prints the
+curve tail. Release drama, both caught by the battery: origin gained four
+parallel GitHub-web-editor commits ("v4.4.2 dash/pulse") whose saves TRUNCATED
+index.html to a 4-line skeleton and regressed sw.js to v4.9 — their intent was
+salvaged properly on the full tree (#touch's hidden attr was never removed by
+any code and the [hidden]-wins guard made it permanent, so DASH/PULSE could not
+appear on ANY device; removed the attr + the guard, cool opacity .35→.5,
+ftue-pinned both sides), merged with --ours on the two files. Then CI red once:
+fun-audit's last instantaneous assert (end.fps>=30) flaked 26/29 when the 17th
+parallel spec landed on the 2-core runner → tail-median >=24 replaces it (the
+same lesson min-fps already learned); tag force-moved within minutes (v4.21.0
+precedent), v4.21.1 = 84e5681, all 4 jobs green, Pages live, funbot recorded
+v4.21.1 (wave 3 · 29 kills · grazes 2 · median 39) as 0d7a110. Local browser
+suite needs --workers=4 on this laptop (default flakes timing specs).
+(release v4.21.0 "Proof of Play" — 8554dd0; release v4.20.0 "First Contact" —
+eb8d731; see their git messages.)
 (release v4.19.0 — gates in the build: tools/drill-replay.mjs (CI, 18
 checks) pins the 24h replay window — same arc twice 422s, per-pilot guard
 (twin accepted), one-point variant accepted, 25h backdate re-accepts (the
