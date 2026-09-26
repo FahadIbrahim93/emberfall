@@ -23,13 +23,9 @@ test('phone landscape title: no DASH/PULSE buttons floating over it', async ({ p
   await expect(page.locator('#s-title')).toHaveClass(/on/);
   const touch = page.locator('#touch');
   await expect(touch).toBeHidden();   // body.flying gate: display:none off the title
-});
-
-test('touch controls appear while flying (v4.21.1: the never-unhidden regression)', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await titleUp(page);
-  await expect(page.locator('#touch')).toBeHidden();   // title: still hidden
-  // simulate the touchmode+flying state a real coarse-pointer device gets
+  // v4.21.1 regression pin: the hidden attribute used to be never-removed,
+  // so the buttons could not appear even WHILE flying. Simulate the
+  // touchmode+flying state a real coarse-pointer device gets:
   await page.evaluate(() => document.body.classList.add('touchmode', 'flying'));
   await expect(page.locator('#bDash')).toBeVisible();
   await expect(page.locator('#bBomb')).toBeVisible();
