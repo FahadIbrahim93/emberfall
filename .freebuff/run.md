@@ -7,6 +7,27 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.21.2 "Always Reachable" — 385caed; pulse-button-invisible report
+finished: (a) hybrid detection — isTouchDevice now also consults
+any-pointer:coarse (touch SECONDARY, mouse primary) and onTouchStart upgrades
+an undetected device to touchmode on first contact; (b) activation — the
+touch buttons only ever bound pointerdown (Enter/Space/AT did nothing);
+bindTouchButton adds a guarded click (lastPointer < 700ms ⇒ eat the click) so
+keyboard+AT activation works without double-spending a pulse; buttons carry
+type=button + aria-keyshortcuts; (c) tests/touch-buttons.spec.js pins all of
+it (4 tests). PROBE LESSONS (paid for in four failed spec runs, keep them):
+CDP Emulation.setEmulatedMedia features CANNOT move pointer media queries in
+Chromium — Emulation.setTouchEmulationEnabled + reload fully emulates coarse
+(any-pointer AND pointer); CDP touchStart/End back-to-back coalesces — put a
+~150ms gap; the nova wave's slow-mo (GAME.slowT=.5) stretches its 0.75s life
+to ~1.8s wall time — wait 2s between pulse spends; Playwright locator.click()
+FIRES pointerdown too (guard eats its click) — the AT shape is
+element.click() via evaluate; ships stock exactly 2 pulses (bombs<3, don't
+assert a third spend). fun-audit got test.setTimeout(120000) — its 22s
+flight + boot overhead brushed the 30s default under contention (third local
+flake of that shape). Local suite needs --workers=4; CI default workers
+green. Docs: roadmap gained the container-path section (proven docker
+guarantees vs TLS/off-box-backups/log-shipping gaps, d7a3d5b).
 (release v4.21.1 "The Curve" — the fun curve ships: docs/audit/fun-curve.json
 is a committed, write-once-per-version scoreboard distilled by
 tools/fun-scoreboard.mjs from the fun-audit artifacts (append/--readme/--check/--force;
