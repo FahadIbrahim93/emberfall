@@ -7,6 +7,43 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.22.0 "The World Stage" — 8f4a3e0; the leaderboard actually works:
+ADR 0002 (docs/adr/0002-cross-origin-deck-bearer-sessions.md) — deck
+addressing (NET.deck, localStorage emberfall2.deck, ?deck= persists, blank =
+this origin; setDeck clears the bearer), bearer sessions (register/login
+return the raw token in X-Emberfall-Token for ALLOWED origins only, exposed
+via Access-Control-Expose-Headers; client sends Authorization: Bearer;
+sessionUser bearer-first cookie-second; clearSession kills the bearer's row;
+same session rows/expiry — a token is a second handle, not a second system),
+CORS allowlist (EF_CORS_ORIGINS exact-echo + Vary: Origin, never
+allow-credentials, preflight 204 even for strangers so nothing hangs, '*/'=
+public reads only and NEVER mints tokens for unknown origins), /pilot/<name>
+profiles (bests, wardenfalls, flewDays, alloyPaid, paint via PAINT_IDS),
+pagination (?offset= DISTINCT-pilot rows, LIMIT 11 OFFSET n + more flag, cap
+190), deck-address field + show-password toggle in the panel, pilotUrl()
+links names to /pilot. NEW PROOFS: tools/drill-cross-origin.mjs (23 checks,
+own scratch deck, port 8159) + tests/deck-link.spec.js (real browser on a
+foreign origin: sign-up survives reload, remote boards, deck switching).
+THE TRAP THAT COST THREE RED RUNS: the CI Browser smoke step REUSES the
+pre-booted deck (port busy → reuseExistingServer), so playwright.config.js's
+webServer env NEVER applies on CI — the deck-boot step itself must carry
+EF_CORS_ORIGINS + EF_CONNECT_SRC, else the reused deck's served CSP blocks
+the remote dial and deck-link fails deterministically (local runs boot their
+own deck, hence 3x green locally / red remotely). Other lessons: an inline
+': ' in a ci.yml step name breaks workflow PARSE (startup failure, empty
+jobs list — use em-dashes); copyguard claims must be bumped AFTER baseline
+regen (README badge 71→73 with the two new selftests); CI ambient fps is
+21-26 so the fun-audit tail-median canary is 18 (it trips on collapse, not
+runner slowness); the first-60s flight is 30s WALL time (both strikers fire
+even at runner fps); slow-sim stretches the nova wave to 2.5s+ (pulse-wait
+3.5s); probe abort 2.5s→6s (slow phone networks stranded the panel in 'local
+mode' with fields hidden); the /pilot route must sit inside the dispatcher's
+(/api/ + /pilot/) gate or the static layer 404s it. Selftest 73, browser 23
+specs x3 green locally, smoke 81/81, 9 drills. CI 4 jobs green on 8f4a3e0,
+funbot 45d0e12 (wave 2 · 22 kills · 27 fps — runner noise, honest), Pages
+v4.22.0 / sw 4.35, release published. World-deck one-liner in DEPLOYMENT.md:
+NODE_ENV=production TRUST_PROXY=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+node server.js behind TLS (Fly blueprint there too).
 (release v4.21.2 "Always Reachable" — 385caed; pulse-button-invisible report
 finished: (a) hybrid detection — isTouchDevice now also consults
 any-pointer:coarse (touch SECONDARY, mouse primary) and onTouchStart upgrades
