@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.22.2",
+      "date": "2026-09-27",
+      "codename": "Open Surfaces",
+      "loop": {
+        "wave": 2,
+        "kills": 20,
+        "grazes": 6,
+        "combo": 10,
+        "mult": 2,
+        "medianFps": 35
+      },
+      "first60": {
+        "medianFps": 34,
+        "firstPlayingMs": 754,
+        "firstKillMs": 754,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.22.1",
       "date": "2026-09-27",
       "codename": "The Recruiting Page",
