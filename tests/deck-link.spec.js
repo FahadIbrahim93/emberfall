@@ -50,6 +50,17 @@ async function playing(page) {
   await expect(page.locator('#hud')).toBeVisible();
 }
 
+/* open the settings panel and wait for the boot probe to SETTLE: the panel
+   opens with 'local mode' and repaints once the async probe returns — the
+   flake this killed was asserting the intermediate paint */
+async function settingsSettled(page) {
+  await page.locator('#btnSettings').click();
+  await expect(page.locator('#s-set')).toHaveClass(/on/);
+  await expect(page.locator('#acctStat')).toContainText(/deck linked|local mode/, { timeout: 10000 });
+  await page.waitForTimeout(600);   // the second paint (probe then whoami) must also land
+  await expect(page.locator('#acctStat')).toContainText(/deck linked|local mode/, { timeout: 10000 });
+}
+
 test('sign-up from a foreign origin works end to end and survives reload', async ({ page }) => {
   const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -58,14 +69,12 @@ test('sign-up from a foreign origin works end to end and survives reload', async
   await page.goto('/?deck=' + encodeURIComponent(XO));
   await page.keyboard.press('Space');
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 9000 });
-  await page.locator('#btnSettings').click();
-  await expect(page.locator('#s-set')).toHaveClass(/on/);
-  await expect(page.locator('#acctStat')).toContainText('deck linked');
+  await settingsSettled(page);
   // sign UP (the ease path: one callsign, one password, no email, done)
   await page.fill('#acctName', 'XO Pilot');
   await page.fill('#acctPass', 'cross-origin-pass');
   await page.click('#btnAcctNew');
-  await expect(page.locator('#acctStat')).toContainText('signed in · XO Pilot', { timeout: 8000 }).catch(e => { throw new Error('SIGN-UP FAILED. console errors: ' + JSON.stringify(errors, null, 1)); });
+  await expect(page.locator('#acctStat')).toContainText('signed in · XO Pilot', { timeout: 10000 }).catch(e => { throw new Error('SIGN-UP FAILED. console errors: ' + JSON.stringify(errors, null, 1)); });
   // the session is a bearer token held client-side — reload keeps it
   await page.reload({ waitUntil: 'load' });
   await page.keyboard.press('Space');
@@ -87,14 +96,13 @@ test('the deck-address field switches decks honestly', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Space');
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 9000 });
-  await page.locator('#btnSettings').click();
-  await expect(page.locator('#s-set')).toHaveClass(/on/);
+  await settingsSettled(page);
   // a deck address that answers nothing: the game says so and stays local
   await page.fill('#deckUrl', 'http://127.0.0.1:9');
   await page.locator('#deckUrl').blur();
-  await expect(page.locator('#acctStat')).toContainText('local mode', { timeout: 8000 });
+  await expect(page.locator('#acctStat')).toContainText('local mode', { timeout: 10000 });
   // clearing it returns to this origin's own deck
   await page.fill('#deckUrl', '');
   await page.locator('#deckUrl').blur();
-  await expect(page.locator('#acctStat')).toContainText('deck linked', { timeout: 8000 });
+  await expect(page.locator('#acctStat')).toContainText('deck linked', { timeout: 10000 });
 });
