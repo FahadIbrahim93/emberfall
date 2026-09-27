@@ -1,4 +1,4 @@
-# EMBERFALL v4.22.1 — Orbital Intercept
+# EMBERFALL v4.22.2 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -161,6 +161,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.22.2 — "Open Surfaces"
+
+- The surface audit closes the input-accessibility class everywhere: the playfield canvas now announces itself with the flight controls to assistive tech, the settings dialog traps Tab focus when opened from the title, and the action keys stay quiet behind modal screens — Enter on a settings switch no longer also launches a run.
 ## What's new in v4.22.1 — "The Recruiting Page"
 
 - The playtest recruiting kit becomes a live, linkable page: an itch-style press one-pager with the hero shot, the wave-1 GIF, the CI-measured facts and the four playtest questions, deployed with the site and verified by the live-smoke job — send one link, recruit the first ten.

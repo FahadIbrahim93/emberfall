@@ -93,18 +93,31 @@ function onKeyDown(e) {
     } else if ($('s-set').classList.contains('on')) closeSettings();
     else if (GAME.state === 'hangar') toTitle();
   }
-  if (e.code === 'Tab' && (GAME.paused || GAME.state === 'over')) {
-    trapTab(e, GAME.paused ? $('s-pause') : $('s-over'));
+  /* focus-trap coverage for every modal surface: pause + game-over (the
+     original two) and the settings dialog when it is opened from the title
+     (from a paused game the same Tab path already trapped — one branch per
+     surface, in priority order) */
+  if (e.code === 'Tab' && (GAME.paused || GAME.state === 'over' ||
+      ($('s-set').classList.contains('on') && GAME.state !== 'playing'))) {
+    trapTab(e, GAME.paused ? $('s-pause')
+      : ($('s-set').classList.contains('on') && GAME.state !== 'playing' ? $('s-set') : $('s-over')));
     return;
   }
+  /* v4.22.2: the action keys stay quiet while a modal surface holds the
+     screen. Enter on a focused settings switch used to ALSO launch a run
+     from the title (the switch fired and the game launched — found by the
+     a11y spec); B rushed from behind the panel the same way. Shift/E are
+     already state-gated to 'playing', which the modal excludes. */
+  const modalUp = $('s-set').classList.contains('on') || $('s-over').classList.contains('on') ||
+    $('s-notes').classList.contains('on') || GAME.paused;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
     if (GAME.state === 'playing' && !GAME.paused) { const [dx, dy] = dashDirection(); tryDash(dx, dy); }
   }
   if (e.code === 'KeyE' || e.code === 'KeyQ') {
     if (GAME.state === 'playing' && !GAME.paused) tryBomb();
   }
-  if (e.code === 'KeyB' && GAME.state === 'title') startRun('rush');
-  if (e.code === 'Enter') {
+  if (e.code === 'KeyB' && GAME.state === 'title' && !modalUp) startRun('rush');
+  if (e.code === 'Enter' && !modalUp) {
     if (GAME.state === 'title') startRun('endless');
     else if (GAME.state === 'over') {
       if (!$('entryRow').classList.contains('hidden')) saveCallsign();
