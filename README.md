@@ -1,4 +1,4 @@
-# EMBERFALL v4.22.0 — Orbital Intercept
+# EMBERFALL v4.22.1 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -20,6 +20,7 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
+[![press kit](https://img.shields.io/badge/press%20kit-playtest%20recruiting-ff8a2b)](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html)
 ![tests](https://img.shields.io/badge/tests-selftest%2073%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
@@ -159,6 +160,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.22.1 — "The Recruiting Page"
+
+- The playtest recruiting kit becomes a live, linkable page: an itch-style press one-pager with the hero shot, the wave-1 GIF, the CI-measured facts and the four playtest questions, deployed with the site and verified by the live-smoke job — send one link, recruit the first ten.
 ## What's new in v4.22.0 — "The World Stage"
 
 - The global leaderboard actually works now: the deck learns a CORS allowlist and issues bearer sessions so the Pages game can sign up, sign in, climb the live boards and duel across origins, every pilot name links to a /pilot profile page, boards page past the top ten, and a deck-address field in settings aims any copy of the game at any deck.

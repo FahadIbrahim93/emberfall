@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="EMBERFALL — a free, zero-install browser shoot-'em-up. The game's own CI plays it and proves it. Looking for the first 10 playtesters.">
+<meta name="color-scheme" content="dark">
+<title>EMBERFALL — press kit · playtest recruiting</title>
+<link rel="icon" type="image/png" href="../icons/icon-192.png">
+<style>
+@font-face{font-family:Michroma;src:url('../fonts/michroma-400.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Chakra Petch';src:url('../fonts/chakra-petch-400.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Chakra Petch';src:url('../fonts/chakra-petch-600.woff2') format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'Chakra Petch';src:url('../fonts/chakra-petch-700.woff2') format('woff2');font-weight:700;font-display:swap}
+:root{
+  --void:#03050b; --carbon:#080d1a; --slate:#111829; --line:rgba(255,138,43,.24);
+  --ink:#eef2fb; --dim:#78839c; --dimmer:#4a5470;
+  --ember:#ff8a2b; --amber:#ffb454; --gold:#ffd166; --aether:#35e0ff; --mint:#7dffb8;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(255,138,43,.07), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 110%, rgba(53,224,255,.05), transparent 60%),
+    var(--void);
+  color:var(--ink);
+  font-family:'Chakra Petch','Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  font-size:16px; line-height:1.6;
+}
+.wrap{max-width:960px;margin:0 auto;padding:0 22px}
+/* ── top bar ── */
+header{border-bottom:1px solid var(--line);background:rgba(3,5,11,.85)}
+.bar{display:flex;align-items:center;gap:14px;padding:13px 0}
+.logo{font-family:Michroma,sans-serif;font-size:1.02rem;letter-spacing:.24em}
+.logo b{color:var(--ember)}
+.ver{font-size:.62rem;letter-spacing:.18em;color:var(--dimmer);border:1px solid var(--line);padding:2px 8px;border-radius:3px}
+.bar .grow{flex:1}
+.play{font-family:inherit;font-weight:700;font-size:.78rem;letter-spacing:.16em;color:#032027;background:var(--aether);
+  border:none;padding:9px 18px;border-radius:4px;cursor:pointer;text-decoration:none;display:inline-block}
+.play:hover{filter:brightness(1.12)}
+/* ── hero ── */
+.hero{padding:58px 0 30px;text-align:center}
+.kicker{font-size:.66rem;letter-spacing:.34em;color:var(--aether);text-transform:uppercase}
+h1{font-family:Michroma,sans-serif;font-size:clamp(2rem,6vw,3.4rem);letter-spacing:.1em;margin:14px 0 6px}
+h1 b{color:var(--ember)}
+.tag{color:var(--dim);font-size:1.02rem;max-width:620px;margin:0 auto}
+.cta{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{font-family:inherit;font-weight:700;font-size:.86rem;letter-spacing:.14em;padding:13px 26px;border-radius:4px;
+  cursor:pointer;text-decoration:none;display:inline-block;border:1px solid var(--line);color:var(--ink)}
+.btn.big{background:var(--ember);color:#210b00;border-color:var(--ember)}
+.btn.big:hover{filter:brightness(1.1)}
+.btn.ghost:hover{border-color:var(--aether);color:var(--aether)}
+.shot{margin:34px 0 8px;border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 22px 70px rgba(0,0,0,.55)}
+.shot img{display:block;width:100%;height:auto}
+.cap{font-size:.72rem;color:var(--dimmer);letter-spacing:.06em;margin-bottom:10px}
+/* ── sections ── */
+section{padding:40px 0}
+h2{font-family:Michroma,sans-serif;font-size:.95rem;letter-spacing:.3em;color:var(--amber);margin-bottom:20px}
+h2::after{content:'';display:block;width:44px;height:2px;background:var(--line);margin-top:10px}
+.lede{font-size:1.05rem;max-width:720px}
+.lede b{color:var(--amber)}
+/* facts strip */
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.fact{border:1px solid var(--line);border-radius:6px;background:rgba(255,138,43,.04);padding:16px}
+.fact b{display:block;font-size:1.45rem;font-family:Michroma,sans-serif;color:var(--ember);letter-spacing:.04em}
+.fact span{font-size:.78rem;color:var(--dim);line-height:1.45;display:block;margin-top:6px}
+/* gif block */
+.gifrow{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;align-items:start}
+@media(max-width:760px){.gifrow{grid-template-columns:1fr}}
+.gifframe{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#000}
+.gifframe img{display:block;width:100%;height:auto}
+.gifnote{font-size:.88rem;color:var(--dim)}
+.gifnote li{margin:10px 0 10px 18px}
+.gifnote li::marker{color:var(--ember)}
+.gifnote b{color:var(--ink)}
+/* features */
+.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.feat2{border:1px solid rgba(255,255,255,.06);border-left:2px solid var(--ember);border-radius:0 6px 6px 0;
+  background:var(--carbon);padding:14px 16px}
+.feat2 b{display:block;font-size:.92rem;letter-spacing:.04em}
+.feat2 span{font-size:.82rem;color:var(--dim)}
+/* recruiting */
+.ask{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(255,138,43,.07),rgba(255,138,43,.02));
+  padding:30px;text-align:center}
+.ask h2{text-align:center}
+.ask h2::after{margin:10px auto 0}
+.ask p{max-width:600px;margin:0 auto 14px;color:var(--dim)}
+.ask ol{max-width:560px;margin:0 auto 24px;text-align:left;color:var(--ink);font-size:.92rem}
+.ask ol li{margin:8px 0 8px 18px}
+.ask ol li::marker{color:var(--aether);font-weight:700}
+/* footer */
+footer{border-top:1px solid var(--line);margin-top:20px;padding:26px 0 40px;color:var(--dimmer);font-size:.78rem}
+footer a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dimmer)}
+footer a:hover{color:var(--aether)}
+.footrow{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <span class="logo"><b>EMBER</b>FALL</span>
+    <span class="ver">v4.22.0 · THE WORLD STAGE</span>
+    <span class="grow"></span>
+    <a class="play" href="https://fahadibrahim93.github.io/emberfall/" target="_blank" rel="noopener">▶ PLAY FREE</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">A free, zero-install browser shoot-'em-up</div>
+    <h1><b>EMBER</b> FALL</h1>
+    <p class="tag">Something came through the Kuiper gate and it has not stopped since. You are the last hull between it and the orbital yard. Click Launch — that's the whole tutorial.</p>
+    <div class="cta">
+      <a class="btn big" href="https://fahadibrahim93.github.io/emberfall/" target="_blank" rel="noopener">▶ PLAY NOW — NO INSTALL</a>
+      <a class="btn ghost" href="https://github.com/FahadIbrahim93/emberfall" target="_blank" rel="noopener">SOURCE · MIT</a>
+    </div>
+    <figure class="shot">
+      <img src="press/hero.png" alt="EMBERFALL deep-range intercept: the corridor, hostile fire, the HUD" width="1280" height="720">
+      <figcaption class="cap">Deep-range intercept · wave 1 · every pixel generated procedurally at runtime</figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <h2>THE ODD PART</h2>
+    <p class="lede">The game's own CI <b>plays it</b>. An autopilot bot flies real touch inputs every push — survives into
+    wave&nbsp;3, grazes bullets, chains combos — and the run is machine-verified before anything ships. The first sixty
+    seconds of a new player's life are a pinned contract: <b>armed in under 3 seconds, first shot inside 2, first enemy
+    fire by ~6</b>. The numbers on this page are measured by tests, not typed by a marketer.</p>
+  </section>
+
+  <section>
+    <h2>MEASURED, NOT PROMISED</h2>
+    <div class="facts">
+      <div class="fact"><b>&lt;1s</b><span>from Launch click to flying — first shot inside 2s (CI-timed)</span></div>
+      <div class="fact"><b>~6s</b><span>to first enemy fire: wave 1 teaches dodging immediately</span></div>
+      <div class="fact"><b>46 fps</b><span>median during real combat in software rendering — the juice is affordable</span></div>
+      <div class="fact"><b>73 + 23</b><span>in-game self-tests + browser specs rerun on every push</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>THE FIRST 24 SECONDS</h2>
+    <div class="gifrow">
+      <figure class="gifframe">
+        <img src="press/emberfall-wave1.gif" alt="The first 24 seconds of EMBERFALL wave 1: contact at 0.6s, first shooter at 6s, aimed fire, kills and combo ticks" loading="lazy" width="1280" height="720">
+        <figcaption class="cap">Wave 1, recorded from a real CI flight · contact at 0.6s</figcaption>
+      </figure>
+      <ul class="gifnote">
+        <li><b>0.6s</b> — first hostile contact. No menu maze, no loading bar.</li>
+        <li><b>~6s</b> — the first striker opens fire. The codex card teaches it the moment you meet it.</li>
+        <li><b>any second</b> — graze the fire (fly <i>close</i>) and the combo multiplier pays you for the nerve.</li>
+        <li><b>no install, no account to start</b> — accounts exist, for worldwide boards, duels and cloud saves. The game is complete without one.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>WHAT'S IN THE HULL</h2>
+    <div class="feats">
+      <div class="feat2"><b>5 ships with real tradeoffs</b><span>the glass-cannon flies 3× graze payout</span></div>
+      <div class="feat2"><b>4 modes</b><span>Endless · Boss Rush · the seeded Daily Gauntlet · the 8-world Solar Tour</span></div>
+      <div class="feat2"><b>21 hostile types</b><span>elite affixes with in-world tells, 4 scripted teaching waves, then an adaptive director</span></div>
+      <div class="feat2"><b>Graze ×3 · combo to ×5</b><span>a scoring system that pays you for flying close to the fire</span></div>
+      <div class="feat2"><b>Weapon ladder to tier 7</b><span>nine-lane capstone ordnance earned in the run</span></div>
+      <div class="feat2"><b>Rare "Wardenfall" Sundays</b><span>one Sunday in seven wakes a world boss with a permanent, ledger-backed honor</span></div>
+      <div class="feat2"><b>Offline-first PWA</b><span>no server, no problem — local mode keeps flying; install as an app anywhere</span></div>
+      <div class="feat2"><b>Optional Command Deck</b><span>accounts, duels, worldwide boards, cloud saves — zero tracking, zero ads</span></div>
+    </div>
+  </section>
+
+  <section class="ask" id="playtest">
+    <h2>I'M LOOKING FOR 10 PLAYTESTERS</h2>
+    <p>No survey marathon. Play it, then tell me exactly four things:</p>
+    <ol>
+      <li>Where did you stop playing, and what made you stop?</li>
+      <li>Did anything feel unfair in the first two minutes?</li>
+      <li>Did you notice the combo multiplier? Did you care?</li>
+      <li>One thing that would make you play again tomorrow?</li>
+    </ol>
+    <div class="cta">
+      <a class="btn big" href="https://fahadibrahim93.github.io/emberfall/" target="_blank" rel="noopener">▶ TAKE THE HULL — 30 SECONDS TO COMBAT</a>
+    </div>
+    <p style="margin-top:14px;font-size:.8rem;color:var(--dimmer)">Free · no install · no ads · no tracking · source is MIT</p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap footrow">
+    <span>EMBERFALL · a zero-build orbital intercept · art, music and sound generated procedurally at runtime</span>
+    <span>
+      <a href="https://fahadibrahim93.github.io/emberfall/">play</a> ·
+      <a href="https://github.com/FahadIbrahim93/emberfall">source</a> ·
+      <a href="https://github.com/FahadIbrahim93/emberfall/blob/main/docs/press-kit.md">press kit (markdown)</a> ·
+      <a href="../stats.html">world stats</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>

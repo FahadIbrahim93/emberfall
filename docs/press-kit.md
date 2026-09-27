@@ -1,5 +1,10 @@
 # EMBERFALL — press kit / playtest recruiting kit
 
+**The styled, linkable version of this page is live at
+https://fahadibrahim93.github.io/emberfall/docs/press-kit.html —
+send that to playtesters.** This markdown file is the source of truth
+for the words; the HTML page and its assets deploy with the site.
+
 *Everything here is measured, not promised: the numbers come from the
 repo's own instrumented play (`tests/fun-audit.spec.js`,
 `tests/fun-loop.spec.js`, artifacts in `docs/audit/`).*
