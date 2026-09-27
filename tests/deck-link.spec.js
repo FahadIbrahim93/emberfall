@@ -22,6 +22,10 @@ const XO_PORT = 8165;
 const XO = 'http://127.0.0.1:' + XO_PORT;
 let xoProc = null;
 
+/* cross-origin flows are slow by nature (probe + whoami + push + render);
+   CI runners under parallel load need real headroom above that */
+test.setTimeout(90000);
+
 async function bootXo() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ef-e2e-xo-'));
   xoProc = spawn(process.execPath, ['server.js'], {

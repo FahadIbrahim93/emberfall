@@ -56,7 +56,10 @@ const NET = {
       } catch (e) { this.on = false; return false; }
     }
     try {
-      const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 2500);
+      /* 6s: a remote deck on a slow phone network is the norm this must
+         survive; the old 2.5s aborted mid-handshake on loaded runners and
+         stranded the panel in 'local mode' with the fields hidden */
+      const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 6000);
       const r = await fetch(this.deck + '/api/health', { signal: ctl.signal, cache: 'no-store' });
       clearTimeout(kill);
       if (!r.ok) return false;

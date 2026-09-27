@@ -57,8 +57,9 @@ test('keyboard and assistive activation fire exactly once (no double-spend)', as
   expect(await bombs(), 'Enter on the focused PULSE button spends exactly one pulse').toBe(before - 1);
 
   // let the nova wave finish (tryBomb refuses during an active pulse; the
-  // pulse's own slow-mo stretches its 0.75s life to ~1.8s wall time)…
-  await page.waitForTimeout(2000);
+  // pulse's slow-mo stretches its 0.75s life to ~1.8s wall at 60fps — and
+  // to 2.5s+ at CI's 20fps, where sim-time runs slower than wall time)
+  await page.waitForTimeout(3500);
   // …then a real pointer tap: pointerdown + click both land, guard eats the click
   const bb = await page.locator('#bBomb').boundingBox();
   await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
