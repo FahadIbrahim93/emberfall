@@ -7,6 +7,30 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.23.0 "Glasscockpit" — c58d504; three-hour autonomous block:
+(a) limiter observability (roadmap #5) — noteLimiter429 ring per bucket
+({t, retryInMs}, ring 24, 1h horizon) written INSIDE rateLimit's refuse
+path; /api/health carries answer.limiter only when non-quiet (old probes
+unaffected); PII-free by construction and drill-proven (drill-limiters
+now 13 checks incl. the no-address assertion); (b) replay-ways matrix
+(roadmap #6) — drill-replay 24 checks: cross-mode accepted + per-mode
+window holds, perturbed-shape accepted (runHash reads ONLY cps[last][4] —
+the hash is an aggregate, NOT a curve: a mid-curve change with the same
+final checkpoint score is the same run honestly; the pertK variant must
+pin a[last][3] AND a[last][4] to stay aggregate-equal), per-hash window
+integrity, twin-row non-interference; (c) OG/Twitter cards on game +
+press-kit (hero.png absolute URLs); (d) roadmap 3-6 truthed to shipped;
+(e) fly.toml committed (volume /data, force_https, 256mb, min 1 warm) +
+DEPLOYMENT.md 5-minute checklist — only fly auth login remains for the
+operator; (f) WARDENFALL DAY-OF: deck booted from .freebuff/deck-live
+(PID on 8123, scratch ledger, honest clock = rare Sunday 2026-09-27, no
+EF_DECK_DAY), fresh verified backup, census 0. GOTCHA: .gitignore only
+covered scratch-* — added deck-live/ BEFORE the ledger could be
+committed (v4.21.0 rule holds). GOTCHA 2: drill-replay's perturbation
+must await its req (an un-awaited promise crashed the drill with
+ECONNRESET at teardown — the deck died before the floating fetch
+resolved). Battery green incl. 27 browser specs; CI 4 jobs green on
+c58d504; funbot 30bdaf1; Pages v4.23.0/sw 4.38; release published.
 (release v4.22.2 "Open Surfaces" — e080ab4; the surface audit: after the
 DASH/PULSE fix, every other surface got the same audit (pause, settings,
 hangar, game-over, tabs, boot, account panel). The architecture held —
