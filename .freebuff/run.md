@@ -7,6 +7,25 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.22.2 "Open Surfaces" — e080ab4; the surface audit: after the
+DASH/PULSE fix, every other surface got the same audit (pause, settings,
+hangar, game-over, tabs, boot, account panel). The architecture held —
+real buttons, role=dialog/aria-modal/labelledby, role=switch+aria-checked
+on real <button> switches, focus-to-primary on open (pause/settings),
+hangar focuses Bay Launch, game-over focuses pilot entry or Fly again,
+boot is any-key. THREE REAL FINDS, all fixed: (1) playfield canvas had no
+role/label — now role=img with the keyboard controls in the aria-label;
+(2) settings-from-title did not trap Tab (pause/over did) — one branch in
+input.js's trapTab gate; (3) THE BUG: global action keys never gated on
+modal screens — Enter on a focused settings switch toggled it AND
+launched a run (modalUp = s-set/s-over/s-notes/paused now gates Enter and
+KeyB; Shift/E were already playing-gated). a11y-surfaces.spec.js pins all
+four (canvas label, settings trap, pause-trap drift pin, keyboard toggle).
+AUDIT METHOD worth keeping: grep pointerdown (only 3 in the codebase —
+boot, canvas, and the fixed touch buttons), then check each surface for
+element type, roles, focus-on-open, and Escape paths; the switch Enter
+bug was found by the spec failing with 'aria-checked unchanged AND a run
+started'.
 (release v4.22.1 "The Recruiting Page" — 3456838; the press kit goes live:
 docs/press-kit.html is an itch-style one-pager (self-hosted brand fonts,
 void/ember tokens, hero + wave-1 GIF + CI-measured facts + the four
