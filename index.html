@@ -10,6 +10,16 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
 <title>EMBERFALL — Orbital Intercept</title>
+<!-- v4.23: the game previews properly wherever a pilot shares it -->
+<meta property="og:title" content="EMBERFALL — Orbital Intercept">
+<meta property="og:description" content="A free, zero-install browser shoot-'em-up. Something came through the Kuiper gate and it has not stopped since. Click Launch — that's the whole tutorial.">
+<meta property="og:image" content="https://fahadibrahim93.github.io/emberfall/docs/press/hero.png">
+<meta property="og:url" content="https://fahadibrahim93.github.io/emberfall/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="EMBERFALL — Orbital Intercept">
+<meta name="twitter:description" content="A free, zero-install browser shoot-'em-up. The game's own CI plays it and proves it. 30 seconds to combat.">
+<meta name="twitter:image" content="https://fahadibrahim93.github.io/emberfall/docs/press/hero.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -710,7 +720,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.22.2</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.23.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -999,7 +1009,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.22.2 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.23.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7137,6 +7147,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.23.0',
+    items: [
+      'Ops gets a glasscockpit: /api/health now carries per-bucket 429 telemetry with no PII so limiter regressions show in ops instead of hiding in logs, the replay drill grew a ways-matrix proving the anti-cheat window honest across modes, perturbed telemetry shapes and per-hash windows, the game and the recruiting page preview properly wherever they are shared, and Fly.io deployment became a five-minute checklist with a committed fly.toml.'
+    ]
+  },
+  {
     v: '4.22.2',
     items: [
       'The surface audit closes the input-accessibility class everywhere: the playfield canvas now announces itself with the flight controls to assistive tech, the settings dialog traps Tab focus when opened from the title, and the action keys stay quiet behind modal screens — Enter on a settings switch no longer also launches a run.'
@@ -8841,7 +8857,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.22.2', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.23.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

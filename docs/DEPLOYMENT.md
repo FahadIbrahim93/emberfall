@@ -128,6 +128,25 @@ NODE_ENV=production TRUST_PROXY=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.
 
 ### A one-command host: the Fly.io blueprint
 
+`fly.toml` now ships in the repo root — the full prep is a 5-minute task.
+**The 5-minute version (after `fly auth login` — the only step that needs
+you):**
+
+```bash
+fly launch --no-deploy --name <your-deck-name> --region iad --copy-config
+fly volumes create ef_data --size 1 --region iad
+fly secrets set NODE_ENV=production TRUST_PROXY=1 \
+  EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+fly deploy
+curl https://<your-deck-name>.fly.dev/api/health   # → ok:true
+```
+
+Then open https://fahadibrahim93.github.io/emberfall/ — sign in from the
+live site; the Global tab should read "Linked to command deck (remote)".
+The container path is proven in CI (gates-in-build, named volume,
+non-root); what a public rollout still owns is listed in the roadmap:
+scheduled off-box backups and log shipping.
+
 The container path is proven (see ROADMAP "The container path" for the
 gaps a real rollout still owns: TLS, off-box backups, log shipping). The
 short version on Fly:

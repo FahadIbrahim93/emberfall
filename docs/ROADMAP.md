@@ -17,19 +17,19 @@ each release takes whatever the top of the list offers.*
 
 ## Next (2–3 weeks)
 
-3. **In-game link to the world page** — when the deck is absent, the title
-   screen should offer "worldwide boards" → `stats.html`. One line of UI,
-   one spec.
-4. **Leaderboard pagination + seasons history** — the mirror already holds
-   the data; a `/stats/history` view (past gauntlet days, weekly winners)
-   is a read-only SQL migration + page section. Proof: seeded fixture
-   spec.
-5. **Rate-limit observability** — the limiter silently 429s; a
-   `/api/health` extension (buckets + recent rejects, no PII) and a drill
-   assertion would make limiter regressions visible in ops, not just CI.
-6. **Score-replay drill** — the anti-cheat's replay guard is smoke-tested
-   with one hash; a dedicated drill (replay the same arc N ways: same
-   pilot, same day, across modes) pins the whole 24h window.
+3. **~~In-game link to the world page~~ DONE v4.21.0** — the deckless
+   Global tab reads the public mirror directly and links `stats.html`.
+4. **~~Leaderboard pagination~~ DONE v4.22.0** — `/api/scores?offset=`
+   pages distinct pilots with a `more` flag; seasons history on the
+   mirror remains open.
+5. **~~Rate-limit observability~~ DONE v4.23.0** — `/api/health` carries
+   per-bucket 429 telemetry (bucket, last60s, last1h, retryInMs — no
+   PII, ring of 24 per bucket, one-hour horizon); the limiters drill
+   proves refusals become visible and stay address-free.
+6. **~~Score-replay drill~~ DONE v4.23.0** — `drill-replay.mjs` grew the
+   replay-ways matrix: cross-mode acceptance, per-mode windows,
+   perturbed-shape acceptance (the hash is an aggregate, not a curve),
+   per-hash window integrity, and cross-pilot non-interference.
 
 ## Later (30–90 days)
 

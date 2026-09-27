@@ -234,6 +234,54 @@ async function main() {
     ? good('both beats carry distinct 32-hex run_hash stamps')
     : bad('beat hash stamps wrong: ' + JSON.stringify(hashes));
 
+  /* ── v4.23: the replay WAYS matrix — the guard's promise is "identical
+     run, same pilot, same mode, 24h". Every near-miss MUST be accepted,
+     the exact replay in other shapes MUST be refused. */
+  say('── replay ways: cross-mode, perturbed shape, cross-hash falsification');
+  const flyMode = (t, mode, score) => req('POST', '/api/scores', {
+    token: t,
+    body: { mode, score, wave: WAVE, diff: DIFF, ship: 'vesper', runT: RUNT, kills: KILLS, cps: arc(WAVE, score, RUNT, KILLS) }
+  });
+  const cross = await flyMode(tok.RpMain, 'main', SCORE);
+  cross.status === 200 && cross.json && cross.json.ok
+    ? good('the identical arc in ANOTHER MODE is accepted (hashes are mode-scoped)')
+    : bad('cross-mode honest run refused: ' + cross.status + ' ' + JSON.stringify(cross.json).slice(0, 80));
+  const cross2 = await flyMode(tok.RpMain, 'main', SCORE);
+  cross2.status === 422
+    ? good('the second flight in that mode 422s — the per-mode window holds')
+    : bad('cross-mode replay slipped through: ' + cross2.status);
+  const pert = async (fn) => req('POST', '/api/scores', {
+    token: tok.RpMain,
+    body: { mode: 'main', score: SCORE + 50, wave: WAVE, diff: DIFF, ship: 'vesper', runT: RUNT, kills: KILLS, cps: fn() }
+  });
+  const pertT = await pert(() => { const a = arc(WAVE, SCORE + 50, RUNT, KILLS); a[3][4] += 7; return a; });   // different checkpoint shape
+  pertT.status === 200 && pertT.json && pertT.json.ok
+    ? good('a perturbed-checkpoint variant is accepted (shape participates in the hash)')
+    : bad('perturbed-shape run refused (over-firing guard): ' + pertT.status + ' ' + JSON.stringify(pertT.json || {}).slice(0, 80));
+  /* the hash reads cps[last][4] (cumulative score at the last checkpoint,
+     which rides the run's score), so the shape perturbation must move THAT:
+     a mid-curve change with a matching tail is honestly the same aggregate.
+     Kill-pacing variants change the final score to escape it. */
+  const pertK = await pert(() => {
+    const a = arc(WAVE, SCORE + 60, RUNT, KILLS);
+    a[5][3] += 11;                       // kills land differently mid-flight
+    a[a.length - 1][3] = KILLS;          // the same honest final kills
+    a[a.length - 1][4] = SCORE + 60;     // and the same final checkpoint score
+    return a;
+  });
+  pertK.status === 200 && pertK.json && pertK.json.ok
+    ? good('a same-aggregate/different-curve variant is accepted (the hash is an aggregate, not a curve)')
+    : bad('curve variant refused (over-firing guard): ' + pertK.status + ' ' + JSON.stringify(pertK.json || {}).slice(0, 80));
+  /* falsification: a DIFFERENT hash must never be caught by the first
+     hash's window, and the still-fresh daily hash must still refuse */
+  const stillFresh = await fly(tok.RpMain, SCORE + 1);   // SCORE+1 landed earlier in the scores lane
+  stillFresh.status === 422
+    ? good('the earlier variant hash still refuses inside 24h (the window is per-hash)')
+    : bad('the earlier variant lost its window: ' + stillFresh.status);
+  const wrongCatch = scoreRowsWithHash(dbPath, runHash(uidTwin, MODE, SCORE, WAVE, KILLS, RUNT, arc(WAVE, SCORE, RUNT, KILLS)));
+  wrongCatch === 1 ? good('the twin pilot\'s row is untouched by the main pilot\'s windows')
+                   : bad('twin rows disturbed: ' + wrongCatch);
+
   say(`── verdict: pass=${pass} fail=${fail}`);
   if (fail === 0) say('DRILL-REPLAY: ALL GREEN');
   else say('DRILL-REPLAY: FAILURES ABOVE');

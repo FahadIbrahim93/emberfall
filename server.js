@@ -581,13 +581,37 @@ function sessionUser(req) {
 
 /* sliding-window rate limiter, per ip + bucket */
 const buckets = new Map();
+/* v4.23 limiter observability (roadmap item 5): the limiter silently 429s,
+   which makes limiter regressions invisible in ops. Every refusal lands in
+   a bounded per-bucket ring: { t, retryInMs } — NO addresses, NO tokens,
+   nothing per-identity: telemetry counts events, it never records who. */
+const LIMITER_EVENTS = new Map();   // bucket -> [{ t, retryInMs }]
+const LIMITER_RING = 24;
+function noteLimiter429(bucket, windowMs, arr) {
+  let ring = LIMITER_EVENTS.get(bucket);
+  if (!ring) { ring = []; LIMITER_EVENTS.set(bucket, ring); }
+  ring.push({ t: now(), retryInMs: arr.length ? Math.max(0, arr[0] + windowMs - now()) : windowMs });
+  if (ring.length > LIMITER_RING) ring.splice(0, ring.length - LIMITER_RING);
+}
+function limiterTelemetry() {
+  const t = now();
+  const out = [];
+  for (const [bucket, ring] of LIMITER_EVENTS) {
+    while (ring.length && ring[0].t < t - 3600000) ring.shift();   // one-hour horizon
+    if (!ring.length) continue;
+    const recent = ring.filter(e => e.t >= t - 60000).length;
+    out.push({ bucket, last60s: recent, last1h: ring.length,
+      retryInMs: Math.max(...ring.slice(-4).map(e => e.retryInMs)) });
+  }
+  return out;
+}
 function rateLimit(ip, bucket, max, windowMs) {
   const key = ip + '|' + bucket;
   const t = now();
   let arr = buckets.get(key);
   if (!arr) { arr = []; buckets.set(key, arr); }
   while (arr.length && arr[0] <= t - windowMs) arr.shift();
-  if (arr.length >= max) return false;
+  if (arr.length >= max) { noteLimiter429(bucket, windowMs, arr); return false; }
   arr.push(t);
   if (buckets.size > 5000) { // keep memory flat
     for (const [k, v] of buckets) if (!v.length) buckets.delete(k);
@@ -805,7 +829,12 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
        touch (the 2026-09-26 purge: 136 test pilots reached the real
        ledger through a battery running on the canonical port). */
     const pilots = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
-    return send(res, 200, { ok: true, service: 'emberfall-command-deck', t: now(), pilots });
+    /* v4.23: limiter telemetry rides along — ops sees refusals without
+       scraping logs; absent when quiet, so old probes read it as before */
+    const limiter = limiterTelemetry();
+    const answer = { ok: true, service: 'emberfall-command-deck', t: now(), pilots };
+    if (limiter.length) answer.limiter = limiter;
+    return send(res, 200, answer);
   }
 
   /* public, unauthenticated deck totals — the same facts the Supabase

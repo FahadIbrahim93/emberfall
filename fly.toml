@@ -1,0 +1,44 @@
+# Fly.io runtime configuration for the EMBERFALL Command Deck.
+# The image is the repo's own multi-stage Dockerfile — `fly deploy` builds
+# it and the gates stage RUNS the battery, so a red gate can never ship.
+#
+# After `fly auth login` (the only step that needs you):
+#   fly launch --no-deploy --name <your-deck-name> --region iad --copy-config
+#   fly volumes create ef_data --size 1 --region iad
+#   fly secrets set NODE_ENV=production TRUST_PROXY=1 \
+#     EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+#   fly deploy
+# Full checklist: docs/DEPLOYMENT.md · gaps a rollout still owns
+# (backups off-box, log shipping): docs/ROADMAP.md "The container path".
+
+app = 'emberfall-deck'
+primary_region = 'iad'
+
+[build]
+
+[env]
+  PORT = '8123'
+  # EF_DATA_DIR is baked into the image (/data); the volume below mounts there.
+  # NODE_ENV / TRUST_PROXY / EF_CORS_ORIGINS arrive via `fly secrets` —
+  # they are deploy-time decisions, not image decisions.
+
+[http_service]
+  internal_port = 8123
+  force_https = true             # Fly terminates TLS at the edge; 426 contract stays satisfied
+  auto_stop_machines = 'stop'    # the deck is one tiny process — stop when idle
+  auto_start_machines = true
+  min_machines_running = 1       # ...but keep one warm for the boards
+  processes = ['concurrency']
+
+  [http_service.concurrency]
+    type = 'requests'
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'               # the deck is one process; stay small
+
+[mounts]
+  source = 'ef_data'
+  destination = '/data'

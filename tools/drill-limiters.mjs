@@ -106,6 +106,19 @@ async function main() {
   say('── register bucket (10/min)');
   await drain('register', 10, i => req('POST', '/api/register', { body: { name: 'LimR' + i, password: 'limiter-pass' } }));
 
+  /* v4.23: the refusals must be VISIBLE — /api/health carries per-bucket
+     429 telemetry (no PII), so a limiter regression shows in ops, not just
+     in this drill's console. The ring counts the drain's refusals. */
+  say('── limiter telemetry (v4.23)');
+  const tel = await req('GET', '/api/health');
+  const reg = (tel.json.limiter || []).find(b => b.bucket === 'register');
+  (tel.json.ok && reg && reg.last60s >= 1 && reg.last1h >= reg.last60s)
+    ? good(`health telemetry sees the register refusals (last60s=${reg.last60s}, last1h=${reg.last1h}, retryInMs=${reg.retryInMs})`)
+    : bad('health carries no register telemetry: ' + JSON.stringify(tel.json.limiter));
+  (!JSON.stringify(tel.json.limiter || []).match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/))
+    ? good('telemetry is PII-free (no addresses in the ring)')
+    : bad('telemetry leaks addresses');
+
   /* LOGIN bucket: correct credentials every time — 15 accepted, then 429 */
   say('── login bucket (15/min)');
   await drain('login', 15, () => req('POST', '/api/login', { body: { name: 'LimMain', password: 'limiter-pass' } }));
