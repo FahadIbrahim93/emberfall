@@ -7,6 +7,21 @@ new tip 0a962cd, tree 98372da byte-identical; every pre-rewrite SHA in
 older docs is stale; the blob's SHA-pinned URL 404s, GitHub Support GC
 draft is in the same folder; the rehearsal (clone + rewrite + verify)
 proves the exact procedure for any future scrub.)
+(release v4.22.1 "The Recruiting Page" — 3456838; the press kit goes live:
+docs/press-kit.html is an itch-style one-pager (self-hosted brand fonts,
+void/ember tokens, hero + wave-1 GIF + CI-measured facts + the four
+playtest questions), deployed by the Pages job (docs/press-kit.html +
+docs/press/{hero.png,emberfall-wave1.gif} copied into _site) and asserted
+200 by the live-smoke loop (now 17 assets — the summary line says so).
+docs/press-kit.md stays the words' source of truth and now points at the
+live URL; README grew a press-kit badge. Local flake caught and explained:
+running the browser suite against a PRE-SMOKED deck burns the login bucket
+→ account.spec sees 429 where it wants 401 — CI survives on step ordering,
+locally just kill the deck and let the suite boot its own (23/23).
+Screenshots of the page taken via the preview browser (fullPage stitches
+sticky headers — de-stickied the header; preview sandbox can't resolve
+relative asset paths, they're correct on Pages where the page sits beside
+press/).
 (release v4.22.0 "The World Stage" — 8f4a3e0; the leaderboard actually works:
 ADR 0002 (docs/adr/0002-cross-origin-deck-bearer-sessions.md) — deck
 addressing (NET.deck, localStorage emberfall2.deck, ?deck= persists, blank =
