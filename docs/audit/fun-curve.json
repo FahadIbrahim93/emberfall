@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.22.1",
+      "date": "2026-09-27",
+      "codename": "The Recruiting Page",
+      "loop": {
+        "wave": 3,
+        "kills": 27,
+        "grazes": 4,
+        "combo": 15,
+        "mult": 3,
+        "medianFps": 33
+      },
+      "first60": {
+        "medianFps": 30,
+        "firstPlayingMs": 732,
+        "firstKillMs": 732,
+        "fbSeen": 6
+      }
+    },
+    {
       "version": "4.22.0",
       "date": "2026-09-27",
       "codename": "The World Stage",
