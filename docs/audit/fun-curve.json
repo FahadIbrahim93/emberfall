@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.23.0",
+      "date": "2026-09-27",
+      "codename": "Glasscockpit",
+      "loop": {
+        "wave": 2,
+        "kills": 19,
+        "grazes": 2,
+        "combo": 8,
+        "mult": 2,
+        "medianFps": 27
+      },
+      "first60": {
+        "medianFps": 21,
+        "firstPlayingMs": 758,
+        "firstKillMs": 758,
+        "fbSeen": 4
+      }
+    },
+    {
       "version": "4.22.2",
       "date": "2026-09-27",
       "codename": "Open Surfaces",
