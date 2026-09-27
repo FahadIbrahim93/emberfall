@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.22.0",
+      "date": "2026-09-27",
+      "codename": "The World Stage",
+      "loop": {
+        "wave": 2,
+        "kills": 22,
+        "grazes": 6,
+        "combo": 11,
+        "mult": 2,
+        "medianFps": 27
+      },
+      "first60": {
+        "medianFps": 21,
+        "firstPlayingMs": 770,
+        "firstKillMs": 770,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.21.2",
       "date": "2026-09-26",
       "codename": "Always Reachable",
