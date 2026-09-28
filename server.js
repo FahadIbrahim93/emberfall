@@ -190,6 +190,28 @@ CREATE TABLE IF NOT EXISTS deleted_accounts (
   deleted_at INTEGER NOT NULL,
   reason     TEXT NOT NULL
 );
+/* v4.25 — the listening deck. One free-text line per flight, funnel stages
+   as fact rows, BOTH allowed to ride anon (a frustrated player is exactly
+   the one who won't sign up; a hard cap per IP keeps the ledger clean).
+   Text is free prose — never displayed with identity, never synced to the
+   mirror's public reads. */
+CREATE TABLE IF NOT EXISTS feedback (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  text     TEXT NOT NULL,
+  ship     TEXT,
+  wave     INTEGER,
+  mode     TEXT,
+  created  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created DESC);
+CREATE TABLE IF NOT EXISTS funnel_events (
+  stage    TEXT NOT NULL,
+  day      TEXT NOT NULL,
+  iph      TEXT NOT NULL,
+  n        INTEGER NOT NULL,
+  PRIMARY KEY (stage, day, iph)
+);
 `);
 /* v4.10 migration: daily_stats needs a comparable day column for week windows.
    Pure-UTC ISO strings sort lexicographically, so 'created_day' mirrors 'day'.
@@ -632,6 +654,13 @@ function rateLimit(ip, bucket, max, windowMs) {
 const NAME_RE = /^[A-Za-z0-9_\- ]{3,16}$/;
 const MODES = new Set(['main', 'daily', 'rush']);
 const SHIPS = new Set(['vesper', 'halcyon', 'atlas', 'wraith', 'seraph']);
+/* v4.25 — funnel stages are a CLOSED vocabulary (the drill refuses others);
+   iph = salted daily hash (PRIVACY), salt rotated per UTC day, per boot. */
+const FUNNEL_STAGES = new Set(['boot', 'armed', 'k1', 'w5']);
+let funnelSalt = crypto.randomBytes(16).toString('hex');
+function funnelHash(ip, day) {
+  return crypto.createHash('sha256').update(funnelSalt + '|' + day + '|' + ip).digest('hex').slice(0, 24);
+}
 
 /* ─────────────────────────── http plumbing ─────────────────────────── */
 /* ADR 0002 — the CORS layer, one door for every API answer. Exact-origin
@@ -861,7 +890,65 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     /* v4.24: aggregate rare-Sunday honor count for ops.html — one number,
        no per-pilot detail (the plaque itself stays on /api/me, authed). */
     const wardenfall = db.prepare('SELECT COUNT(*) AS n FROM daily_stats WHERE wardenfall = 1').get().n;
-    return send(res, 200, { ok: true, pilots, runs, topScore: top, wardenfall, t: now() });
+        /* v4.25 listening-deck aggregates: note volume + funnel totals (sums of
+       salted-hashed devices per stage - counts, never identities) */
+    const feedbackTotal = db.prepare('SELECT COUNT(*) AS n FROM feedback').get().n;
+    const feedback7 = db.prepare('SELECT COUNT(*) AS n FROM feedback WHERE created >= ?').get(now() - 7 * 86400000).n;
+    const funnel = {};
+    /* the funnel metric is UNIQUE DEVICES per stage (COUNT DISTINCT iph),
+       not events — a client may re-fire a stage freely (ON CONFLICT bumps
+       n, the raw event volume, queryable later); repeats must never inflate
+       the funnel. */
+    for (const r of db.prepare('SELECT stage, COUNT(DISTINCT iph) AS s FROM funnel_events GROUP BY stage').all()) funnel[r.stage] = r.s;
+    return send(res, 200, { ok: true, pilots, runs, topScore: top, wardenfall,
+      feedback: { total: feedbackTotal, last7d: feedback7 }, funnel, t: now() });
+  }
+
+  /* v4.25 - the listening deck. One free-text line per flight; ANON is a
+     first-class sender (the frustrated player who will not sign up is
+     exactly the signal wanted here). 5/hour/IP, 280 chars, no identity
+     echoed: the pilot name rides along only when the author is signed in. */
+  if (req.method === 'POST' && pathname === '/api/feedback') {
+    if (!rateLimit(ip, 'feedback', 5, 3600000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const user = sessionUser(req);   /* optional */
+    const body = await readJson(req, res); if (!body) return;
+    const text = String(body.text || '').trim().slice(0, 280);
+    if (text.length < 2) return bad(res, 'say a little more', 400);
+    const ship = SHIPS.has(body.ship) ? body.ship : null;
+    const wave = Math.min(999, Math.max(0, Math.floor(Number(body.wave) || 0)));
+    const mode = MODES.has(body.mode) ? body.mode : null;
+    const r = db.prepare('INSERT INTO feedback (user_id, text, ship, wave, mode, created) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(user ? user.id : null, text, ship, wave, mode, now());
+    return send(res, 200, { ok: true, id: r.lastInsertRowid });
+  }
+
+  /* operator read: newest 100 notes, prose + flight shape only. Names
+     appear solely for signed-in authors (they chose to attach identity);
+     there are no IPs, no emails, nothing else to leak. */
+  if (req.method === 'GET' && pathname === '/api/feedback') {
+    if (!rateLimit(ip, 'stats', 30, 60000)) return bad(res, 'slow down', 429);
+    const list = db.prepare(`
+      SELECT f.id, f.text, f.ship, f.wave, f.mode, f.created, u.name AS pilot
+      FROM feedback f LEFT JOIN users u ON u.id = f.user_id
+      ORDER BY f.id DESC LIMIT 100`).all();
+    return send(res, 200, { ok: true, list });
+  }
+
+  /* funnel stages: boot, armed, first kill, wave 5. Salted daily IP hash
+     (PRIVACY) - unique devices per stage per day, the one number the
+     funnel needs; a closed stage vocabulary the drill enforces. */
+  if (req.method === 'POST' && pathname === '/api/funnel') {
+    if (!rateLimit(ip, 'funnel', 60, 60000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res); if (!body) return;
+    const stage = String(body.stage || '');
+    if (!FUNNEL_STAGES.has(stage)) return bad(res, 'bad stage');
+    const day = deckDayOf(now());
+    db.prepare(`INSERT INTO funnel_events (stage, day, iph, n) VALUES (?, ?, ?, 1)
+                ON CONFLICT(stage, day, iph) DO UPDATE SET n = n + 1`)
+      .run(stage, day, funnelHash(ip, day));
+    return send(res, 200, { ok: true });
   }
 
   /* LAN play helper — the on-the-go story for phones before a public deploy.

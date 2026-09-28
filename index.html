@@ -720,7 +720,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.24.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.25.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -985,6 +985,10 @@ body.needrotate #rotate{display:grid}
       <input id="duelTo" maxlength="16" placeholder="CHALLENGE A PILOT" spellcheck="false" autocomplete="off" aria-label="Pilot to challenge">
       <button class="btn" id="btnDuel" style="text-align:center">Send duel</button>
     </div>
+    <div class="entry" id="fbRow" style="margin-bottom:14px">
+      <input id="fbText" maxlength="280" placeholder="One thing the maker should know (optional)" spellcheck="false" autocomplete="off" aria-label="Feedback for the maker - one line, sent with this flight's shape">
+      <button class="btn" id="btnSendFb" style="text-align:center">Send</button>
+    </div>
     <div class="pair">
       <button class="btn key" id="btnAgain">Fly again</button>
       <button class="btn" id="btnToHangar">Hangar</button>
@@ -1009,7 +1013,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.24.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.25.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -3281,6 +3285,8 @@ function addScore(n, x, y, big) {
 }
 function registerKill(e) {
   GAME.kills++;
+  /* v4.25 funnel: first kill ever this boot — the "it clicked" stage */
+  if (GAME.kills === 1 && typeof NET !== 'undefined') NET.funnel('k1');
   if (P.beam) GAME.hits++;   // beam kills are also beam hits — accuracy stays meaningful
   GAME.combo++;
   GAME.comboT = 3.2;
@@ -4890,6 +4896,8 @@ function updateRushDirector(dt) {
 
 function startWave(n) {
   DIRECTOR.wave = n; GAME.wave = n;
+  /* v4.25 funnel: wave 5 is the depth marker — the game held them this long */
+  if (n === 5 && typeof NET !== 'undefined') NET.funnel('w5');
   DIRECTOR.t = 0; DIRECTOR.phase = 'combat';
   if (GAME.mode === 'rush') { return; }
   DIRECTOR.queue = buildWave(n);
@@ -6843,6 +6851,8 @@ bindClick('btnTour', () => startRun('tour'));
 bindClick('btnDaily', () => startRun('daily'));
 bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
+/* v4.25 funnel: armed — the first launch intent this boot, any mode */
+NET.funnel('armed');
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
 bindPassToggle();
@@ -7038,6 +7048,32 @@ bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode
 bindClick('btnAbort', () => { GAME.paused = false; if (RANGE.active) { RANGE.stop(); return; } toTitle(); });
 bindClick('btnAbandonTour', () => { GAME.paused = false; endRunTour(); toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
+/* v4.25 — the listening deck. One line per death, anon-friendly, offline-
+   queued (max 5) and flushed on the next boot. Never blocks the flow: the
+   button answers in place and Fly again stays one key away. */
+function fbQueue() { try { return JSON.parse(localStorage.getItem('emberfall2.fb') || '[]'); } catch (e) { return []; } }
+async function sendFeedback() {
+  const el = $('fbText'), btn = $('btnSendFb');
+  const text = el.value.trim();
+  if (text.length < 2) { el.focus(); return; }
+  const flight = { ship: META.ship, wave: Math.max(1, GAME.wave), mode: GAME.mode };
+  btn.disabled = true;
+  const ok = await NET.sendFeedback(text, flight);
+  btn.textContent = ok ? 'Sent ✓' : 'Kept for later';
+  el.value = '';
+  if (!ok) {
+    try { const q = fbQueue(); q.push({ text, flight }); localStorage.setItem('emberfall2.fb', JSON.stringify(q.slice(-5))); } catch (e) { }
+  }
+  setTimeout(() => { btn.textContent = 'Send'; btn.disabled = false; }, 2600);
+}
+async function flushFeedback() {
+  const q = fbQueue(); if (!q.length) return;
+  const rest = [];
+  for (const item of q) { const ok = await NET.sendFeedback(item.text, item.flight); if (!ok) rest.push(item); }
+  try { localStorage.setItem('emberfall2.fb', JSON.stringify(rest)); } catch (e) { }
+}
+bindClick('btnSendFb', sendFeedback);
+$('fbText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.stopPropagation(); sendFeedback(); } });
 bindClick('btnToHangar', () => toHangar());
 bindClick('btnRegister', () => saveCallsign());
 bindClick('btnDuel', async () => {
@@ -7146,6 +7182,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.25.0',
+    items: [
+      'one-line pilot notes on the game-over screen (anon-friendly, offline-queued, capped 5/h), PII-free funnel instrumentation (boot-armed-k1-w5, salted daily device hash), ops.html funnel+notes cards, feedback-report and monday-digest tools - and the probe() stale-false race fix the flush test flushed out'
+    ]
+  },
   {
     v: '4.24.0',
     items: [
@@ -8867,9 +8909,23 @@ function runSelfTests() {
       if (!pre.feat) delete META.feats.perfectseason; META.alloy = pre.alloy; saveMeta();
     }
   });
+  T('listening deck: client contracts, no server needed', () => {
+    ok(typeof NET.sendFeedback === 'function', 'sendFeedback exists on NET');
+    ok(typeof NET.funnel === 'function', 'funnel emitter exists on NET');
+    const btn = $('btnSendFb'), input = $('fbText');
+    ok(!!btn && !!input, 'the game-over widget exists in the markup');
+    eq(btn.tagName, 'BUTTON', 'send is a real button (AT-clickable)');
+    ok(input.getAttribute('aria-label') && input.getAttribute('aria-label').length > 12, 'the note input is labeled for screen readers');
+    const fbQueueSrc = fbQueue.toString();
+    ok(fbQueueSrc.includes('emberfall2.fb'), 'the offline queue has its own storage key');
+    ok(typeof flushFeedback === 'function' && flushFeedback.toString().includes('for (const item of q)'), 'flush drains the whole queue, not just one');
+    const probeSrc = NET.probe.toString();
+    ok(probeSrc.includes('probeP'), 'probe joins its own in-flight handshake (the stale-false race is fenced)');
+    ok(NET.funnel.toString().includes('catch'), 'funnel fails silent — signal never disturbs play');
+  });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.24.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.25.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -8930,6 +8986,10 @@ function finishBoot() {
   AU.init(); AU.resume(); MUSIC.start(); AU.uiBig(); AU.unlockiOS();
   showScreen('s-boot', false);
   keepAwake(true);
+  /* v4.25 funnel: boot — the deck dedupes per device per day (salted hash);
+     any feedback queued offline on the last flight rides along now */
+  NET.funnel('boot');
+  flushFeedback();
   toTitle();
 }
 $('s-boot').addEventListener('pointerdown', finishBoot);

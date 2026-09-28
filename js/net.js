@@ -43,32 +43,62 @@ const NET = {
     try { localStorage.removeItem('emberfall2.token'); } catch (e) { }
     try { localStorage.setItem('emberfall2.deck', this.deck); } catch (e) { }
     this.probed = false; this.on = false; this.user = null; this.meDaily = null;
+    this.probeP = null;   /* a mid-flight handshake for the OLD deck is void */
+  },
+
+  /* v4.25 — the listening deck: fire-and-forget signal channel.
+     sendFeedback: one free-text note per flight (server caps 5/h/IP);
+     funnel: salted-hashed device + stage, deduped per boot by the deck
+     itself (ON CONFLICT bump) — this client may fire a stage twice, the
+     count stays one-per-device. Everything fails SILENT: signal must
+     never disturb play, not even with a console error. */
+  async sendFeedback(text, flight) {
+    try {
+      await this.probe();
+      if (!this.on) return false;
+      await this.req('POST', '/api/feedback', Object.assign({ text: String(text || '').slice(0, 280) }, flight || {}));
+      return true;
+    } catch (e) { return false; }
+  },
+
+  funnel(stage) {
+    this.req('POST', '/api/funnel', { stage }).catch(() => { /* silent, always */ });
   },
 
   async probe() {
+    /* v4.25 fix — the stale-false race (caught by the offline-flush test):
+       the old probe set this.probed = true IMMEDIATELY, so concurrent
+       callers during the 6s handshake got probed=true with on=false and
+       silently bailed — the boot-time feedback flush re-queued its note
+       every boot. Now in-flight callers JOIN the same handshake; completed
+       probes stay cached; setDeck() still forces a re-probe. */
+    if (this.probeP) return this.probeP;
     if (this.probed) return this.on;
-    this.probed = true;
-    if (this.deck) {
-      /* a hand-typed address must look like one before we dial it */
+    this.probeP = (async () => {
+      if (this.deck) {
+        /* a hand-typed address must look like one before we dial it */
+        try {
+          const u = new URL(this.deck);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
+        } catch (e) { this.on = false; return false; }
+      }
       try {
-        const u = new URL(this.deck);
-        if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
-      } catch (e) { this.on = false; return false; }
-    }
-    try {
-      /* 6s: a remote deck on a slow phone network is the norm this must
-         survive; the old 2.5s aborted mid-handshake on loaded runners and
-         stranded the panel in 'local mode' with the fields hidden */
-      const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 6000);
-      const r = await fetch(this.deck + '/api/health', { signal: ctl.signal, cache: 'no-store' });
-      clearTimeout(kill);
-      if (!r.ok) return false;
-      const j = await r.json();
-      this.on = !!(j && j.ok);
-      if (this.on) await this.whoami();
-    } catch (e) { this.on = false; }
-    if (this.on) this.pushProfile();          // converge any local changes made offline
-    return this.on;
+        /* 6s: a remote deck on a slow phone network is the norm this must
+           survive; the old 2.5s aborted mid-handshake on loaded runners and
+           stranded the panel in 'local mode' with the fields hidden */
+        const ctl = new AbortController(); const kill = setTimeout(() => ctl.abort(), 6000);
+        const r = await fetch(this.deck + '/api/health', { signal: ctl.signal, cache: 'no-store' });
+        clearTimeout(kill);
+        if (!r.ok) return false;
+        const j = await r.json();
+        this.on = !!(j && j.ok);
+        if (this.on) await this.whoami();
+      } catch (e) { this.on = false; }
+      if (this.on) this.pushProfile();          // converge any local changes made offline
+      this.probed = true;
+      return this.on;
+    })();
+    try { return await this.probeP; } finally { this.probeP = null; }
   },
 
   /* adopt the deck's ledger view (monotonic — the deck is the only writer of

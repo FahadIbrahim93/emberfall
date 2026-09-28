@@ -118,6 +118,9 @@ function onKeyDown(e) {
   }
   if (e.code === 'KeyB' && GAME.state === 'title' && !modalUp) startRun('rush');
   if (e.code === 'Enter' && !modalUp) {
+    /* v4.25 funnel: keyboard pilots arm here — same dedup as the buttons
+       (the deck bumps a salted per-boot device hash; doubles are free) */
+    if (GAME.state === 'title' && typeof NET !== 'undefined') NET.funnel('armed');
     if (GAME.state === 'title') startRun('endless');
     else if (GAME.state === 'over') {
       if (!$('entryRow').classList.contains('hidden')) saveCallsign();

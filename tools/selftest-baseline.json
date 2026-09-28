@@ -1,6 +1,6 @@
 {
-  "total": 73,
-  "passed": 73,
+  "total": 74,
+  "passed": 74,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -74,6 +74,7 @@
     "daily gauntlet: streak feats predict, gift, and stay mode-honest",
     "daily gauntlet: result application banks payouts and updates identity",
     "two-device ledger adoption — fresh device raises, never lowers, never double-banks",
+    "listening deck: client contracts, no server needed",
     "patch notes data and seen-marker"
   ]
 }

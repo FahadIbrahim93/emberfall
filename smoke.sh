@@ -44,6 +44,12 @@ trap 'rm -f "$JAR"' EXIT
 
 STATS="$(curl -s "$BASE/api/stats")"
 if printf '%s' "$STATS" | grep -q '"ok":true'; then ok "public stats endpoint answers"; else no "stats endpoint  →  ${STATS:0:140}"; fi
+# v4.25 — the listening deck: notes in, funnel in, aggregates out
+expect "feedback accepts an anon note"   '"ok":true'  -X POST "$BASE/api/feedback" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"text":"smoke: the listening deck hears","ship":"vesper","wave":2,"mode":"main"}'
+expect "feedback refuses tiny notes"     'say a little more' -X POST "$BASE/api/feedback" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"text":"x"}'
+expect "funnel refuses unknown stages"   'bad stage'  -X POST "$BASE/api/funnel" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"stage":"wallet"}'
+expect "funnel accepts boot"             '"ok":true'  -X POST "$BASE/api/funnel" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"stage":"boot"}'
+printf '%s' "$STATS" | grep -q '"feedback"' && printf '%s' "$STATS" | grep -q '"funnel"' && ok "stats carries the listening-deck aggregates" || no "stats missing feedback/funnel aggregates →  ${STATS:0:140}"
 # the stats limiter: 31 rapid pulls, one must 429 (generous for humans,
 # hostile to scrapers — and it proves the bucket exists)
 ST429=0

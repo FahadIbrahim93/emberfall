@@ -55,10 +55,22 @@ async function deckVersion() {
   return m ? m[1] : null;
 }
 
+function funnelRows(f) {
+  const stages = ['boot', 'armed', 'k1', 'w5'];
+  const boot = f.boot || 0;
+  return stages.map((s, i) => {
+    const n = f[s] || 0;
+    const pct = (i === 0 || !boot) ? '' : ' · ' + Math.round(100 * n / boot) + '% of boot';
+    return '<tr><td>' + s + '</td><td>' + n + '</td><td style="color:var(--dim)">' + pct + '</td></tr>';
+  }).join('');
+}
+
 function render(h, s, v) {
   const live = !!h.live;
   const nf = h.limiter && h.limiter.length ? h.limiter.length : 0;
   const nfCls = nf === 0 ? 'ok' : nf < 3 ? 'warn' : 'bad';
+  const fb = s.feedback || { total: 0, last7d: 0 };
+  const fn = s.funnel || {};
   $('v').textContent = v ? 'v' + v : '';
   $('root').innerHTML =
     '<div class="grid">' +
@@ -69,6 +81,8 @@ function render(h, s, v) {
         '<tr><td>' + esc(b.bucket) + '</td><td>' + esc(b.last60s) + '</td><td>' + esc(b.last1h) + '</td><td>' + (b.retryInMs != null ? Math.ceil(b.retryInMs / 1000) + 's' : '—') + '</td></tr>').join('') + '</table>'
       : '<div class="sub" style="margin:0">quiet window — no bucket is hot</div>') + '</div>' +
     '<div class="card"><h2>WARDENFALL HONOR</h2><div class="big ember">' + esc(s.wardenfall ?? '—') + '</div><div class="sub" style="margin:0">pilot-days that paid the rare-Sunday honor, all time</div></div>' +
+    '<div class="card"><h2>PILOT NOTES</h2><div class="big">' + esc(fb.total) + '</div><div class="sub" style="margin:0">' + esc(fb.last7d) + ' in the last 7 days · read with tools/feedback-report.mjs</div></div>' +
+    '<div class="card"><h2>FUNNEL (unique devices)</h2><table><tr><th>stage</th><th>devices</th><th></th></tr>' + funnelRows(fn) + '</table></div>' +
     '<div class="card"><h2>PUBLIC STATS</h2>' +
       '<div class="row"><span>runs accepted</span><b>' + esc(s.runs ?? '—') + '</b></div>' +
       '<div class="row"><span>top score</span><b>' + esc(s.topScore ?? '—') + '</b></div>' +
