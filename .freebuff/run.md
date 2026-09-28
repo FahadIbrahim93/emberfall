@@ -393,6 +393,32 @@ Lessons paid for:
    deck was up, clean, flagged and healthy all day; the recruiting
    pipeline exists but the first ten strangers haven't flown yet.
 
+## v4.25.0 "The Listening Deck" — the game asks, the deck hears (2026-09-28)
+
+- **The widget:** one-line note on the game-over panel (`#fbRow`), anon
+  first-class, 280 chars, offline outbox (max 5, `emberfall2.fb`, flushed
+  in finishBoot), 5/hour/IP cap — and the cap counts ATTEMPTS, not
+  accepted notes (garbage is never free; the drill proved the distinction
+  by failing on my own wrong assumption first).
+- **The funnel:** boot → armed → k1 (first kill) → w5 (wave 5). PII-free
+  by construction: salted DAILY device hash (funnelSalt rotates per boot
+  AND per UTC day), closed stage vocabulary, per-device dedupe. The
+  metric is COUNT(DISTINCT iph) — my first draft summed n and inflated
+  repeats; caught by my own drill before any human saw it.
+- **The readers:** feedback-report.mjs (volume, crude keyword themes,
+  newest notes) and monday-digest.mjs (curve + funnel + notes + next rare
+  Sundays). Digest calendar bug caught in self-review: JS getUTCDay()
+  calls Saturday 6, the deck's dayDow calls SUNDAY 6 — verified against
+  tools/wardenfall-check.mjs (next: 2026-11-29).
+- **The real bug the flush test flushed:** NET.probe() set probed=true
+  immediately, so concurrent callers during the 6s handshake read
+  on=false and bailed silently — the boot-time flush re-queued its note
+  every boot. Fixed with a joined in-flight promise (probeP), cancelled
+  in setDeck. Any early-boot caller had been eating stale falses.
+- Ops cards: pilot notes + funnel (with % of boot), drill-feedback.mjs
+  (12 checks: cap, dedupe, coercion, signed-vs-anon read shape), smoke
+  +5 (88), browser +3 (32), selftest +1 (74).
+
 ## Ops: profile the deck's query load
 
 ```bash
