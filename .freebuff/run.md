@@ -312,6 +312,49 @@ node tools/db-backup.js --out D:/emberfall-backups --keep 30 --verify
   backup over `emberfall.db` (delete its `-wal`/`-shm` sidecars), start deck.
 - Snapshots are plain SQLite files you can inspect with any sqlite client.
 
+## v4.23.1 "The Fence" — the live-ledger incident and its permanent fence (2026-09-27)
+
+### What happened
+During the v4.23.0 battery (02:33), smoke.sh defaulted to `http://127.0.0.1:8123` —
+which was the LIVE Wardenfall deck I had booted an hour earlier. Smoke seeded
+5 machine pilots (`Pilot*/Ace*`, `Drillmy*pA/B/C`), 2 accepted scores, 8
+sessions into the production ledger hours before the rare day. The census
+fence only protects scratch decks FROM dirt; nothing protected the live
+ledger FROM the battery.
+
+### The fix (shipped)
+- server: `EF_LIVE_LEDGER=1` → health reports `"live":true` (server.js, next
+  to TRUST_PROXY).
+- fence: `tools/live-guard.mjs` — `probeHealth` / `assertNotLive` (live:true
+  → refuse, NO override) / `assertPortFree` (squatter → refuse, names the
+  PORT env). Wired into smoke.sh (live-grep fence), all 9 drills (pre-spawn
+  squatter probe + post-boot live refusal — the drill-replay 02:33 mechanism
+  is now a REFUSAL), and the browser suite via `tests/global-live-guard.js`
+  (playwright globalSetup runs after webServer resolution, covering BOTH the
+  boot and E2E_REUSE paths).
+- drill-duels vs live deck, drill-limiters onto the live port, smoke vs a
+  flagged probe deck: all refused instantly, probe ledger untouched at 0.
+
+### Lessons paid for
+1. **Smoke targets whatever is on 8123.** Boot order matters more than intent.
+   The live deck must NEVER be up during a battery — new rule in the Wardenfall
+   runbook. Future live decks boot flagged and the fence enforces it.
+2. **You can't prove a fence against a dead deck.** First proof attempt: smoke
+   was pointed at a dead endpoint, timed out at the tool level, and its orphan
+   (Windows: tool timeout kills the bash wrapper, NOT necessarily detached
+   children) wrote `Pilot2269027008` into my probe deck the moment it appeared.
+   The proof only counts when health is VERIFIED before the tool runs.
+3. **Baseline before copyguard.** v4.22.0 burned CI on this; this time the
+   selftest caught my own double-stamp junk (`"x"` note duplicate) BEFORE the
+   baseline regen — selftest refuses duplicate NOTES versions.
+4. **Windows orphan discipline:** after any timed-out battery command, sweep
+   for orphaned node/bash before trusting any "clean" state.
+5. **GC behavior in forked drill decks:** a fork starts with a used duel
+   window — the 7-day shape is provable only with `EF_DUEL_RETENTION_DAYS=8`.
+6. **w4 discipline reconfirmed:** default-worker browser runs flake a
+   different spec each time under this laptop's load; `--workers=4` was
+   clean (27/27) in 1.5m. CI runs 3 workers on fast machines; local runs w4.
+
 ## Ops: profile the deck's query load
 
 ```bash
