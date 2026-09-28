@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.24.0",
+      "date": "2026-09-28",
+      "codename": "Signal",
+      "loop": {
+        "wave": 2,
+        "kills": 15,
+        "grazes": 1,
+        "combo": 5,
+        "mult": 2,
+        "medianFps": 27
+      },
+      "first60": {
+        "medianFps": 24,
+        "firstPlayingMs": 826,
+        "firstKillMs": 826,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.23.1",
       "date": "2026-09-28",
       "codename": "The Fence",
