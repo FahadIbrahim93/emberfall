@@ -99,6 +99,7 @@ it is self-hosted by design, one Node process with its local SQLite.
 | `NODE_ENV=production` | require HTTPS, `Secure` cookies |
 | `TRUST_PROXY=1` | trust one proxy hop for X-Forwarded-For |
 | `EF_CORS_ORIGINS` | ADR 0002: comma-separated origins allowed to call the API (e.g. `https://fahadibrahim93.github.io`); `*` = any origin for public data; empty = same-origin only |
+| `EF_LIVE_LEDGER=1` | **v4.23.1 fence:** health reports `"live":true`; every battery tool (smoke, all 9 drills, the browser suite) then REFUSES to run against this deck — production ledgers are never test targets (born of the 2026-09-27 incident: a release battery's smoke run seeded 5 machine pilots into the live Wardenfall deck on 8123; purged, keepsake `G:/emberfall-ir-bundle/polluted-deck-live-*.db`) |
 | `EF_CONNECT_SRC` | ADR 0002: extra origins this deck's SERVED pages may dial (deck-to-deck); Pages needs no such permission |
 
 ## Serving the Pages game from your deck (v4.22)
@@ -108,7 +109,7 @@ deck — accounts, worldwide boards, duels, cloud saves for every player on
 Earth, no fork of the game required:
 
 ```bash
-NODE_ENV=production TRUST_PROXY=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io \
+NODE_ENV=production TRUST_PROXY=1 EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io \
   node server.js --port 8123
 ```
 

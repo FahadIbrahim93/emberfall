@@ -28,6 +28,7 @@
 'use strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.XO_PORT || 8159;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-cross-origin', 'XO_PORT');
 const GAME_ORIGIN = 'https://fahadibrahim93.github.io';      // the foreign origin — exactly Pages
 const EVIL_ORIGIN = 'https://evil.example';
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck', Origin: GAME_ORIGIN };
@@ -82,18 +85,20 @@ const arc = (wave, score, runT, kills) => {
 async function main() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ef-xorigin-'));
   say(`── booting a cross-origin deck on :${PORT} (allowlist: ${GAME_ORIGIN})`);
+  await guardPre();
   child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname + '/..',
     env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir, EF_CORS_ORIGINS: GAME_ORIGIN },
     stdio: 'ignore'
   });
-  let up = false;
+  let up = false, hh = null;
   for (let i = 0; i < 40 && !up; i++) {
-    try { const h = await req('GET', '/api/health'); up = !!(h.json && h.json.ok); }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { up = true; hh = h.json; } }
     catch { await new Promise(r => setTimeout(r, 250)); }
   }
   up ? good('scratch deck healthy') : bad('deck never came up');
   if (!up) return;
+  assertNotLive(hh, BASE, 'drill-cross-origin');
 
   /* ── 1. public reads: grant for the friend, silence for the stranger ── */
   say('── public reads carry the grant, and only for allowed origins');

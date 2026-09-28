@@ -23,6 +23,7 @@
 'use strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +31,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.VLT_PORT || 8169;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-vault', 'VLT_PORT');
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck' };
 const SNAP_MAX = 6;
 let pass = 0, fail = 0, child = null;
@@ -59,18 +62,20 @@ function payload(run) {
 async function main() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ef-vault-'));
   console.log(`── booting a scratch deck on :${PORT} (${dataDir})`);
+  await guardPre();
   child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname + '/..',
     env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir },
     stdio: 'ignore'
   });
-  let up = false;
+  let up = false, hh = null;
   for (let i = 0; i < 40 && !up; i++) {
-    try { const h = await req('GET', '/api/health'); up = !!(h.json && h.json.ok); }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { up = true; hh = h.json; } }
     catch { await new Promise(r => setTimeout(r, 250)); }
   }
   up ? good('scratch deck healthy') : bad('deck never came up');
   if (!up) return;
+  assertNotLive(hh, BASE, 'drill-vault');
 
   const reg = await req('POST', '/api/register', { body: { name: 'VaultPilot', password: 'vault-pass' } });
   const tok = tokenOf(reg.setCookie);

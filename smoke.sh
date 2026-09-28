@@ -17,6 +17,14 @@ if [ "$HC_PIL" -gt 30 ] && [ "${ALLOW_DIRTY_LEDGER:-}" != "1" ]; then
   echo "Set ALLOW_DIRTY_LEDGER=1 to run anyway (you take the rows you make)."
   exit 1
 fi
+# v4.23.1 — the harder line: a deck booted with EF_LIVE_LEDGER=1 self-
+# identifies in health, and smoke REFUSES it outright (no override —
+# production ledgers are never battery targets; 2026-09-27 incident).
+if printf '%s' "$HC" | grep -q '"live":true'; then
+  echo "REFUSING: $BASE is a LIVE deck (EF_LIVE_LEDGER=1, $HC_PIL pilots)."
+  echo "The battery never writes to production. Point smoke at a scratch deck."
+  exit 1
+fi
 JAR="$(mktemp)"
 JAR2="$(mktemp)"
 PASS=0; FAIL=0

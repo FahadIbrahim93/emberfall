@@ -29,10 +29,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.SESS_PORT || 8165;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-sessions', 'SESS_PORT');
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck' };
 let pass = 0, fail = 0, child = null;
 const say  = (...a) => console.log(...a);
@@ -59,7 +62,7 @@ function bootDeck(dataDir) {
 }
 async function waitHealthy() {
   for (let i = 0; i < 40; i++) {
-    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) return true; } catch { /* not yet */ }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { assertNotLive(h.json, BASE, 'drill-sessions'); return true; } } catch { /* not yet */ }
     await new Promise(r => setTimeout(r, 250));
   }
   return false;
@@ -81,6 +84,7 @@ async function main() {
   const pw = 'memory-pass-1';
 
   say('── act 1: the deck remembers, even after SIGKILL');
+  await guardPre();
   bootDeck(dataDir);
   (await waitHealthy()) ? good('deck 1 up') : bad('deck 1 never came up');
   const reg = await req('POST', '/api/register', { body: { name, password: pw } });

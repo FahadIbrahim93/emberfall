@@ -1,4 +1,4 @@
-# EMBERFALL v4.23.0 — Orbital Intercept
+# EMBERFALL v4.23.1 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -163,6 +163,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.23.1 — "The Fence"
+
+- live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 9 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)
 ## What's new in v4.23.0 — "Glasscockpit"
 
 - Ops gets a glasscockpit: /api/health now carries per-bucket 429 telemetry with no PII so limiter regressions show in ops instead of hiding in logs, the replay drill grew a ways-matrix proving the anti-cheat window honest across modes, perturbed telemetry shapes and per-hash windows, the game and the recruiting page preview properly wherever they are shared, and Fly.io deployment became a five-minute checklist with a committed fly.toml.

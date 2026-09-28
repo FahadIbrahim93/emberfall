@@ -26,6 +26,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 'use strict';
 import { spawn, execFileSync } from 'node:child_process';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -34,6 +35,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.RT_PORT || 8161;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-retention', 'RT_PORT');
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck' };
 let pass = 0, fail = 0, child = null;
 const say  = (...a) => console.log(...a);
@@ -57,7 +60,7 @@ async function bootDeck(dataDir, pinnedDay, retentionDays) {
   if (retentionDays) env.EF_DUEL_RETENTION_DAYS = String(retentionDays);
   child = spawn(process.execPath, ['server.js'], { cwd: __dirname + '/..', env, stdio: 'ignore' });
   for (let i = 0; i < 40; i++) {
-    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) return h.json; } catch { /* not yet */ }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { assertNotLive(h.json, BASE, 'drill-retention'); return h.json; } } catch { /* not yet */ }
     await new Promise(r => setTimeout(r, 250));
   }
   throw new Error('deck never came up' + (pinnedDay ? ' (pinned ' + pinnedDay + ')' : ''));
@@ -102,6 +105,7 @@ async function main() {
   const mid = '2026-09-18';   /* between the real and pinned cutoffs */
 
   say('── pilots on deck 1 (real clock)');
+  await guardPre();
   const A = 'RtA' + Math.random().toString(36).slice(2, 7);
   const B = 'RtB' + Math.random().toString(36).slice(2, 7);
   await bootDeck(dataDir, null);

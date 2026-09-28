@@ -44,3 +44,12 @@ wave-5 capital becomes **Wardenfall**, and a wave-16 daily pays the
 - [ ] **Post-mortem is one line if all green** — the battery rehearsed this
       day before it arrived; deviations go in `docs/` with a drill that
       would have caught them.
+- [x] **(2026-09-27, 02:33 incident)** The v4.23.0 release battery's smoke
+      run dialed the LIVE deck (8123) and seeded 5 machine pilots into the
+      ledger hours before the rare day. Purged surgically; keepsake at
+      `G:/emberfall-ir-bundle/polluted-deck-live-2026-09-27.db`. Fence
+      shipped in v4.23.1: decks booted with `EF_LIVE_LEDGER=1` report
+      `"live":true` in health, and smoke, every drill, and the browser
+      suite refuse a live-flagged deck unconditionally. **Rule: the
+      battery never meets the live deck — stop it, or run the battery on
+      a scratch deck.**

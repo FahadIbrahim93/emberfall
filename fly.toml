@@ -6,7 +6,7 @@
 #   fly launch --no-deploy --name <your-deck-name> --region iad --copy-config
 #   fly volumes create ef_data --size 1 --region iad
 #   fly secrets set NODE_ENV=production TRUST_PROXY=1 \
-#     EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+#     EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io
 #   fly deploy
 # Full checklist: docs/DEPLOYMENT.md · gaps a rollout still owns
 # (backups off-box, log shipping): docs/ROADMAP.md "The container path".

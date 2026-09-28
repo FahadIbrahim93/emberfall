@@ -32,6 +32,7 @@
 'use strict';
 import { spawn, execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -40,6 +41,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.RP_PORT || 8181;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-replay', 'RP_PORT');
+const guardLive = (h) => assertNotLive(h, BASE, 'drill-replay');
+let liveProbe = null;
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck' };
 let pass = 0, fail = 0, child = null;
 const say  = (...a) => console.log(...a);
@@ -113,13 +118,14 @@ const backdateHash = (dbPath, hash, ms) => nodeSql(dbPath, `
 `);
 
 async function bootDeck(dataDir) {
+  liveProbe = null;
   child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname + '/..',
     env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir },
     stdio: 'ignore'
   });
   for (let i = 0; i < 40; i++) {
-    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) return; } catch { /* not yet */ }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { liveProbe = h.json; return; } } catch { /* not yet */ }
     await new Promise(r => setTimeout(r, 250));
   }
   throw new Error('deck never came up');
@@ -133,8 +139,10 @@ async function main() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ef-replay-'));
   const dbPath = path.join(dataDir, 'emberfall.db');
   say(`── booting a scratch deck on :${PORT} (${dataDir})`);
+  await guardPre();
   await bootDeck(dataDir);
   good('scratch deck healthy');
+  guardLive(liveProbe);
 
   /* pilots: RpMain flies the arcs, RpTwin re-flies the SAME arc, RpHost
      issues the duels */

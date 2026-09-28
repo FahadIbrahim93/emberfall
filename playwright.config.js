@@ -28,6 +28,10 @@ const E2E_MARKER = path.join(tmpdir(), 'ef-e2e-active-dir.txt');
 module.exports = defineConfig({
   testDir: './tests',
   timeout: 30000,
+  /* v4.23.1 — the live-ledger fence: globalSetup runs after the webServer
+     resolves (booted fresh OR adopted via reuseExistingServer / E2E_REUSE),
+     and refuses the whole suite if that deck self-identifies as LIVE. */
+  globalSetup: './tests/global-live-guard.js',
   use: { browserName: 'chromium', headless: true, baseURL: BASE },
   /* local CPUs juggle the suite (three consecutive full runs flaked a
      DIFFERENT timing test each time; each passed on retry). CI keeps one

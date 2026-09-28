@@ -21,6 +21,7 @@
 'use strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { probeHealth, assertPortFree, assertNotLive } from './live-guard.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +30,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RARE_DAY = process.env.RARE_DAY || '2026-09-27';
 const PORT = process.env.RS_PORT || 8155;
 const BASE = 'http://127.0.0.1:' + PORT;
+/* v4.23.1 — live-ledger fence (see tools/live-guard.mjs). */
+const guardPre = async () => assertPortFree(await probeHealth(BASE), BASE, 'drill-rare-sunday', 'RS_PORT');
+const guardLive = (h) => assertNotLive(h, BASE, 'drill-rare-sunday');
 const HDR = { 'Content-Type': 'application/json', 'x-emberfall': 'command-deck' };
 let pass = 0, fail = 0, child = null;
 const say  = (...a) => console.log(...a);
@@ -78,18 +82,20 @@ async function fly(tok, wave, score, runT, kills, ship) {
 async function main() {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ef-rare-'));
   say(`── booting a scratch deck on :${PORT}, the clock pinned to ${RARE_DAY}`);
+  await guardPre();
   child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname + '/..',
     env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir, EF_DECK_DAY: RARE_DAY },
     stdio: 'ignore'
   });
-  let up = false;
+  let up = false, hh = null;
   for (let i = 0; i < 40 && !up; i++) {
-    try { const h = await req('GET', '/api/health'); up = !!(h.json && h.json.ok); }
+    try { const h = await req('GET', '/api/health'); if (h.json && h.json.ok) { up = true; hh = h.json; } }
     catch { await new Promise(r => setTimeout(r, 250)); }
   }
   if (!up) { bad('deck never came up'); return; }
   good('deck healthy');
+  guardLive(hh);
 
   say('── the rehearsal clock is a clock of DAYS, not of time');
   const h = await req('GET', '/api/health');

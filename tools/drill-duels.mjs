@@ -66,6 +66,12 @@ async function main() {
     console.error(`drill-duels: REFUSING — ${BASE} reports ${census} pilots; not a scratch deck (ALLOW_DIRTY_LEDGER=1 overrides)`);
     process.exit(1);
   }
+  /* v4.23.1 — live-ledger fence: a LIVE-flagged deck is never a target. */
+  if (probe && probe.live) {
+    console.error(`drill-duels: REFUSING — ${BASE} is a LIVE deck (EF_LIVE_LEDGER=1, ${census} pilots).`);
+    console.error('drill-duels:   the battery never writes to production. Point BASE at a scratch deck.');
+    process.exit(1);
+  }
   say(`── drill-duels vs ${BASE}`);
   const uniq = 'Drill' + Math.random().toString(36).slice(2, 7);
   const pilots = [

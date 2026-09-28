@@ -69,6 +69,16 @@ if (process.env.EF_E2E_MARKER) {
 }
 const IS_PROD = process.env.NODE_ENV === 'production';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+
+/* v4.23.1 — the live-ledger fence. A deck booted with EF_LIVE_LEDGER=1
+   self-identifies in /api/health, and every battery tool (smoke, drills,
+   the browser suite) REFUSES to write to it. Born 2026-09-27: a release
+   battery's smoke run dialed the production Wardenfall deck on 8123 and
+   seeded 5 machine pilots into the live ledger hours before the rare
+   day (purged; keepsake: G:/emberfall-ir-bundle/polluted-deck-live-*).
+   The census fence only protected scratch decks FROM dirt — this flag
+   protects the production ledger FROM the battery. */
+const LIVE_LEDGER = process.env.EF_LIVE_LEDGER === '1';
 /* ADR 0002 — cross-origin pilots. The game ships from GitHub Pages while the
    deck self-hosts, so a public deck MUST be reachable from other origins.
    Comma-separated exact origins; '*' means any origin may read PUBLIC data
@@ -833,6 +843,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
        scraping logs; absent when quiet, so old probes read it as before */
     const limiter = limiterTelemetry();
     const answer = { ok: true, service: 'emberfall-command-deck', t: now(), pilots };
+    if (LIVE_LEDGER) answer.live = true;   /* battery tools refuse live decks */
     if (limiter.length) answer.limiter = limiter;
     return send(res, 200, answer);
   }
