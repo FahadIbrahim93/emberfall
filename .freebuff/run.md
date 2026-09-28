@@ -355,6 +355,44 @@ ledger FROM the battery.
    different spec each time under this laptop's load; `--workers=4` was
    clean (27/27) in 1.5m. CI runs 3 workers on fast machines; local runs w4.
 
+## v4.24.0 "Signal" — the feedback loop closes (2026-09-28)
+
+Three builds, one theme: turn the recruiting page into a working signal loop.
+- **Curve on the page:** `tools/fun-scoreboard.mjs` now maintains a second
+  marker-spliced section — `docs/press-kit.html` gets the same table as the
+  README, rendered from `docs/audit/fun-curve.json`, byte-checked in
+  `--check`, and updated by CI's record step. Also fixed: the `--note`
+  block under the README table had been dead code since birth (the renderer
+  returned the table early) — notes render now.
+- **The form:** `.github/ISSUE_TEMPLATE/playtest-feedback.yml` asks the
+  exact four questions the ask box asks (device + callsign + found-by are
+  metadata; the four textareas are the contract), linked from the page.
+- **The cockpit:** `ops.html` — census, live-ledger fence state, per-bucket
+  429 telemetry, Wardenfall honor total (new public aggregate in
+  `/api/stats`), version read from the deck's own served footline.
+  noindex/nofollow, closed CSP, STATIC_OK-gated, smoke-checked (2 new
+  checks: serve + noindex), browser-pinned (`tests/ops-page.spec.js`).
+
+Lessons paid for:
+1. **Never assert a static value from a live instrument.** The census test
+   failed locally (another spec's pilot raced it: expected 0, got 1) and
+   the limiter test failed in CI (the shared battery deck is legitimately
+   HOT — smoke + account.spec spend the buckets; the page showed
+   `stats 0/1/60s · login 0/9/60s`, perfectly honest). Both tests now
+   accept the full honest state space: integer census, quiet-OR-hot ring,
+   bucket-name-only rows (PII guard).
+2. **Inline heredocs mangle JS escapes** — the press-renderer insertion
+   went through bash→python→JS and corrupted `'\r\n'` escapes and one
+   apostrophe twice. Lesson: for non-trivial code, `write_file` a whole
+   file, never splice through heredocs.
+3. **Red tag, green main:** the limiter fix landed after the tag; re-pointed
+   `v4.24.0` to the fix commit (test-only delta, same precedent as
+   v4.22.0) — Pages deploys from the tag commit, so it deployed the fixed
+   tree.
+4. **Wardenfall Sunday 2026-09-27 closed with zero real pilots** — the
+   deck was up, clean, flagged and healthy all day; the recruiting
+   pipeline exists but the first ten strangers haven't flown yet.
+
 ## Ops: profile the deck's query load
 
 ```bash
