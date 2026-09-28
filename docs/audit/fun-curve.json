@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.23.1",
+      "date": "2026-09-28",
+      "codename": "The Fence",
+      "loop": {
+        "wave": 2,
+        "kills": 17,
+        "grazes": 2,
+        "combo": 6,
+        "mult": 2,
+        "medianFps": 46
+      },
+      "first60": {
+        "medianFps": 46,
+        "firstPlayingMs": 706,
+        "firstKillMs": 706,
+        "fbSeen": 6
+      }
+    },
+    {
       "version": "4.23.0",
       "date": "2026-09-27",
       "codename": "Glasscockpit",
