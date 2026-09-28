@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.25.0",
+      "date": "2026-09-28",
+      "codename": "The Listening Deck",
+      "loop": {
+        "wave": 3,
+        "kills": 28,
+        "grazes": 5,
+        "combo": 12,
+        "mult": 2,
+        "medianFps": 47
+      },
+      "first60": {
+        "medianFps": 45,
+        "firstPlayingMs": 621,
+        "firstKillMs": 621,
+        "fbSeen": 6
+      }
+    },
+    {
       "version": "4.24.0",
       "date": "2026-09-28",
       "codename": "Signal",
