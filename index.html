@@ -720,7 +720,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.23.1</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.24.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -1009,7 +1009,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.23.1 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.24.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7147,6 +7147,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.24.0',
+    items: [
+      'the fun curve renders on the recruiting page (marker-maintained, CI-checked); playtest feedback becomes a structured issue form asking the exact four questions; the deck gets ops.html - a noindex operator cockpit over health census, the live-ledger fence, limiter telemetry and the Wardenfall honor total'
+    ]
+  },
+  {
     v: '4.23.1',
     items: [
       'live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 9 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)'
@@ -8863,7 +8869,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.23.1', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.24.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

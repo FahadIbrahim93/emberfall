@@ -22,10 +22,13 @@ each release takes whatever the top of the list offers.*
 4. **~~Leaderboard pagination~~ DONE v4.22.0** — `/api/scores?offset=`
    pages distinct pilots with a `more` flag; seasons history on the
    mirror remains open.
-5. **~~Rate-limit observability~~ DONE v4.23.0** — `/api/health` carries
+5. **~~Rate-limit observability~~ DONE v4.23.0 + v4.24.0** — `/api/health` carries
    per-bucket 429 telemetry (bucket, last60s, last1h, retryInMs — no
    PII, ring of 24 per bucket, one-hour horizon); the limiters drill
-   proves refusals become visible and stay address-free.
+   proves refusals become visible and stay address-free. v4.24 gives it
+   a face: `/ops.html` is the deck operator's cockpit — census, the
+   live-ledger fence state, hot buckets, the Wardenfall honor total —
+   same-origin only, noindex, smoke-checked.
 6. **~~Score-replay drill~~ DONE v4.23.0** — `drill-replay.mjs` grew the
    replay-ways matrix: cross-mode acceptance, per-mode windows,
    perturbed-shape acceptance (the hash is an aggregate, not a curve),

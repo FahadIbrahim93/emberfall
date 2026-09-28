@@ -88,6 +88,11 @@ expect "static index"      'EMBERFALL'                      "$BASE/"
 # exactly where it belongs: stats.html (public boards) + index.html (the
 # deckless worldwide tab) — and nowhere else, e.g. sw.js never carries it
 expect "stats page serves" 'world stats'                    "$BASE/stats.html"
+# v4.24: the operator cockpit serves from the deck, is noindex/nofollow,
+# and keeps a closed CSP (no mirror origin on an ops page)
+expect "ops page serves" 'DECK OPS'                          "$BASE/ops.html"
+OPS_HDRS="$(curl -s -I "$BASE/ops.html")"
+printf '%s' "$OPS_HDRS" | grep -qi 'x-robots-tag: noindex' && ok "ops page is noindex (not a public page)" || no "ops page missing noindex: $(printf '%s' "$OPS_HDRS" | head -c 80)"
 CSP_STATS="$(curl -s -I "$BASE/stats.html" | grep -i content-security-policy)"
 CSP_INDEX="$(curl -s -I "$BASE/index.html" | grep -i content-security-policy)"
 CSP_SW="$(curl -s -I "$BASE/sw.js" | grep -i content-security-policy)"

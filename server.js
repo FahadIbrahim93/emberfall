@@ -720,7 +720,7 @@ const MIME = {
    audit's P0 leak (GET /data/emberfall.db → 200) and is regression-tested
    by the static-hygiene battery in smoke.sh (T-LEAK). */
 const STATIC_OK = new Set([
-  '/index.html', '/stats.html', '/sw.js', '/manifest.webmanifest',
+  '/index.html', '/stats.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
   '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
@@ -765,6 +765,7 @@ function serveStatic(req, res, urlPath) {
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; " + connect;
+      if (file.endsWith('ops.html')) headers['X-Robots-Tag'] = 'noindex, nofollow';   /* an ops page is not for search engines */
       headers['Cache-Control'] = 'no-cache';
     } else if (file.endsWith('sw.js')) {
       headers['Cache-Control'] = 'no-cache';
@@ -857,7 +858,10 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const pilots = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
     const runs = db.prepare("SELECT COUNT(*) AS n FROM scores WHERE verdict = 'accepted'").get().n;
     const top = db.prepare("SELECT COALESCE(MAX(score), 0) AS n FROM scores WHERE verdict = 'accepted'").get().n;
-    return send(res, 200, { ok: true, pilots, runs, topScore: top, t: now() });
+    /* v4.24: aggregate rare-Sunday honor count for ops.html — one number,
+       no per-pilot detail (the plaque itself stays on /api/me, authed). */
+    const wardenfall = db.prepare('SELECT COUNT(*) AS n FROM daily_stats WHERE wardenfall = 1').get().n;
+    return send(res, 200, { ok: true, pilots, runs, topScore: top, wardenfall, t: now() });
   }
 
   /* LAN play helper — the on-the-go story for phones before a public deploy.

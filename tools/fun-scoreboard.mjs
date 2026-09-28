@@ -51,6 +51,14 @@ const MARK_START = '<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs
 const MARK_END = '<!-- fun-curve:end -->';
 const README_ANCHOR = '## The global leaderboard, mirrored';
 
+/* v4.24 — the curve renders on the recruiting page too. Same discipline as
+   the README table: a marker-spliced section, regenerated from the
+   snapshot, byte-checked in --check mode — hand edits die at CI. */
+const PRESS = abs('docs', 'press-kit.html');
+const PK_START = '<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->';
+const PK_END = '<!-- fun-curve:end -->';
+const PK_ANCHOR = "    <h2>WHAT'S IN THE HULL</h2>";
+
 const fail = m => { console.error('FUN-CURVE: ' + m); process.exit(1); };
 const log = m => console.log('FUN-CURVE: ' + m);
 const DASH = '—';
@@ -167,7 +175,7 @@ function tableLines(points) {
     const combo = loop.mult ? '×' + loop.mult : DASH;
     return `| ${name} | ${cell(p.date)} | ${cell(loop.wave)} | ${cell(loop.kills)} | ${cell(loop.grazes)} | ${combo} | ${cell(loop.medianFps)} | ${cell(f60.medianFps)} |`;
   });
-  return [
+  const lines = [
     '## The fun curve — the game, measured release over release',
     '',
     'Every release, the repo\'s own instrumented play — the first-60-seconds audit (`tests/fun-audit.spec.js`) and the autopilot bot (`tests/fun-loop.spec.js`) — flies the game, and the numbers become a row here: how deep the bot flies, what it kills, how smoothly it runs. Best-wave counts the wave the bot REACHED in its 56-second headless flight — a depth probe, not a feat claim. Median-fps is environment-sensitive (CI\'s software renderer vs your GPU) — read the trend within a column, not the absolute.',
@@ -178,12 +186,12 @@ function tableLines(points) {
     '|---|---|---|---|---|---|---|---|',
     ...rows,
   ];
+  /* v4.24: the note block below the table actually renders now — it was
+     dead code since birth (the function returned the table early), so
+     --note annotations landed in the JSON but never in the README. */
   const noted = points.filter(p => p.note);
-  if (noted.length) {
-    lines.push('', ...noted.map(p => `- **v${p.version}** — ${p.note}`), '');
-  } else {
-    lines.push('');
-  }
+  if (noted.length) lines.push('', ...noted.map(p => `- **v${p.version}** — ${p.note}`), '');
+  else lines.push('');
   return lines;
 }
 
@@ -208,6 +216,50 @@ function syncReadme(points) {
   fs.writeFileSync(README, md);
 }
 
+/* ── the recruiting page's curve table ────────────────────────────── */
+
+function pressSection(points, eol) {
+  const rows = points.map(p => {
+    const loop = p.loop || {};
+    const name = 'v' + p.version + (p.codename ? ' “' + p.codename + '”' : '');
+    const combo = loop.mult ? '×' + loop.mult : DASH;
+    const fps = (loop.medianFps != null) ? loop.medianFps + ' fps' : DASH;
+    return '      <tr><td>' + name + '</td><td>' + cell(p.date) + '</td><td>' + cell(loop.wave) + '</td><td>' + cell(loop.kills) + '</td><td>' + cell(loop.grazes) + '</td><td>' + combo + '</td><td>' + fps + '</td></tr>';
+  });
+  const lines = [
+    PK_START,
+    '      <h2>The fun curve — measured, release over release</h2>',
+    '      <p>Every release, the autopilot bot flies a 56-second headless mission in CI and the numbers land on this table: how deep it flies, what it kills, how smoothly the game runs. A depth probe, not a feat claim — but the only feature list on this page that flew the game before you.</p>',
+    '      <table class="curve">',
+    '        <thead><tr><th>Release</th><th>Date</th><th>Wave</th><th>Kills</th><th>Grazes</th><th>Combo</th><th>Median fps</th></tr></thead>',
+    '        <tbody>',
+    ...rows,
+    '        </tbody>',
+    '      </table>',
+    '      <p class="fine">Raw data: <a href="https://github.com/FahadIbrahim93/emberfall/blob/main/docs/audit/fun-curve.json">fun-curve.json</a> — one committed row per release, written by the run that flew it.</p>',
+    PK_END,
+  ];
+  return lines.join(eol);
+}
+
+function syncPress(points) {
+  if (!fs.existsSync(PRESS)) return log('press-kit.html not found — press section skipped');
+  let html = readAbs(PRESS);
+  const eol = html.includes('\r\n') ? '\r\n' : '\n';
+  const section = pressSection(points, eol);
+  const at = html.indexOf(PK_START);
+  const end = html.indexOf(PK_END);
+  if (at > -1 && end > at) {
+    html = html.slice(0, at) + section + html.slice(end + PK_END.length);
+  } else {
+    if (html.includes(PK_START) || html.includes(PK_END)) fail('press-kit.html has only one fun-curve marker — fix by hand or restore the pair');
+    const anchor = html.indexOf(PK_ANCHOR);
+    if (anchor === -1) fail('press-kit.html anchor not found: ' + PK_ANCHOR);
+    html = html.slice(0, anchor) + section + eol + eol + html.slice(anchor);
+  }
+  fs.writeFileSync(PRESS, html);
+}
+
 /* ── modes ───────────────────────────────────────────────────────────── */
 
 const argv = process.argv.slice(2);
@@ -230,13 +282,15 @@ if (mode === 'append') {
     snap.points.push(point);
     saveSnapshot(snap);
     syncReadme(snap.points);
+    syncPress(snap.points);
     log(`recorded v${version} — bot wave ${cell(point.loop.wave)} · kills ${cell(point.loop.kills)} · grazes ${cell(point.loop.grazes)} · bot median fps ${cell(point.loop.medianFps)} · first-60s median ${cell(point.first60 && point.first60.medianFps)}`);
-    log('next: commit docs/audit/fun-curve.json + README.md with the release');
+    log('next: commit docs/audit/fun-curve.json + README.md + docs/press-kit.html with the release');
   }
 } else if (mode === 'readme') {
   const snap = loadSnapshot(mode);
   syncReadme(snap.points);
-  log(`README table re-rendered from ${snap.points.length} point(s)`);
+  syncPress(snap.points);
+  log(`README + press-kit re-rendered from ${snap.points.length} point(s)`);
 } else {
   /* --check: the CI gate. (a) snapshot parses and stays sane, (b) the README
      table is byte-identical to what the snapshot renders (no hand drift),
@@ -256,6 +310,16 @@ if (mode === 'append') {
   const want = sectionFor(snap.points, eol);
   const have = md.slice(at, end + MARK_END.length);
   if (have !== want) fail('README fun-curve table drifted from the snapshot — run: node tools/fun-scoreboard.mjs --readme');
+
+  if (fs.existsSync(PRESS)) {
+    const html = readAbs(PRESS);
+    const pat = html.indexOf(PK_START), pend = html.indexOf(PK_END);
+    if (pat === -1 || pend === -1 || pend < pat) fail('press-kit fun-curve section missing or marker pair broken');
+    const peol = html.includes('\r\n') ? '\r\n' : '\n';
+    const pwant = pressSection(snap.points, peol);
+    const phave = html.slice(pat, pend + PK_END.length);
+    if (phave !== pwant) fail('press-kit fun-curve section drifted from the snapshot — run: node tools/fun-scoreboard.mjs --readme');
+  }
 
   const version = currentVersion();
   /* The row for the CURRENT version is expected to be written by CI's

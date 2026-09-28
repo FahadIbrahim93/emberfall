@@ -91,6 +91,12 @@ h2::after{content:'';display:block;width:44px;height:2px;background:var(--line);
 .feat2 b{display:block;font-size:.92rem;letter-spacing:.04em}
 .feat2 span{font-size:.82rem;color:var(--dim)}
 /* recruiting */
+.curve{width:100%;border-collapse:collapse;margin:14px 0 8px;font-size:.85rem}
+.curve th{font-family:Chakra Petch,sans-serif;color:var(--dim);text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);font-size:.72rem;letter-spacing:.08em}
+.curve td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--ink)}
+.curve tr:first-child td{color:var(--ember);font-weight:600}
+.fine{font-size:.74rem;color:var(--dim)}
+.fine a{color:var(--dim)}
 .ask{border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(255,138,43,.07),rgba(255,138,43,.02));
   padding:30px;text-align:center}
 .ask h2{text-align:center}
@@ -168,6 +174,26 @@ footer a:hover{color:var(--aether)}
   </section>
 
   <section>
+<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
+      <h2>The fun curve — measured, release over release</h2>
+      <p>Every release, the autopilot bot flies a 56-second headless mission in CI and the numbers land on this table: how deep it flies, what it kills, how smoothly the game runs. A depth probe, not a feat claim — but the only feature list on this page that flew the game before you.</p>
+      <table class="curve">
+        <thead><tr><th>Release</th><th>Date</th><th>Wave</th><th>Kills</th><th>Grazes</th><th>Combo</th><th>Median fps</th></tr></thead>
+        <tbody>
+      <tr><td>v4.23.1 “The Fence”</td><td>2026-09-28</td><td>2</td><td>17</td><td>2</td><td>×2</td><td>46 fps</td></tr>
+      <tr><td>v4.23.0 “Glasscockpit”</td><td>2026-09-27</td><td>2</td><td>19</td><td>2</td><td>×2</td><td>27 fps</td></tr>
+      <tr><td>v4.22.2 “Open Surfaces”</td><td>2026-09-27</td><td>2</td><td>20</td><td>6</td><td>×2</td><td>35 fps</td></tr>
+      <tr><td>v4.22.1 “The Recruiting Page”</td><td>2026-09-27</td><td>3</td><td>27</td><td>4</td><td>×3</td><td>33 fps</td></tr>
+      <tr><td>v4.22.0 “The World Stage”</td><td>2026-09-27</td><td>2</td><td>22</td><td>6</td><td>×2</td><td>27 fps</td></tr>
+      <tr><td>v4.21.2 “Always Reachable”</td><td>2026-09-26</td><td>2</td><td>28</td><td>3</td><td>×3</td><td>25 fps</td></tr>
+      <tr><td>v4.21.1 “The Curve”</td><td>2026-09-26</td><td>3</td><td>29</td><td>2</td><td>×2</td><td>39 fps</td></tr>
+      <tr><td>v4.21.0 “Proof of Play”</td><td>2026-09-26</td><td>3</td><td>28</td><td>4</td><td>×2</td><td>46 fps</td></tr>
+      <tr><td>v4.20.0 “First Contact”</td><td>2026-09-26</td><td>2</td><td>17</td><td>4</td><td>×2</td><td>24 fps</td></tr>
+        </tbody>
+      </table>
+      <p class="fine">Raw data: <a href="https://github.com/FahadIbrahim93/emberfall/blob/main/docs/audit/fun-curve.json">fun-curve.json</a> — one committed row per release, written by the run that flew it.</p>
+<!-- fun-curve:end -->
+
     <h2>WHAT'S IN THE HULL</h2>
     <div class="feats">
       <div class="feat2"><b>5 ships with real tradeoffs</b><span>the glass-cannon flies 3× graze payout</span></div>
@@ -193,6 +219,7 @@ footer a:hover{color:var(--aether)}
     <div class="cta">
       <a class="btn big" href="https://fahadibrahim93.github.io/emberfall/" target="_blank" rel="noopener">▶ TAKE THE HULL — 30 SECONDS TO COMBAT</a>
     </div>
+    <p style="margin:12px auto 0;text-align:center"><a class="btn ghost" href="https://github.com/FahadIbrahim93/emberfall/issues/new?template=playtest-feedback.yml" target="_blank" rel="noopener">Answer the four questions as an issue →</a></p>
     <p style="margin-top:14px;font-size:.8rem;color:var(--dimmer)">Free · no install · no ads · no tracking · source is MIT</p>
   </section>
 

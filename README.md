@@ -1,4 +1,4 @@
-# EMBERFALL v4.23.1 — Orbital Intercept
+# EMBERFALL v4.24.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -115,6 +115,7 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 | v4.21.1 "The Curve" | 2026-09-26 | 3 | 29 | 2 | ×2 | 39 | 23 |
 | v4.21.0 "Proof of Play" | 2026-09-26 | 3 | 28 | 4 | ×2 | 46 | 48 |
 | v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
+
 <!-- fun-curve:end -->
 
 ## The global leaderboard, mirrored
@@ -164,6 +165,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.24.0 — "Signal"
+
+- the fun curve renders on the recruiting page (marker-maintained, CI-checked); playtest feedback becomes a structured issue form asking the exact four questions; the deck gets ops.html - a noindex operator cockpit over health census, the live-ledger fence, limiter telemetry and the Wardenfall honor total
 ## What's new in v4.23.1 — "The Fence"
 
 - live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 9 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)

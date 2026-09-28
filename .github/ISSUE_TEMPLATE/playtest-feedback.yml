@@ -1,0 +1,80 @@
+name: Playtest feedback
+description: You flew the game — tell the maker what it felt like. No bug required.
+labels: [playtest]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is the feedback the recruiting page asks for** — the exact
+        four questions from [the press kit](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html),
+        in a form. Nothing here needs to be polished or complete; one
+        honest sentence per box is a real contribution. Found something
+        broken? A [bug report](../../issues/new?template=bug_report.yml)
+        is the better home for it.
+  - type: input
+    id: pilot
+    attributes:
+      label: Callsign (optional)
+      description: Your in-game name, if you made an account — lets the maker connect feedback to (anonymized) flight data.
+    validations:
+      required: false
+  - type: dropdown
+    id: device
+    attributes:
+      label: What did you fly on?
+      options:
+        - Desktop / laptop, keyboard
+        - Desktop / laptop, gamepad
+        - Phone or tablet, touch
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: found
+    attributes:
+      label: How did you find the game?
+      options:
+        - The recruiting page / press kit
+        - A post or message someone sent
+        - Browsed the GitHub repos
+        - Other
+    validations:
+      required: false
+  - type: textarea
+    id: stopped
+    attributes:
+      label: 1. Where did you stop playing, and what made you stop?
+      description: One honest sentence is a complete answer.
+    validations:
+      required: true
+  - type: textarea
+    id: unfair
+    attributes:
+      label: 2. Did anything feel unfair in the first two minutes?
+    validations:
+      required: true
+  - type: textarea
+    id: combo
+    attributes:
+      label: 3. Did you notice the combo multiplier? Did you care?
+    validations:
+      required: true
+  - type: textarea
+    id: tomorrow
+    attributes:
+      label: 4. One thing that would make you play again tomorrow?
+    validations:
+      required: true
+  - type: dropdown
+    id: another
+    attributes:
+      label: And honestly — would you?
+      description: Be brutal; a truthful 1 shapes the game more than a polite 5.
+      options:
+        - "5 — Absolutely"
+        - "4 — Probably"
+        - "3 — Maybe"
+        - "2 — Probably not"
+        - "1 — No"
+    validations:
+      required: false

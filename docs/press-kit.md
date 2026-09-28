@@ -2,7 +2,7 @@
 
 **The styled, linkable version of this page is live at
 https://fahadibrahim93.github.io/emberfall/docs/press-kit.html —
-send that to playtesters.** This markdown file is the source of truth
+send that to playtesters.** Prefer a form? [Answer the four questions as a GitHub issue](https://github.com/FahadIbrahim93/emberfall/issues/new?template=playtest-feedback.yml) — the structured template asks exactly what the page asks. This markdown file is the source of truth
 for the words; the HTML page and its assets deploy with the site.
 
 *Everything here is measured, not promised: the numbers come from the

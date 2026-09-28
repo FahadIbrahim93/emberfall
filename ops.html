@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>EMBERFALL — deck ops</title>
+<style>
+  :root{--bg:#0b0e13;--panel:#121722;--line:#242c3d;--ink:#e8ecf4;--dim:#8b94a7;--ember:#ff8a2b;--ok:#5fd08a;--warn:#ffb454;--bad:#ff5f56}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Chakra Petch",ui-monospace,monospace;padding:28px 18px 60px}
+  .wrap{max-width:880px;margin:0 auto}
+  h1{font-family:Michroma,ui-monospace,monospace;font-size:1.05rem;letter-spacing:.14em;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:.8rem;margin-bottom:22px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+  .card h2{font-size:.72rem;letter-spacing:.1em;color:var(--dim);margin:0 0 10px;font-weight:500}
+  .big{font-family:Michroma,monospace;font-size:1.9rem;line-height:1.1}
+  .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.ember{color:var(--ember)}
+  table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:4px}
+  th{color:var(--dim);text-align:left;font-weight:500;padding:4px 8px;border-bottom:1px solid var(--line);font-size:.72rem;letter-spacing:.06em}
+  td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0;font-size:.88rem}
+  .row b{font-weight:600}
+  #state{position:fixed;top:12px;right:14px;font-size:.72rem;color:var(--dim)}
+  a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DECK OPS <span class="ember" id="v"></span></h1>
+  <div class="sub">operator cockpit · same-origin read of this deck's public instruments · refreshes every 10s · <a href="/">play</a> · <a href="/stats.html">world stats</a></div>
+
+  <div id="root"><div class="sub">probing this deck…</div></div>
+</div>
+<div id="state"></div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtAge = ms => ms < 60000 ? Math.round(ms/1000) + 's' : ms < 3600000 ? Math.round(ms/60000) + 'm' : Math.round(ms/3600000) + 'h';
+
+async function j(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+/* the deck version comes from the served game itself: the footline span
+   the release tool stamps into index.html. The page is same-origin, so
+   this is this deck's own truth — a deck lagging behind main says so. */
+async function deckVersion() {
+  const res = await fetch('/', { cache: 'no-store' });
+  const m = /<span>EMBERFALL v(\d+\.\d+\.\d+)<\/span>/.exec(await res.text());
+  return m ? m[1] : null;
+}
+
+function render(h, s, v) {
+  const live = !!h.live;
+  const nf = h.limiter && h.limiter.length ? h.limiter.length : 0;
+  const nfCls = nf === 0 ? 'ok' : nf < 3 ? 'warn' : 'bad';
+  $('v').textContent = v ? 'v' + v : '';
+  $('root').innerHTML =
+    '<div class="grid">' +
+    '<div class="card"><h2>PILOTS</h2><div class="big">' + esc(h.pilots ?? '—') + '</div><div class="sub" style="margin:0">registered, all time</div></div>' +
+    '<div class="card"><h2>LIVE LEDGER FENCE</h2><div class="big ' + (live ? 'warn' : 'ok') + '">' + (live ? 'FLAGGED' : 'off') + '</div><div class="sub" style="margin:0">' + (live ? 'EF_LIVE_LEDGER=1 — the battery refuses this deck' : 'scratch/dev deck (not production-flagged)') + '</div></div>' +
+    '<div class="card"><h2>LIMITER REFUSALS (429)</h2><div class="big ' + nfCls + '">' + nf + '</div>' +
+      (nf ? '<table><tr><th>bucket</th><th>60s</th><th>1h</th><th>retry</th></tr>' + h.limiter.map(b =>
+        '<tr><td>' + esc(b.bucket) + '</td><td>' + esc(b.last60s) + '</td><td>' + esc(b.last1h) + '</td><td>' + (b.retryInMs != null ? Math.ceil(b.retryInMs / 1000) + 's' : '—') + '</td></tr>').join('') + '</table>'
+      : '<div class="sub" style="margin:0">quiet window — no bucket is hot</div>') + '</div>' +
+    '<div class="card"><h2>WARDENFALL HONOR</h2><div class="big ember">' + esc(s.wardenfall ?? '—') + '</div><div class="sub" style="margin:0">pilot-days that paid the rare-Sunday honor, all time</div></div>' +
+    '<div class="card"><h2>PUBLIC STATS</h2>' +
+      '<div class="row"><span>runs accepted</span><b>' + esc(s.runs ?? '—') + '</b></div>' +
+      '<div class="row"><span>top score</span><b>' + esc(s.topScore ?? '—') + '</b></div>' +
+      '<div class="row"><span>stats clock</span><b>' + (s.t ? 't+' + fmtAge(Math.max(0, Date.now() - s.t)) : '—') + '</b></div>' +
+    '</div>' +
+    '</div>';
+}
+
+async function tick() {
+  try {
+    const h = await j('/api/health');
+    let s = {};
+    let v = null;
+    try { s = await j('/api/stats'); } catch { /* decorative */ }
+    try { v = await deckVersion(); } catch { /* footline read failed — leave blank */ }
+    $('state').textContent = '';
+    render(h, s, v);
+  } catch (e) {
+    $('root').innerHTML = '<div class="card"><h2>DECK UNREACHABLE</h2><div class="big bad">offline</div>' +
+      '<div class="sub" style="margin:6px 0 0">' + esc(e.message) + ' — this page reads the deck it was served from; it keeps trying.</div></div>';
+    $('state').textContent = 'retrying…';
+  }
+}
+tick();
+setInterval(tick, 10000);
+</script>
+</body>
+</html>
