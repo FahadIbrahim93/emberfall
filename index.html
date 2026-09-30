@@ -6763,9 +6763,13 @@ function paintAccount() {
   paintDeckRow();
   paintVault();
   paintLan();
-  /* v4.26: the Google button arms only after the probe confirms the deck
-     AND the deck says Google is configured (EF_GOOGLE_CLIENT_ID). */
-  if (on && !u) NET.probe().then(() => paintGoogle());
+  /* v4.26: the Google row arms only while the settings screen is ACTUALLY
+     open and the deck says Google is configured (EF_GOOGLE_CLIENT_ID).
+     The boot path must never fetch Google — the game boots with zero
+     third-party network requests (pinned by game.spec.js); opening
+     Settings is the deliberate act that may fetch the button library. */
+  const setOn = $('s-set') && $('s-set').classList.contains('on');
+  if (on && !u && setOn) NET.probe().then(() => paintGoogle());
   else if ($('googleBox')) $('googleBox').classList.add('hidden');
 }
 /* v4.22 — the deck address row: the one field that decides WHICH deck the
