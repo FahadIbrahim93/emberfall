@@ -481,3 +481,91 @@ intact) — linking is adoption, never duplication.
   genuinely plausible — I copied the battery's proven arc verbatim
   instead of inventing my own, and the plausibility engine agreed on
   the first try.
+
+## v4.26.1 — the three-hour autonomous block: auth made launch-ready (2026-10-01)
+
+Session mandate: "act as manager and coach, work autonomously." The audit
+from the morning's Q&A (auth/leaderboard status) had left three operational
+facts: no production deck (fly.dev answered nothing), a stale mirror
+(105 machine pilots the 2026-09-26 purge never swept off the PUBLIC side),
+and a flaky google-signin spec everyone had written off as laptop noise.
+This block turned all three into shipped code + drills. Six commits,
+all local (no push — push is the operator's):
+
+1. **790008e — the google-signin flake was TWO REAL BUGS, not flakiness.**
+   Reproduced 7-of-12 under `--repeat-each=6 --workers=4`; instrumentation
+   (wrap NET at runtime — see lesson 3) + trace forensics gave the split:
+   (a) playwright.config.js minted a FRESH RSA keypair per config load and
+   stomped the shared JWKS file — every worker re-requires the config, the
+   deck reads the file lazily per token, so workers minted with private
+   keys the deck's file no longer knew: 'bad signature' 401s. Fixed with a
+   claim-once state file (`wx` flag; losers adopt, bounded retry-parse for
+   the torn-read window) + atomic JWKS publish. (b) server.js auth/google
+   find-then-mint TOCTOU — two concurrent first sign-ins both INSERTed, the
+   loser 500'd on UNIQUE(users.google_sub); the e2e burst surfaced this in
+   a deck log BEFORE any user could. Fixed with the house IMMEDIATE
+   transaction (scrypt precomputed OUTSIDE the txn — no awaits inside an
+   open txn on the shared connection). drill-google act 5 pins it: 7
+   concurrent first sign-ins join one pilot (20→23 checks; mind the google
+   limiter 10/60s — drain 61s before the refusal act).
+   LESSON: "flaky only under load" is a bug report, not a mood. The killer
+   config is `--repeat-each=6 --workers=4`.
+
+2. **bfe7039 — the Pages game joins the world deck (deck.json ladder).**
+   deck.json (deck: emberfall-deck.fly.dev) rides the page; NET.probe()
+   walks choice → local-deck (400ms, DEFINITIVE-404-only) → adopt → auto,
+   latched once per boot. Guard rails proven live by the new
+   drill-lighthouse.mjs (18 checks, two geometries incl. a genuinely
+   deckless static origin with a drill-variant deck.json): file:// never
+   adopts, an INCONCLUSIVE local check never adopts (a slow machine must
+   not steal a self-hosted pilot's boot), ?deck= still wins, CORS still
+   refuses strangers, and zero-config signup + bearer adoption works
+   end-to-end. Also: sw CACHE bump v4.44; deck.json in the Pages payload,
+   the STATIC_OK allowlist (NO APOSTROPHES in that region's comments —
+   deadscan parses it by quotes and a "page's" ate the /js/* entries,
+   caught by the gate, fixed in 4c36d8f), and live-smoke.
+
+3. **e8ad02a — a purge has a shadow: specs that knew the polluted world.**
+   mirror-board's deckless spec knew two states (mirror rows / mirror
+   unreachable); the 2026-09-30 purge created a third the game already
+   handled honestly (answers, empty). The renderer was right; the spec's
+   imagination was the gap. Also a general lesson: machine pilots exist in
+   TEST EXPECTATIONS, not just databases.
+
+4. **a62627d — deck-deploy.mjs: plan/doctor/launch/deploy/verify.** flyctl
+   v0.4.111 installed to ~/.flyctl/bin (the release-asset name has the
+   VERSION in it — `flyctl_Windows_x86_64.zip` 404s, `flyctl_0.4.111_…`
+   does not; the 'latest/download' pattern needs the exact filename).
+   doctor honestly refuses unauthenticated runs — the ONE step that is
+   irreducibly the operator's. launch presets NODE_ENV=production,
+   TRUST_PROXY=1, EF_LIVE_LEDGER=1 (the fence rides the deck from birth),
+   EF_CORS_ORIGINS=Pages; optional GOOGLE_CLIENT_ID env arms Gmail.
+   verify asserts health + live flag + CORS echo + google announcement.
+
+5. **7078b86 — drill-onboarding.mjs (11 checks): the launch-day question —
+   can a stranger become a ranked pilot? — flown through the REAL client.**
+   js/net.js loads into a Function-scope with core symbols stubbed (DB,
+   META, CFG, HULLS…): the drill exercises the client's own
+   req/bearer/probe code. GOTCHAS: top-level `const NET` is NOT
+   window.NET (drill checks must eval bare `typeof NET !== 'undefined'`);
+   whoami() returns undefined BY DESIGN (assert NET.user); present the
+   harness fetch as the ALLOWED origin so the deck issues bearers (the
+   Pages geometry, and no cookie jar needed).
+
+6. **mirror-alarm.mjs — the fence extends to the mirror (hourly in
+   stats.yml):** UNREACHABLE / STALE >24h (dead sync pump presenting
+   yesterday as today) / CONTAMINATED (machine-callsign families — the
+   regex matches all seven historical generators; it would have caught
+   the 2026-09-26 leak the day it happened). Keyless, natural-drain exit
+   (AbortSignal.timeout + process.exit crashes win libuv and lies about
+   the code — use controller+clearTimeout and exitCode).
+
+STATE AT BLOCK END: local tree = 6 commits ahead of origin/ad2b2b3,
+battery fully green (gates, selftest 76, smoke 89, browser 34, drills
+google 23 / lighthouse 18 / onboarding 11 / cross-origin). Mirror purged
++ alarmed. Remaining for LAUNCH (operator-only): fly auth (or
+FLY_API_TOKEN), `node tools/deck-deploy.mjs launch`, optionally the
+Google OAuth client (origins: Pages + fly.dev, no redirect URI), then
+`verify` and play from the live site. The stale rehearsal deck on 8123
+was killed per runbook (ledger backed up to .freebuff/deck-live.bak-*,
+now git-ignored).

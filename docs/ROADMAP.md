@@ -11,9 +11,14 @@ each release takes whatever the top of the list offers.*
    day, sync the mirror after. Success = one line in the ledger per felled
    pilot and zero incidents.
 2. **Hands-off mirror pipeline** — the hourly workflow refreshes the README
-   badge from the mirror, but the mirror itself still needs the operator's
-   machine. Add a `SUPABASE_SERVICE_KEY` repository secret and a push step
-   to the stats workflow; the deck never changes.
+   badge from the mirror and now ALARMS on drift (v4.26.1:
+   `tools/mirror-alarm.mjs` — unreachable / stale >24h / machine-pilot
+   contamination, keyless, born of the 2026-09-30 purge of 105 stale
+   battery rows the deck had already disowned). What still wants a home:
+   the mirror *feed* itself. Add a `SUPABASE_SERVICE_KEY` repository
+   secret and a push step (`tools/db-sync.mjs`) to the stats workflow —
+   or point the operator's existing cadence at `db-sync --verify`; the
+   deck never changes.
 
 ## Next (2–3 weeks)
 
@@ -36,12 +41,13 @@ each release takes whatever the top of the list offers.*
 
 ## Later (30–90 days)
 
-7. **Deck hosting rollout** — the container itself is proven (see "The
-   container path" below); what remains is the hosted control plane: a
-   Fly.io/Railway blueprint that wires the image to gaps 11–13 with
-   `NODE_ENV=production` defaults and the backup task baked in. The deck
-   deserves a public home; the game already degrades gracefully without
-   one.
+7. **Deck hosting rollout** — the tooling now exists end to end
+   (`tools/deck-deploy.mjs`: plan / doctor / launch / deploy / verify —
+   one command from a clean tree to a LIVE, live-fenced, CORS-open deck;
+   v4.26.1 proved it down to the doctor's honest "not authenticated").
+   What remains is the human half: a Fly account, one `auth login` or
+   `FLY_API_TOKEN`, optionally the Google OAuth client id — and the
+   rollout gaps 11–13 below, which no dashboard removes.
 8. **Operator dashboard** — a single `admin.html` behind the session of a
    designated pilot id: stats, latest backups, mirror freshness,
    limiter state. Read-only by construction; every query it runs is
@@ -114,8 +120,12 @@ SQLite file; the rollout story stays sized to that, not to a fleet.
 
 - **Supabase as the gameplay store** — rejected in ADR 0001; the deck's
   zero-dependency posture is the product.
-- **Accounts for the Pages build** — static hosting cannot hold session
-  secrets; the mirror covers public visibility instead.
+- **Accounts *stored* on the Pages build** — static hosting still cannot
+  hold session secrets. v4.26.1 completed the answer that replaced this
+  rejection: the page ADOPTS a deck (`deck.json` ladder — choice, local,
+  adopt, auto), so Pages pilots get real accounts, boards and duels from
+  the deck's CORS/bearer contract while the page itself stays a stateless
+  static file.
 - **Anti-cheat theater** — plausibility checking stays honest about being
   detection; no "authoritative replay" claim until an actual re-sim
   ships (and that would need the sim server-side, which ADR 0001's

@@ -22,5 +22,6 @@ docs/audit/*
 
 # battery scratch decks — ledgers never ship, again
 .freebuff/scratch-*/
-# the local production deck's data dir — same rule
+# the local production deck's data dir — same rule (and its backups)
 .freebuff/deck-live/
+.freebuff/deck-live.bak-*/
