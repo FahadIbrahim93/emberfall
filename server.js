@@ -819,7 +819,7 @@ const MIME = {
    by the static-hygiene battery in smoke.sh (T-LEAK). */
 const STATIC_OK = new Set([
   '/index.html', '/stats.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
-  '/deck.json',   /* v4.26.1 — the page's deck adoption record; public data, no secrets */
+  '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
   '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
