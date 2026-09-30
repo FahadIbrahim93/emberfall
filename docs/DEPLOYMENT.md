@@ -88,6 +88,16 @@ tagged deployment is GitHub Pages, and the repo's homepage link points
 there. The deck (accounts, boards) has never been hosted on Vercel —
 it is self-hosted by design, one Node process with its local SQLite.
 
+**They should be disconnected, not tolerated.** Saves and identity are
+per-origin: a pilot who opens a `*.vercel.app` URL gets a *separate*
+save, separate sessions, separate everything from the same person on
+Pages — two circulating URLs fragment pilots. Vercel builds are also
+gated by nothing (no tag, no battery; Pages is byte-verified by CI
+against the tagged commit on every release), and Google sign-in can
+never be authorized for that origin. To cut them: Vercel dashboard →
+the project → Settings → Git → **Disconnect**, then delete the project.
+Nothing in this repo links to a `*.vercel.app` URL, so nothing breaks.
+
 ## Environment
 
 | Variable | Meaning |
