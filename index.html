@@ -720,7 +720,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.25.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.26.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -869,6 +869,10 @@ body.needrotate #rotate{display:grid}
             <button class="btn key" id="btnAcctGo">Sign in</button>
             <button class="btn" id="btnAcctNew">Create account</button>
           </div>
+          <div id="googleBox" class="hidden" style="display:grid;gap:6px">
+            <div id="gBtnHost" style="min-height:40px;display:grid;place-items:center"></div>
+            <p class="empty" id="gHint" style="padding:0;text-align:left;font-size:.62rem;line-height:1.7">Your Google account becomes your callsign — the deck never sees your password.</p>
+          </div>
           <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">One account, any device. Cloud-saves your
             hangar and alloy, posts plausibility-checked community runs to this command deck. Stored only here.</p>
         </div>
@@ -1013,7 +1017,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.25.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.26.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6759,6 +6763,10 @@ function paintAccount() {
   paintDeckRow();
   paintVault();
   paintLan();
+  /* v4.26: the Google button arms only after the probe confirms the deck
+     AND the deck says Google is configured (EF_GOOGLE_CLIENT_ID). */
+  if (on && !u) NET.probe().then(() => paintGoogle());
+  else if ($('googleBox')) $('googleBox').classList.add('hidden');
 }
 /* v4.22 — the deck address row: the one field that decides WHICH deck the
    game flies. Committed on change (blur/Enter); a wrong address is not an
@@ -6856,6 +6864,57 @@ NET.funnel('armed');
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
 bindPassToggle();
+/* ── v4.26 Google sign-in ───────────────────────────────────────────────
+   One button in the account panel, shown only when the DECK says Google
+   is configured (EF_GOOGLE_CLIENT_ID rides /api/health). The library
+   loads lazily — a deck without Google never fetches it. The ID token
+   goes to /api/auth/google, which verifies it against Google's own keys
+   and mints the deck's OWN session; everything downstream (boards, vault,
+   duels) is identical to a password login. Every failure path is silent:
+   the password fields remain the guaranteed way in. */
+let gsiLoaded = false;
+function paintGoogle() {
+  const box = $('googleBox');
+  if (!box) return;
+  const show = NET.on && !NET.user && NET.googleClientId;
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  if (!gsiLoaded) {
+    gsiLoaded = true;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true; s.defer = true;
+    s.onload = armGoogle;
+    s.onerror = () => { $('gHint').textContent = ''; };   // library blocked? the password path stands
+    document.head.appendChild(s);
+  }
+  armGoogle();
+}
+function armGoogle() {
+  try {
+    if (!(window.google && google.accounts && google.accounts.id)) return;   // not here yet
+    const host = $('gBtnHost');
+    if (!host || host.dataset.armed) return;
+    google.accounts.id.initialize({
+      client_id: NET.googleClientId,
+      callback: async (resp) => {
+        if (!resp || !resp.credential) return;
+        try {
+          await NET.googleSignIn(resp.credential);
+          $('acctPass').value = '';
+          note('Linked · welcome, ' + NET.user.name, 'good');
+          paintAccount();
+          NET.pushProfile();   // lift local progress right away, same as password sign-in
+          AU.pickup();
+        } catch (e) {
+          note(String((e && e.message) || e).slice(0, 60), 'bad');
+        }
+      }
+    });
+    google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', width: 260 });
+    host.dataset.armed = '1';
+  } catch (e) { /* silent — the panel must never break over Google */ }
+}
 (function () {
   const inp = $('deckUrl');
   if (!inp) return;
@@ -7182,6 +7241,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.26.0',
+    items: [
+      'Sign in with Google — the deck verifies the ID token itself and mints its own session, so a Gmail pilot is the same pilot on the same boards, with callsign linking for classic accounts.'
+    ]
+  },
   {
     v: '4.25.0',
     items: [
@@ -8923,9 +8988,20 @@ function runSelfTests() {
     ok(probeSrc.includes('probeP'), 'probe joins its own in-flight handshake (the stale-false race is fenced)');
     ok(NET.funnel.toString().includes('catch'), 'funnel fails silent — signal never disturbs play');
   });
+  T('google sign-in: client contracts, no server needed', () => {
+    ok(typeof NET.googleSignIn === 'function', 'googleSignIn exists on NET');
+    ok(NET.googleSignIn.toString().includes('/api/auth/google'), 'it posts the credential to the deck\'s own verifier route');
+    const armSrc = typeof armGoogle === 'function' ? armGoogle.toString() : '';
+    ok(armSrc.includes('google.accounts.id'), 'the GSI library is initialized — never the page credential flow');
+    ok(armSrc.includes('catch'), 'armGoogle fails silent — the panel must never break over Google');
+    ok(NET.probe.toString().includes('googleClientId'), 'the probe reads the deck\'s announced client id');
+    const box = $('googleBox'), host = $('gBtnHost');
+    ok(!!box && !!host, 'the Google row exists in the account panel markup');
+    ok(box.classList.contains('hidden'), 'unarmed state stays hidden — an unconfigured deck shows no Google');
+  });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.25.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.26.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

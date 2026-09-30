@@ -1,4 +1,4 @@
-# EMBERFALL v4.25.0 — Orbital Intercept
+# EMBERFALL v4.26.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -21,7 +21,7 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
 [![press kit](https://img.shields.io/badge/press%20kit-playtest%20recruiting-ff8a2b)](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html)
-![tests](https://img.shields.io/badge/tests-selftest%2074%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
+![tests](https://img.shields.io/badge/tests-selftest%2075%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 [![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
 [![top score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.topScore&label=top%20score)](docs/DATABASE.md)
@@ -73,9 +73,9 @@ node server.js            # http://localhost:8123 — serves game + API
 bash smoke.sh             # API + static-hygiene + load battery, all green
 ```
 
-- **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare
+- **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare; optional **Google sign-in** (`EF_GOOGLE_CLIENT_ID`) — the deck verifies the ID token itself against Google's JWKS and mints its own session, so a Gmail pilot is the same users row on the same boards (a pre-existing callsign matching the email's local part is adopted, never duplicated; email addresses never appear on a public board)
 - **Account self-management:** pilots change their password, see where they're signed in, and delete the account outright — one CASCADE transaction evicts every board entry, ledger row and cloud save, and the callsign is tombstoned so it can never be re-registered (all pinned in smoke)
-- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry
+- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry; Google sign-in mints these same sessions and never stores any Google credential
 - **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
 - **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, 2s busy_timeout so brief write contention self-heals, security headers + CSP; production requires HTTPS
 - **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
@@ -93,7 +93,7 @@ and stays 100% local — the exact same game, stored in the browser.
 
 Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs (74 checks) in a panel (bottom right): **74 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
+- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs (75 checks) in a panel (bottom right): **75 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
 - `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
 - Settings → *Render quality: Auto* lets the game tune itself to your device.
 
@@ -167,6 +167,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.26.0 — "The Open Gate"
+
+- Sign in with Google — the deck verifies the ID token itself and mints its own session, so a Gmail pilot is the same pilot on the same boards, with callsign linking for classic accounts.
 ## What's new in v4.25.0 — "The Listening Deck"
 
 - one-line pilot notes on the game-over screen (anon-friendly, offline-queued, capped 5/h), PII-free funnel instrumentation (boot-armed-k1-w5, salted daily device hash), ops.html funnel+notes cards, feedback-report and monday-digest tools - and the probe() stale-false race fix the flush test flushed out

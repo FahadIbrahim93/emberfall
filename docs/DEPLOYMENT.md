@@ -142,6 +142,24 @@ fly deploy
 curl https://<your-deck-name>.fly.dev/api/health   # → ok:true
 ```
 
+**Optional — Google sign-in (v4.26):** create an OAuth client at
+<https://console.cloud.google.com/apis/credentials> (type *Web
+application*, authorized JavaScript origins:
+`https://fahadibrahim93.github.io` and your deck's origin), then add the
+client id as one more secret. No callback URL is needed — the flow is
+the GIS button + POST verification, not a redirect dance:
+
+```bash
+fly secrets set EF_GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
+fly deploy
+```
+
+The deck verifies every ID token itself (RS256 against Google's JWKS,
+audience pinned to your client id) and mints its own session — no third-
+party auth service, nothing Google stored. Unset = the feature simply
+doesn't exist (the API answers 501, the button never arms, the CSP
+stays fully closed).
+
 Then open https://fahadibrahim93.github.io/emberfall/ — sign in from the
 live site; the Global tab should read "Linked to command deck (remote)".
 The container path is proven in CI (gates-in-build, named volume,

@@ -8,6 +8,8 @@
 #   fly secrets set NODE_ENV=production TRUST_PROXY=1 \
 #     EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io
 #   fly deploy
+# Optional (v4.26): Google sign-in — fly secrets set EF_GOOGLE_CLIENT_ID=<id>
+# (see docs/DEPLOYMENT.md; unset = the feature does not exist, honestly)
 # Full checklist: docs/DEPLOYMENT.md · gaps a rollout still owns
 # (backups off-box, log shipping): docs/ROADMAP.md "The container path".
 

@@ -100,6 +100,9 @@ jobs:
       - name: Session drill (login survives SIGKILL, expired rows swept, logout honored)
         run: node tools/drill-sessions.mjs
 
+      - name: Google sign-in drill (minted RS256 ID tokens — session mint, linking, leaderboard, refusals)
+        run: node tools/drill-google.mjs
+
       - name: Save-vault drill (snapshot lands, throttle engages, the six-newest prune holds)
         run: node tools/drill-vault.mjs
 

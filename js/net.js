@@ -9,6 +9,7 @@ const NET = {
   on: false, user: null, probed: false,
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
   meDaily: null,   /* last /api/me daily block — streak display on the day board */
+  googleClientId: '',  /* v4.26 — the deck's EF_GOOGLE_CLIENT_ID, announced by /api/health */
   weekDays: 0,     /* flew days in the running Monday-UTC week (deck-counted) */
   seasonDays: 0,   /* DISTINCT flew days in the running week — perfect-season pulse */
   boardOffset: 0,  /* Global-tab pagination cursor (v4.22) */
@@ -44,6 +45,7 @@ const NET = {
     try { localStorage.setItem('emberfall2.deck', this.deck); } catch (e) { }
     this.probed = false; this.on = false; this.user = null; this.meDaily = null;
     this.probeP = null;   /* a mid-flight handshake for the OLD deck is void */
+    this.googleClientId = '';   /* the new deck answers for itself */
   },
 
   /* v4.25 — the listening deck: fire-and-forget signal channel.
@@ -92,6 +94,9 @@ const NET = {
         if (!r.ok) return false;
         const j = await r.json();
         this.on = !!(j && j.ok);
+        /* v4.26: the deck says whether Google sign-in exists HERE — the
+           button only arms when the answer is a real client id */
+        this.googleClientId = (j && typeof j.googleClientId === 'string') ? j.googleClientId : '';
         if (this.on) await this.whoami();
       } catch (e) { this.on = false; }
       if (this.on) this.pushProfile();          // converge any local changes made offline
@@ -184,6 +189,15 @@ const NET = {
   },
 
   async register(name, password) { const j = await this.req('POST', '/api/register', { name, password }); this.user = j.user || { name }; return j; },
+  /* v4.26 — Google sign-in: the deck verifies the ID token and mints its
+     OWN session; the returned token is captured by req() exactly like a
+     password login's, so boards, cloud saves and duels behave identically. */
+  async googleSignIn(credential) {
+    const j = await this.req('POST', '/api/auth/google', { credential });
+    this.user = j.user || null;
+    if (j.user) await this.whoami();
+    return j;
+  },
   async login(name, password)    { const j = await this.req('POST', '/api/login', { name, password }); this.user = j.user || { name }; if (j.user) await this.whoami();   /* login refreshes the whole deck view: streak, week, ledger adoption */ if (j.profile) { this.mergeProfile(j.profile); kickOutbox(); this.vaultOfferRestore(); } return j; },
   async logout() {
     try { await this.req('POST', '/api/logout'); } catch (e) { }

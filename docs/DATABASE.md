@@ -29,7 +29,7 @@ a user is one statement, and the tombstone (below) is the only residue.
 
 | Table | One row is… | Notable columns |
 |---|---|---|
-| `users` | an account | `name_lower` UNIQUE; scrypt `salt`+`hash` (N=16384, async off the event loop) |
+| `users` | an account | `name_lower` UNIQUE; scrypt `salt`+`hash` (N=16384, async off the event loop); `google_sub` (v4.26 — the Google account id for Gmail sign-ins, partial-UNIQUE, NULL for classic pilots; these rows carry an unguessable random password and the callsign is derived from the email's local part, never the full address) |
 | `sessions` | a signed-in device | `token_hash` = SHA-256 of the cookie token (the token itself is never stored); 30-day `expires`; swept at boot + daily |
 | `scores` | one finished, verified run | `mode`, `score`, `wave`, telemetry (`cps`, `run_t`, `kills`), `verdict` (`accepted`/`review`/`rejected`/`legacy`), `run_hash` (24h replay guard), `paint`+`mastery` for board personalization |
 | `profiles` | the live cloud save | `data` JSON (meta + cfg, 12 KiB cap), `updated` watermark for last-write-wins convergence |

@@ -213,6 +213,13 @@ CREATE TABLE IF NOT EXISTS funnel_events (
   PRIMARY KEY (stage, day, iph)
 );
 `);
+/* v4.26 — Google sign-in: the Google account IS the same users row (one
+   identity table, one session table, one set of boards). google_sub is the
+   stable Google account id — never the email, which can change; NULL means
+   a classic callsign+password pilot. Partial unique index: unlimited NULLs,
+   at most one row per Google account. */
+addCol('users', 'google_sub', 'TEXT');
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_sub) WHERE google_sub IS NOT NULL");
 /* v4.10 migration: daily_stats needs a comparable day column for week windows.
    Pure-UTC ISO strings sort lexicographically, so 'created_day' mirrors 'day'.
    Existing rows fill from 'day' — INSERT OR IGNORE keeps the backfill runnable
@@ -651,6 +658,68 @@ function rateLimit(ip, bucket, max, windowMs) {
   return true;
 }
 
+/* ─────────────────────── Google sign-in (v4.26) ────────────────────────
+   The deck verifies Google's ID token ITSELF and mints its OWN session —
+   the same users row, the same sessions table, the same boards. No third-
+   party auth service sits between pilot and deck, and no Google credential
+   is ever stored: the token is checked and forgotten. EF_GOOGLE_CLIENT_ID
+   unset = the route answers 501 and the CSP stays fully closed. */
+const GOOGLE_ID = process.env.EF_GOOGLE_CLIENT_ID || '';
+let jwksCache = { keys: null, at: 0 };
+async function googleJwks() {
+  /* drill/testing seam: EF_GOOGLE_JWKS_FILE points at a local JWKS file so
+     the token contract is provable without network access. Test-only —
+     never set it in production (Google's real keys always win there). */
+  if (process.env.EF_GOOGLE_JWKS_FILE) {
+    try { return JSON.parse(fs.readFileSync(process.env.EF_GOOGLE_JWKS_FILE, 'utf8')).keys || []; }
+    catch (e) { throw new Error('jwks file unreadable'); }
+  }
+  if (jwksCache.keys && now() - jwksCache.at < 12 * 3600000) return jwksCache.keys;
+  const r = await fetch('https://www.googleapis.com/oauth2/v3/certs', { signal: AbortSignal.timeout(8000) });
+  if (!r.ok) throw new Error('jwks ' + r.status);
+  const j = await r.json();
+  if (!j || !Array.isArray(j.keys) || !j.keys.length) throw new Error('jwks empty');
+  jwksCache = { keys: j.keys, at: now() };
+  return jwksCache.keys;
+}
+function b64uJson(s) { return JSON.parse(Buffer.from(s, 'base64url').toString('utf8')); }
+async function verifyGoogleIdToken(idToken) {
+  if (!GOOGLE_ID) throw new Error('google sign-in is not configured on this deck');
+  if (typeof idToken !== 'string' || idToken.length > 4096) throw new Error('malformed token');
+  const parts = idToken.split('.');
+  if (parts.length !== 3) throw new Error('malformed token');
+  const head = b64uJson(parts[0]);
+  if (head.alg !== 'RS256') throw new Error('unexpected alg');
+  const keys = await googleJwks();
+  const key = keys.find(k => k.kid === head.kid && k.kty === 'RSA' && (!k.alg || k.alg === 'RS256'));
+  if (!key) throw new Error('unknown key');
+  const jwk = await crypto.subtle.importKey('jwk', key,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const okSig = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', jwk,
+    Buffer.from(parts[2], 'base64url'), Buffer.from(parts[0] + '.' + parts[1]));
+  if (!okSig) throw new Error('bad signature');
+  const c = b64uJson(parts[1]);
+  const skew = 60000;
+  if (c.iss !== 'https://accounts.google.com' && c.iss !== 'accounts.google.com') throw new Error('bad issuer');
+  if (c.aud !== GOOGLE_ID) throw new Error('bad audience');
+  if (!c.exp || c.exp * 1000 < now() - skew) throw new Error('expired token');
+  if (c.iat && c.iat * 1000 > now() + skew) throw new Error('token from the future');
+  if (!c.email || c.email_verified !== true) throw new Error('email not verified');
+  return c;
+}
+/* Callsigns minted from Google: derived from the email local part, cleaned
+   to the NAME_RE alphabet, de-collided with a letter suffix. Never an email
+   address on a public board. */
+function googleCallsign(email) {
+  let base = String(email).split('@')[0].toLowerCase().replace(/[^a-z0-9_\- ]+/g, '').trim() || 'pilot';
+  base = base.replace(/ +/g, ' ').slice(0, 12);
+  for (let i = 0; i < 12; i++) {
+    const cand = i ? (base + ' ' + String.fromCharCode(97 + i)).slice(0, 16) : base;
+    if (cand.length < 3) continue;
+    if (!db.prepare('SELECT 1 FROM users WHERE name_lower = ?').get(cand.toLowerCase())) return cand;
+  }
+  return 'pilot ' + Math.floor(100000 + Math.random() * 900000);
+}
 const NAME_RE = /^[A-Za-z0-9_\- ]{3,16}$/;
 const MODES = new Set(['main', 'daily', 'rush']);
 const SHIPS = new Set(['vesper', 'halcyon', 'atlas', 'wraith', 'seraph']);
@@ -789,11 +858,17 @@ function serveStatic(req, res, urlPath) {
          allowed to fly (the deck-to-deck story); CORS_ORIGINS is a different
          knob — who may call THIS deck's API. */
       const extra = PAGE_CONNECT.map(o => ' ' + o).join('');
+      /* v4.26: Google Identity Services may load only when the deck opted
+         in (EF_GOOGLE_CLIENT_ID set) — an unconfigured deck's CSP stays
+         exactly as closed as before. */
+      const gsi = GOOGLE_ID ? ' https://accounts.google.com https://gstatic.com' : '';
       const connect = file.endsWith('stats.html') || file.endsWith('index.html')
-        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + extra
+        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + gsi + extra
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; " + connect;
+        "default-src 'self'; script-src 'self' 'unsafe-inline'" + gsi +
+        "; frame-src" + (gsi ? gsi : " 'self'") +
+        "; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; " + connect;
       if (file.endsWith('ops.html')) headers['X-Robots-Tag'] = 'noindex, nofollow';   /* an ops page is not for search engines */
       headers['Cache-Control'] = 'no-cache';
     } else if (file.endsWith('sw.js')) {
@@ -874,6 +949,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const limiter = limiterTelemetry();
     const answer = { ok: true, service: 'emberfall-command-deck', t: now(), pilots };
     if (LIVE_LEDGER) answer.live = true;   /* battery tools refuse live decks */
+    if (GOOGLE_ID) answer.googleClientId = GOOGLE_ID;   /* v4.26: the client arms its Google button only when the deck opted in */
     if (limiter.length) answer.limiter = limiter;
     return send(res, 200, answer);
   }
@@ -951,6 +1027,41 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     return send(res, 200, { ok: true });
   }
 
+  /* v4.26 — Google sign-in: one POST, zero password knowledge. The deck
+     verifies the ID token against Google's own keys, finds or mints the
+     pilot, and opens the SAME session every other login opens (cookie on
+     the deck's origin, bearer token for allowed cross-origins). */
+  if (req.method === 'POST' && pathname === '/api/auth/google') {
+    if (!GOOGLE_ID) return bad(res, 'google sign-in is not configured on this deck', 501);
+    if (!rateLimit(ip, 'google', 10, 60000)) return bad(res, 'slow down', 429);
+    if (!sameOriginGuard(req, res)) return;
+    const body = await readJson(req, res); if (!body) return;
+    let claim;
+    try { claim = await verifyGoogleIdToken(body.credential); }
+    catch (e) { return bad(res, 'google token refused: ' + e.message, 401); }
+    if (!requireSecure(req, res)) return;   /* a Google identity never rides plaintext */
+    let row = db.prepare('SELECT id, name FROM users WHERE google_sub = ?').get(claim.sub);
+    if (!row) {
+      /* the callsign IS this pilot's email local part — adopt, never duplicate */
+      const local = String(claim.email).split('@')[0].toLowerCase();
+      const byEmail = db.prepare('SELECT id, name FROM users WHERE google_sub IS NULL AND name_lower = ?').get(local);
+      if (byEmail) {
+        db.prepare('UPDATE users SET google_sub = ?, last_seen = ? WHERE id = ?').run(claim.sub, now(), byEmail.id);
+        row = byEmail;
+      } else {
+        const name = googleCallsign(claim.email);
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = await hashPassword(crypto.randomBytes(24).toString('base64'), salt);
+        const info = db.prepare('INSERT INTO users (name, name_lower, salt, hash, created, last_seen, google_sub) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(name, name.toLowerCase(), salt, hash, now(), now(), claim.sub);
+        row = { id: Number(info.lastInsertRowid), name };
+      }
+    }
+    db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(now(), row.id);
+    newSession(req, res, row.id);
+    return send(res, 200, { ok: true, user: { name: row.name }, profile: publicProfile(row.id) });
+  }
+
   /* LAN play helper — the on-the-go story for phones before a public deploy.
      The deck already binds 0.0.0.0, so any device on the same Wi-Fi can play
      against this server; this endpoint just answers the one hard part
@@ -1018,6 +1129,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
   if (req.method === 'GET' && pathname === '/api/me') {
     const user = sessionUser(req);
     if (!user) return send(res, 200, { ok: true, user: null });
+    { const urow = db.prepare('SELECT google_sub FROM users WHERE id = ?').get(user.id);
+      user.google = !!(urow && urow.google_sub); }   /* v4.26: the panel reads this to adapt its copy */
     const today = deckDayOf(now());
     const ds = db.prepare('SELECT streak, paid, best_score, best_wave FROM daily_stats WHERE user_id = ? AND day = ?').get(user.id, today);
     const total = db.prepare('SELECT COALESCE(SUM(paid), 0) AS t FROM daily_stats WHERE user_id = ?').get(user.id).t;
@@ -1109,8 +1222,12 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const current = String(body.current || '');
     const next = String(body.next || '');
     if (next.length < 6 || next.length > 128) return bad(res, 'password: 6-128 characters');
-    const row = db.prepare('SELECT salt, hash FROM users WHERE id = ?').get(user.id);
-    if (!row || !(await verifyPassword(current, row.salt, row.hash))) {
+    const row = db.prepare('SELECT salt, hash, google_sub FROM users WHERE id = ?').get(user.id);
+    if (!row) return bad(res, 'account not found', 401);
+    if (row.google_sub && !row.hash) {
+      return bad(res, 'this pilot signs in with Google — set a deck password first from the same panel', 409);
+    }
+    if (!(await verifyPassword(current, row.salt, row.hash))) {
       return bad(res, 'wrong password', 401);
     }
     const salt = crypto.randomBytes(16).toString('hex');
@@ -1135,8 +1252,15 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (!sameOriginGuard(req, res)) return;
     const body = await readJson(req, res); if (!body) return;
     const password = String(body.password || '');
-    const row = db.prepare('SELECT name_lower, salt, hash FROM users WHERE id = ?').get(user.id);
-    if (!row || !(await verifyPassword(password, row.salt, row.hash))) {
+    const row = db.prepare('SELECT name_lower, salt, hash, google_sub FROM users WHERE id = ?').get(user.id);
+    if (!row) return bad(res, 'account not found', 401);
+    if (row.google_sub && !row.hash) {
+      /* a Google-only pilot has no deck password — deletion confirms by the
+         typed callsign (the panel sends it in the password field) */
+      if (String(body.password || '').trim().toLowerCase() !== row.name_lower) {
+        return bad(res, 'type your callsign to confirm deletion', 401);
+      }
+    } else if (!(await verifyPassword(password, row.salt, row.hash))) {
       return bad(res, 'wrong password', 401);
     }
     /* node:sqlite has no wrapper API — an explicit IMMEDIATE transaction:

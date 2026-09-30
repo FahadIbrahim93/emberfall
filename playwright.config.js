@@ -9,7 +9,8 @@ const { defineConfig } = require('@playwright/test');
    E2E_REUSE=1 attaches to whatever deck is already up instead (CI reuses
    the smoke deck there; locally that writes to the real ledger — your
    choice, your rows). */
-const { mkdtempSync } = require('node:fs');
+const { mkdtempSync, writeFileSync: _wfs } = require('node:fs');
+const fs = { writeFileSync: _wfs };
 const { tmpdir } = require('node:os');
 const path = require('node:path');
 const PORT = Number(process.env.E2E_PORT) || 8123;
@@ -24,6 +25,27 @@ const BASE = 'http://127.0.0.1:' + PORT;
    certainty. */
 const E2E_DATA_DIR = mkdtempSync(path.join(tmpdir(), 'ef-e2e-'));
 const E2E_MARKER = path.join(tmpdir(), 'ef-e2e-active-dir.txt');
+
+/* v4.26 — the suite's deck also plays the Google game: a scratch JWKS file
+   (drill-style throwaway RSA key) lets google-signin.spec.js mint REAL
+   RS256 ID tokens the deck's verifier honestly accepts, with no network.
+   Test-only: production decks never set EF_GOOGLE_JWKS_FILE. */
+const crypto = require('node:crypto');
+const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+const PUB_JWK = { ...publicKey.export({ format: 'jwk' }), kid: 'e2e-key-1', alg: 'RS256', use: 'sig' };
+const GSI_JWKS_PATH = path.join(tmpdir(), 'ef-e2e-google-jwks.json');
+fs.writeFileSync(GSI_JWKS_PATH, JSON.stringify({ keys: [PUB_JWK] }));
+const b64u = b => Buffer.from(b).toString('base64url');
+const GOOGLE = {
+  CLIENT_ID: 'e2e-google-client-id.apps.googleusercontent.com',
+  JWKS_PATH: GSI_JWKS_PATH,
+  mint(sub, email) {
+    const head = b64u(JSON.stringify({ alg: 'RS256', kid: PUB_JWK.kid, typ: 'JWT' }));
+    const nowS = Math.floor(Date.now() / 1000);
+    const payload = b64u(JSON.stringify({ sub, email, email_verified: true, aud: this.CLIENT_ID, iss: 'https://accounts.google.com', exp: nowS + 600, iat: nowS - 10 }));
+    return head + '.' + payload + '.' + b64u(crypto.sign('RSA-SHA256', Buffer.from(head + '.' + payload), privateKey));
+  }
+};
 
 module.exports = defineConfig({
   testDir: './tests',
@@ -48,7 +70,9 @@ module.exports = defineConfig({
          and EF_CONNECT_SRC lets this deck's SERVED page dial that second
          deck back — the two knobs of ADR 0002's cross-origin story */
       EF_CORS_ORIGINS: 'http://127.0.0.1:8123',
-      EF_CONNECT_SRC: 'http://127.0.0.1:8165'
+      EF_CONNECT_SRC: 'http://127.0.0.1:8165',
+      EF_GOOGLE_CLIENT_ID: GOOGLE.CLIENT_ID,
+      EF_GOOGLE_JWKS_FILE: GOOGLE.JWKS_PATH
     },
     url: BASE + '/api/health',
     reuseExistingServer: true /* a deck already on this port is reused AS-IS —
@@ -58,3 +82,4 @@ module.exports = defineConfig({
 });
 module.exports.E2E_DATA_DIR = E2E_DATA_DIR;
 module.exports.E2E_PORT = PORT;
+module.exports.GOOGLE = GOOGLE;

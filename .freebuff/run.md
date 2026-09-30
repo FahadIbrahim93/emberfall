@@ -429,3 +429,55 @@ node tools/profile-deck.js --db <scratch>/emberfall.db --users 40 --days 120
 Refuses to run without `--db` (seeded load rows are destructive). Baseline at
 4,800 daily_stats rows: streak walk 0.31 ms, md ledger 0.27 ms, weekDays
 0.014 ms, windowed top10 0.034 ms — all sub-ms with covering-index plans.
+
+## v4.26.0 "The Open Gate" — Google sign-in, one session table
+
+**Shipped:** the deck verifies Google ID tokens itself (RS256 against
+Google's JWKS, 12h cache, issuer/audience/exp/iat/email_verified
+checks, audience pinned to EF_GOOGLE_CLIENT_ID) and mints its OWN
+session rows — no third-party auth service, no redirect dance, nothing
+Google ever stored. A Gmail pilot lands in the SAME users table: the
+callsign is derived from the email local part (cleaned, de-collided,
+never the full address), google_sub partial-UNIQUE, unguessable random
+password. A classic pilot whose callsign already matches the email
+local part is ADOPTED (google_sub set on the existing row, history
+intact) — linking is adoption, never duplication.
+
+- New drill tools/drill-google.mjs (20 checks): mints real RS256 tokens
+  from a throwaway key, drives session mint → leaderboard row → stable
+  identity → linking-with-history, and refuses impostor signature /
+  wrong audience / expired / tampered / malformed (all 401, census
+  unchanged). Deck gains EF_GOOGLE_JWKS_FILE, a test-only JWKS seam; the
+  same trick drives the browser spec via playwright.config.js (33
+  specs now, google-signin.spec.js +2).
+- /api/me flags user.google; the panel hides the Google row on decks
+  that never opted in; /api/health announces googleClientId so the
+  button arms only on configured decks. CSP: accounts.google.com and
+  gstatic.com appear in script-src/frame-src ONLY when the deck set the
+  client id — an unconfigured deck stays byte-for-byte as closed as
+  before. Password change refuses Google-only pilots honestly (409,
+  set-a-password-first), deletion falls back to typed-callsign
+  confirmation when no deck password exists.
+- Battery: selftest 74 → 75 (new pin: google sign-in client contracts),
+  smoke 88 → 89 (the unconfigured-deck 501), README counts bumped to
+  match. CI gains the google drill step. Docs: README auth row,
+  DATABASE.md users table, SECURITY.md Google section, DEPLOYMENT.md
+  optional-secrets recipe, fly.toml comment.
+
+## v4.26.0 lessons (cheap to learn, expensive to skip)
+
+- **One squatter explains everything:** my bash-kill of the smoke deck
+  silently failed on Windows (kill ≠ taskkill for node), and the e2e
+  suite — reuseExistingServer:true by design — cheerfully adopted a
+  deck with no Google env, no marker, closed CSP. Four "failures" in
+  three specs were one wrong deck. Kill by taskkill, verify the port
+  is EMPTY, then run.
+- **str_replace edits are not guaranteed by intention:** the health
+  announcement edit existed only in my head; the probe read a flag the
+  deck never announced. The drill-driven debug run (env set → curl
+  health → field absent) found it in thirty seconds. Prove the wire,
+  not the plan.
+- **The anti-cheat is the honest API test:** drill score arcs must be
+  genuinely plausible — I copied the battery's proven arc verbatim
+  instead of inventing my own, and the plausibility engine agreed on
+  the first try.

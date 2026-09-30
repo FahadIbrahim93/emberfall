@@ -21,6 +21,14 @@ You can also reach the maintainer through the repository owner profile.
   SameSite=Lax, `Secure` whenever the request is TLS; 30-day expiry;
   expired rows swept at boot + daily; the session list endpoint never
   reveals token hashes
+- **Google sign-in (opt-in, v4.26):** the deck verifies the ID token
+  itself — RS256 signature against Google's JWKS (12h cache), issuer,
+  audience (`EF_GOOGLE_CLIENT_ID`), `exp`/`iat` with clock skew,
+  `email_verified` required — and mints its OWN session. No Google
+  credential is ever stored; no third-party auth service sits between
+  pilot and deck; the route 501s honestly on decks that never opted in
+  and answers 401 to wrong signature/audience/expiry/tamper (drilled in
+  `tools/drill-google.mjs`)
 - **Account self-management:** password change re-scrypts with a fresh
   salt; deletion is a single CASCADE transaction that evicts every board
   entry, and the callsign is tombstoned against re-registration

@@ -109,6 +109,8 @@ else
 fi
 if [ -z "$CSP_SW" ]; then ok "sw.js carries no CSP (nothing to leak)"; else no "unexpected CSP on sw.js: $(printf '%s' "$CSP_SW" | head -c 80)"; fi
 expect "register guard (no header)" 'missing origin header'  -X POST "$BASE/api/register" -H 'Content-Type: application/json' -d '{"name":"x","password":"y"}'
+# v4.26: an UNCONFIGURED deck answers 501 honestly — the route exists, the deck just never opted in
+expect "google auth unconfigured deck" 'not configured'  -X POST "$BASE/api/auth/google" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"credential":"x"}'
 expect "register bad name" 'callsign'                       -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"x\",\"password\":\"hunter2\"}"
 expect "register ok"       '"ok":true'                      -X POST "$BASE/api/register" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"name\":\"Pilot$R\",\"password\":\"hunter22\"}"
 expect "me (cookie set)"   "Pilot$R"                        "$BASE/api/me"
