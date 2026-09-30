@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.26.0",
+      "date": "2026-09-30",
+      "codename": "The Open Gate",
+      "loop": {
+        "wave": 2,
+        "kills": 20,
+        "grazes": 3,
+        "combo": 13,
+        "mult": 3,
+        "medianFps": 30
+      },
+      "first60": {
+        "medianFps": 26,
+        "firstPlayingMs": 593,
+        "firstKillMs": 593,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.25.0",
       "date": "2026-09-28",
       "codename": "The Listening Deck",
