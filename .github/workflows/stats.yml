@@ -25,6 +25,9 @@ jobs:
 
       # keyless by design: the publishable key lives in tools/stats-snapshot.mjs
       # and the mirror grants the world read-only access (ADR 0001)
+      - name: Alarm — is the mirror honest? (unreachable · stale · machine-pilot contamination)
+        run: node tools/mirror-alarm.mjs
+
       - name: Snapshot the public mirror totals
         run: node tools/stats-snapshot.mjs
 

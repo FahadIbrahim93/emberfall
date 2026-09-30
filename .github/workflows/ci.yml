@@ -104,8 +104,14 @@ jobs:
       - name: Session drill (login survives SIGKILL, expired rows swept, logout honored)
         run: node tools/drill-sessions.mjs
 
-      - name: Google sign-in drill (minted RS256 ID tokens — session mint, linking, leaderboard, refusals)
+      - name: Google sign-in drill (minted RS256 ID tokens — session mint, linking, leaderboard, refusals, concurrent join)
         run: node tools/drill-google.mjs
+
+      - name: Onboarding drill (stranger → signed-up → honest run → ranked worldwide, through the real deck client)
+        run: node tools/drill-onboarding.mjs
+
+      - name: Lighthouse drill (the deck-adoption ladder: choice · local · adopt · auto, file:// and CORS rails, live zero-config signup)
+        run: node tools/drill-lighthouse.mjs
 
       - name: Save-vault drill (snapshot lands, throttle engages, the six-newest prune holds)
         run: node tools/drill-vault.mjs
