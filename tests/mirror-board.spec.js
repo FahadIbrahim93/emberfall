@@ -56,7 +56,7 @@ test('deckless Global tab shows the worldwide mirror or an honest fallback', asy
   await page.waitForFunction(() => {
     const el = document.querySelector('#globalBoard');
     const t = el ? (el.textContent || '') : '';
-    return el && el.querySelector('.row') !== null || /not answering/.test(t);
+    return el && el.querySelector('.row') !== null || /not answering|No ranked pilots/.test(t);
   }, null, { timeout: 15000 });
   await expect(page.locator('#globalStatus')).toContainText('local mode');
   const text = await page.locator('#globalBoard').textContent();
@@ -66,6 +66,14 @@ test('deckless Global tab shows the worldwide mirror or an honest fallback', asy
     /* the mirror footer hands the pilot the full stats page (v4.19.0):
        present with rows, absent on the fallback (it lives IN the footer) */
     await expect(page.locator('#globalBoard a[href="stats.html"]')).toHaveCount(1);
+  } else if (/No ranked pilots/.test(text)) {
+    /* v4.26.1: a third honest state — the mirror ANSWERS and is genuinely
+       empty (the true world state since the 2026-09-30 mirror purge; the
+       machine pilots are gone and no human has flown yet). The footer is
+       a footer FOR the rows, so it stays absent here — the empty state
+       invites the pilot to fly instead */
+    expect(text).toContain('public board');
+    await expect(page.locator('#globalBoard a[href="stats.html"]')).toHaveCount(0);
   } else {
     expect(text).toContain('not answering');
     await expect(page.locator('#globalBoard a[href="stats.html"]')).toHaveCount(0);
