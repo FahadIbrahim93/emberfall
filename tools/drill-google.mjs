@@ -173,8 +173,42 @@ async function main() {
   const linked = bdAfter.json && bdAfter.json.top && bdAfter.json.top.find(t => t.n === 'stellarfox');
   linked && linked.s === 2410 ? good('the linked pilot kept their score history on the board (2410)') : bad('history after link: ' + JSON.stringify(bdAfter.json && bdAfter.json.top).slice(0, 140));
 
-  /* act 5 — refusals: impostor signature, wrong audience, expired, tamper */
-  say('── act 5: garbage is refused, nothing stored');
+  /* act 5 — concurrency: N simultaneous FIRST sign-ins for one Google
+     account (the double-click / two-tabs case). Every request must answer
+     200 and join ONE pilot row. The old find-then-mint raced exactly here:
+     two concurrent mints both missed the SELECT and the loser died on
+     'UNIQUE constraint failed: users.google_sub' — proven live when the
+     parallel e2e burst surfaced that 500 in a deck log. The IMMEDIATE
+     transaction makes the loser's SELECT see the winner's row inside the
+     write lock, so a join is the only possible outcome. (Budget note: the
+     google limiter is 10/60s per IP — acts 1-4 spent 3, so this act fires
+     exactly 7 and the NEXT act waits out the window first.) */
+  say('── act 5: concurrent first sign-ins for one account join, never race');
+  const raceSub = 'google-drill-sub-race';
+  const RACE_N = 7;
+  const raceResults = await Promise.all(
+    Array.from({ length: RACE_N }, () =>
+      req('POST', '/api/auth/google', { body: { credential: mintToken({ sub: raceSub, email: 'race.pilot@gmail.com' }) } }))
+  );
+  raceResults.every(r => r.status === 200 && r.json && r.json.ok)
+    ? good(`all ${RACE_N} concurrent first sign-ins answered 200`)
+    : bad('concurrent sign-ins: ' + raceResults.map(r => r.status).join(',') + ' ' + JSON.stringify((raceResults.find(r => r.status !== 200) || {}).json || {}).slice(0, 100));
+  const raceNames = new Set(raceResults.map(r => r.json && r.json.user && r.json.user.name).filter(Boolean));
+  raceNames.size === 1
+    ? good('every racer joined the same pilot row (' + [...raceNames][0] + ')')
+    : bad('racer callsigns: ' + [...raceNames].join(','));
+  const raceMe = await req('GET', '/api/me', { token: tokenOf(raceResults[0].headers.get('set-cookie') || '') });
+  raceMe.status === 200 && raceMe.json && raceMe.json.user
+    ? good('a session minted inside the burst authenticates')
+    : bad('race session: ' + raceMe.status);
+
+  /* the google limiter window is spent (acts 1-5 = 10 posts) — the refusal
+     act below needs a fresh one. drill-duels drains the same way. */
+  say('  ..   draining the google limiter window (61s) before the refusals');
+  await new Promise(r => setTimeout(r, 61000));
+
+  /* act 6 — refusals: impostor signature, wrong audience, expired, tamper */
+  say('── act 6: garbage is refused, nothing stored');
   const impTok = (() => {
     const t = mintToken({ sub: 'impostor', email: 'impostor@gmail.com' }).split('.');
     const head = t[0], payload = t[1];
@@ -196,8 +230,8 @@ async function main() {
   const rr5 = await req('POST', '/api/auth/google', { body: { credential: 'not-a-token' } });
   rr5.status === 401 ? good('malformed token refused (401)') : bad('malformed: ' + rr5.status);
   const census = await req('GET', '/api/health');
-  census.json && census.json.pilots === 2
-    ? good('ledger census unchanged by the refusals (2 pilots: novapilot, stellarfox)')
+  census.json && census.json.pilots === 3
+    ? good('ledger census unchanged by the refusals (3 pilots: novapilot, stellarfox, racepilot)')
     : bad('census: ' + JSON.stringify(census.json));
 
   await new Promise(r => setTimeout(r, 200));

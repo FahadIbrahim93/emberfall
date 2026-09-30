@@ -22,7 +22,16 @@ async function openSettings(page) {
    tools/drill-google.mjs proves at the API layer, here through the UI.
    The suite's deck IS configured (playwright.config.js writes a scratch
    JWKS and points EF_GOOGLE_JWKS_FILE at it), so GOOGLE.mint() produces
-   tokens the deck's verifier honestly accepts. */
+   tokens the deck's verifier honestly accepts.
+
+   v4.26.1 — 12s ceilings instead of the 5s default (the lazy
+   probe → paint chain brushed 5s under a full 4-worker local run; the
+   runbook's "probe abort 2.5s→6s" lesson, same shape). The historical
+   flake here was NOT timing — it was the per-worker throwaway keypair
+   stomping the shared JWKS ('bad signature' 401s under parallel load)
+   plus the deck's find-or-mint race; both are fixed at the root
+   (playwright.config.js claim-once protocol, server.js IMMEDIATE
+   transaction) and pinned by tools/drill-google.mjs act 5. */
 
 test('google button arms from the deck config and drives the real sign-in flow', async ({ page }) => {
   await page.addInitScript(() => {
@@ -47,14 +56,14 @@ test('google button arms from the deck config and drives the real sign-in flow',
 
   await openSettings(page);
   /* the suite's deck announces a client id via /api/health → the row arms */
-  await expect(page.locator('#googleBox')).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('#gBtnStub')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#googleBox')).toBeVisible({ timeout: 12000 });
+  await expect(page.locator('#gBtnStub')).toBeVisible({ timeout: 12000 });
 
   const credential = GOOGLE.mint('e2e-google-sub-1', 'e2e.google.pilot@gmail.com');
   await page.evaluate((c) => window.__gsiFire(c), credential);
 
   /* the panel flips to signed-in, and the session is the deck's OWN */
-  await expect(page.locator('#acctStat')).toContainText('e2egooglepil');
+  await expect(page.locator('#acctStat')).toContainText('e2egooglepil', { timeout: 12000 });
   const me = await page.evaluate(async () => (await (await fetch('/api/me', {
     headers: { 'X-Emberfall': 'command-deck', Authorization: 'Bearer ' + localStorage.getItem('emberfall2.token') }
   })).json()));
@@ -63,15 +72,28 @@ test('google button arms from the deck config and drives the real sign-in flow',
 });
 
 test('password pilots keep working beside Google (register → me → sign out)', async ({ page }) => {
+  /* the long multi-stage flow (register → reload → re-boot ritual → sign
+     out) needs room on a starved laptop — same tolerance ledger.spec and
+     deck-link.spec already claim for their cross-boot dances */
+  test.setTimeout(90000);
   await openSettings(page);
   const regStatus = await page.evaluate(async () => {
-    const r = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
-      body: JSON.stringify({ name: 'GsiN' + Math.floor(Math.random() * 900000 + 100000), password: 'panel-pass-1' })
-    });
-    const me = await (await fetch('/api/me')).json();
-    return { reg: r.status, meUser: me.user && me.user.name };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
+        body: JSON.stringify({ name: 'GsiN' + Math.floor(Math.random() * 900000 + 100000), password: 'panel-pass-1' })
+      });
+      if (r.status === 200) {
+        const me = await (await fetch('/api/me')).json();
+        return { reg: 200, meUser: me.user && me.user.name };
+      }
+      /* a parallel burst may legitimately spend the register bucket —
+         wait out the minute window instead of drowning in 429s */
+      if (r.status === 429) { await new Promise(res => setTimeout(res, 61000)); continue; }
+      return { reg: r.status, body: await r.text() };
+    }
+    return { reg: 'gave-up' };
   });
   expect(regStatus.reg).toBe(200);
   expect(regStatus.meUser, 'the cookie must already answer /api/me after register').toBeTruthy();
@@ -84,5 +106,5 @@ test('password pilots keep working beside Google (register → me → sign out)'
   await page.click('#btnSettings');
   await expect(page.locator('#acctStat')).toContainText('signed in');
   await page.click('#btnAcctOut');
-  await expect(page.locator('#acctStat')).toContainText('deck linked');
+  await expect(page.locator('#acctStat')).toContainText('deck linked', { timeout: 15000 });
 });

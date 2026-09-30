@@ -1040,26 +1040,45 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     try { claim = await verifyGoogleIdToken(body.credential); }
     catch (e) { return bad(res, 'google token refused: ' + e.message, 401); }
     if (!requireSecure(req, res)) return;   /* a Google identity never rides plaintext */
-    let row = db.prepare('SELECT id, name FROM users WHERE google_sub = ?').get(claim.sub);
-    if (!row) {
-      /* the callsign IS this pilot's email local part — adopt, never duplicate */
-      const local = String(claim.email).split('@')[0].toLowerCase();
-      const byEmail = db.prepare('SELECT id, name FROM users WHERE google_sub IS NULL AND name_lower = ?').get(local);
-      if (byEmail) {
-        db.prepare('UPDATE users SET google_sub = ?, last_seen = ? WHERE id = ?').run(claim.sub, now(), byEmail.id);
-        row = byEmail;
-      } else {
-        const name = googleCallsign(claim.email);
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = await hashPassword(crypto.randomBytes(24).toString('base64'), salt);
-        const info = db.prepare('INSERT INTO users (name, name_lower, salt, hash, created, last_seen, google_sub) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(name, name.toLowerCase(), salt, hash, now(), now(), claim.sub);
-        row = { id: Number(info.lastInsertRowid), name };
+    /* v4.26.1 — find-or-adopt-or-mint is ONE IMMEDIATE transaction. The old
+       SELECT-then-INSERT raced: two concurrent sign-ins for the same Google
+       account both missed the SELECT and both tried to mint — the loser
+       died on 'UNIQUE constraint failed: users.google_sub' (proven live by
+       the e2e suite's parallel burst). SQLite serializes writers, so the
+       loser's SELECT inside the write lock now sees the winner's row and
+       joins it; UNIQUE can never fire because only one mint ever runs.
+       The scrypt hash is computed BEFORE the transaction: no await may
+       live inside an open transaction on this one shared connection
+       (a second BEGIN would collide with it). Returning pilots waste one
+       off-loop scrypt (~50ms, the same class login already pays). */
+    const gsalt = crypto.randomBytes(16).toString('hex');
+    const ghash = await hashPassword(crypto.randomBytes(24).toString('base64'), gsalt);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      let row = db.prepare('SELECT id, name FROM users WHERE google_sub = ?').get(claim.sub);
+      if (!row) {
+        /* the callsign IS this pilot's email local part — adopt, never duplicate */
+        const local = String(claim.email).split('@')[0].toLowerCase();
+        const byEmail = db.prepare('SELECT id, name FROM users WHERE google_sub IS NULL AND name_lower = ?').get(local);
+        if (byEmail) {
+          db.prepare('UPDATE users SET google_sub = ?, last_seen = ? WHERE id = ?').run(claim.sub, now(), byEmail.id);
+          row = byEmail;
+        } else {
+          const name = googleCallsign(claim.email);
+          const info = db.prepare('INSERT INTO users (name, name_lower, salt, hash, created, last_seen, google_sub) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(name, name.toLowerCase(), gsalt, ghash, now(), now(), claim.sub);
+          row = { id: Number(info.lastInsertRowid), name };
+        }
       }
+      db.exec('COMMIT');
+      var pilot = row;
+    } catch (e) {
+      try { db.exec('ROLLBACK'); } catch (_) { /* already rolled back */ }
+      throw e;
     }
-    db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(now(), row.id);
-    newSession(req, res, row.id);
-    return send(res, 200, { ok: true, user: { name: row.name }, profile: publicProfile(row.id) });
+    db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(now(), pilot.id);
+    newSession(req, res, pilot.id);
+    return send(res, 200, { ok: true, user: { name: pilot.name }, profile: publicProfile(pilot.id) });
   }
 
   /* LAN play helper — the on-the-go story for phones before a public deploy.

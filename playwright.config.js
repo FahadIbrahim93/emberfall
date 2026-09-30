@@ -29,21 +29,69 @@ const E2E_MARKER = path.join(tmpdir(), 'ef-e2e-active-dir.txt');
 /* v4.26 — the suite's deck also plays the Google game: a scratch JWKS file
    (drill-style throwaway RSA key) lets google-signin.spec.js mint REAL
    RS256 ID tokens the deck's verifier honestly accepts, with no network.
-   Test-only: production decks never set EF_GOOGLE_JWKS_FILE. */
+   Test-only: production decks never set EF_GOOGLE_JWKS_FILE.
+
+   v4.26.1 — ONE PERSISTED KEYPAIR, claimed once, adopted by everyone.
+   The old code generated a FRESH keypair on every config load and stomped
+   the shared JWKS file. Every Playwright worker re-requires this config,
+   so under parallel load the deck (reading the file lazily per token) saw
+   the LAST writer's public key while other workers minted with their OWN
+   private keys — 'google token refused: bad signature' (401), proven by
+   the diag spec's error capture. Root cause of the google-signin spec's
+   historical flake; workers=1 never lost the race, which is why it hid
+   from single-spec runs and only bit bursts and full parallel suites.
+
+   The protocol: the first process to load the config CLAIMS the keypair
+   state file (flag 'wx' — exactly one winner); losers get EEXIST and
+   ADOPT the winner's pair (with a bounded retry-parse for the torn-read
+   window). The JWKS for the deck is then published atomically (tmp+rename)
+   from that one agreed pair — idempotent for every later load. Deck,
+   runner and all workers now agree forever. */
 const crypto = require('node:crypto');
-const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
-const PUB_JWK = { ...publicKey.export({ format: 'jwk' }), kid: 'e2e-key-1', alg: 'RS256', use: 'sig' };
+const realfs = require('node:fs');   /* the config's own `fs` shadow has writeFileSync only */
 const GSI_JWKS_PATH = path.join(tmpdir(), 'ef-e2e-google-jwks.json');
-fs.writeFileSync(GSI_JWKS_PATH, JSON.stringify({ keys: [PUB_JWK] }));
+const GSI_STATE_PATH = path.join(tmpdir(), 'ef-e2e-google-auth.json');
+function readAgreedPair() {
+  /* bounded retry-parse: a reader racing the winner's single small write
+     can see a torn line; 20 retries × 25ms is orders of magnitude past it */
+  const sleeper = new Int32Array(new SharedArrayBuffer(4));
+  for (let i = 0; i < 20; i++) {
+    try { return JSON.parse(realfs.readFileSync(GSI_STATE_PATH, 'utf8')); }
+    catch (e) { if (!realfs.existsSync(GSI_STATE_PATH)) return null; }
+    Atomics.wait(sleeper, 0, 0, 25);   /* blocks 25ms — no CPU spin */
+  }
+  return null;
+}
+let PAIR = readAgreedPair();
+if (!PAIR) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  PAIR = {
+    jwk: { ...publicKey.export({ format: 'jwk' }), kid: 'e2e-key-1', alg: 'RS256', use: 'sig' },
+    pem: privateKey.export({ format: 'pem', type: 'pkcs8' }).toString()
+  };
+  try {
+    realfs.writeFileSync(GSI_STATE_PATH, JSON.stringify(PAIR), { flag: 'wx' });
+  } catch (e) {
+    /* lost the claim race — adopt the winner's pair, they own the key */
+    PAIR = readAgreedPair();
+  }
+  if (!PAIR) throw new Error('e2e google keypair: claim lost and state unreadable');
+}
+/* publish the JWKS the deck reads (EF_GOOGLE_JWKS_FILE): atomic rename from
+   the ONE agreed pair — every config load lands identical bytes */
+const jwksTmp = GSI_JWKS_PATH + '.tmp' + process.pid;
+realfs.writeFileSync(jwksTmp, JSON.stringify({ keys: [PAIR.jwk] }));
+realfs.renameSync(jwksTmp, GSI_JWKS_PATH);
+const PRIVATE_KEY = crypto.createPrivateKey(PAIR.pem);
 const b64u = b => Buffer.from(b).toString('base64url');
 const GOOGLE = {
   CLIENT_ID: 'e2e-google-client-id.apps.googleusercontent.com',
   JWKS_PATH: GSI_JWKS_PATH,
   mint(sub, email) {
-    const head = b64u(JSON.stringify({ alg: 'RS256', kid: PUB_JWK.kid, typ: 'JWT' }));
+    const head = b64u(JSON.stringify({ alg: 'RS256', kid: PAIR.jwk.kid, typ: 'JWT' }));
     const nowS = Math.floor(Date.now() / 1000);
     const payload = b64u(JSON.stringify({ sub, email, email_verified: true, aud: this.CLIENT_ID, iss: 'https://accounts.google.com', exp: nowS + 600, iat: nowS - 10 }));
-    return head + '.' + payload + '.' + b64u(crypto.sign('RSA-SHA256', Buffer.from(head + '.' + payload), privateKey));
+    return head + '.' + payload + '.' + b64u(crypto.sign('RSA-SHA256', Buffer.from(head + '.' + payload), PRIVATE_KEY));
   }
 };
 
