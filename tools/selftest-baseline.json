@@ -1,6 +1,6 @@
 {
-  "total": 75,
-  "passed": 75,
+  "total": 76,
+  "passed": 76,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -55,6 +55,7 @@
     "viewport cull rejects NaN",
     "profiler stats: percentiles monotone, empty ring safe",
     "v4.22 pilot links: pilotUrl encodes names and rides the deck address",
+    "v4.26.1 adopted deck: the ladder is choice, local, adopt, auto",
     "v4.22 setDeck: trims the address, clears the bearer, restores clean",
     "battery default: touch devices cap at 60, desktop uncapped",
     "seraph prism lance: heat math, duty cycle, and hull contract",

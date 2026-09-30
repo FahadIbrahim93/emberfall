@@ -20,6 +20,24 @@ const NET = {
      mirror of the shell) flies that deck's boards, accounts and duels
      cross-origin. '?deck=<url>' on the address bar wins once and
      persists; '?deck=' (empty) clears back to auto. */
+  /* v4.26.1 — the ADOPTED deck: deck.json ships with the page, so the
+     live game joins the world deck with zero configuration. The ladder
+     in probe() decides once per boot: a pilot's stored choice first,
+     this origin's OWN deck second (self-hosted/LAN pilots keep their
+     local accounts), the adopted deck third, honest local mode last.
+     file:// boots never adopt (a local file has no accounts contract). */
+  DECK_ADOPTED: (function () {
+    try {
+      if (location.protocol === 'file:') return '';   /* local file play stays local */
+      const r = new XMLHttpRequest();
+      r.open('GET', 'deck.json', false);              /* load-time pure: sync before boot */
+      r.send(null);
+      if (r.status !== 200 && r.status !== 0) return '';
+      const j = JSON.parse(r.responseText);
+      return (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
+    } catch (e) { return ''; }
+  })(),
+
   deck: (function () {
     let q = null;
     try { q = new URLSearchParams(location.search).get('deck'); } catch (e) { }
@@ -77,6 +95,40 @@ const NET = {
     if (this.probeP) return this.probeP;
     if (this.probed) return this.on;
     this.probeP = (async () => {
+      /* v4.26.1 — the adoption ladder, decided at probe time (the one
+         moment every boot passes through):
+         1. a stored choice (emberfall2.deck) — the pilot decided, done;
+         2. this origin's OWN deck — same-origin /api/health answers fast
+            (400ms): a self-hosted/LAN pilot playing from their deck's own
+            origin keeps their local accounts, boards and duels (the v3.2
+            story is never hijacked);
+         3. the ADOPTED deck (deck.json) — a true static page joins the
+            world deck, so signup and boards work with zero configuration;
+         4. nothing answered — local mode, play never blocked.
+         Adoption is ambient, not stored: clearing the field or ?deck=
+         returns the pilot to the ladder. An adopted deck that has died
+         degrades to local mode like any unreachable remote — the next
+         boot tries again. */
+      if (!this.deck && !this._adopted && NET.DECK_ADOPTED && location.protocol !== 'file:') {
+        this._adopted = true;   /* latch: the ladder decides once per boot — a pilot who clears the field gets honest auto */
+        /* the local-deck check is a seam so the selftest can drive every
+           branch without real network; production always takes the fetch.
+           Only a DEFINITIVE answer (404 — the origin's own server 404s
+           unknown paths) adopts; a timeout or any other inconclusive
+           answer stays auto, so a slow machine can never steal a
+           self-hosted pilot's boot and point it at the world deck. */
+        const local = this._localDeckAlive ? await this._localDeckAlive() : await (async () => {
+          try {
+            const lctl = new AbortController(); const lkill = setTimeout(() => lctl.abort(), 400);
+            const lr = await fetch('/api/health', { signal: lctl.signal, cache: 'no-store' });
+            clearTimeout(lkill);
+            if (lr && lr.status === 404) return 'no';   /* static origin: no deck here, definitively */
+            if (lr && lr.ok) { const lj = await lr.json().catch(() => null); return (lj && lj.ok) ? 'ok' : 'unknown'; }
+            return 'unknown';
+          } catch (e) { return 'unknown'; }
+        })();
+        if (local === 'no') this.deck = NET.DECK_ADOPTED;
+      }
       if (this.deck) {
         /* a hand-typed address must look like one before we dial it */
         try {

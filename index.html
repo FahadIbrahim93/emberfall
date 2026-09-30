@@ -8547,6 +8547,46 @@ function runSelfTests() {
     eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
     NET.deck = savedDeck;
   });
+  T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
+    const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
+    const savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
+    const savedLocal = NET._localDeckAlive, savedProbed = NET.probed;
+    try {
+      ok(typeof NET.DECK_ADOPTED === 'string', 'the adoption record loaded (deck.json rides the page)');
+      NET.DECK_ADOPTED = 'https://adopt.example.com';
+      const begin = () => { NET.deck = ''; NET.probed = false; NET.probeP = null; NET.on = false; };
+      const freeze = p => { NET.probed = true; NET.probeP = null; return p.catch(() => false); };   /* take the ladder's decision, never the network */
+      /* 1. a local deck on THIS origin outranks adoption (the v3.2 story) */
+      begin();
+      NET._localDeckAlive = async () => 'ok';
+      await freeze(NET.probe());
+      eq(NET.deck, '', 'local deck alive → stay on this origin (never hijacked to the world deck)');
+      /* 1b. an INCONCLUSIVE local check never adopts — a slow machine
+         must not steal a self-hosted pilot's boot onto the world deck */
+      begin();
+      NET._localDeckAlive = async () => 'unknown';
+      await freeze(NET.probe());
+      eq(NET.deck, '', 'inconclusive local check → honest auto, no adoption');
+      /* 2. a definitive 404 → the adopted deck is dialed */
+      begin();
+      NET._localDeckAlive = async () => 'no';
+      await freeze(NET.probe());
+      eq(NET.deck, 'https://adopt.example.com', 'no local deck → the adopted world deck is dialed');
+      /* 3. adoption latches: a pilot who clears the field gets honest auto */
+      begin();
+      await freeze(NET.probe());
+      eq(NET.deck, '', 'cleared field after adoption → stays empty (no re-adopt this boot)');
+      /* 4. a stored choice outranks everything */
+      localStorage.setItem('emberfall2.deck', 'https://mine.example.com');
+      NET.deck = 'https://mine.example.com';
+      await freeze(NET.probe());
+      eq(NET.deck, 'https://mine.example.com', 'stored choice outranks adoption');
+    } finally {
+      NET.DECK_ADOPTED = savedAdopted; NET.deck = savedDeck; NET.probed = savedProbed; NET.probeP = null;
+      NET.on = savedOn; NET.token = savedTok; NET._localDeckAlive = savedLocal;
+      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+    }
+  });
   T('v4.22 setDeck: trims the address, clears the bearer, restores clean', () => {
     const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
     try { localStorage.setItem('emberfall2.token', 'tok-abc'); } catch (e) { }

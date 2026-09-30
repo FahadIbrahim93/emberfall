@@ -253,7 +253,7 @@ jobs:
       - name: Assemble static site
         run: |
           mkdir -p _site/js _site/icons _site/fonts _site/docs/press
-          cp index.html stats.html sw.js manifest.webmanifest _site/
+          cp index.html stats.html sw.js manifest.webmanifest deck.json _site/
           cp js/*.js _site/js/
           cp icons/*.png _site/icons/
           cp fonts/*.woff2 _site/fonts/
@@ -294,7 +294,7 @@ jobs:
           want=$(git show HEAD:index.html | sha256sum | cut -d' ' -f1)
           echo "live sha $live · HEAD sha $want"
           [ "$live" = "$want" ] || { echo "DEPLOY MISMATCH: served index.html is not byte-identical to HEAD"; exit 1; }
-          for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2 docs/press-kit.html docs/press/hero.png docs/press/emberfall-wave1.gif; do
+          for f in sw.js manifest.webmanifest deck.json js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2 docs/press-kit.html docs/press/hero.png docs/press/emberfall-wave1.gif; do
             c=$(curl -s -o /dev/null -w '%{http_code}' "$URL$f")
             [ "$c" = "200" ] || { echo "MISSING $f -> $c"; exit 1; }
           done
