@@ -66,7 +66,11 @@ jobs:
           # EF_CONNECT_SRC must match playwright.config.js: the Browser smoke
           # step REUSES this deck (port busy), so this deck's served CSP is
           # the one the deck-link specs fly under (pages dial the XO deck)
-          PORT="$SERVER_PORT" EF_CORS_ORIGINS='http://127.0.0.1:8123' EF_CONNECT_SRC='http://127.0.0.1:8165' node server.js > server.log 2>&1 &
+          # v4.26: same story for Google — the reused deck must announce a
+          # client id and read the SAME JWKS path the playwright config
+          # writes (tmpdir on the runner = /tmp). The deck reads the file
+          # lazily per token, so it may not exist until the config loads.
+          PORT="$SERVER_PORT" EF_CORS_ORIGINS='http://127.0.0.1:8123' EF_CONNECT_SRC='http://127.0.0.1:8165' EF_GOOGLE_CLIENT_ID='e2e-google-client-id.apps.googleusercontent.com' EF_GOOGLE_JWKS_FILE='/tmp/ef-e2e-google-jwks.json' node server.js > server.log 2>&1 &
           echo "SERVER_PID=$!" >> "$GITHUB_ENV"
           for i in $(seq 1 40); do
             if curl -fsS "http://127.0.0.1:$SERVER_PORT/api/health" > /dev/null 2>&1; then

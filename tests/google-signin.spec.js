@@ -47,8 +47,8 @@ test('google button arms from the deck config and drives the real sign-in flow',
 
   await openSettings(page);
   /* the suite's deck announces a client id via /api/health → the row arms */
-  await expect(page.locator('#googleBox')).toBeVisible();
-  await expect(page.locator('#gBtnStub')).toBeVisible();
+  await expect(page.locator('#googleBox')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#gBtnStub')).toBeVisible({ timeout: 10000 });
 
   const credential = GOOGLE.mint('e2e-google-sub-1', 'e2e.google.pilot@gmail.com');
   await page.evaluate((c) => window.__gsiFire(c), credential);
