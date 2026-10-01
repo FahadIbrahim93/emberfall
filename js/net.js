@@ -362,7 +362,7 @@ const NET = {
   },
 
   /* submit a finished run with its provenance; returns { rank, verdict } or null */
-  async  submitScore(mode, score, wave, ship, diff, tele, extra) {
+  async submitScore(mode, score, wave, ship, diff, tele, extra) {
     if (!this.on || !this.user) return null;
     // no catch: callers need the error status to decide queue vs drop
     return this.req('POST', '/api/scores', {
