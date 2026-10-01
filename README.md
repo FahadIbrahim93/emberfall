@@ -179,7 +179,7 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 - the fun curve renders on the recruiting page (marker-maintained, CI-checked); playtest feedback becomes a structured issue form asking the exact four questions; the deck gets ops.html - a noindex operator cockpit over health census, the live-ledger fence, limiter telemetry and the Wardenfall honor total
 ## What's new in v4.23.1 — "The Fence"
 
-- live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 9 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)
+- live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 13 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)
 ## What's new in v4.23.0 — "Glasscockpit"
 
 - Ops gets a glasscockpit: /api/health now carries per-bucket 429 telemetry with no PII so limiter regressions show in ops instead of hiding in logs, the replay drill grew a ways-matrix proving the anti-cheat window honest across modes, perturbed telemetry shapes and per-hash windows, the game and the recruiting page preview properly wherever they are shared, and Fly.io deployment became a five-minute checklist with a committed fly.toml.
@@ -383,6 +383,19 @@ tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad v
 tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
 tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
+tools/drill-google.mjs  Google sign-in contract: minted RS256 tokens, session mint, callsign linking, concurrent first sign-ins join one pilot (CI step)
+tools/drill-cross-origin.mjs  ADR 0002 drill: CORS grants, bearer sessions, pagination, pilot profiles across origins (CI step)
+tools/drill-replay.mjs  replay drill: the 24h anti-cheat window, per-pilot and per-hash integrity (CI step)
+tools/drill-feedback.mjs  listening-deck drill: notes + funnel caps, dedupe, closed vocabulary, aggregates (CI step)
+tools/drill-onboarding.mjs  launch-day drill: stranger → signed-up → honest run → ranked worldwide, through the real deck client (CI step)
+tools/drill-lighthouse.mjs  adoption-ladder drill: choice · local · adopt · auto, file:// and CORS guard rails, live zero-config signup (CI step)
+tools/deck-deploy.mjs  one command to a live deck: plan / doctor / launch / deploy / verify (flyctl wrapper, FLY_API_TOKEN-aware)
+tools/mirror-alarm.mjs  keyless mirror smoke detector: unreachable · stale >24h · machine-pilot contamination (hourly CI step)
+tools/db-backup.js     live ledger backup with --verify (a backup that was never validated is not a backup)
+tools/testpilot-report.mjs  read-only production census: pilots, runs, duels, integrity
+tools/feedback-report.mjs  playtest note reader: volume, keyword themes, newest notes
+tools/monday-digest.mjs  weekly operator digest: fun curve + funnel + notes + next rare Sunday
+tools/stubguard.js    restore recipe guardian: a payload that stops looking like the game dies in seconds
 tests/game.spec.js    Playwright browser smoke (boot, local-only assets, core flow)
 docs/economy-audit.md economy tuning report, calibrated on real telemetry
 docs/performance.md   measured CPU/GPU baseline + method

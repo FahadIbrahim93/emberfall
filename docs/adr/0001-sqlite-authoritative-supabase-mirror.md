@@ -8,8 +8,9 @@ global-leaderboard architecture now that a Supabase connector is available.
 EMBERFALL's Command Deck is a zero-dependency Node ≥ 22 process with the
 game's SQLite database (`node:sqlite`): scrypt credentials, hashed
 sessions, telemetry-checked scores, the daily gauntlet ledger, duels, and
-the save vault — pinned by 76 smoke checks and 80 drill checks that fly on
-every push. The repo is also a portfolio showcase: the GitHub README and
+the save vault — pinned by the smoke battery and thirteen drills that fly on
+every push (counts live in README's badge row, which copyguard gates —
+prose numbers rot, gates don't). The repo is also a portfolio showcase: the GitHub README and
 the live site should be able to show *real* numbers (pilots, runs, top
 scores) without anyone starting a private server.
 
