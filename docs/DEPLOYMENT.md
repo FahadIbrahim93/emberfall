@@ -98,6 +98,26 @@ never be authorized for that origin. To cut them: Vercel dashboard →
 the project → Settings → Git → **Disconnect**, then delete the project.
 Nothing in this repo links to a `*.vercel.app` URL, so nothing breaks.
 
+## The launch-day runbook (v4.26.1)
+
+The full path from "this repo" to "a stranger signs up from the live
+site" — every step is either a command or a verification:
+
+```bash
+node tools/deck-deploy.mjs doctor    # preflight: flyctl, auth, clean tree
+node tools/deck-deploy.mjs launch    # app + volume + secrets + first deploy
+node tools/deck-deploy.mjs verify    # health · live fence · CORS echo · Google
+node tools/drill-restore.mjs         # the ledger round trip, rehearsed
+```
+
+Then the human verification the tools cannot do for you: open the live
+site, create an account through Settings → Command deck (the page adopts
+the deck automatically — no client change ships), fly a run, and see it
+rank on the Global tab. Check `ops.html` on the deck origin: census,
+limiter state, the fence. From here on, every release is `deck-deploy
+deploy`; every hour the mirror alarm watches the public board; every
+push's CI rehearses the restore.
+
 ## Environment
 
 | Variable | Meaning |
@@ -192,4 +212,16 @@ fly scale memory 256            # the deck is one process; stay small
 Fly terminates TLS at the edge (the deck stays plain HTTP behind it),
 `fly.toml` mounts the volume at `/data` and wires the health check to
 `/api/health`. Backups: `fly ssh console -C "node /app/tools/db-backup.js
---verify --keep 14"` on a schedule, `--out` a directory you sync off-box.
+--verify --out /data/backups --keep 14"` on a schedule, `--out` a
+directory you sync off-box.
+
+**The restore rehearsal (prove it before you need it):**
+`tools/drill-restore.mjs` flies the whole catastrophe on a scratch deck —
+onboard a pilot, live backup, DESTROY the ledger dir, restore per the
+documented procedure, reboot, and log the pilot back in (11 checks, a CI
+step). Run it whenever the backup procedure, the data-dir resolution, or
+the container volume changes. A backup that has never been restored is a
+hope, not a plan — and db-backup resolves its data dir from `EF_DATA_DIR`
+like the deck does: an invocation without the env set backs up the default
+location silently, which is exactly how a rehearsal catches the wrong-database
+mistake before production has to.
