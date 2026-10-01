@@ -12,6 +12,11 @@
 # (see docs/DEPLOYMENT.md; unset = the feature does not exist, honestly)
 # Full checklist: docs/DEPLOYMENT.md · gaps a rollout still owns
 # (backups off-box, log shipping): docs/ROADMAP.md "The container path".
+# LOG ROTATION (gap 13's minimum, v4.26.1): the deck logs to stdout and
+# the runtime captures it — but the default json-file-style driver
+# rotates nothing, so a chatty limiter could fill a small disk. The
+# [log] block bounds retention (10 MB, 5 files); the deck's log volume
+# is small by policy (boot lines, 429 telemetry, errors — no PII).
 
 app = 'emberfall-deck'
 primary_region = 'iad'
@@ -40,6 +45,10 @@ primary_region = 'iad'
 [[vm]]
   size = 'shared-cpu-1x'
   memory = '256mb'               # the deck is one process; stay small
+
+[log]
+  retention = '10mb'
+  max_files = 5
 
 [mounts]
   source = 'ef_data'

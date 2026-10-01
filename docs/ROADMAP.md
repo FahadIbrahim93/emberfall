@@ -103,14 +103,13 @@ hosting real pilots.*
     session-token hashes), and a restore *rehearsal* — boot a scratch
     deck from the off-box copy and log a pilot in. A backup on the
     ledger's own disk is not a backup.
-13. **Log shipping** — the deck logs to stdout; the container runtime
-    captures it and nothing forwards it (and the default json-file
-    driver rotates nothing). Minimum: bounded rotation
-    (`max-size`/`max-file`). The real answer: a shipper
-    (promtail/vector) to a sink with a bounded window (~30 days),
-    carrying boot lines, limiter 429 telemetry (feeds item 5), and
-    errors — PII-free by policy: no callsigns, no token material, no
-    hashes.
+13. **~~Log shipping~~ minimum DONE v4.26.1** — `fly.toml` now bounds
+    retention (`[log]` 10 MB, 5 files), so the default driver can no
+    longer rotate nothing. What remains of this item is the *real*
+    answer, unchanged: a shipper (promtail/vector) to a sink with a
+    bounded window (~30 days), carrying boot lines, limiter 429
+    telemetry (feeds item 5), and errors — PII-free by policy: no
+    callsigns, no token material, no hashes.
 
 Deliberately out of scope, per ADR 0001's posture: Kubernetes,
 multi-node HA, a managed database. The deck is one process and one
