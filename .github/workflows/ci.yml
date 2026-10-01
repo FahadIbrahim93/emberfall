@@ -119,6 +119,9 @@ jobs:
       - name: Save-vault drill (snapshot lands, throttle engages, the six-newest prune holds)
         run: node tools/drill-vault.mjs
 
+      - name: Restore rehearsal (live backup → ledger destroyed → restored → pilot logs in; gap 12's third leg)
+        run: node tools/drill-restore.mjs
+
       - name: TRUST_PROXY limiter keys on the real client IP
         run: |
           TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &

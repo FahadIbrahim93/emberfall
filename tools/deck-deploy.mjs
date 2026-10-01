@@ -123,6 +123,9 @@ async function runVerify() {
   const g = await fetch(ORIGIN + '/api/health').then(x => x.json()).catch(() => null);
   if (g && g.googleClientId) say('ok - Google sign-in is announced (' + String(g.googleClientId).slice(0, 12) + '…)');
   else say('note - Google sign-in is not configured on this deck (the button stays unarmed — honest)');
+  say('── ledger durability (gap 12): a backup that has never been restored is a hope.');
+  say('   schedule:  fly ssh console -C "node /app/tools/db-backup.js --verify --out /data/backups --keep 14"');
+  say('   rehearsal: node tools/drill-restore.mjs   (live backup → destroy → restore → pilot logs in)');
   say(`── the Pages game adopts this deck automatically (deck.json ladder) — players get signup + boards with zero configuration.`);
   say(`── prove it yourself: open ${PAGES}/emberfall/ and create an account in Settings → Command deck.`);
   say('DECK-DEPLOY: VERIFIED');
