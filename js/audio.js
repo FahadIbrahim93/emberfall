@@ -150,9 +150,6 @@ const AU = {
     this.tone({ type: 'square', f0: rnd(base * .92, base * 1.08), f1: 140, dur: .075, vol: .075, filter: ['lowpass', 5200, 900] });
     this.hiss({ dur: .035, f0: 6400, vol: .026, type: 'highpass' });
   },
-  laserLoop(t0) {
-    this.tone({ type: 'sawtooth', f0: 180, f1: 240, dur: .14, vol: .05, t0, filter: ['bandpass', 1400], q: 6 });
-  },
   hit() { if (this.gate('hit', 34)) return; this.hiss({ dur: .045, f0: 2600, f1: 900, vol: .06, type: 'bandpass', q: 1.4 }); },
   armor() { if (this.gate('arm', 55)) return; this.tone({ type: 'square', f0: 240, f1: 160, dur: .07, vol: .05 }); },
   graze() {

@@ -573,9 +573,13 @@ function newSession(req, res, userId) {
     `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax;${secure ? ' Secure;' : ''} Max-Age=${SESSION_DAYS * 86400}`);
   if (isAllowedOrigin(req.headers.origin || '')) {
     res.setHeader('X-Emberfall-Token', token);
-    res.setHeader('Access-Control-Expose-Headers',
-      (res.getHeader('Access-Control-Expose-Headers') ? res.getHeader('Access-Control-Expose-Headers') + ', ' : '') +
-      'X-Emberfall-Token');
+    /* append only if corsHeaders has not already exposed it — a duplicated
+       name in the list is hygiene noise the browser merges away anyway */
+    const cur = res.getHeader('Access-Control-Expose-Headers') || '';
+    if (!cur.includes('X-Emberfall-Token')) {
+      res.setHeader('Access-Control-Expose-Headers',
+        (cur ? cur + ', ' : '') + 'X-Emberfall-Token');
+    }
   }
 }
 function clearSession(req, res) {
@@ -747,7 +751,9 @@ function corsHeaders(req, res) {
   if (origin && isAllowedOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Emberfall-Rank, X-Emberfall-Token');
+    /* only headers the deck actually sets: the token (register/login/auth)
+       — ranks travel in the JSON body, never in a header */
+    res.setHeader('Access-Control-Expose-Headers', 'X-Emberfall-Token');
   }
 }
 function handlePreflight(req, res) {
