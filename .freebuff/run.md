@@ -620,3 +620,34 @@ drills google 23 / lighthouse 18 / onboarding 11 / feedback 12 all
 green, mirror alarm green, tree clean, 4 tidy commits local
 (dbc0ee2, 1af2c99, 540af62, + git-ignore/stats ops commit). The
 operator-only launch steps are unchanged (fly auth → deck-deploy launch).
+
+## Block 3 (2026-10-01, continued) — the restore rehearsal proves the last durability leg
+
+With launch blocked only on Fly auth, the highest-leverage credential-free
+work was ROADMAP gap 12's third leg: the restore rehearsal. drill-restore.mjs
+(11 checks, CI-wired) flies the catastrophe on a scratch deck: onboard pilot
++ accepted run → live `db-backup --verify` (no deck stop) → DESTROY the data
+dir → restore per the documented procedure → reboot → census 1, scrypt login
+intact, run back on the board, /api/me answering.
+
+THE DRILL'S FIRST FLIGHT CAUGHT A REAL TRAP: execFileSync to db-backup.js
+without EF_DATA_DIR silently backed up the DEFAULT (production-sibling)
+ledger while claiming success — the act-5 census refused to lie, which is
+the whole point of a rehearsal. Same failure class as the 2026-09-25
+"backed up NOTHING while claiming success" incident, now encoded in the
+drill with a comment and in DEPLOYMENT.md as a warning. A backup that has
+never been restored is a hope; a rehearsal that can't fail is theater —
+this one can, and did, and then went green for the right reason.
+
+Also: fly.toml [log] bounded retention 10MB/5 files (gap 13's minimum —
+the default driver rotates nothing and a chatty limiter could fill a
+small disk); deck-deploy verify prints the durability pointers after
+every deploy; DEPLOYMENT.md gains the launch-day runbook (doctor →
+launch → verify → restore drill → the human signup check); ROADMAP gap
+13 marked minimum-done.
+
+BLOCK END STATE: 17 local commits ahead of origin, battery fully green
+(gates, selftest 76, smoke 89, browser 34, 13 drills incl. restore 11),
+mirror alarmed, fly.toml bounded, launch runbook written. Operator-only
+remaining: fly auth → deck-deploy launch → (optional) Google OAuth client
+→ verify → play from the live site.
