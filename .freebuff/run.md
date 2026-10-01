@@ -569,3 +569,54 @@ Google OAuth client (origins: Pages + fly.dev, no redirect URI), then
 `verify` and play from the live site. The stale rehearsal deck on 8123
 was killed per runbook (ledger backed up to .freebuff/deck-live.bak-*,
 now git-ignored).
+
+## The tidy-up pass (2026-10-01, same day as v4.26.1) — dead code on a governed repo
+
+Mandate: "fix/remove any un-necessary/dead codes." On a repo where
+deadscan --check is already a CI gate, the remaining dead code lives in
+the scanner's BLIND SPOTS — this pass was a tour of them:
+
+1. **Object-literal methods are invisible.** deadscan counts declaration
+   KEYWORDS (function/const/let/var), so NET/AU/OUTBOX-style methods
+   (`name(...) {}`) never get singleton-checked. A per-method
+   word-boundary count over the whole client corpus found exactly one:
+   AU.laserLoop — declared, never called, superseded by the v3.5 beam
+   voice (beamLoop/beamIgnite/beamVent). Removed. (Throwaway audit
+   deleted after use; the finding was real, the tool was scaffolding.)
+
+2. **Headers can be dead too.** Access-Control-Expose-Headers listed
+   X-Emberfall-Rank: the deck never sets it, no client ever reads it
+   (ranks travel in the JSON body — the game-over panel reads r.rank).
+   Proven by repo-wide grep + the earlier trace that showed the name
+   listed TWICE (corsHeaders sets the full list, then newSession
+   appended the token unconditionally). Dropped the ghost, deduped the
+   append. LESSON: the wire trace I already had was the evidence; look
+   at captured traffic for hygiene drift.
+
+3. **A shipped tool can be unwired.** drill-feedback.mjs (v4.25, 12
+   checks, TRUST_PROXY multi-device) passed locally but was in NO CI
+   job — an acceptance test that never runs is decoration. Now a CI
+   step next to the other drills. Audit question for every tool: "who
+   invokes this?" — grep workflows + scripts, not memory.
+
+4. **Prose numbers rot; gates don't.** ADR 0001 claimed "76 smoke
+   checks and 80 drill checks" (smoke is 89, drills are 13) and README's
+   layout table named 12 of 25 tools. Numbers became structural claims
+   ("counts live in README's badge row, which copyguard gates"); the
+   table now lists every tool. Copyguard's lesson inverted: it gates
+   numbers it knows about; claims it doesn't parse (ADR prose) need the
+   human habit of asking "does this number still exist?"
+
+5. **False-positive discipline held.** The sim package's TOUR_FINALE/
+   tourWorldsDone singletons are golden-test anchors; tools' console.log
+   output is the product (drills speak in verdicts); "throwaway" hits
+   were comments. Every removal in this pass carried proof BEFORE the
+   edit: the deadscan blind spot named, the reference count shown, or
+   the wire trace in hand. Nothing was deleted because it "looked
+   unused".
+
+END STATE: sim 61/61, browser 34/34, selftest 76/76, smoke 89/89,
+drills google 23 / lighthouse 18 / onboarding 11 / feedback 12 all
+green, mirror alarm green, tree clean, 4 tidy commits local
+(dbc0ee2, 1af2c99, 540af62, + git-ignore/stats ops commit). The
+operator-only launch steps are unchanged (fly auth → deck-deploy launch).
