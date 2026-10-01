@@ -110,10 +110,10 @@ jobs:
       - name: Onboarding drill (stranger → signed-up → honest run → ranked worldwide, through the real deck client)
         run: node tools/drill-onboarding.mjs
 
-      - name: Feedback drill (notes + funnel: caps, dedupe, closed vocabulary, aggregates — multi-device via TRUST_PROXY)
+      - name: Feedback drill (notes + funnel — caps, dedupe, closed vocabulary, aggregates — multi-device via TRUST_PROXY)
         run: node tools/drill-feedback.mjs
 
-      - name: Lighthouse drill (the deck-adoption ladder: choice · local · adopt · auto, file:// and CORS rails, live zero-config signup)
+      - name: Lighthouse drill (the deck-adoption ladder — choice · local · adopt · auto, file:// and CORS rails, live zero-config signup)
         run: node tools/drill-lighthouse.mjs
 
       - name: Save-vault drill (snapshot lands, throttle engages, the six-newest prune holds)
