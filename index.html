@@ -1915,6 +1915,12 @@ const ctx = cv.getContext('2d', { alpha: false });
 const bloomCv = document.createElement('canvas');
 const bctx = bloomCv.getContext('2d');
 const CAN_FILTER = typeof bctx.filter === 'string';
+// offscreen buffer for the chroma aberration pass — drawing the main canvas
+// onto itself with a filter + lighter composite is unreliable across browsers
+// (Chrome in particular can drop or smear frames when src == dst). One extra
+// blit per flash frame, zero cost when there is no chroma active.
+const chromaCv = document.createElement('canvas');
+const chromaCtx = chromaCv.getContext('2d');
 
 let W = 1, H = 1, DPR = 1, RSCALE = 1;
 const QUALITY = { bloom: true, particles: 1, maxParticles: 900, streaks: true, scale: 1, debris: true };
@@ -1944,6 +1950,9 @@ function resize() {
   ctx.imageSmoothingEnabled = true;
   bloomCv.width = Math.max(1, Math.round(W / BLOOM_DIV));
   bloomCv.height = Math.max(1, Math.round(H / BLOOM_DIV));
+  if (chromaCv.width !== W || chromaCv.height !== H) {
+    chromaCv.width = W; chromaCv.height = H;
+  }
   buildBackdrop();
   seedStars();
   document.body.classList.toggle('needrotate', H < 300 && W < 480);
@@ -2743,7 +2752,7 @@ function drawBackdrop(t) {
   const moonMaps = (g, mode) => {
     g.save();
     g.globalCompositeOperation = mode;
-    g.translate(mx, my);
+    g.translate(mx, my + ms / 2);   // moon surface centre, not its top-left
     g.rotate(termRot);
     g.drawImage(mode === 'multiply' ? moon.shade : moon.glow, -ms / 2, -ms / 2, ms, ms);
     g.restore();
@@ -5834,14 +5843,22 @@ function render() {
 
   if (CFG.flash && CAM.chromaRamp > .02 && CAN_FILTER && QUALITY.scale > .8) {
     const k = CAM.chromaRamp * 2.2;
+    // capture the finished frame to an offscreen canvas so the chroma pass
+    // reads from a stable source instead of fighting the draw it is writing.
+    if (chromaCv.width !== W || chromaCv.height !== H) {
+      chromaCv.width = W; chromaCv.height = H;
+    }
+    chromaCtx.setTransform(1, 0, 0, 1, 0, 0);
+    chromaCtx.clearRect(0, 0, W, H);
+    chromaCtx.drawImage(cv, 0, 0);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = Math.min(.5, k * .4);
     // channel-split ghosting: scaled copies tinted to the opposite channels
     ctx.filter = 'sepia(1) saturate(6) hue-rotate(-25deg)';
-    ctx.drawImage(cv, -k, 0, W, H);
+    ctx.drawImage(chromaCv, -k, 0, W, H);
     ctx.filter = 'sepia(1) saturate(6) hue-rotate(140deg)';
-    ctx.drawImage(cv, k, 0, W, H);
+    ctx.drawImage(chromaCv, k, 0, W, H);
     ctx.filter = 'none';
     ctx.restore();
   }
