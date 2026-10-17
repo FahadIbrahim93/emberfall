@@ -80,3 +80,12 @@ const busy = ms => { const t0 = performance.now(); while (performance.now() - t0
 
 Caveat: this is the desktop browser's 2D pipeline — it bounds relative costs,
 not absolute device frame times.
+
+## Canvas presentation stability
+
+The main `#game` canvas intentionally uses an opaque 2D context without the
+`desynchronized` low-latency hint. The renderer redraws the full viewport on
+each animation frame; keeping presentation synchronized avoids a class of
+partial-frame tearing/flicker seen on some browser/GPU paths. If changing the
+context options, verify the full top edge of the playfield during sustained
+combat on Chrome/Edge hardware, not just the average FPS.

@@ -25,3 +25,6 @@ docs/audit/*
 # the local production deck's data dir — same rule (and its backups)
 .freebuff/deck-live/
 .freebuff/deck-live.bak-*/
+
+# Per-worktree agent journal: keep local, not in the product repository.
+.freebuff/run.md

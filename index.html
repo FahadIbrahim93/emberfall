@@ -1908,7 +1908,10 @@ function applyDailyResult(res) {
    bloom. Dropping the buffer is the first thing quality auto-tuning does.
    ══════════════════════════════════════════════════════════════════════ */
 const cv = $('game');
-const ctx = cv.getContext('2d', { alpha: false, desynchronized: true });
+/* Keep the full-frame renderer on the browser's synchronized compositor path.
+   The desynchronized low-latency hint can tear or flash partial frames on some
+   browser/GPU combinations while this canvas is repainted every animation tick. */
+const ctx = cv.getContext('2d', { alpha: false });
 const bloomCv = document.createElement('canvas');
 const bctx = bloomCv.getContext('2d');
 const CAN_FILTER = typeof bctx.filter === 'string';
