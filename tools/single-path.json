@@ -1,0 +1,21 @@
+{
+  "pending": [
+    "backdrop.ts",
+    "bosses.ts",
+    "catalog.ts",
+    "combat.ts",
+    "constants.ts",
+    "game-loop.ts",
+    "index.ts",
+    "math.ts",
+    "render-core.ts",
+    "render-emit-bloom.ts",
+    "rng.ts",
+    "stages.ts",
+    "step.ts",
+    "trig.ts",
+    "types.ts",
+    "world.ts"
+  ],
+  "note": "ADR 0003: these await wiring over their js/* counterparts with a thin adapter like render-hazards.ts. The list must shrink to empty; single-path-gate.js fails on any module that is neither an adapter nor listed here."
+}

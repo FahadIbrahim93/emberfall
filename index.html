@@ -1018,6 +1018,7 @@ body.needrotate #rotate{display:grid}
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
+<script src="js/hazards.js"></script>
 <script>
 'use strict';
 
@@ -2217,162 +2218,20 @@ function endRunTour() {
    cryofields dull the dash capacitor, ring dust breaks lock-ons. They
    tick only while a run is flying; school and rush stay clean; the
    codex teaches each hazard on first encounter. */
-const HAZARDS = {
-  gravity: {
-    name: 'Gravity well',
-    tip: 'A mass below pulls everything — shots curve, ships drift. Lead your shots; dash against the pull.',
-    wells: st => [{ x: W / 2, y: H + 140, k: 52000 * st.hazK }],
-    dashMul: () => 1
-  },
-  storm: {
-    name: 'Ion storm',
-    tip: 'Charge builds in columns, then strikes. The shimmering lane is your warning — leave it.',
-    strikeEvery: st => 2.7 / st.hazK,
-    dashMul: () => 1.18
-  },
-  frost: {
-    name: 'Cryofield',
-    tip: 'Deep cold dulls your capacitor — dash charges rebuild far slower. Spend them like alloy.',
-    dashMul: () => 1.9
-  },
-  haze: {
-    name: 'Ring haze',
-    tip: 'Ring dust scatters guidance — seeker rounds and sniper sights track at a fraction. Drift with the slow tide.',
-    seekMul: st => st.hazK,
-    dashMul: () => 1.12
-  },
-  flare: {
-    name: 'Solar flare',
-    tip: 'The sun exhales. Rising heat tides scorch the low field — read the glow climbing under you.',
-    dashMul: () => 1.15
-  },
-  cloudbank: {
-    name: 'Sulfur cloudbank',
-    tip: 'Dense cloud shrouds hostiles until they commit. Watch the leading edge of the bank.',
-    dashMul: () => 1.1
-  }
-};
-const hazards = {
-  active: null, k: 0, wl: null, t: 0, strikeT: 0, strikeFlash: 0, strikeX: 0, nextStrike: 3,
-  flares: [], clouds: [],
-  begin() {
-    const st = STAGE;
-    const on = st && st.haz && GAME.mode !== 'rush' && !GAME.school;
-    this.active = on ? HAZARDS[st.haz] : null;
-    this.k = on ? (st.hazK || 1) : 0;
-    this.wl = on && this.active.wells ? this.active.wells(st) : null;
-    this.t = 0; this.nextStrike = 2.4; this.strikeT = 0; this.strikeFlash = 0;
-    this.flares.length = 0; this.clouds.length = 0;
-    if (!this.active) return;
-    if (st.haz === 'flare') for (let i = 0; i < 2; i++) this.flares.push(this.mkFlare(i * 4.2));
-    if (st.haz === 'cloudbank') for (let i = 0; i < 3; i++)
-      this.clouds.push({ x: rnd(0, W), y: rnd(-30, 70), vx: rnd(60, 120) * (i % 2 ? 1 : -1), w: rnd(170, 340), a: rnd(.16, .28) });
-    CODEX.show('haz_' + st.haz, this.active.name, this.active.tip);
-  },
-  mkFlare(off) { return { x: rnd(W * .1, W * .9), t: -off, life: 2.6, warn: 1.05, w: rnd(46, 92), y: H + 40 }; },
-  stop() {
-    this.active = null; this.k = 0; this.wl = null;
-    this.flares.length = 0; this.clouds.length = 0; this.strikeT = 0; this.strikeFlash = 0;
-  },
-  update(dt) {
-    if (!this.active) return;
-    this.t += dt;
-    if (this.active.strikeEvery) {
-      this.nextStrike -= dt;
-      if (this.nextStrike <= 0 && this.strikeT <= 0) {
-        this.nextStrike = this.active.strikeEvery(STAGE) * rnd(.8, 1.25);
-        this.strikeX = rnd(60, W - 60);
-        this.strikeT = .8;                       /* telegraph, then bite */
-      }
-    }
-    if (this.strikeT > 0) {
-      this.strikeT -= dt;
-      if (this.strikeT <= 0) {
-        this.strikeFlash = .14;
-        if (GAME.state === 'playing' && P.alive && P.inv <= 0 && Math.abs(P.x - this.strikeX) < 46)
-          hurtPlayer({ x: this.strikeX, y: P.y, r: 8 });
-      }
-    }
-    if (this.strikeFlash > 0) this.strikeFlash -= dt;
-    for (let i = this.flares.length - 1; i >= 0; i--) {
-      const f = this.flares[i];
-      f.t += dt;
-      f.y = H + 30 - (H + 160) * clamp(f.t / f.life, 0, 1);   /* bottom → past top */
-      if (f.t > f.warn && f.t < f.life - .4 && GAME.state === 'playing' && P.alive &&
-          P.inv <= 0 && Math.abs(P.y - f.y) < 26)
-        hurtPlayer({ x: P.x, y: P.y, r: 6 });
-      if (f.t > f.life) this.flares[i] = this.mkFlare(rnd(1.6, 4.4));
-    }
-    for (const c of this.clouds) {            /* REDUCE: banks hold their posts */
-      if (!REDUCE) c.x += c.vx * dt;
-      if (c.x > W + c.w) c.x = -c.w;
-      if (c.x < -c.w) c.x = W + c.w;
-    }
-  },
-  /* inverse-falloff pull — inverse-SQUARE is far too violent at screen scale.
-     Writes into `out` (one shared scratch) so per-bullet calls never allocate. */
-  pull(x, y, out) {
-    if (!this.wl) return null;
-    const o = out || { ax: 0, ay: 0 };
-    o.ax = 0; o.ay = 0;
-    for (const w of this.wl) {
-      const dx = w.x - x, dy = w.y - y;
-      const d = Math.max(90, Math.sqrt(dx * dx + dy * dy));
-      const f = w.k / d;
-      o.ax += dx / d * f; o.ay += dy / d * f;
-    }
-    return o;
-  },
-  seekMul() { return this.active && this.active.seekMul ? this.active.seekMul(STAGE) : 1; },
-  dashMul() { return this.active ? this.active.dashMul() : 1; },
-  drawBack() {
-    if (!this.active) return;
-    const t = GAME.t;
-    if (this.strikeT > 0) {
-      ctx.save();
-      ctx.globalAlpha = REDUCE ? .22 : .15 + .1 * Math.sin(t * 30);
-      ctx.strokeStyle = PAL.tech;
-      ctx.setLineDash([4, 10]);
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(this.strikeX, 0); ctx.lineTo(this.strikeX, H); ctx.stroke();
-      ctx.restore();
-    }
-    for (const c of this.clouds) {
-      ctx.save();
-      ctx.globalAlpha = c.a;
-      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.w);
-      g.addColorStop(0, '#c8a34a'); g.addColorStop(1, 'rgba(200,163,74,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(c.x - c.w, c.y - c.w * .5, c.w * 2, c.w);
-      ctx.restore();
-    }
-  },
-  drawFront() {
-    if (!this.active) return;
-    if (this.strikeFlash > 0) {                    /* the bite: a jagged bolt */
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, this.strikeFlash * 7);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3.4;
-      ctx.beginPath(); ctx.moveTo(this.strikeX, 0);
-      let y = 0, x = this.strikeX;
-      while (y < H) { y += 34; x += rnd(-13, 13); ctx.lineTo(x, y); }
-      ctx.stroke();
-      ctx.restore();
-    }
-    for (const f of this.flares) {
-      if (f.t <= 0 || f.t > f.life) continue;
-      const a = .2 * (f.t < f.warn ? f.t / f.warn : clamp(1 - (f.t - f.life * .55) / (f.life * .45), .25, 1));
-      const g = ctx.createLinearGradient(0, f.y - 26, 0, f.y + 26);
-      g.addColorStop(0, 'rgba(255,150,60,0)');
-      g.addColorStop(.5, 'rgba(255,150,60,' + a.toFixed(3) + ')');
-      g.addColorStop(1, 'rgba(255,150,60,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, f.y - 26, W, 52);
-    }
-  }
-};
-
+/* ════════════════ WORLD HAZARDS — single path (ADR 0003) ═══════════
+   The runtime lives in js/hazards.js — the file the client loads here.
+   packages/sim/src/render-hazards.ts adapts the same bytes for tests,
+   so goldens guard the live path. This block is only the wiring. */
+const HZMOD = HZ.make({
+  W: () => W, H: () => H, STAGE: () => STAGE, REDUCE: () => REDUCE, ctx: () => ctx,
+  PAL_tech: () => PAL.tech, now: () => GAME.t, rnd: (a, b) => FX.range(a, b),
+  mode: () => GAME.mode, school: () => GAME.school, state: () => GAME.state,
+  canHit: () => GAME.state === 'playing' && P.alive && P.inv <= 0,
+  pX: () => P.x, pY: () => P.y,
+  showCodex: (k, n, t) => CODEX.show(k, n, t), hurtPlayer
+});
+const HAZARDS = HZ.defs;
+const hazards = HZMOD;
 const HZPULL = { ax: 0, ay: 0 };   /* shared pull scratch — zero alloc per bullet */
 
 function buildBackdrop() {

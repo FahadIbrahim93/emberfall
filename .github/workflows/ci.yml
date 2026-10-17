@@ -51,6 +51,8 @@ jobs:
 
       - name: Copy guard (truth-in-copy)
         run: node tools/copyguard.js
+      - name: Single-path gate
+        run: node tools/single-path-gate.js
 
       - name: SQL binding audit (INTEGER-vs-TEXT trap class)
         run: node tools/audit-sql-bindings.js
