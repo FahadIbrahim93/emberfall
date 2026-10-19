@@ -114,6 +114,7 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 | Release | Date | Bot wave | Bot kills | Bot grazes | Combo × | Bot median fps | First-60s median fps |
 |---|---|---|---|---|---|---|---|
+| v4.27.0 "The Same Ladder" | 2026-10-19 | 2 | 23 | 1 | ×2 | 29 | 20 |
 | v4.26.0 "The Open Gate" | 2026-09-30 | 2 | 20 | 3 | ×3 | 30 | 26 |
 | v4.25.0 "The Listening Deck" | 2026-09-28 | 3 | 28 | 5 | ×2 | 47 | 45 |
 | v4.24.0 "Signal" | 2026-09-28 | 2 | 15 | 1 | ×2 | 27 | 24 |
