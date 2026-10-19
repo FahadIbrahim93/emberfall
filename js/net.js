@@ -675,14 +675,10 @@ const NET = {
       }
       return;
     }
-    const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';
-    const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
     try {
-      const r = await fetch(SB + '/leaderboard?select=*', { headers: { apikey: KEY } });
-      if (!r.ok) throw new Error('mirror ' + r.status);
-      const rows = await r.json();
+      const rows = await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,best_wave,wardenfalls,runs&order=best_score.desc&limit=100');
       if (!rows.length) {
         box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
         return;
@@ -690,7 +686,8 @@ const NET = {
       box.innerHTML = rows.map((r2, i) =>
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm">' + esc(r2.callsign) + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
+        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
+        esc(r2.callsign) + '</a>' + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
         '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed hourly. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
@@ -722,7 +719,8 @@ const NET = {
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
-          esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          (h ? ' · ' + esc(h.name) : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">D' + pad2(r.w || 1) + pips + '</span></div>';
       }).join('');

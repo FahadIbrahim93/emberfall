@@ -1011,6 +1011,7 @@ body.needrotate #rotate{display:grid}
 </div>
 <script src="js/audio.js"></script>
 <script src="js/sky.js"></script>
+<script src="js/mirror-public.js"></script>
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
@@ -1036,13 +1037,16 @@ const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const hyp = (x, y) => Math.sqrt(x * x + y * y);
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
-/* v4.22: a pilot's name is a LINK on the global board — it opens the
-   deck's /pilot/<name> profile page. The deck address rides along:
-   NET.deck when the game flies a remote deck, otherwise this origin. */
+/* v4.22+ — pilot links: live deck → /pilot/<name> (authoritative JSON);
+   deckless Pages → pilot.html?callsign= (public mirror profile). */
 function pilotUrl(name) {
-  let base = location.origin;
-  if (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck)) base = NET.deck;
-  return base + '/pilot/' + encodeURIComponent(String(name || ''));
+  const enc = encodeURIComponent(String(name || ''));
+  const remote = (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck))
+    ? NET.deck.replace(/\/$/, '') : '';
+  if (typeof NET !== 'undefined' && NET.on) {
+    return (remote || location.origin) + '/pilot/' + enc;
+  }
+  return 'pilot.html?callsign=' + enc;
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -8609,13 +8613,17 @@ function runSelfTests() {
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
   T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
-    const savedDeck = NET.deck;
+    const savedDeck = NET.deck, savedOn = NET.on;
     NET.deck = '';
+    NET.on = true;
     eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
     eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
     NET.deck = 'https://deck.example.com';
     eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
+    NET.on = false;
+    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'deckless mirror profile page');
     NET.deck = savedDeck;
+    NET.on = savedOn;
   });
   T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
     const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
