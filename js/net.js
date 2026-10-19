@@ -725,7 +725,7 @@ const NET = {
         esc(r2.callsign) + '</a>' +
         (Number.isFinite(+r2.wardenfalls) && +r2.wardenfalls > 0 ? ' <span style="color:var(--gold);font-size:.6rem">✦' + Math.trunc(+r2.wardenfalls) + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
-        '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
+        '<span class="wv">W' + pad2(Number.isFinite(+r2.best_wave) ? Math.trunc(+r2.best_wave) : 1) + '</span></div>').join('') +
         '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
     } catch (e) {
       box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
