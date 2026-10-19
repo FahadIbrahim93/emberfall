@@ -76,6 +76,17 @@ const get = (path) => fetch(SB + path, { headers: { apikey: KEY } }).then(r => {
   return r.json();
 });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Paint is a wardrobe id, never a color string. Anything else is omitted
+   so a mirror row cannot land in a style attribute or a tag. */
+const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
+const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
+const ntxt = (n, width) => {
+  if (n == null || n === '') return '';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '';
+  const s = String(Math.max(0, Math.trunc(v)));
+  return width ? s.padStart(width, '0') : s;
+};
 const opt = (path) => fetch(SB + path, { headers: { apikey: KEY } }).then(async r => {
   if (r.status === 404) return null;
   if (!r.ok) throw new Error('mirror answered ' + r.status);
@@ -90,16 +101,18 @@ function paintBoard(rows, legacy) {
     return;
   }
   b.innerHTML = rows.map((r, i) => {
-    const rank = legacy ? (i + 1) : r.rank;
+    const rank = ntxt(legacy ? (i + 1) : r.rank, 2) || '—';
     const name = r.callsign;
-    const score = legacy ? r.best_score : r.score;
+    const score = ntxt(legacy ? r.best_score : r.score);
+    const runs = ntxt(r.runs);
     const extra = legacy
-      ? (esc(r.runs) + (r.runs === 1 ? ' run' : ' runs'))
-      : ('W' + String(r.wave || 1).padStart(2, '0') + (r.ship ? ' · ' + esc(r.ship) : '') + (r.paint ? ' · ' + esc(r.paint) : ''));
-    const href = 'stats.html?pilot=' + encodeURIComponent(name) + '&mode=' + encodeURIComponent(mode);
-    return '<div class="row"><span class="rank">' + String(rank).padStart(2, '0') + '</span>' +
+      ? (runs + (runs === '1' ? ' run' : ' runs'))
+      : ('W' + (ntxt(r.wave, 2) || '01') + (r.ship ? ' · ' + esc(r.ship) : '') + (paintText(r.paint) ? ' · ' + paintText(r.paint) : ''));
+    const href = 'stats.html?pilot=' + encodeURIComponent(name == null ? '' : String(name)) + '&mode=' + encodeURIComponent(mode);
+    const falls = ntxt(r.wardenfalls);
+    return '<div class="row"><span class="rank">' + rank + '</span>' +
       '<span class="name"><a href="' + esc(href) + '" style="color:inherit;text-decoration:none">' + esc(name) + '</a>' +
-      (r.wardenfalls ? ' <span class="wf">✦' + esc(r.wardenfalls) + '</span>' : '') + '</span>' +
+      (falls && falls !== '0' ? ' <span class="wf">✦' + falls + '</span>' : '') + '</span>' +
       '<span class="wf">' + extra + '</span>' +
       '<span class="score">' + esc(score) + '</span></div>';
   }).join('');
@@ -121,15 +134,15 @@ function showPilot(card) {
   const lines = ['main', 'daily', 'rush'].map(m => {
     const s = card[m + '_score'];
     if (s == null) return esc(m) + ': no accepted run';
-    return esc(m) + ' #' + esc(card[m + '_rank']) + ' · ' + esc(s) +
+    return esc(m) + ' #' + esc(ntxt(card[m + '_rank'])) + ' · ' + esc(ntxt(s)) +
       (card[m + '_ship'] ? ' · ' + esc(card[m + '_ship']) : '');
   }).join('<br>');
   const season = card.season_key
-    ? '<br>season ' + esc(card.season_key) + ' #' + esc(card.season_rank) + ' · ' + esc(card.season_pts) + ' pts'
+    ? '<br>season ' + esc(card.season_key) + ' #' + esc(ntxt(card.season_rank)) + ' · ' + esc(ntxt(card.season_pts)) + ' pts'
     : '';
   el.hidden = false;
   el.innerHTML = '<h3>' + esc(card.callsign) + '</h3><p>' +
-    (card.paint ? 'paint ' + esc(card.paint) + ' · ' : '') +
+    (paintText(card.paint) ? 'paint ' + paintText(card.paint) + ' · ' : '') +
     esc(card.wardenfalls || 0) + ' wardenfalls · ' + esc(card.flew_days || 0) + ' gauntlet days<br>' +
     lines + season + '</p>';
 }

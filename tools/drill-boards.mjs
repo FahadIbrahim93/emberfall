@@ -50,7 +50,12 @@ async function req(method, p, { body, token, accept } = {}) {
   try { json = JSON.parse(text); } catch { /* html or plain */ }
   const set = res.headers.get('set-cookie') || '';
   const m = /EF_SESSION=([^;]+)/.exec(set);
-  return { status: res.status, json, text, token: m ? m[1] : null, type: res.headers.get('content-type') || '' };
+  return {
+    status: res.status, json, text, token: m ? m[1] : null,
+    type: res.headers.get('content-type') || '',
+    csp: res.headers.get('content-security-policy') || '',
+    xfo: res.headers.get('x-frame-options') || ''
+  };
 }
 
 async function main() {
@@ -141,6 +146,13 @@ async function main() {
   missing.status === 404 && missing.text.includes('no such pilot')
     ? good('unknown pilot stays a JSON-less 404 for API clients')
     : bad('missing: ' + missing.status);
+  const xss = await req('GET', '/pilot/' + encodeURIComponent('<img src=x onerror=alert(1)>'), { accept: 'text/html' });
+  xss.status === 404 && xss.type.includes('text/html') &&
+    !xss.text.includes('<img') && xss.text.includes('&lt;img') &&
+    xss.csp.includes("script-src 'none'") && xss.csp.includes("frame-ancestors 'none'") &&
+    /DENY/i.test(xss.xfo)
+    ? good('HTML 404 escapes the callsign and refuses scripts and framing')
+    : bad('xss page: ' + xss.status + ' ' + xss.csp + ' ' + xss.text.slice(0, 160));
 
   const season = await req('GET', '/api/season');
   const lead = season.json && season.json.top && season.json.top[0];
@@ -149,6 +161,13 @@ async function main() {
     : bad('season: ' + JSON.stringify(lead));
 
   say('── mirror SQL publishes the same row');
+  const { DatabaseSync } = await import('node:sqlite');
+  const poked = new DatabaseSync(path.join(dataDir, 'emberfall.db'));
+  poked.exec('PRAGMA busy_timeout = 2000');
+  const aceId = poked.prepare("SELECT id FROM users WHERE name_lower = 'ace board'").get().id;
+  poked.prepare(`INSERT INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak, wardenfall)
+    VALUES (?, ?, ?, 1, 1, 0, 1, 0)`).run(aceId, "2026-01-01'); drop table pilots; --", "2026-01-01'); drop table pilots; --");
+  poked.close();
   const sql = await new Promise((resolve, reject) => {
     const childSql = spawn(process.execPath, ['tools/db-sync.mjs', '--print-sql'], {
       cwd: ROOT, env: { ...process.env, EF_DATA_DIR: dataDir }
@@ -159,7 +178,9 @@ async function main() {
     childSql.on('exit', code => code === 0 ? resolve(out) : reject(new Error(err || ('exit ' + code))));
   }).catch(e => { bad('db-sync: ' + e.message); return ''; });
   /'Ace Board', 8000, 4, 'vesper', 'gold'/.test(sql) && /'Ace Board', 10410, 2, 8000, 1/.test(sql) &&
-    !sql.includes('<x>') && sql.includes('insert into public.pilot_cards') && /'Ace Board', '[^']+', 'slate'/.test(sql)
+    !sql.includes('<x>') && sql.includes('insert into public.pilot_cards') && /'Ace Board', '[^']+', 'slate'/.test(sql) &&
+    sql.includes("2026-01-01''); drop table pilots; --") && !sql.includes("2026-01-01'); drop table pilots; --") &&
+    !/last_seen_at, '[^']+'/.test(sql)
     ? good('mirror SQL carries the best-run standing, the season total, and the allowlisted paint')
     : bad('sql missing the dossier — snippet: ' + sql.slice(0, 240));
 
