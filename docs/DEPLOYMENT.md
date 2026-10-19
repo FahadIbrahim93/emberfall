@@ -1,78 +1,44 @@
-# EMBERFALL — deployment
+# Deployment
 
-*Two ways to put EMBERFALL in front of players. They are not competitors —
-the static game is the product, the Command Deck is its multiplayer soul,
-and the deck is **optional by design**: without one, the game probes
-`/api/health` once, fails silently, and stays 100% local.*
+EMBERFALL has two parts. The **static game** is the product, and it runs anywhere. The **Command Deck** (`server.js`) is optional: it adds accounts, cloud saves, duels and shared leaderboards. Without a deck, the game checks `/api/health` once and stays local.
 
-## What deploys where
+## Where it lives today
 
-| | GitHub Pages (canonical) | Command Deck (self-hosted) |
+| | URL | Notes |
 |---|---|---|
-| Serves | the static game (index.html, js/, sw.js, icons, fonts) | the same game + the accounts/boards/duels API |
-| Runs on | GitHub Actions on every green push to `main` | any Node ≥ 22 host, one process, one origin |
-| Auth | none — pure static | callsign + password (see SECURITY.md) |
-| Points at | https://fahadibrahim93.github.io/emberfall/ | wherever you point DNS; the game auto-detects the deck on its own origin |
+| Vercel | https://emberfall-game-two.vercel.app/ | Main public link (the repo homepage). `vercel.json` sets the security headers and allows framing by bountyboard.gg. |
+| GitHub Pages | https://fahadibrahim93.github.io/emberfall/ | Published by CI after every green push to `main`. |
+| Command Deck | not deployed yet | `deck.json` points at `https://emberfall-deck.fly.dev`, which isn't running. Until it is, leaderboards and profiles aren't live. |
 
-The two live together naturally: a Pages-hosted game simply runs in local
-mode, and a self-hosted deck serves the identical client plus the API.
+Saves and sign-ins are per origin, so a player on Vercel and the same player on Pages have separate local saves.
 
-## Portal build (web game portals)
+## GitHub Pages
 
-`npm run build:portal` (`tools/build-portal.sh`) copies the playable shell
-into `dist-portal/`, injects `window.EMBERFALL_PORTAL=true`, strips off-site
-hosts, and writes `dist-portal.zip` with `index.html` at the archive root
-(20 MB limit). It uses `zip`, falls back to python3, and exits non-zero if
-the archive is not created (#13). The same mode can be forced on any
-deployment with `?portal=1`. In portal mode scores stay on-device.
+- The `deploy` job runs only after the full `verify` job passes on `main`. It then re-fetches the live site and checks that `index.html` matches the commit byte for byte.
+- Every release is an annotated tag (`git tag -l 'v4.*'`). To roll back, re-run the deploy for an older tag in Actions.
+- The service worker is network-first, and its cache name (`emberfall-v4.NN`) changes every release, so installed copies update.
 
-## Live URLs (2026-10-20)
-
-- Vercel: https://emberfall-game-two.vercel.app/
-- GitHub Pages: https://fahadibrahim93.github.io/emberfall/
-
-Both verified 200. The Vercel note below predates the Vercel URL going live.
-
-## The canonical deployment: GitHub Pages
-
-- **Published by the CI itself** — the `deploy` job runs only after the
-  `verify` job (the whole gate battery) is green on `main`, and its final
-  step re-fetches the published URL and asserts the live `index.html` is
-  byte-identical to the one that just merged. A deploy is never a
-  hope; it is a checked fact.
-- **Rollback is one command.** Every release is an annotated tag
-  (`git tag -l 'v4.*'`), and Pages re-deploys any ref: to roll back,
-  publish a prior tag's workflow run (Actions → the tag's run →
-  Re-run deploy) or force-redeploy from any point in history.
-- The service worker is network-first for the shell, so updates ship
-  immediately; the cache name (`emberfall-v4.NN`) bumps every release so
-  installed clients refresh.
-
-## The Command Deck in production
+## Portal build
 
 ```bash
-NODE_ENV=production TRUST_PROXY=1 PORT=8123 node server.js
+npm run build:portal
 ```
 
-- **TLS is mandatory in production** — the deck answers 426 unless the
-  connection is secure; terminate TLS at nginx/Caddy and set
-  `TRUST_PROXY=1` so limiter keys and cookie `Secure` flags read the
-  real client
-- **The database lives outside the served tree** by default
-  (`../emberfall-data/`), is never servable (allowlist), and is backed up
-  live with `node tools/db-backup.js --verify`
-- Port discipline: `--port` beats an ambient `PORT`; invalid values die
-  loudly (drilled in CI)
-- Keep `main` green and you can redeploy anywhere from any tag — the
-  whole state is one SQLite file plus the process
+`tools/build-portal.sh` copies the playable files into `dist-portal/`, injects `window.EMBERFALL_PORTAL=true`, strips off-site hosts and writes `dist-portal.zip` with `index.html` at the root (20 MB limit). It uses `zip`, falls back to python3 and exits with an error if no zip is created. `?portal=1` turns on the same mode in any copy. In portal mode, scores stay on the device.
 
-### The deck as a container (v4.19.0)
+## Running the Command Deck
 
-The deck also ships as an image whose **build IS the gate battery**:
-the multi-stage `Dockerfile` runs the no-browser gates (syntax,
-dead-code, copy-guard, SQL audit, parity, economy sim, sim tests) in a
-first stage, and the runtime stage copies one artifact out of it — a
-red gate can never produce a runnable image.
+```bash
+NODE_ENV=production TRUST_PROXY=1 node server.js --port 8123
+```
+
+- **TLS is required in production.** Real endpoints answer 426 without it, though `/api/health` still works over HTTP. Terminate TLS at Caddy or nginx and set `TRUST_PROXY=1`.
+- **Data** lives outside the served folder (`../emberfall-data/` by default, or `EF_DATA_DIR`). Back it up live with `node tools/db-backup.js --verify`. Backups contain password and session hashes, so `backups/` is git-ignored. Keep copies off the machine.
+- **Ports:** `--port` beats an ambient `PORT`. Bad values exit with an error.
+
+### As a container
+
+The `Dockerfile` runs the non-browser test gates in its first stage, so a failing gate can't produce an image.
 
 ```bash
 docker build -t emberfall-deck .
@@ -80,185 +46,69 @@ docker run -d --name deck -p 127.0.0.1:8123:8123 \
   -v emberfall-data:/data -e TRUST_PROXY=1 emberfall-deck
 ```
 
-- Runtime is `node:22-alpine`, **non-root** (uid 1001), with the ledger
-  on the `/data` volume (`EF_DATA_DIR=/data`) and a HEALTHCHECK wired to
-  `/api/health`. `server.js` imports only node builtins, so the runtime
-  stage needs no npm at all.
-- CI proves the image every push: boot → `/api/health` → a real
-  register → **container restart → login survives** (volume
-  persistence) → the runtime user is not root.
-- Behind a proxy keep `TRUST_PROXY=1` and publish the port on
-  `127.0.0.1` only; terminate TLS at nginx/Caddy.
-- Backups inside the container: `docker exec deck node
-  /app/tools/db-backup.js --verify --keep 14` — snapshots are the user
-  table (scrypt password hashes, session-token hashes) and `backups/`
-  is **git-ignored on purpose**; for machine-loss durability point
-  `--out` at storage outside the repo.
+It runs on `node:22-alpine` as a non-root user (uid 1001), stores data on `/data` and has a health check on `/api/health`. CI checks on every push that a login survives a container restart.
 
-### A note on the Vercel previews
+### On Fly.io
 
-Vercel auto-connects to this repo and builds **preview** deployments for
-branch pushes (that is where `*.vercel.app` URLs come from). They are
-ephemeral build previews, not the product: the canonical, verified,
-tagged deployment is GitHub Pages, and the repo's homepage link points
-there. The deck (accounts, boards) has never been hosted on Vercel —
-it is self-hosted by design, one Node process with its local SQLite.
-
-**They should be disconnected, not tolerated.** Saves and identity are
-per-origin: a pilot who opens a `*.vercel.app` URL gets a *separate*
-save, separate sessions, separate everything from the same person on
-Pages — two circulating URLs fragment pilots. Vercel builds are also
-gated by nothing (no tag, no battery; Pages is byte-verified by CI
-against the tagged commit on every release), and Google sign-in can
-never be authorized for that origin. To cut them: Vercel dashboard →
-the project → Settings → Git → **Disconnect**, then delete the project.
-Nothing in this repo links to a `*.vercel.app` URL, so nothing breaks.
-
-## The launch-day runbook (v4.26.1)
-
-The full path from "this repo" to "a stranger signs up from the live
-site" — every step is either a command or a verification:
+`fly.toml` is in the repo root. The fastest path is the helper:
 
 ```bash
-node tools/deck-deploy.mjs doctor    # preflight: flyctl, auth, clean tree
-node tools/deck-deploy.mjs launch    # app + volume + secrets + first deploy
-node tools/deck-deploy.mjs verify    # health · live fence · CORS echo · Google
-node tools/drill-restore.mjs         # the ledger round trip, rehearsed
+node tools/deck-deploy.mjs doctor    # checks flyctl, auth and a clean tree
+node tools/deck-deploy.mjs launch    # app, volume, secrets, first deploy
+node tools/deck-deploy.mjs verify    # health, live fence, CORS, Google sign-in
 ```
 
-Then the human verification the tools cannot do for you: open the live
-site, create an account through Settings → Command deck (the page adopts
-the deck automatically — no client change ships), fly a run, and see it
-rank on the Global tab. Check `ops.html` on the deck origin: census,
-limiter state, the fence. From here on, every release is `deck-deploy
-deploy`; every hour the mirror alarm watches the public board; every
-push's CI rehearses the restore.
-
-## Environment
-
-| Variable | Meaning |
-|---|---|
-| `PORT` / `--port` | listen port (flag wins; default 8123) |
-| `EF_DATA_DIR` | database directory (default `../emberfall-data`) |
-| `EF_DECK_DAY` | rehearsal clock — pins the deck's *day* for drills; loudly logged |
-| `EF_DUEL_RETENTION_DAYS` | duel retention window (default 7) |
-| `NODE_ENV=production` | require HTTPS, `Secure` cookies |
-| `TRUST_PROXY=1` | trust one proxy hop for X-Forwarded-For |
-| `EF_CORS_ORIGINS` | ADR 0002: comma-separated origins allowed to call the API (e.g. `https://fahadibrahim93.github.io`); `*` = any origin for public data; empty = same-origin only |
-| `EF_LIVE_LEDGER=1` | **v4.23.1 fence:** health reports `"live":true`; every battery tool (smoke, every drill, the browser suite) then REFUSES to run against this deck — production ledgers are never test targets (born of the 2026-09-27 incident: a release battery's smoke run seeded 5 machine pilots into the live Wardenfall deck on 8123; purged, keepsake `G:/emberfall-ir-bundle/polluted-deck-live-*.db`) |
-| `EF_CONNECT_SRC` | ADR 0002: extra origins this deck's SERVED pages may dial (deck-to-deck); Pages needs no such permission |
-
-## Serving the Pages game from your deck (v4.22)
-
-One deployment turns the published Pages game into a full client of your
-deck — accounts, worldwide boards, duels, cloud saves for every player on
-Earth, no fork of the game required:
-
-```bash
-NODE_ENV=production TRUST_PROXY=1 EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io \
-  node server.js --port 8123
-```
-
-- behind your TLS-terminating proxy (Caddy/nginx), as always — the 426
-  contract already forces that
-- every Pages player now gets the **sign in / create account** panel
-  linked to YOUR deck; sessions ride bearer tokens (ADR 0002) because
-  cookies cannot cross origins
-- the global tab reads YOUR live boards with pagination; names link to
-  `https://<your-deck>/pilot/<callsign>` profiles
-- on a top-level visit, players can point a copy of the game at any deck
-  themselves: Settings → Command deck → "deck address" field, or
-  `?deck=<url>` on the address bar — both persist on the device. A
-  cross-origin embed ignores both and stays on the adopted deck in
-  `deck.json`
-- prove the door before you open it: `node tools/drill-cross-origin.mjs`
-  (CI runs it on every push; 23 checks incl. the disallowed-origin
-  silence and the bearer-logout kill)
-
-### A one-command host: the Fly.io blueprint
-
-`fly.toml` now ships in the repo root — the full prep is a 5-minute task.
-**The 5-minute version (after `fly auth login` — the only step that needs
-you):**
+Or by hand:
 
 ```bash
 fly launch --no-deploy --name <your-deck-name> --region iad --copy-config
 fly volumes create ef_data --size 1 --region iad
-fly secrets set NODE_ENV=production TRUST_PROXY=1 \
-  EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+fly secrets set NODE_ENV=production TRUST_PROXY=1 EF_LIVE_LEDGER=1 \
+  EF_CORS_ORIGINS=https://fahadibrahim93.github.io,https://emberfall-game-two.vercel.app
 fly deploy
-curl https://<your-deck-name>.fly.dev/api/health   # → ok:true
+curl https://<your-deck-name>.fly.dev/api/health    # → "ok":true
 ```
 
-If the arcade frames the Vercel mirror as well, add that origin to the
-same list (`https://emberfall-game-two.vercel.app`). The iframe's parent
-(`bountyboard.gg`) is not a CORS origin — the browser sends the game
-host as `Origin`.
-
-`EF_OPS_TOKEN` is optional and never committed. Without it, a production
-or proxied deck refuses `GET /api/feedback` (pilot notes are not a public
-board). Read them on the machine that has the SQLite file:
-`node tools/feedback-report.mjs --db /data/emberfall.db`. To read over
-HTTP later, print a token, save it outside the repo, then set that saved
-value as its own secret:
+Fly terminates TLS at the edge. For backups, run this on a schedule and sync the folder off the machine:
 
 ```bash
-openssl rand -hex 24
-fly secrets set EF_OPS_TOKEN=<the value you just saved>
+fly ssh console -C "node /app/tools/db-backup.js --verify --out /data/backups --keep 14"
 ```
 
-Send header `X-Emberfall-Ops: <the token>` on `GET /api/feedback`.
+Rehearse a restore with `node tools/drill-restore.mjs`, which CI also runs.
 
-**Optional — Google sign-in (v4.26):** create an OAuth client at
-<https://console.cloud.google.com/apis/credentials> (type *Web
-application*, authorized JavaScript origins:
-`https://fahadibrahim93.github.io` and your deck's origin), then add the
-client id as one more secret. No callback URL is needed — the flow is
-the GIS button + POST verification, not a redirect dance:
+### Optional: Google sign-in
+
+Create a *Web application* OAuth client in Google Cloud. Add the game and deck origins as authorized JavaScript origins, then run:
 
 ```bash
-fly secrets set EF_GOOGLE_CLIENT_ID=<your-client-id>.apps.googleusercontent.com
-fly deploy
+fly secrets set EF_GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com && fly deploy
 ```
 
-The deck verifies every ID token itself (RS256 against Google's JWKS,
-audience pinned to your client id) and mints its own session — no third-
-party auth service, nothing Google stored. Unset = the feature simply
-doesn't exist (the API answers 501, the button never arms, the CSP
-stays fully closed).
+The deck verifies each ID token itself and issues its own session. It stores no Google credentials. If this variable is unset, the button never appears and the route answers 501.
 
-Then open https://fahadibrahim93.github.io/emberfall/ — sign in from the
-live site; the Global tab should read "Linked to command deck (remote)".
-The container path is proven in CI (gates-in-build, named volume,
-non-root); what a public rollout still owns is listed in the roadmap:
-scheduled off-box backups and log shipping.
+### Optional: reading playtest notes
 
-The container path is proven (see ROADMAP "The container path" for the
-gaps a real rollout still owns: TLS, off-box backups, log shipping). The
-short version on Fly:
+On production or proxied decks, `GET /api/feedback` is closed. Read notes on the machine with the database: `node tools/feedback-report.mjs --db /data/emberfall.db`. To read them over HTTP, set an `EF_OPS_TOKEN` secret (for example from `openssl rand -hex 24`, never committed) and send it as the `X-Emberfall-Ops` header.
 
-```bash
-fly launch --no-deploy --name emberfall-deck --region iad
-fly volumes create ef_data --size 1 --region iad
-fly deploy                      # builds the Dockerfile — gates run in-build
-fly secrets set NODE_ENV=production TRUST_PROXY=1 \
-  EF_CORS_ORIGINS=https://fahadibrahim93.github.io
-fly scale memory 256            # the deck is one process; stay small
-```
+## After the deck is up
 
-Fly terminates TLS at the edge (the deck stays plain HTTP behind it),
-`fly.toml` mounts the volume at `/data` and wires the health check to
-`/api/health`. Backups: `fly ssh console -C "node /app/tools/db-backup.js
---verify --out /data/backups --keep 14"` on a schedule, `--out` a
-directory you sync off-box.
+1. Open the live game and create an account (Settings → Command deck).
+2. Fly a run and check it shows on the Global tab.
+3. Open `ops.html` on the deck origin to see the census, the limiters and the live-ledger fence.
 
-**The restore rehearsal (prove it before you need it):**
-`tools/drill-restore.mjs` flies the whole catastrophe on a scratch deck —
-onboard a pilot, live backup, DESTROY the ledger dir, restore per the
-documented procedure, reboot, and log the pilot back in (11 checks, a CI
-step). Run it whenever the backup procedure, the data-dir resolution, or
-the container volume changes. A backup that has never been restored is a
-hope, not a plan — and db-backup resolves its data dir from `EF_DATA_DIR`
-like the deck does: an invocation without the env set backs up the default
-location silently, which is exactly how a rehearsal catches the wrong-database
-mistake before production has to.
+## Environment variables
+
+| Variable | What it does |
+|---|---|
+| `PORT` / `--port` | Listen port (the flag wins; default 8123) |
+| `EF_DATA_DIR` | Database folder (default `../emberfall-data`) |
+| `NODE_ENV=production` | Require HTTPS and `Secure` cookies |
+| `TRUST_PROXY=1` | Trust one proxy hop for `X-Forwarded-For` |
+| `EF_CORS_ORIGINS` | Comma-separated origins allowed to call the API ([ADR 0002](adr/0002-cross-origin-deck-bearer-sessions.md)). `*` allows any origin for public data. Empty means same-origin only. |
+| `EF_CONNECT_SRC` | Extra origins the deck's own pages may connect to |
+| `EF_LIVE_LEDGER=1` | Marks a production deck. Smoke tests, drills and browser tests refuse to run against it. |
+| `EF_DECK_DAY` | Pins the deck's day for rehearsals (logged loudly) |
+| `EF_DUEL_RETENTION_DAYS` | How long duels are kept (default 7) |
+| `EF_GOOGLE_CLIENT_ID` | Turns on Google sign-in |
+| `EF_OPS_TOKEN` | Allows reading `/api/feedback` over HTTP |

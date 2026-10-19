@@ -4,7 +4,7 @@
 One SQLite file, zero dependencies (Node ≥ 22 ships `node:sqlite`), one
 process owning it — with a read-only public mirror on Supabase for the
 world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).
-End-to-end UMS + leaderboard flow: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).*
+How accounts and boards fit together: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).*
 
 ## The file
 

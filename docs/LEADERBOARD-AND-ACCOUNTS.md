@@ -1,12 +1,8 @@
-# Global leaderboard & user accounts — architecture
+# Leaderboards and accounts
 
-*How EMBERFALL keeps enterprise-grade separation between **authoritative
-game state**, **player identity**, and **public leaderboard projections** —
-without a runtime cloud dependency on the hot path.*
+How the Command Deck keeps three things apart: the game data it owns, player identity, and the public copy of the leaderboard that anyone can read. Nothing on the gameplay path depends on a cloud service.
 
-> **Status (2026-10-20):** the combined boards / pilot profile dossier
-> merged in PR #14. Do not describe it as live until the production rollout
-> is announced. Portal builds keep scores on-device.
+> **Status (2026-10-20):** shared boards and pilot profiles are merged (#12, #14) but **not live**. They go live once the Command Deck is deployed (see [DEPLOYMENT.md](DEPLOYMENT.md)). Portal builds always keep scores on the device.
 
 ## Design principles
 
@@ -19,16 +15,13 @@ without a runtime cloud dependency on the hot path.*
 | Profile privacy | Passwords, sessions, telemetry, vault JSON never leave SQLite |
 | Eventual mirror | `tools/db-sync.mjs` pushes public facts on operator cadence |
 
-This matches the Supabase Postgres guidance for read-heavy leaderboard
-workloads: index the filter columns (`mode`, `score DESC`, `callsign`),
-avoid duplicating secrets in the mirror, and keep writes on the OLTP store
-you control (here, one SQLite file with WAL).
+Following Supabase's advice for read-heavy boards, the filter columns (`mode`, `score DESC`, `callsign`) are indexed, the mirror holds no secrets, and every write goes to one SQLite file (WAL mode) that the deck owns.
 
-## User account system (UMS)
+## Accounts
 
 **Registration & auth**
 
-- Callsign + scrypt password (N=16384, async) or Google ID token ([v4.26](README.md))
+- Callsign + scrypt password (N=16384, async) or Google ID token ([v4.26](../CHANGELOG.md))
 - Sessions: SHA-256 of token at rest, 30-day TTL, cookie **or** bearer ([ADR 0002](adr/0002-cross-origin-deck-bearer-sessions.md))
 - Account panel: password change, session list, CASCADE delete + callsign tombstone
 
@@ -43,7 +36,7 @@ you control (here, one SQLite file with WAL).
 - GitHub Pages static build (no secrets)
 - Supabase mirror (public scores only)
 
-## Leaderboard system
+## Leaderboards
 
 **Live boards (deck-linked)**
 
@@ -54,7 +47,7 @@ you control (here, one SQLite file with WAL).
 | Season | `GET /api/season` | Weekly board |
 | Post-run rank | `POST /api/scores` | Returns `rank`, `top`, optional `daily` payout |
 
-**Public mirror (deckless / portfolio)**
+**Public mirror (no deck needed)**
 
 | Surface | Source | Notes |
 |---------|--------|-------|
@@ -89,7 +82,7 @@ SUPABASE_ANON_KEY=<publishable> node tools/db-sync.mjs --verify
 
 Hourly GitHub Action refreshes `docs/stats.json` and runs `mirror-alarm.mjs`
 (stale / unreachable / contamination). The mirror **feed** remains operator-owned
-([ROADMAP.md](ROADMAP.md) item 2).
+([ROADMAP.md](ROADMAP.md), issue #15).
 
 ## Security posture
 
@@ -98,10 +91,10 @@ Hourly GitHub Action refreshes `docs/stats.json` and runs `mirror-alarm.mjs`
 - Static allowlist: DB and server source never HTTP-served
 - Mirror blast radius: callsigns + accepted scores only ([SECURITY.md](../SECURITY.md))
 
-## What we deliberately did not do
+## What we chose not to do
 
 - **Supabase as gameplay DB** — rejected [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)
-- **Convex / realtime leaderboard** — not required; boards are poll-on-tab, not sub-second esports
+- **Convex / realtime leaderboard** — not needed; boards refresh when you open the tab
 - **Dual-write on score POST** — mirror lag is acceptable; deck stays available if Supabase sleeps
 
 ## Related docs

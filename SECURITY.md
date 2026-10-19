@@ -2,9 +2,7 @@
 
 ## Supported
 
-The `main` branch is the only supported line; every push flies the full
-gate battery (syntax, dead-code, SQL-binding audit, economy parity, API
-smoke, six live-fire drills, browser suite) before anything publishes.
+Only `main` is supported. Every push runs the full test suite (syntax, dead code, SQL-binding audit, economy parity, API smoke tests, the server drills and the browser suite) before anything is published.
 
 ## Reporting a vulnerability
 
@@ -14,9 +12,9 @@ https://github.com/FahadIbrahim93/emberfall/security/advisories/new)
 rather than a public issue. Include steps to reproduce and the affected
 file or endpoint; expect an acknowledgement within a few days.
 
-You can also reach the maintainer through the repository owner profile.
+Thanks for reporting responsibly.
 
-## What the deck already defends (all regression-tested in CI)
+## What the deck already protects (all tested in CI)
 
 - **Credentials:** scrypt (N=16384) with per-user random salt, constant-time
   compare, hashing async off the event loop; timing-shaped login responses
@@ -60,8 +58,7 @@ You can also reach the maintainer through the repository owner profile.
 
 ## Embedding and operator notes
 
-The static game (GitHub Pages, and the Vercel mirror once `vercel.json`
-is deployed) is what a third-party page frames. The command deck itself
+The static game (on Vercel and GitHub Pages) is what a third-party page frames. The command deck itself
 keeps `X-Frame-Options: DENY` — that origin holds the session cookie.
 
 - A cross-origin iframe cannot retarget the deck. `?deck=` and a stored
