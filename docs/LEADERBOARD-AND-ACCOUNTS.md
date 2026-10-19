@@ -66,6 +66,12 @@ you control (here, one SQLite file with WAL).
 | GitHub Pages | `pilot.html?callsign=` | Supabase mirror |
 | In-game links | `pilotUrl()` | Deck when linked; mirror page when deckless |
 
+## Performance notes
+
+- **Deck:** `idx_scores_user_mode` covers per-pilot bests; public `/pilot` responses use prepared statements and **`Cache-Control: public, max-age=60`** (safe — no secrets in the payload).
+- **Mirror client:** `js/mirror-public.js` centralizes the publishable key. Leaderboard reads request **narrow columns + limits**; pilot rank uses a **count-only** query (`Prefer: count=exact`) instead of downloading the full board.
+- **Pages:** `pilot.html` loads mode bests as three parallel `limit=1` score queries.
+
 ## Sync & freshness
 
 ```bash

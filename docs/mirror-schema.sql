@@ -35,6 +35,7 @@ create table if not exists public.scores (
 
 create index if not exists idx_scores_board on public.scores (mode, score desc);
 create index if not exists idx_scores_pilot_mode on public.scores (pilot, mode, score desc);
+create index if not exists idx_pilots_best_score_gt on public.pilots (best_score desc);
 
 -- Daily gauntlet aggregates (one row per UTC day)
 create table if not exists public.gauntlet_days (

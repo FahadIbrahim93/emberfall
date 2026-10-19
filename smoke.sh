@@ -171,6 +171,8 @@ expect "pilot profile JSON"   '"bests":'                     "$BASE/pilot/Ace$R"
 expect "pilot API alias"      '"ranks":'                     "$BASE/api/pilot/Ace$R"
 expect "pilot ranks main"     '"main":'                      "$BASE/api/pilot/Ace$R"
 expect "pilot 404"            'no such pilot'                "$BASE/pilot/nobody-$(date +%s)"
+PILOT_CACHE="$(curl -s -I "$BASE/pilot/Ace$R" | grep -i '^cache-control:')"
+if printf '%s' "$PILOT_CACHE" | grep -qi 'max-age=60'; then ok "pilot profile is publicly cacheable (60s)"; else no "pilot cache-control  →  ${PILOT_CACHE:-missing}"; fi
 # replay: identical arc again → rejected
 REPLAY="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}")"
 if printf '%s' "$REPLAY" | grep -q 'replay'; then ok "replay rejected"; else no "replay rejected  →  ${REPLAY:0:140}"; fi

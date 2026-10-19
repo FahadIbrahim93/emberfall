@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS scores (
   created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scores_board ON scores(mode, score DESC);
+CREATE INDEX IF NOT EXISTS idx_scores_user_mode ON scores(user_id, mode, score DESC);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   data     TEXT NOT NULL,
@@ -305,6 +306,22 @@ addCol('challenges', 'paint', 'TEXT');
 /* Old "verified" rows were checked by the same client-telemetry heuristic.
    Do not silently preserve a stronger claim than the server can establish. */
 db.prepare("UPDATE scores SET verdict = 'legacy' WHERE verdict IS NULL OR verdict = 'verified'").run();
+/* v4.45 — pilot profile reads: per-user mode bests without scanning the board index */
+db.exec('CREATE INDEX IF NOT EXISTS idx_scores_user_mode ON scores(user_id, mode, score DESC)');
+
+const STMT_PILOT_BEST = db.prepare(`
+  SELECT score AS s, wave AS w, ship FROM scores
+  WHERE user_id = ? AND mode = ? AND verdict = 'accepted'
+  ORDER BY score DESC LIMIT 1`);
+const STMT_PILOT_RANK = db.prepare(`
+  SELECT COUNT(DISTINCT user_id) AS n FROM scores
+  WHERE mode = ? AND verdict = 'accepted' AND score > ?`);
+const STMT_PILOT_DAILY = db.prepare(`
+  SELECT COUNT(*) AS flew, COALESCE(SUM(paid), 0) AS paid,
+    COALESCE(SUM(CASE WHEN wardenfall = 1 THEN 1 ELSE 0 END), 0) AS wf
+  FROM daily_stats WHERE user_id = ?`);
+const STMT_PILOT_RUNS = db.prepare(`
+  SELECT COUNT(*) AS c FROM scores WHERE user_id = ? AND verdict = 'accepted'`);
 
 /* ───────────────────── run provenance: verify before trust ─────────────────────
    The sim lives on the client, so cheating is not preventable — it is
@@ -771,11 +788,11 @@ function handlePreflight(req, res) {
   return true;
 }
 
-function send(res, code, obj) {
+function send(res, code, obj, cachePublic) {
   const body = JSON.stringify(obj);
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+    'Cache-Control': cachePublic ? 'public, max-age=60, stale-while-revalidate=120' : 'no-store',
     'X-Content-Type-Options': 'nosniff',
     'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin') || ''
   });
@@ -826,7 +843,7 @@ const MIME = {
 const STATIC_OK = new Set([
   '/index.html', '/stats.html', '/pilot.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
   '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
-  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
+  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/mirror-public.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
   '/fonts/chakra-petch-700.woff2'
@@ -910,14 +927,6 @@ function publicProfile(userId) {
 
 /* ADR 0002 — one public profile shape for /pilot/<name> and /api/pilot/<name>.
    Only accepted runs rank; paint is allowlisted; retired callsigns 404. */
-function pilotRankForBest(userId, mode, bestScore) {
-  if (bestScore == null) return null;
-  const better = db.prepare(`
-    SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s
-    WHERE s.mode = ? AND s.verdict = 'accepted' AND s.score > ?`).get(mode, bestScore);
-  return Number(better.n) + 1;
-}
-
 function pilotPublicByCallsign(rawName) {
   const name = String(rawName || '').trim();
   if (!name) return null;
@@ -926,18 +935,15 @@ function pilotPublicByCallsign(rawName) {
   const bests = {};
   const ranks = {};
   for (const m2 of MODES) {
-    const b = db.prepare(`
-      SELECT score AS s, wave AS w, ship FROM scores
-      WHERE user_id = ? AND mode = ? AND verdict = 'accepted'
-      ORDER BY score DESC LIMIT 1`).get(row.id, m2);
+    const b = STMT_PILOT_BEST.get(row.id, m2);
     if (b && b.s != null) {
-      bests[m2] = { s: Number(b.s), w: Number(b.w), ship: b.ship || null };
-      ranks[m2] = pilotRankForBest(row.id, m2, Number(b.s));
+      const sc = Number(b.s);
+      bests[m2] = { s: sc, w: Number(b.w), ship: b.ship || null };
+      ranks[m2] = Number(STMT_PILOT_RANK.get(m2, sc).n) + 1;
     }
   }
-  const falls = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(row.id).c;
-  const days = db.prepare('SELECT COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM daily_stats WHERE user_id = ?').get(row.id);
-  const runs = db.prepare("SELECT COUNT(*) AS c FROM scores WHERE user_id = ? AND verdict = 'accepted'").get(row.id).c;
+  const dayAgg = STMT_PILOT_DAILY.get(row.id);
+  const runs = STMT_PILOT_RUNS.get(row.id).c;
   const paintRow = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(row.id);
   let paint = null;
   try {
@@ -946,7 +952,7 @@ function pilotPublicByCallsign(rawName) {
   } catch (e) { /* malformed profile must not break a public read */ }
   return {
     ok: true, name: row.name, since: row.created, bests, ranks,
-    wardenfalls: Number(falls), flewDays: Number(days.c), alloyPaid: Number(days.paid),
+    wardenfalls: Number(dayAgg.wf), flewDays: Number(dayAgg.flew), alloyPaid: Number(dayAgg.paid),
     runs: Number(runs),
     paint: paint && PAINT_IDS.has(paint) ? paint : null
   };
@@ -1533,11 +1539,19 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
 
   /* ADR 0002 — public pilot profiles. /pilot/<name> and /api/pilot/<name>
      share one payload; GitHub Pages uses pilot.html + the mirror instead. */
-  const pilotMatch = req.method === 'GET' && pathname.match(/^\/(?:api\/)?pilot\/([^/]+)$/);
+  const pilotMatch = (req.method === 'GET' || req.method === 'HEAD') && pathname.match(/^\/(?:api\/)?pilot\/([^/]+)$/);
   if (pilotMatch) {
     const profile = pilotPublicByCallsign(decodeURIComponent(pilotMatch[1]));
     if (!profile) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no such pilot'); }
-    return send(res, 200, profile);
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      return res.end();
+    }
+    return send(res, 200, profile, true);
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {

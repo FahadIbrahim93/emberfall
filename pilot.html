@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#03050b">
+<meta name="color-scheme" content="dark">
 <title>EMBERFALL — pilot profile</title>
 <meta name="description" content="Public pilot profile — ranks, gauntlet honors, and bests from the read-only worldwide mirror.">
 <style>
 :root{--bg:#0b0d14;--panel:#12141d;--line:#232736;--ink:#e8e6e0;--dim:#8b8fa0;--ember:#ff8a2b;--gold:#ffd166;--crimson:#b82c3a}
 *{box-sizing:border-box;margin:0;padding:0}
+.hidden{display:none!important}
 body{background:var(--bg);color:var(--ink);font:16px/1.6 "Chakra Petch",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 56px}
 h1{font-family:Michroma,system-ui,sans-serif;font-size:clamp(1.5rem,4vw,2.4rem);letter-spacing:.1em;margin-bottom:6px}
 h1 .tag{color:var(--dim);font-size:.55em;letter-spacing:.22em;display:block;margin-top:6px}
@@ -19,7 +22,7 @@ h1 .tag{color:var(--dim);font-size:.55em;letter-spacing:.22em;display:block;marg
 .hero .meta span{margin-right:14px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;width:100%;max-width:760px;margin-bottom:26px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;text-align:center}
-.card .n{font-family:Michroma,system-ui,sans-serif;font-size:1.45rem;color:var(--ember)}
+.card .n{font-family:Michroma,system-ui,sans-serif;font-size:1.45rem;color:var(--ember);min-height:1.4em}
 .card .l{color:var(--dim);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;margin-top:4px}
 h2{font-family:Michroma,system-ui,sans-serif;font-size:.88rem;letter-spacing:.16em;color:var(--dim);margin:6px 0 12px;width:100%;max-width:760px}
 .board{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:24px}
@@ -33,6 +36,8 @@ footer{margin-top:32px;color:var(--dim);font-size:.8rem;display:flex;gap:18px;fl
 footer a{color:var(--ember);text-decoration:none}
 .err{background:rgba(184,44,58,.12);border:1px solid var(--crimson);border-radius:10px;padding:14px 18px;max-width:760px;color:var(--ink);font-size:.9rem;display:none;margin-bottom:18px}
 .deck-link{color:var(--ember);font-size:.85rem;margin-top:12px;display:inline-block}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+.loading .n{animation:pulse 1.2s ease-in-out infinite;color:var(--dim)}
 </style>
 </head>
 <body>
@@ -44,25 +49,25 @@ footer a{color:var(--ember);text-decoration:none}
   <div class="meta" id="meta"></div>
   <a class="deck-link hidden" id="deckLink" href="#" rel="noopener">Open on the live command deck →</a>
 </div>
-<div class="cards hidden" id="cards">
-  <div class="card"><div class="n" id="cRuns">—</div><div class="l">runs ranked</div></div>
-  <div class="card"><div class="n" id="cStreak">—</div><div class="l">best streak</div></div>
-  <div class="card"><div class="n" id="cWf">—</div><div class="l">wardenfalls</div></div>
-  <div class="card"><div class="n" id="cRank">—</div><div class="l">world rank (main)</div></div>
+<div class="cards loading" id="cards">
+  <div class="card"><div class="n" id="cRuns">…</div><div class="l">runs ranked</div></div>
+  <div class="card"><div class="n" id="cStreak">…</div><div class="l">best streak</div></div>
+  <div class="card"><div class="n" id="cWf">…</div><div class="l">wardenfalls</div></div>
+  <div class="card"><div class="n" id="cRank">…</div><div class="l">world rank (main)</div></div>
 </div>
-<h2 class="hidden" id="modesHead">Best runs by mode</h2>
-<div class="board hidden" id="modes"><div class="empty">loading…</div></div>
+<h2 id="modesHead">Best runs by mode</h2>
+<div class="board" id="modes"><div class="empty">Reading the mirror…</div></div>
 <footer>
   <a href="index.html">▶ play the game</a>
   <a href="stats.html">world leaderboard</a>
   <a href="https://github.com/FahadIbrahim93/emberfall">repository</a>
 </footer>
+<script src="js/mirror-public.js"></script>
 <script>
 'use strict';
-const SB = 'https://bhcczyyhadornihhzpsu.supabase.co';
-const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
 const MODE_LABEL = { main: 'Endless', daily: 'Daily gauntlet', rush: 'Boss rush' };
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])[c]);
+const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
 const deckParam = (params.get('deck') || '').trim().replace(/\/$/, '');
@@ -71,21 +76,7 @@ function showErr(msg) {
   const el = document.getElementById('err');
   el.style.display = 'block';
   el.textContent = msg;
-}
-
-async function get(path) {
-  const r = await fetch(SB + path, { headers: { apikey: KEY } });
-  if (!r.ok) throw new Error('mirror answered ' + r.status);
-  return r.json();
-}
-
-function bestByMode(rows) {
-  const out = {};
-  for (const row of rows) {
-    const m = row.mode;
-    if (!out[m] || row.score > out[m].score) out[m] = row;
-  }
-  return out;
+  document.getElementById('cards').classList.add('hidden');
 }
 
 function fmtDate(iso) {
@@ -96,52 +87,48 @@ function fmtDate(iso) {
 (async () => {
   if (!callsign) {
     showErr('No callsign in the URL. Open this page as pilot.html?callsign=YOUR_NAME from a leaderboard row.');
-    document.getElementById('modes').classList.remove('hidden');
     document.getElementById('modes').innerHTML = '<div class="empty">Add ?callsign= to the URL.</div>';
     return;
   }
   document.getElementById('title').firstChild.textContent = esc(callsign).toUpperCase() + ' ';
   document.title = 'EMBERFALL — ' + callsign + ' (pilot profile)';
   try {
-    const pilots = await get('/rest/v1/pilots?callsign=eq.' + encodeURIComponent(callsign) + '&select=*');
-    let p = pilots[0];
-    if (!p) {
-      p = (await get('/rest/v1/pilots?callsign=ilike.' + encodeURIComponent(callsign) + '&select=*&limit=1'))[0];
-    }
+    const p = await mirrorPilotRow(callsign);
     if (!p) {
       showErr('No pilot named “' + callsign + '” on the public mirror yet. They may fly on a private deck, or the mirror has not synced.');
+      document.getElementById('modes').innerHTML = '<div class="empty">Not on the public mirror.</div>';
       return;
     }
-    const scores = await get('/rest/v1/scores?pilot=eq.' + p.deck_id + '&select=mode,score,wave,ship&order=score.desc');
-    const bests = bestByMode(scores);
-    const board = await get('/rest/v1/leaderboard?select=callsign,best_score&order=best_score.desc');
-    let rank = '—';
-    for (let i = 0; i < board.length; i++) {
-      if (board[i].callsign === p.callsign) { rank = '#' + (i + 1); break; }
-    }
+    const modes = ['main', 'daily', 'rush'];
+    const [rankN, ...modeRows] = await Promise.all([
+      mirrorMainRank(p.best_score),
+      ...modes.map(m => mirrorModeBest(p.deck_id, m))
+    ]);
+    const bests = {};
+    modes.forEach((m, i) => { if (modeRows[i]) bests[m] = modeRows[i]; });
+
+    document.getElementById('cards').classList.remove('loading', 'hidden');
     document.getElementById('hero').classList.remove('hidden');
-    document.getElementById('cards').classList.remove('hidden');
-    document.getElementById('modesHead').classList.remove('hidden');
-    document.getElementById('modes').classList.remove('hidden');
     document.getElementById('callsign').textContent = p.callsign;
     document.getElementById('meta').innerHTML =
       '<span>Since ' + esc(fmtDate(p.created_at)) + '</span>' +
-      (p.best_streak > 1 ? '<span>Best streak ' + esc(p.best_streak) + '</span>' : '') +
-      (p.total_paid ? '<span>Alloy paid ' + esc(p.total_paid) + '</span>' : '');
-    document.getElementById('cRuns').textContent = p.runs;
-    document.getElementById('cStreak').textContent = p.best_streak || 0;
-    document.getElementById('cWf').textContent = p.wardenfalls || 0;
-    document.getElementById('cRank').textContent = rank;
-    const modeKeys = ['main', 'daily', 'rush'].filter(m => bests[m]);
+      (p.best_streak > 1 ? '<span>Best streak ' + esc(fmt(p.best_streak)) + '</span>' : '') +
+      (p.total_paid ? '<span>Alloy paid ' + esc(fmt(p.total_paid)) + '</span>' : '');
+    document.getElementById('cRuns').textContent = fmt(p.runs);
+    document.getElementById('cStreak').textContent = fmt(p.best_streak || 0);
+    document.getElementById('cWf').textContent = fmt(p.wardenfalls || 0);
+    document.getElementById('cRank').textContent = rankN ? '#' + rankN : '—';
+    const rankLabel = rankN ? '#' + rankN : '';
+    const modeKeys = modes.filter(m => bests[m]);
     if (!modeKeys.length) {
       document.getElementById('modes').innerHTML = '<div class="empty">No accepted runs on the public mirror for this pilot.</div>';
     } else {
       document.getElementById('modes').innerHTML = modeKeys.map(m => {
         const b = bests[m];
         return '<div class="row"><span class="mode">' + esc(MODE_LABEL[m] || m) + '</span>' +
-          '<span class="score">' + esc(b.score) + '</span>' +
+          '<span class="score">' + esc(fmt(b.score)) + '</span>' +
           '<span>W' + esc(b.wave) + ' · ' + esc(b.ship || '—') + '</span>' +
-          '<span class="rank">' + (m === 'main' ? rank : '') + '</span></div>';
+          '<span class="rank">' + (m === 'main' ? rankLabel : '') + '</span></div>';
       }).join('');
     }
     if (deckParam) {
@@ -151,6 +138,7 @@ function fmtDate(iso) {
     }
   } catch (e) {
     showErr('The public mirror is not answering (' + e.message + '). Live deck profiles may still work at /pilot/<name> when a command deck is linked.');
+    document.getElementById('modes').innerHTML = '<div class="empty">unavailable</div>';
   }
 })();
 </script>

@@ -629,14 +629,10 @@ const NET = {
     const body = $('globalBody');
     body.classList.remove('hidden');
     $('globalSignin').classList.add('hidden');
-    const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';
-    const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
     try {
-      const r = await fetch(SB + '/leaderboard?select=*', { headers: { apikey: KEY } });
-      if (!r.ok) throw new Error('mirror ' + r.status);
-      const rows = await r.json();
+      const rows = await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,best_wave,wardenfalls,runs&order=best_score.desc&limit=100');
       if (!rows.length) {
         box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
         return;
