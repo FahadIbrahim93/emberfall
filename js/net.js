@@ -508,7 +508,7 @@ const NET = {
             '<span class="rk" style="' + medal + '">' + pad2(rk) + '</span>' +
             '<span class="nm"><a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a></span>' +
             '<span class="sc">' + fmt(r.pts) + '</span>' +
-            '<span class="wv">' + r.runs + ' runs</span></div>';
+            '<span class="wv">' + (Number.isFinite(+r.runs) ? Math.trunc(+r.runs) : 0) + ' runs</span></div>';
         }).join('')
       : '<div class="empty">No plausibility-checked runs this week yet.<br>The ladder is wide open.</div>';
     const you = $('seasonYou');
@@ -692,20 +692,22 @@ const NET = {
       if (stand.ok) {
         const rows = await stand.json();
         if (!rows.length) {
-          box.innerHTML = '<div class="empty">No ranked pilots on this board yet.<br>Host a deck, fly, sync — or just fly.</div>';
+          box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
           return;
         }
         box.innerHTML = rows.map(r2 => {
           const h = (typeof HULLS !== 'undefined') && HULLS.find(x => x.id === r2.ship);
           const pt = r2.paint && (typeof PAINTS !== 'undefined') && PAINTS.find(x => x.id === r2.paint);
+          const rk = Number.isFinite(+r2.rank) ? Math.trunc(+r2.rank) : 0;
+          const wave = Number.isFinite(+r2.wave) ? Math.trunc(+r2.wave) : 1;
           return '<div class="row">' +
-            '<span class="rk">' + pad2(r2.rank) + '</span>' +
+            '<span class="rk">' + pad2(rk) + '</span>' +
             '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
             '<a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
             (h ? ' · ' + esc(h.name) : '') +
             (Number.isFinite(+r2.mastery) && +r2.mastery > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r2.mastery) + '</span>' : '') +
             '</span><span class="sc">' + padN(r2.score, 7) + '</span>' +
-            '<span class="wv">W' + pad2(r2.wave || 1) + '</span></div>';
+            '<span class="wv">W' + pad2(wave) + '</span></div>';
         }).join('') +
           '<p class="empty" style="padding:8px 0 0;text-align:left">The same best-run board the deck publishes, read from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
         return;
@@ -720,7 +722,8 @@ const NET = {
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
         '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
-        esc(r2.callsign) + '</a>' + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + esc(r2.wardenfalls) + '</span>' : '') + '</span>' +
+        esc(r2.callsign) + '</a>' +
+        (Number.isFinite(+r2.wardenfalls) && +r2.wardenfalls > 0 ? ' <span style="color:var(--gold);font-size:.6rem">✦' + Math.trunc(+r2.wardenfalls) + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
         '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';

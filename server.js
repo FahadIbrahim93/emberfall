@@ -574,7 +574,16 @@ const SHIP_NAMES = {
   vesper: 'VESPER-01', halcyon: 'HALCYON', atlas: 'ATLAS', wraith: 'WRAITH', seraph: 'SERAPH'
 };
 const MODE_LABELS = { main: 'Classic', daily: 'Daily Gauntlet', rush: 'Rush' };
+/* The day window is a fixed clause. Callers bind the endpoints; they never
+   pass a string built from the query. Anything else is a programming error,
+   not a board. */
+const BOARD_WINDOW_SQL = ' AND s.created >= ? AND s.created <= ?';
+function boardWindowSql(sql) {
+  if (sql !== '' && sql !== BOARD_WINDOW_SQL) throw new Error('board window');
+  return sql;
+}
 function bestBoard(mode, winSql, winArgs, offset) {
+  const win = boardWindowSql(winSql);
   const off = Number.isFinite(offset) && offset > 0 ? Math.min(Math.floor(offset), 190) : 0;
   const rows = db.prepare(`
     WITH best AS (
@@ -584,7 +593,7 @@ function bestBoard(mode, winSql, winArgs, offset) {
                ORDER BY s.score DESC, s.created ASC, s.id ASC
              ) AS rn
       FROM scores s
-      WHERE s.mode = ? AND s.verdict = 'accepted'${winSql}
+      WHERE s.mode = ? AND s.verdict = 'accepted'${win}
     )
     SELECT u.name AS n, b.score AS s, b.wave AS w, b.ship, b.diff, b.created AS d,
            b.paint AS p, b.mastery AS m,
@@ -702,7 +711,7 @@ function writeHtml(res, code, html) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Content-Security-Policy',
-    "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; frame-src 'none'; base-uri 'none'");
+    "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'");
   res.writeHead(code);
   res.end(html);
 }
@@ -1618,7 +1627,7 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
       const lo = Date.parse(dayParam + 'T00:00:00.000Z');
       const hi = Date.parse(dayParam + 'T23:59:59.999Z');
       if (!Number.isFinite(lo) || !Number.isFinite(hi)) return bad(res, 'bad day');
-      win = ' AND s.created >= ? AND s.created <= ?';
+      win = BOARD_WINDOW_SQL;
       winArgs = [lo, hi];
     }
     /* v4.22 pagination: ?offset= pages past the top 10. Hard cap 200 and
@@ -1651,11 +1660,12 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     if (user) {
       /* ranked like every board query: accepted runs only — a review/rejected
          run must not hand the pilot a rank they do not have */
-      const best = db.prepare(`SELECT s.score AS s, s.wave AS w, s.ship, s.paint AS p, s.mastery AS m FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${win} ORDER BY s.score DESC, s.created ASC, s.id ASC LIMIT 1`).get(mode, user.id, ...winArgs);
+      const meWin = boardWindowSql(win);
+      const best = db.prepare(`SELECT s.score AS s, s.wave AS w, s.ship, s.paint AS p, s.mastery AS m FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${meWin} ORDER BY s.score DESC, s.created ASC, s.id ASC LIMIT 1`).get(mode, user.id, ...winArgs);
       if (best && best.s != null) {
         const better = db.prepare(`
-          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted'${win} AND
-            s.score > (SELECT MAX(score) FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${win})`)
+          SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s WHERE s.mode = ? AND s.verdict = 'accepted'${meWin} AND
+            s.score > (SELECT MAX(score) FROM scores s WHERE s.mode = ? AND s.user_id = ? AND s.verdict = 'accepted'${meWin})`)
           .get(mode, ...winArgs, mode, user.id, ...winArgs);   /* sub binds (mode, user_id, lo, hi) */
         me = { name: user.name, s: Number(best.s), w: best.w, ship: best.ship, rank: Number(better.n) + 1, day,
                p: publicPaint(best.p), m: Number(best.m) || 0, mds: md[user.name] || [] };
@@ -1666,10 +1676,13 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
 
   /* ADR 0002 — one dossier for /pilot/<name> and /api/pilot/<name>.
      Browsers that ask for HTML get the page. Drills and clients get JSON.
-     JSON is cacheable for a minute; the HTML page is not. */
+     JSON is cacheable for a minute; the HTML page is not. The dossier runs
+     the season scan, so it has its own bucket: a callsign crawl cannot
+     starve scoring. */
   const pilotMatch = (req.method === 'GET' || req.method === 'HEAD') && pathname.match(/^\/(?:api\/)?pilot\/([^/]+)$/);
   if (pilotMatch) {
     const apiAlias = pathname.startsWith('/api/');
+    if (!rateLimit(ip, 'pilot', 60, 60000)) return bad(res, 'slow down', 429);
     let name = '';
     try { name = decodeURIComponent(pilotMatch[1]); }
     catch (e) {
@@ -1682,7 +1695,8 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     const dossier = pilotDossier(name);
     if (!dossier) {
       if (req.method === 'GET' && !apiAlias && wantsHtml(req)) {
-        return writeHtml(res, 404, '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>No such pilot — EMBERFALL</title></head><body style="background:#0b0d14;color:#e8e6e0;font:16px system-ui;padding:48px"><p>No such pilot: ' + escHtml(name) + '</p><p><a style="color:#ff8a2b" href="/">Back to the game</a></p></body></html>');
+        const shown = escHtml(String(name).replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 64));
+        return writeHtml(res, 404, '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>No such pilot — EMBERFALL</title></head><body style="background:#0b0d14;color:#e8e6e0;font:16px system-ui;padding:48px"><p>No such pilot: ' + shown + '</p><p><a style="color:#ff8a2b" href="/">Back to the game</a></p></body></html>');
       }
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(req.method === 'HEAD' ? '' : 'no such pilot');
