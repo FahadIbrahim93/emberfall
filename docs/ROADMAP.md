@@ -4,6 +4,12 @@
 own voice: every item names its proof. Priority order, not release order —
 each release takes whatever the top of the list offers.*
 
+## Launch status (2026-10-20)
+
+- Done: security fixes (#10), portal-mode build (#11), fail-loud portal zip (#13).
+- Submitted free to the Bounty Board Arcade, review pending. Next: itch.io and CrazyGames.
+- Global leaderboards and pilot profiles: code merged in #14; not announced as live yet.
+
 ## Now (this week)
 
 1. **Wardenfall Sunday, 2026-09-27** — the runbook exists

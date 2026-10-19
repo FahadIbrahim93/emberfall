@@ -28,6 +28,14 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 
 A zero-build, static orbital intercept shooter. Art, music, and sound are generated procedurally at runtime. The game has no runtime package dependencies and plays locally from `index.html`; hosted installs work offline after their first successful service-worker install.
 
+## Launch status (2026-10-20)
+
+- **Play it:** https://emberfall-game-two.vercel.app/ and on GitHub Pages at https://fahadibrahim93.github.io/emberfall/ (both return 200).
+- **Portal build:** `npm run build:portal` writes `dist-portal.zip` (index.html at the root, under 20 MB) and fails loudly if no zip is produced (#11, #13). Portal mode turns on via `window.EMBERFALL_PORTAL` or `?portal=1`.
+- **Distribution:** submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are planned.
+- **Global leaderboards & pilot profiles:** the shared best-run dossier code merged in #14; treat it as not live until the production rollout is announced.
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Play
 
 - **Any device, right now:** play the deployed build at **https://fahadibrahim93.github.io/emberfall/** — or open `index.html` in a modern browser. Chrome, Edge, Firefox, Safari, desktop or phone.
