@@ -9,7 +9,10 @@ smoke, six live-fire drills, browser suite) before anything publishes.
 ## Reporting a vulnerability
 
 Please open a **private security advisory** (Repository → Security →
-Report a vulnerability) rather than a public issue.
+Report a vulnerability, or
+https://github.com/FahadIbrahim93/emberfall/security/advisories/new)
+rather than a public issue. Include steps to reproduce and the affected
+file or endpoint; expect an acknowledgement within a few days.
 
 You can also reach the maintainer through the repository owner profile.
 
