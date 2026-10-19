@@ -67,6 +67,8 @@ footer a{color:var(--ember);text-decoration:none}
 'use strict';
 const MODE_LABEL = { main: 'Endless', daily: 'Daily gauntlet', rush: 'Boss rush' };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
+const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
 const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
@@ -74,10 +76,11 @@ const callsign = (params.get('callsign') || params.get('name') || '').trim();
 // else that new URL() parses is dropped, so ?deck= cannot inject script.
 function safeDeckBase(raw) {
   const v = String(raw || '').trim();
-  if (!v) return '';
+  if (!v || /[\u0000-\u0020"'<>\\]/.test(v)) return '';
   let u;
   try { u = new URL(v); } catch (_) { return ''; }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+  if (u.username || u.password) return '';
   return (u.origin + u.pathname).replace(/\/$/, '');
 }
 const deckParam = safeDeckBase(params.get('deck'));
@@ -108,7 +111,7 @@ function paintModes(rows) {
     '<div class="row"><span class="mode">' + esc(row.mode) + '</span>' +
     '<span class="score">' + esc(fmt(row.score)) + '</span>' +
     '<span>W' + esc(row.wave) + ' · ' + esc(row.ship || '—') +
-    (row.paint ? ' · ' + esc(row.paint) : '') + '</span>' +
+    (paintText(row.paint) ? ' · ' + paintText(row.paint) : '') + '</span>' +
     '<span class="rank">' + (row.rank ? '#' + esc(row.rank) : '') + '</span></div>').join('');
 }
 
@@ -138,16 +141,17 @@ function paintModes(rows) {
       document.getElementById('callsign').textContent = card.callsign;
       document.getElementById('meta').innerHTML =
         '<span>Since ' + esc(fmtDate((career && career.created_at) || card.since)) + '</span>' +
-        (card.paint ? '<span>Paint ' + esc(card.paint) + '</span>' : '') +
+        (paintText(card.paint) ? '<span>Paint ' + paintText(card.paint) + '</span>' : '') +
         (card.season_key ? '<span>Season ' + esc(card.season_key) + ' #' + esc(card.season_rank) + '</span>' : '');
       document.getElementById('cRuns').textContent = career ? fmt(career.runs) : '—';
       document.getElementById('cStreak').textContent = career ? fmt(career.best_streak || 0) : '—';
       document.getElementById('cWf').textContent = fmt(card.wardenfalls || 0);
       document.getElementById('cRank').textContent = card.main_rank ? '#' + card.main_rank : '—';
       paintModes(modes);
-      if (deckParam) {
+      const cardHref = mirrorDeckHref(deckParam, card.callsign);
+      if (cardHref) {
         const link = document.getElementById('deckLink');
-        link.href = new URL(deckParam + '/pilot/' + encodeURIComponent(card.callsign)).href;
+        link.href = cardHref;
         link.classList.remove('hidden');
       }
       return;
@@ -184,9 +188,10 @@ function paintModes(rows) {
       ship: bests[m].ship,
       rank: m === 'main' ? rankN : null
     })));
-    if (deckParam) {
+    const pilotHref = mirrorDeckHref(deckParam, p.callsign);
+    if (pilotHref) {
       const link = document.getElementById('deckLink');
-      link.href = new URL(deckParam + '/pilot/' + encodeURIComponent(p.callsign)).href;
+      link.href = pilotHref;
       link.classList.remove('hidden');
     }
   } catch (e) {
