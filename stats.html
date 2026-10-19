@@ -33,6 +33,12 @@ h2{font-family:Michroma,system-ui,sans-serif;font-size:.9rem;letter-spacing:.16e
 footer{margin-top:40px;color:var(--dim);font-size:.8rem;display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
 footer a{color:var(--ember);text-decoration:none}
 .err{background:rgba(184,44,58,.12);border:1px solid var(--crimson);border-radius:10px;padding:14px 18px;max-width:760px;color:var(--ink);font-size:.9rem;display:none}
+.tabs{display:flex;gap:8px;width:100%;max-width:760px;margin:0 0 12px}
+.tabs button{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:inherit;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem;cursor:pointer}
+.tabs button.on{color:var(--ink);border-color:var(--ember)}
+.pilot{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:28px}
+.pilot h3{font-family:Michroma,system-ui,sans-serif;letter-spacing:.12em;font-size:1rem;margin-bottom:6px}
+.pilot p{color:var(--dim);font-size:.85rem}
 </style>
 </head>
 <body>
@@ -44,8 +50,16 @@ footer a{color:var(--ember);text-decoration:none}
   <div class="card"><div class="n" id="cRuns">—</div><div class="l">runs ranked</div></div>
   <div class="card"><div class="n" id="cTop">—</div><div class="l">top score</div></div>
 </div>
-<h2>Global leaderboard — best per pilot</h2>
+<h2>Global leaderboard — the run that set the score</h2>
+<div class="tabs" id="tabs">
+  <button type="button" data-mode="main" class="on">Classic</button>
+  <button type="button" data-mode="daily">Daily</button>
+  <button type="button" data-mode="rush">Rush</button>
+</div>
+<div class="pilot" id="pilot" hidden></div>
 <div class="board" id="board"><div class="empty">loading…</div></div>
+<h2>Gauntlet seasons</h2>
+<div class="days" id="seasons"><div class="day"><span class="d">loading…</span></div></div>
 <h2>Daily gauntlet — recent days</h2>
 <div class="days" id="days"><div class="day"><span class="d">loading…</span></div></div>
 <footer>
@@ -62,27 +76,96 @@ const get = (path) => fetch(SB + path, { headers: { apikey: KEY } }).then(r => {
   return r.json();
 });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const opt = (path) => fetch(SB + path, { headers: { apikey: KEY } }).then(async r => {
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('mirror answered ' + r.status);
+  return r.json();
+});
+const q = new URLSearchParams(location.search);
+let mode = ['main', 'daily', 'rush'].includes(q.get('mode')) ? q.get('mode') : 'main';
+function paintBoard(rows, legacy) {
+  const b = document.getElementById('board');
+  if (!rows || !rows.length) {
+    b.innerHTML = '<div class="empty">no ranked runs on this board yet — be the first: press ▶ play the game</div>';
+    return;
+  }
+  b.innerHTML = rows.map((r, i) => {
+    const rank = legacy ? (i + 1) : r.rank;
+    const name = r.callsign;
+    const score = legacy ? r.best_score : r.score;
+    const extra = legacy
+      ? (esc(r.runs) + (r.runs === 1 ? ' run' : ' runs'))
+      : ('W' + String(r.wave || 1).padStart(2, '0') + (r.ship ? ' · ' + esc(r.ship) : '') + (r.paint ? ' · ' + esc(r.paint) : ''));
+    const href = 'stats.html?pilot=' + encodeURIComponent(name) + '&mode=' + encodeURIComponent(mode);
+    return '<div class="row"><span class="rank">' + String(rank).padStart(2, '0') + '</span>' +
+      '<span class="name"><a href="' + esc(href) + '" style="color:inherit;text-decoration:none">' + esc(name) + '</a>' +
+      (r.wardenfalls ? ' <span class="wf">✦' + esc(r.wardenfalls) + '</span>' : '') + '</span>' +
+      '<span class="wf">' + extra + '</span>' +
+      '<span class="score">' + esc(score) + '</span></div>';
+  }).join('');
+}
+async function loadBoard() {
+  document.querySelectorAll('#tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.mode === mode));
+  const stand = await opt('/rest/v1/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
+    encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50');
+  if (stand) { paintBoard(stand, false); return; }
+  if (mode !== 'main') {
+    document.getElementById('board').innerHTML = '<div class="empty">Per-mode boards publish after the mirror schema is applied. The classic career board is still on the Classic tab.</div>';
+    return;
+  }
+  paintBoard(await get('/rest/v1/leaderboard?select=*'), true);
+}
+function showPilot(card) {
+  const el = document.getElementById('pilot');
+  if (!card) { el.hidden = true; return; }
+  const lines = ['main', 'daily', 'rush'].map(m => {
+    const s = card[m + '_score'];
+    if (s == null) return esc(m) + ': no accepted run';
+    return esc(m) + ' #' + esc(card[m + '_rank']) + ' · ' + esc(s) +
+      (card[m + '_ship'] ? ' · ' + esc(card[m + '_ship']) : '');
+  }).join('<br>');
+  const season = card.season_key
+    ? '<br>season ' + esc(card.season_key) + ' #' + esc(card.season_rank) + ' · ' + esc(card.season_pts) + ' pts'
+    : '';
+  el.hidden = false;
+  el.innerHTML = '<h3>' + esc(card.callsign) + '</h3><p>' +
+    (card.paint ? 'paint ' + esc(card.paint) + ' · ' : '') +
+    esc(card.wardenfalls || 0) + ' wardenfalls · ' + esc(card.flew_days || 0) + ' gauntlet days<br>' +
+    lines + season + '</p>';
+}
 (async () => {
   try {
-    const [stats, board, days] = await Promise.all([
+    const [stats, days, seasons, pilotName] = await Promise.all([
       get('/rest/v1/deck_stats?select=pilots,runs,top_score'),
-      get('/rest/v1/leaderboard?select=*'),
-      get('/rest/v1/gauntlet_days?select=day,pilots,runs,top_score,top_pilot&order=day.desc&limit=8')
+      get('/rest/v1/gauntlet_days?select=day,pilots,runs,top_score,top_pilot&order=day.desc&limit=8'),
+      opt('/rest/v1/seasons?select=season,callsign,pts,runs,best,rank&order=season.desc,rank.asc&limit=40'),
+      Promise.resolve(q.get('pilot'))
     ]);
     if (stats.length) {
       document.getElementById('cPilots').textContent = stats[0].pilots;
       document.getElementById('cRuns').textContent = stats[0].runs;
       document.getElementById('cTop').textContent = stats[0].top_score;
     }
-    const b = document.getElementById('board');
-    if (!board.length) { b.innerHTML = '<div class="empty">no ranked runs yet — be the first: press ▶ play the game</div>'; }
-    else {
-      b.innerHTML = board.map((r, i) =>
-        '<div class="row"><span class="rank">' + String(i + 1).padStart(2, '0') + '</span>' +
-        '<span class="name">' + esc(r.callsign) + (r.wardenfalls ? ' <span class="wf">✦' + esc(r.wardenfalls) + '</span>' : '') + '</span>' +
-        '<span class="wf">' + esc(r.runs) + (r.runs === 1 ? ' run' : ' runs') + '</span>' +
-        '<span class="score">' + esc(r.best_score) + '</span></div>').join('');
-    }
+    await loadBoard();
+    document.getElementById('tabs').addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      mode = btn.dataset.mode;
+      const next = new URL(location.href);
+      next.searchParams.set('mode', mode);
+      history.replaceState(null, '', next);
+      try { await loadBoard(); }
+      catch (err) {
+        document.getElementById('board').innerHTML = '<div class="empty">unavailable</div>';
+      }
+    });
+    const sbox = document.getElementById('seasons');
+    if (!seasons) sbox.innerHTML = '<div class="day"><span class="d">season history publishes with the mirror schema</span></div>';
+    else if (!seasons.length) sbox.innerHTML = '<div class="day"><span class="d">no gauntlet seasons flown yet</span></div>';
+    else sbox.innerHTML = seasons.map(x =>
+      '<div class="day"><span class="d">' + esc(x.season) + ' · #' + esc(x.rank) + '</span>' +
+      '<span class="p"><a href="stats.html?pilot=' + encodeURIComponent(x.callsign) + '" style="color:inherit;text-decoration:none">' + esc(x.callsign) + '</a></span>' +
+      '<span class="s">' + esc(x.pts) + '</span></div>').join('');
     const d = document.getElementById('days');
     if (!days.length) { d.innerHTML = '<div class="day"><span class="d">no gauntlet days flown yet</span></div>'; }
     else {
@@ -90,6 +173,15 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
         '<div class="day"><span class="d">' + esc(x.day) + ' · ' + esc(x.pilots) + ' pilot' + (x.pilots === 1 ? '' : 's') + '</span>' +
         '<span class="p">' + esc(x.top_pilot || '—') + '</span>' +
         '<span class="s">' + esc(x.top_score) + '</span></div>').join('');
+    }
+    if (pilotName) {
+      const cards = await opt('/rest/v1/pilot_cards?select=*&callsign=eq.' + encodeURIComponent(pilotName) + '&limit=1');
+      if (cards && cards.length) showPilot(cards[0]);
+      else {
+        const el = document.getElementById('pilot');
+        el.hidden = false;
+        el.innerHTML = '<h3>' + esc(pilotName) + '</h3><p>No public dossier on the mirror yet. A deck-linked profile is the live record.</p>';
+      }
     }
   } catch (e) {
     const el = document.getElementById('err');

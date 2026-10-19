@@ -721,7 +721,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.26.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.27.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -1018,7 +1018,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.26.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.27.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7275,6 +7275,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.27.0',
+    items: [
+      'Boards, the pilot page, and the public mirror now tell one story: the row is the flight that set the score (hull, wave, paint, mastery), ties share a rank, and /pilot renders that dossier as a page. Season history and per-mode standings publish with the mirror schema.'
+    ]
+  },
   {
     v: '4.26.0',
     items: [

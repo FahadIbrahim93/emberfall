@@ -469,9 +469,11 @@ const NET = {
     bd.innerHTML = (j.top && j.top.length)
       ? j.top.map((r, i) => {
           const medal = i < 3 ? 'color:var(--gold)' : '';
+          const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
+          const href = (typeof pilotUrl === 'function') ? pilotUrl(r.n) : '#';
           return '<div class="row">' +
-            '<span class="rk" style="' + medal + '">' + pad2(i + 1) + '</span>' +
-            '<span class="nm">' + esc(r.n) + '</span>' +
+            '<span class="rk" style="' + medal + '">' + pad2(rk) + '</span>' +
+            '<span class="nm"><a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a></span>' +
             '<span class="sc">' + fmt(r.pts) + '</span>' +
             '<span class="wv">' + r.runs + ' runs</span></div>';
         }).join('')
@@ -594,8 +596,9 @@ const NET = {
         const mine = this.user && r.n === this.user.name;
         const gpt = r.p && PAINTS.find(x => x.id === r.p);
         const gstar = honor && honor.at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
           '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
           (h ? ' · ' + esc(h.name) : '') +
@@ -633,8 +636,35 @@ const NET = {
     const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
+    const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
     try {
-      const r = await fetch(SB + '/leaderboard?select=*', { headers: { apikey: KEY } });
+      const headers = { apikey: KEY };
+      const stand = await fetch(SB + '/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
+        encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50', { headers });
+      if (stand.ok) {
+        const rows = await stand.json();
+        if (!rows.length) {
+          box.innerHTML = '<div class="empty">No ranked pilots on this board yet.<br>Host a deck, fly, sync — or just fly.</div>';
+          return;
+        }
+        box.innerHTML = rows.map(r2 => {
+          const h = (typeof HULLS !== 'undefined') && HULLS.find(x => x.id === r2.ship);
+          const pt = r2.paint && (typeof PAINTS !== 'undefined') && PAINTS.find(x => x.id === r2.paint);
+          const href = 'stats.html?pilot=' + encodeURIComponent(r2.callsign);
+          return '<div class="row">' +
+            '<span class="rk">' + pad2(r2.rank) + '</span>' +
+            '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
+            '<a href="' + esc(href) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+            (h ? ' · ' + esc(h.name) : '') +
+            (Number.isFinite(+r2.mastery) && +r2.mastery > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r2.mastery) + '</span>' : '') +
+            '</span><span class="sc">' + padN(r2.score, 7) + '</span>' +
+            '<span class="wv">W' + pad2(r2.wave || 1) + '</span></div>';
+        }).join('') +
+          '<p class="empty" style="padding:8px 0 0;text-align:left">The same best-run board the deck publishes, read from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        return;
+      }
+      if (stand.status !== 404) throw new Error('mirror ' + stand.status);
+      const r = await fetch(SB + '/leaderboard?select=*', { headers });
       if (!r.ok) throw new Error('mirror ' + r.status);
       const rows = await r.json();
       if (!rows.length) {
@@ -644,10 +674,11 @@ const NET = {
       box.innerHTML = rows.map((r2, i) =>
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm">' + esc(r2.callsign) + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
+        '<span class="nm"><a href="' + esc('stats.html?pilot=' + encodeURIComponent(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+        (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
-        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed hourly. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
     } catch (e) {
       box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
     }
@@ -673,10 +704,11 @@ const NET = {
         const dstar = honorOf(META.donated || 0) && honorOf(META.donated || 0).at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
         /* v4.10 medal pips: the deck's ledger says what this pilot earned today */
         const pips = medalPips(dj.md && dj.md[r.n]);
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
-          esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          pilotLink(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">D' + pad2(r.w || 1) + pips + '</span></div>';
       }).join('');
@@ -721,6 +753,14 @@ function weekRecapLine(daily, weekDays) {
 /* v4.10 medal pips: render the deck's earned-medal names as a compact
    gold tag — pure so the suite pins its exact output. Always gold: medals
    are achievements, and they must never read as a second callsign color. */
+/* A callsign on a live board opens that pilot's dossier on the deck that
+   holds the account. The mirror boards link to stats.html instead — they
+   have no deck session to ask. */
+function pilotLink(name) {
+  const href = (typeof pilotUrl === 'function') ? pilotUrl(name) : '#';
+  return '<a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(name) + '</a>';
+}
+
 function medalPips(md) {
   if (!md || !md.length) return '';
   return ' <span style="color:var(--gold)">' + md.map(esc).join('·') + '</span>';
