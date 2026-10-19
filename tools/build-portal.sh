@@ -2,7 +2,7 @@
 # Portal payload for web game portals (CrazyGames, GamePix, and the like).
 # Copies the playable shell into dist-portal/, injects window.EMBERFALL_PORTAL,
 # and writes dist-portal.zip with index.html at the archive root.
-# No extra runtime dependencies: bash, node, and zip.
+# No extra runtime dependencies: bash, node, and either zip or python3.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -106,7 +106,34 @@ if grep -R -a -n -F -e 'supabase' -e 'fly.dev' -e 'github.com' "$OUT"; then
   exit 1
 fi
 
-( cd "$OUT" && zip -r -X -q "$ZIP" . )
+# `zip` is preferred. When it is not installed, python3's stdlib still
+# writes the archive so the root and size checks below always run.
+# A missing archive is a hard failure either way — do not continue.
+if command -v zip >/dev/null 2>&1; then
+  ( cd "$OUT" && zip -r -X -q "$ZIP" . )
+elif command -v python3 >/dev/null 2>&1; then
+  echo "build-portal: zip is not installed; packing with python3" >&2
+  python3 - "$OUT" "$ZIP" <<'PY'
+import os, sys, zipfile
+src, dest = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    for dirpath, dirnames, filenames in os.walk(src):
+        dirnames.sort()
+        for name in sorted(filenames):
+            full = os.path.join(dirpath, name)
+            if os.path.abspath(full) == os.path.abspath(dest):
+                continue
+            rel = os.path.relpath(full, src).replace(os.sep, "/")
+            zf.write(full, rel)
+PY
+else
+  echo "build-portal: zip is not installed and python3 is unavailable" >&2
+  exit 1
+fi
+if [ ! -f "$ZIP" ]; then
+  echo "build-portal: dist-portal.zip was not created" >&2
+  exit 1
+fi
 
 # index.html at the archive root, not under a directory prefix.
 if ! unzip -Z1 "$ZIP" | grep -qx 'index.html'; then
