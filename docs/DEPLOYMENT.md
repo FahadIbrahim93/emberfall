@@ -17,6 +17,22 @@ and the deck is **optional by design**: without one, the game probes
 The two live together naturally: a Pages-hosted game simply runs in local
 mode, and a self-hosted deck serves the identical client plus the API.
 
+## Portal build (web game portals)
+
+`npm run build:portal` (`tools/build-portal.sh`) copies the playable shell
+into `dist-portal/`, injects `window.EMBERFALL_PORTAL=true`, strips off-site
+hosts, and writes `dist-portal.zip` with `index.html` at the archive root
+(20 MB limit). It uses `zip`, falls back to python3, and exits non-zero if
+the archive is not created (#13). The same mode can be forced on any
+deployment with `?portal=1`. In portal mode scores stay on-device.
+
+## Live URLs (2026-10-20)
+
+- Vercel: https://emberfall-game-two.vercel.app/
+- GitHub Pages: https://fahadibrahim93.github.io/emberfall/
+
+Both verified 200. The Vercel note below predates the Vercel URL going live.
+
 ## The canonical deployment: GitHub Pages
 
 - **Published by the CI itself** — the `deploy` job runs only after the

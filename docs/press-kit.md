@@ -9,6 +9,13 @@ for the words; the HTML page and its assets deploy with the site.
 repo's own instrumented play (`tests/fun-audit.spec.js`,
 `tests/fun-loop.spec.js`, artifacts in `docs/audit/`).*
 
+## Where to play (2026-10-20)
+
+- https://emberfall-game-two.vercel.app/
+- https://fahadibrahim93.github.io/emberfall/
+- Submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are planned.
+- Global leaderboards and pilot profiles: merged (#14), not live yet.
+
 ## The pitch
 
 **EMBERFALL** is a free, zero-install browser shoot-'em-up. Something came

@@ -4,6 +4,10 @@
 game state**, **player identity**, and **public leaderboard projections** —
 without a runtime cloud dependency on the hot path.*
 
+> **Status (2026-10-20):** the combined boards / pilot profile dossier
+> merged in PR #14. Do not describe it as live until the production rollout
+> is announced. Portal builds keep scores on-device.
+
 ## Design principles
 
 | Principle | Implementation |
