@@ -103,5 +103,5 @@ Hourly GitHub Action refreshes `docs/stats.json` and runs `mirror-alarm.mjs`
 ## Related docs
 
 - [DATABASE.md](DATABASE.md) — SQLite schema, vault, backups
-- [mirror-schema.sql](mirror-schema.sql) — Postgres indexes + RLS reference
+- [tools/mirror-schema.sql](../tools/mirror-schema.sql) — canonical Postgres schema, indexes, RLS and column grants
 - [DEPLOYMENT.md](DEPLOYMENT.md) — deck hosting, `EF_CORS_ORIGINS`, rollback
