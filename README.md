@@ -1,4 +1,4 @@
-# EMBERFALL v4.26.0 — Orbital Intercept
+# EMBERFALL v4.27.0 — Orbital Intercept
 
 <p align="center">
   <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
@@ -125,14 +125,18 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 The deck's SQLite is the only authoritative store (one file, zero
 dependencies, backed up live). A read-only **Supabase mirror** publishes
-the public facts — callsigns, accepted scores, gauntlet days, lifetime
-totals — so the world can query real numbers without touching the game
-server. Row-level security allows the world to read and no one to write;
-password hashes, sessions and telemetry never leave the deck.
+the public facts — callsigns, accepted scores, the flight that set each
+board score, season history, and a pilot card — so the world can query
+real numbers without touching the game server. Row-level security allows
+the world to read and no one to write; password hashes, sessions and
+telemetry never leave the deck. Apply [`tools/mirror-schema.sql`](tools/mirror-schema.sql)
+once, then `node tools/db-sync.mjs`. Until that schema is applied, the
+classic `leaderboard` view still answers.
 Architecture: [`docs/adr/0001`](docs/adr/0001-sqlite-authoritative-supabase-mirror.md) ·
+[`docs/adr/0003`](docs/adr/0003-best-run-boards-and-public-dossiers.md) ·
 data layer: [`docs/DATABASE.md`](docs/DATABASE.md) ·
 UMS + boards: [`docs/LEADERBOARD-AND-ACCOUNTS.md`](docs/LEADERBOARD-AND-ACCOUNTS.md) ·
-public profiles: [`pilot.html`](pilot.html?callsign=) (mirror) and `/pilot/<callsign>` (live deck).
+public profiles: [`pilot.html`](pilot.html) (mirror) and `/pilot/<callsign>` (live deck).
 
 ```bash
 # the public leaderboard, right now, from any machine:
@@ -170,6 +174,9 @@ Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sun
 
 **Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
 
+## What's new in v4.27.0 — "The Same Ladder"
+
+- Boards, the `/pilot` page, and the public mirror now describe the same flight: the one that set the score. Ties share a rank. Season history and per-mode standings publish once `tools/mirror-schema.sql` is applied. Proven by `tools/drill-boards.mjs`.
 ## What's new in v4.26.0 — "The Open Gate"
 
 - Sign in with Google — the deck verifies the ID token itself and mints its own session, so a Gmail pilot is the same pilot on the same boards, with callsign linking for classic accounts.
@@ -387,6 +394,7 @@ tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted 
 tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
 tools/drill-google.mjs  Google sign-in contract: minted RS256 tokens, session mint, callsign linking, concurrent first sign-ins join one pilot (CI step)
 tools/drill-cross-origin.mjs  ADR 0002 drill: CORS grants, bearer sessions, pagination, pilot profiles across origins (CI step)
+tools/drill-boards.mjs  best-run boards, shared ranks, the /pilot dossier, and mirror SQL (CI step)
 tools/drill-replay.mjs  replay drill: the 24h anti-cheat window, per-pilot and per-hash integrity (CI step)
 tools/drill-feedback.mjs  listening-deck drill: notes + funnel caps, dedupe, closed vocabulary, aggregates (CI step)
 tools/drill-onboarding.mjs  launch-day drill: stranger → signed-up → honest run → ranked worldwide, through the real deck client (CI step)

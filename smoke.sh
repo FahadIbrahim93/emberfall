@@ -231,18 +231,21 @@ say ""; say "── P0-10: the week window is a TEXT-day filter, not a lifetime 
 # row — weekDays silently counted the pilot's lifetime. The discriminator is
 # a ledger row from BEFORE this week flown by the already-logged-in pilot:
 # it must stay outside the window (only this Monday's row counts).
-WDB="${EF_DATA_DIR_DB:-$(dirname "$0")/../emberfall-data/emberfall.db}"
+if [ -n "${EF_DATA_DIR:-}" ]; then WDB="${EF_DATA_DIR%/}/emberfall.db"; else WDB="${EF_DATA_DIR_DB:-$(dirname "$0")/../emberfall-data/emberfall.db}"; fi
 WD0="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
-node -e "
+if ! node -e "
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync(process.argv[1]);
 const u = db.prepare('SELECT id FROM users WHERE name = ?').get(process.argv[2]);
 if (!u) { console.error('seed target pilot missing'); process.exit(1); }
 db.prepare('INSERT OR REPLACE INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak) VALUES (?,?,?,?,?,?,?)')
   .run(u.id, '2026-01-05', '2026-01-05', 5000, 8, 120, 1);   /* ten weeks old: outside every current window */
-db.close();" "$WDB" "Pilot$R"
-WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
-if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
+db.close();" "$WDB" "Pilot$R"; then
+  no "week window seed could not open $WDB"
+else
+  WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
+  if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
+fi
 
 say ""; say "── v4.16: account self-management ──"
 # A dedicated pilot + dedicated jar, so the deletion cascade is proven

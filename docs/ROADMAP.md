@@ -25,8 +25,9 @@ each release takes whatever the top of the list offers.*
 3. **~~In-game link to the world page~~ DONE v4.21.0** — the deckless
    Global tab reads the public mirror directly and links `stats.html`.
 4. **~~Leaderboard pagination~~ DONE v4.22.0** — `/api/scores?offset=`
-   pages distinct pilots with a `more` flag; seasons history on the
-   mirror remains open.
+   pages distinct pilots with a `more` flag. **~~Season history on the
+   mirror~~ DONE v4.27.0** — `public.seasons` is the same best-five
+   classic total the deck already ranks, one row per pilot per week.
 5. **~~Rate-limit observability~~ DONE v4.23.0 + v4.24.0** — `/api/health` carries
    per-bucket 429 telemetry (bucket, last60s, last1h, retryInMs — no
    PII, ring of 24 per bucket, one-hour horizon); the limiters drill

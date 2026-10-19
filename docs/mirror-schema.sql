@@ -1,6 +1,7 @@
--- EMBERFALL public mirror (Supabase Postgres) — reference schema
--- Authoritative store: Command Deck SQLite (ADR 0001). Apply via console,
--- psql, or `node tools/db-sync.mjs --print-sql` for idempotent upserts.
+-- EMBERFALL public mirror (Supabase Postgres) — short reference.
+-- Apply the canonical script instead: tools/mirror-schema.sql
+-- (it includes these tables plus board_standings, seasons, and pilot_cards).
+-- Authoritative store: Command Deck SQLite (ADR 0001).
 -- Index choices follow Supabase Postgres best practices: filter columns
 -- first, selective partial indexes where reads are scoped.
 

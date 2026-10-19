@@ -38,6 +38,7 @@ async function mirrorPilotRow(callsign) {
 
 async function mirrorModeBest(pilotDeckId, mode) {
   const rows = await mirrorJson('/rest/v1/scores?pilot=eq.' + pilotDeckId +
-    '&mode=eq.' + mode + '&select=score,wave,ship&order=score.desc&limit=1');
+    '&mode=eq.' + encodeURIComponent(mode) +
+    '&select=score,wave,ship&order=score.desc,flown_at.asc&limit=1');
   return rows[0] || null;
 }

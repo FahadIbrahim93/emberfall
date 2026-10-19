@@ -721,7 +721,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.26.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.27.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -1019,7 +1019,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.26.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.27.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7320,6 +7320,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.27.0',
+    items: [
+      'Boards, the pilot page, and the public mirror now tell one story: the row is the flight that set the score (hull, wave, paint, mastery), ties share a rank, and /pilot renders that dossier as a page. Deckless copies open pilot.html from the mirror. Season history and per-mode standings publish with the mirror schema.'
+    ]
+  },
+  {
     v: '4.26.0',
     items: [
       'Sign in with Google — the deck verifies the ID token itself and mints its own session, so a Gmail pilot is the same pilot on the same boards, with callsign linking for classic accounts.'
@@ -9149,7 +9155,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.26.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.27.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -52,14 +52,19 @@ html = html.replace(
 html = html.replace(/Supabase/g, 'public');
 fs.writeFileSync(path.join(out, 'index.html'), html);
 
-let net = fs.readFileSync(path.join(out, 'js', 'net.js'), 'utf8');
-const host = "const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';";
-if (!net.includes(host)) {
-  console.error('build-portal: mirror host literal missing from js/net.js');
+const mirrorPath = path.join(out, 'js', 'mirror-public.js');
+let mirror = fs.readFileSync(mirrorPath, 'utf8');
+const host = "const MIRROR_ORIGIN = 'https://bhcczyyhadornihhzpsu.supabase.co';";
+if (!mirror.includes(host)) {
+  console.error('build-portal: mirror host literal missing from js/mirror-public.js');
   process.exit(1);
 }
-net = net.replace(host, "const SB = '';");
-fs.writeFileSync(path.join(out, 'js', 'net.js'), net);
+mirror = mirror.replace(host, "const MIRROR_ORIGIN = '';");
+fs.writeFileSync(mirrorPath, mirror);
+
+let sw = fs.readFileSync(path.join(out, 'sw.js'), 'utf8');
+sw = sw.replace(" './stats.html', './pilot.html',", '');
+fs.writeFileSync(path.join(out, 'sw.js'), sw);
 EOF
 
 # Syntax of the shipped scripts, including every inline payload.

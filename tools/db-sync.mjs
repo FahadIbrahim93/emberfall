@@ -14,8 +14,9 @@
           SUPABASE_URL=https://<ref>.supabase.co \
           SUPABASE_SERVICE_KEY=<service-role key> \
           node tools/db-sync.mjs
-        Upserts pilots, scores, gauntlet days and deck_stats through the
-        PostgREST bulk endpoint with Prefer: resolution=merge-duplicates.
+        Upserts pilots, scores, gauntlet days, deck_stats, and — once
+        tools/mirror-schema.sql has been applied — per-mode board rows,
+        season history and public pilot cards. Prefer: resolution=merge-duplicates.
 
      2. Keyless staging (--print-sql):
           node tools/db-sync.mjs --print-sql > mirror.sql
@@ -31,8 +32,11 @@
         totals against the local authoritative store. Exit 1 on drift.
 
    Privacy contract: the mirror receives callsigns, scores, wave/mode/ship,
-   gauntlet aggregates. It never receives password hashes, session tokens,
-   checkpoint telemetry, profile JSON or the save vault.
+   an allowlisted paint id, gauntlet aggregates and season totals. It never
+   receives password hashes, session tokens, checkpoint telemetry, profile
+   JSON, login timestamps (users.last_seen), or the save vault.
+   weekStart/seasonKey below match server.js — the mirror's season is the
+   deck's season.
 
    WHAT COUNTS: accepted runs only (verdict = 'accepted'); review and
    legacy rows stay on the deck. Tombstoned pilots are deleted from the
@@ -59,17 +63,115 @@ if (!fs.existsSync(DB_PATH)) {
 }
 const db = new DatabaseSync(DB_PATH, { readOnly: true });
 
+/* wardrobe allowlist — the same ids server.js accepts on a score write */
+const PAINT_IDS = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
+const paintOk = p => (p && PAINT_IDS.has(p) ? p : null);
+
+/* Monday-UTC week and season key. Copied from server.js on purpose: the
+   mirror must name the same week the deck's /api/season names. */
+function weekStart(ts) {
+  const d = new Date(ts);
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+function seasonKey(ts) {
+  const d = new Date(ts);
+  const jan1 = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const week = Math.floor((weekStart(ts) - jan1) / 604800000) + 1;
+  return d.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+}
+/* cmp orders the board. tied() is the competition-rank key: equal bests
+   share a rank even when an earlier flight is listed first. */
+function competitionRank(list, cmp, tied) {
+  const sorted = [...list].sort(cmp);
+  let lastRank = 0;
+  return sorted.map((item, i) => {
+    const rank = i > 0 && tied(sorted[i - 1], item) ? lastRank : i + 1;
+    lastRank = rank;
+    return { ...item, rank };
+  });
+}
+
 /* ── extract: public facts only ──────────────────────────────────────── */
 function extract() {
   const pilots = db.prepare(`
-    SELECT u.id, u.name, u.created, u.last_seen,
+    SELECT u.id, u.name, u.created,
       (SELECT COUNT(*) FROM scores s WHERE s.user_id = u.id AND s.verdict = 'accepted') AS runs,
-      (SELECT COALESCE(MAX(s.score), 0) FROM scores s WHERE s.user_id = u.id AND s.verdict = 'accepted') AS best_score,
-      (SELECT COALESCE(MAX(s.wave), 0) FROM scores s WHERE s.user_id = u.id AND s.verdict = 'accepted') AS best_wave,
       (SELECT COALESCE(SUM(d.paid), 0) FROM daily_stats d WHERE d.user_id = u.id) AS total_paid,
       (SELECT COALESCE(MAX(d.streak), 0) FROM daily_stats d WHERE d.user_id = u.id) AS best_streak,
-      (SELECT COUNT(*) FROM daily_stats d WHERE d.user_id = u.id AND d.wardenfall = 1) AS wardenfalls
+      (SELECT COUNT(*) FROM daily_stats d WHERE d.user_id = u.id AND d.wardenfall = 1) AS wardenfalls,
+      (SELECT COUNT(*) FROM daily_stats d WHERE d.user_id = u.id) AS flew_days
     FROM users u`).all();
+  const career = db.prepare(`
+    WITH best AS (
+      SELECT s.user_id, s.mode, s.score, s.wave, s.ship, s.paint, s.mastery,
+             ROW_NUMBER() OVER (
+               PARTITION BY s.user_id
+               ORDER BY s.score DESC, s.created ASC, s.id ASC
+             ) AS rn
+      FROM scores s WHERE s.verdict = 'accepted'
+    )
+    SELECT user_id, mode, score, wave, ship, paint, mastery FROM best WHERE rn = 1`).all();
+  const careerBy = new Map(career.map(c => [c.user_id, c]));
+  const perMode = db.prepare(`
+    WITH best AS (
+      SELECT s.user_id, s.mode, s.score, s.wave, s.ship, s.paint, s.mastery, s.created,
+             ROW_NUMBER() OVER (
+               PARTITION BY s.user_id, s.mode
+               ORDER BY s.score DESC, s.created ASC, s.id ASC
+             ) AS rn
+      FROM scores s WHERE s.verdict = 'accepted'
+    )
+    SELECT b.user_id, u.name AS callsign, b.mode, b.score, b.wave, b.ship, b.paint, b.mastery, b.created
+    FROM best b JOIN users u ON u.id = b.user_id
+    WHERE b.rn = 1`).all();
+  const byMode = new Map();
+  for (const row of perMode) {
+    if (!byMode.has(row.mode)) byMode.set(row.mode, []);
+    byMode.get(row.mode).push(row);
+  }
+  const standings = [];
+  for (const list of byMode.values()) {
+    const ranked = competitionRank(list,
+      (a, b) => b.score - a.score || a.created - b.created || a.user_id - b.user_id,
+      (a, b) => a.score === b.score);
+    standings.push(...ranked);
+  }
+  const worn = new Map();
+  for (const p of db.prepare('SELECT user_id, data FROM profiles').all()) {
+    try {
+      const meta = JSON.parse(p.data).meta;
+      worn.set(p.user_id, paintOk(meta && meta.paint));
+    } catch (e) { worn.set(p.user_id, null); }
+  }
+  const seasonRuns = db.prepare(`
+    SELECT s.user_id, u.name AS callsign, s.score, s.created
+    FROM scores s JOIN users u ON u.id = s.user_id
+    WHERE s.mode = 'main' AND s.verdict = 'accepted'`).all();
+  const buckets = new Map();
+  for (const run of seasonRuns) {
+    const key = seasonKey(run.created) + '\0' + run.user_id;
+    if (!buckets.has(key)) buckets.set(key, { season: seasonKey(run.created), deck_id: run.user_id, callsign: run.callsign, scores: [] });
+    buckets.get(key).scores.push(run.score);
+  }
+  const bySeason = new Map();
+  for (const row of buckets.values()) {
+    row.scores.sort((a, b) => b - a);
+    const top = row.scores.slice(0, 5);
+    const item = {
+      season: row.season, deck_id: row.deck_id, callsign: row.callsign,
+      pts: top.reduce((a, b) => a + b, 0), runs: top.length, best: top[0]
+    };
+    if (!bySeason.has(row.season)) bySeason.set(row.season, []);
+    bySeason.get(row.season).push(item);
+  }
+  const seasons = [];
+  for (const list of bySeason.values()) {
+    seasons.push(...competitionRank(list,
+      (a, b) => b.pts - a.pts || b.best - a.best || a.callsign.localeCompare(b.callsign),
+      (a, b) => a.pts === b.pts));
+  }
   const scores = db.prepare(`
     SELECT s.id, s.user_id, s.mode, s.score, s.wave, s.ship, s.diff, s.created
     FROM scores s WHERE s.verdict = 'accepted'`).all();
@@ -79,24 +181,47 @@ function extract() {
       COUNT(*) AS runs,
       MAX(d.best_score) AS top_score
     FROM daily_stats d GROUP BY d.day`).all();
-  /* gauntlet day winners need names — one join, not per-day */
   const tops = db.prepare(`
     SELECT d.day, u.name FROM daily_stats d JOIN users u ON u.id = d.user_id
     WHERE d.best_score = (SELECT MAX(x.best_score) FROM daily_stats x WHERE x.day = d.day)`).all();
   const topByDay = new Map(tops.map(t => [t.day, t.name]));
-  return { pilots, scores, days: days.map(d => ({ ...d, top_pilot: topByDay.get(d.day) || null })) };
+  return {
+    pilots: pilots.map(p => ({ ...p, career: careerBy.get(p.id) || null, worn: worn.get(p.id) || null })),
+    scores, standings, seasons,
+    days: days.map(d => ({ ...d, top_pilot: topByDay.get(d.day) || null }))
+  };
 }
 
 const iso = ms => ms ? new Date(ms).toISOString() : null;
 
 /* ── transform: mirror rows ──────────────────────────────────────────── */
 function rows() {
-  const { pilots, scores, days } = extract();
+  const { pilots, scores, days, standings, seasons } = extract();
+  const nowKey = seasonKey(Date.now());
+  const seasonByPilot = new Map(seasons.filter(s => s.season === nowKey).map(s => [s.deck_id, s]));
+  const modesByPilot = new Map();
+  for (const row of standings) {
+    if (!modesByPilot.has(row.user_id)) modesByPilot.set(row.user_id, {});
+    modesByPilot.get(row.user_id)[row.mode] = row;
+  }
+  const modeCols = (bag, mode) => {
+    const r = bag && bag[mode];
+    return {
+      [mode + '_score']: r ? r.score : null,
+      [mode + '_wave']: r ? r.wave : null,
+      [mode + '_ship']: r ? r.ship : null,
+      [mode + '_paint']: r ? paintOk(r.paint) : null,
+      [mode + '_mastery']: r ? (r.mastery || 0) : null,
+      [mode + '_rank']: r ? r.rank : null
+    };
+  };
   return {
     pilots: pilots.map(p => ({
       deck_id: p.id, callsign: p.name, created_at: iso(p.created),
-      last_seen_at: iso(p.last_seen), runs: p.runs, best_score: p.best_score,
-      best_wave: p.best_wave, total_paid: p.total_paid, best_streak: p.best_streak,
+      last_seen_at: null, runs: p.runs,
+      best_score: p.career ? p.career.score : 0,
+      best_wave: p.career ? p.career.wave : 0,
+      total_paid: p.total_paid, best_streak: p.best_streak,
       wardenfalls: p.wardenfalls
     })),
     scores: scores.map(s => ({
@@ -110,38 +235,179 @@ function rows() {
       id: 1,
       pilots: pilots.length,
       runs: scores.length,
-      top_score: scores.reduce((m, s) => Math.max(m, s.score), 0)
-    }]
+      top_score: scores.reduce((m, s) => Math.max(m, s.score), 0),
+      updated_at: new Date().toISOString()
+    }],
+    board_standings: standings.map(s => ({
+      mode: s.mode, deck_id: s.user_id, callsign: s.callsign, score: s.score,
+      wave: s.wave, ship: s.ship, paint: paintOk(s.paint), mastery: s.mastery || 0,
+      rank: s.rank, flown_at: iso(s.created)
+    })),
+    seasons: seasons.map(s => ({
+      season: s.season, deck_id: s.deck_id, callsign: s.callsign,
+      pts: s.pts, runs: s.runs, best: s.best, rank: s.rank
+    })),
+    pilot_cards: pilots.map(p => {
+      const bag = modesByPilot.get(p.id) || {};
+      const season = seasonByPilot.get(p.id) || null;
+      return {
+        deck_id: p.id, callsign: p.name, since: iso(p.created), paint: p.worn,
+        wardenfalls: p.wardenfalls, flew_days: p.flew_days, alloy_paid: p.total_paid,
+        ...modeCols(bag, 'main'), ...modeCols(bag, 'daily'), ...modeCols(bag, 'rush'),
+        season_key: season ? season.season : null,
+        season_pts: season ? season.pts : null,
+        season_runs: season ? season.runs : null,
+        season_best: season ? season.best : null,
+        season_rank: season ? season.rank : null
+      };
+    })
   };
 }
 
-const q = v => v === null ? 'null' : (typeof v === 'number' ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
+/* Integers stay bare. Every other value is a standard SQL literal: quotes
+   doubled, never concatenated raw. A day or callsign that reached SQLite
+   outside the deck's validators must not become a statement. */
+function sqlInt(n) {
+  const v = Number(n);
+  if (!Number.isSafeInteger(v)) throw new Error('db-sync: refusing non-integer key ' + n);
+  return String(v);
+}
+const q = v => v === null || v === undefined
+  ? 'null'
+  : (typeof v === 'number' ? sqlInt(v) : `'${String(v).replace(/'/g, "''")}'`);
 
 function upsertSql(table, cols, rows, conflict) {
   if (!rows.length) return '';
+  const keys = new Set(conflict.split(',').map(c => c.trim()));
   const values = rows.map(r => `(${cols.map(c => q(r[c])).join(', ')})`).join(',\n  ');
-  return `insert into public.${table} (${cols.join(', ')}) values\n  ${values}\non conflict (${conflict}) do update set\n  ${cols.filter(c => !conflict.includes(c)).map(c => `${c} = excluded.${c}`).join(', ')};\n`;
+  const sets = cols.filter(c => !keys.has(c)).map(c => `${c} = excluded.${c}`).join(', ');
+  return `insert into public.${table} (${cols.join(', ')}) values\n  ${values}\non conflict (${conflict}) do update set\n  ${sets};\n`;
 }
 
 function printSql() {
   const r = rows();
   /* deletions keep the mirror honest when rows leave the authoritative store */
-  const keepPilots = r.pilots.map(p => p.deck_id);
-  const keepScores = r.scores.map(s => s.deck_id);
-  const keepDays = r.gauntlet_days.map(d => `'${d.day}'`);
+  const keepPilots = r.pilots.map(p => sqlInt(p.deck_id));
+  const keepScores = r.scores.map(s => sqlInt(s.deck_id));
+  const keepDays = r.gauntlet_days.map(d => q(d.day));
+  const keepStand = r.board_standings.map(s => `(${q(s.mode)}, ${sqlInt(s.deck_id)})`);
+  const keepSeasons = r.seasons.map(s => `(${q(s.season)}, ${sqlInt(s.deck_id)})`);
   let out = `-- EMBERFALL public mirror — generated by tools/db-sync.mjs --print-sql\n`;
   out += `-- generated_at: ${new Date().toISOString()}\n`;
-  out += `-- apply with: supabase console / psql / any elevated SQL path\n\n`;
+  out += `-- apply tools/mirror-schema.sql first, then this script\n\n`;
   if (keepScores.length) out += `delete from public.scores where deck_id not in (${keepScores.join(', ')});\n`;
+  else out += `delete from public.scores;\n`;
   if (keepPilots.length) out += `delete from public.pilots where deck_id not in (${keepPilots.join(', ')});\n`;
   else out += `delete from public.pilots;\n`;
   if (keepDays.length) out += `delete from public.gauntlet_days where day not in (${keepDays.join(', ')});\n`;
+  else out += `delete from public.gauntlet_days;\n`;
+  if (keepStand.length) out += `delete from public.board_standings where (mode, deck_id) not in (${keepStand.join(', ')});\n`;
+  else out += `delete from public.board_standings;\n`;
+  if (keepSeasons.length) out += `delete from public.seasons where (season, deck_id) not in (${keepSeasons.join(', ')});\n`;
+  else out += `delete from public.seasons;\n`;
+  if (keepPilots.length) out += `delete from public.pilot_cards where deck_id not in (${keepPilots.join(', ')});\n`;
+  else out += `delete from public.pilot_cards;\n`;
   out += '\n';
-  out += upsertSql('pilots', ['deck_id', 'callsign', 'created_at', 'last_seen_at', 'runs', 'best_score', 'best_wave', 'total_paid', 'best_streak', 'wardenfalls'], r.pilots, ['deck_id']);
-  out += upsertSql('scores', ['deck_id', 'pilot', 'mode', 'score', 'wave', 'ship', 'diff', 'flown_at'], r.scores, ['deck_id']);
-  out += upsertSql('gauntlet_days', ['day', 'pilots', 'runs', 'top_score', 'top_pilot'], r.gauntlet_days, ['day']);
-  out += upsertSql('deck_stats', ['id', 'pilots', 'runs', 'top_score', 'updated_at'], r.deck_stats.map(d => ({ ...d, updated_at: new Date().toISOString() })), ['id']);
+  out += upsertSql('pilots', ['deck_id', 'callsign', 'created_at', 'last_seen_at', 'runs', 'best_score', 'best_wave', 'total_paid', 'best_streak', 'wardenfalls'], r.pilots, 'deck_id');
+  out += upsertSql('scores', ['deck_id', 'pilot', 'mode', 'score', 'wave', 'ship', 'diff', 'flown_at'], r.scores, 'deck_id');
+  out += upsertSql('gauntlet_days', ['day', 'pilots', 'runs', 'top_score', 'top_pilot'], r.gauntlet_days, 'day');
+  out += upsertSql('deck_stats', ['id', 'pilots', 'runs', 'top_score', 'updated_at'], r.deck_stats, 'id');
+  out += upsertSql('board_standings', ['mode', 'deck_id', 'callsign', 'score', 'wave', 'ship', 'paint', 'mastery', 'rank', 'flown_at'], r.board_standings, 'mode, deck_id');
+  out += upsertSql('seasons', ['season', 'deck_id', 'callsign', 'pts', 'runs', 'best', 'rank'], r.seasons, 'season, deck_id');
+  out += upsertSql('pilot_cards', ['deck_id', 'callsign', 'since', 'paint', 'wardenfalls', 'flew_days', 'alloy_paid', 'main_score', 'main_wave', 'main_ship', 'main_paint', 'main_mastery', 'main_rank', 'daily_score', 'daily_wave', 'daily_ship', 'daily_paint', 'daily_mastery', 'daily_rank', 'rush_score', 'rush_wave', 'rush_ship', 'rush_paint', 'rush_mastery', 'rush_rank', 'season_key', 'season_pts', 'season_runs', 'season_best', 'season_rank'], r.pilot_cards, 'deck_id');
   process.stdout.write(out);
+}
+
+const CONFLICT = {
+  pilots: 'deck_id',
+  scores: 'deck_id',
+  gauntlet_days: 'day',
+  deck_stats: 'id',
+  board_standings: 'mode,deck_id',
+  seasons: 'season,deck_id',
+  pilot_cards: 'deck_id'
+};
+
+async function restTableExists(base, headers, table) {
+  const res = await fetch(`${base}/rest/v1/${table}?select=*&limit=0`, { headers });
+  return res.ok;
+}
+
+async function restUpsert(base, headers, table, data) {
+  if (!data.length) return 0;
+  let pushed = 0;
+  for (let i = 0; i < data.length; i += 500) {
+    const chunk = data.slice(i, i + 500);
+    const res = await fetch(`${base}/rest/v1/${table}?on_conflict=${CONFLICT[table]}`,
+      { method: 'POST', headers, body: JSON.stringify(chunk) });
+    if (!res.ok) {
+      console.error(`db-sync: ${table} push failed ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      process.exit(1);
+    }
+    pushed += chunk.length;
+  }
+  console.log(`db-sync: ${table} ← ${data.length} row(s)`);
+  return pushed;
+}
+
+/* Drop mirror rows the deck no longer has. Lists first, then deletes, so a
+   failed list never turns into a wipe. */
+async function restDeleteAbsent(base, headers, table, column, keep, quote) {
+  const keepSet = new Set(keep.map(v => String(v)));
+  const present = [];
+  let from = 0;
+  for (;;) {
+    const res = await fetch(`${base}/rest/v1/${table}?select=${column}&limit=1000&offset=${from}`, { headers });
+    if (!res.ok) {
+      console.error(`db-sync: list ${table} failed ${res.status}`);
+      process.exit(1);
+    }
+    const page = await res.json();
+    for (const row of page) present.push(row[column]);
+    if (page.length < 1000) break;
+    from += 1000;
+  }
+  const gone = present.filter(id => !keepSet.has(String(id)));
+  const lit = v => quote ? '"' + String(v).replace(/"/g, '') + '"' : encodeURIComponent(v);
+  for (let i = 0; i < gone.length; i += 80) {
+    const chunk = gone.slice(i, i + 80).map(lit).join(',');
+    const del = await fetch(`${base}/rest/v1/${table}?${column}=in.(${chunk})`, { method: 'DELETE', headers });
+    if (!del.ok) {
+      console.error(`db-sync: delete ${table} failed ${del.status}: ${(await del.text()).slice(0, 200)}`);
+      process.exit(1);
+    }
+  }
+}
+
+async function restDeletePairs(base, headers, table, keepPairs) {
+  const keep = new Set(keepPairs);
+  const rows = [];
+  let from = 0;
+  for (;;) {
+    const res = await fetch(`${base}/rest/v1/${table}?select=*&limit=1000&offset=${from}`, { headers });
+    if (!res.ok) {
+      console.error(`db-sync: list ${table} failed ${res.status}`);
+      process.exit(1);
+    }
+    const page = await res.json();
+    rows.push(...page);
+    if (page.length < 1000) break;
+    from += 1000;
+  }
+  const keyOf = table === 'seasons'
+    ? r => r.season + '\0' + r.deck_id
+    : r => r.mode + '\0' + r.deck_id;
+  const gone = rows.filter(r => !keep.has(keyOf(r)));
+  for (const row of gone) {
+    const filter = table === 'seasons'
+      ? `season=eq.${encodeURIComponent(row.season)}&deck_id=eq.${row.deck_id}`
+      : `mode=eq.${encodeURIComponent(row.mode)}&deck_id=eq.${row.deck_id}`;
+    const del = await fetch(`${base}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
+    if (!del.ok) {
+      console.error(`db-sync: delete ${table} failed ${del.status}`);
+      process.exit(1);
+    }
+  }
 }
 
 /* ── transport 1: REST push with the service key ─────────────────────── */
@@ -151,24 +417,26 @@ async function restPush() {
   const headers = {
     'apikey': KEY, 'Authorization': 'Bearer ' + KEY,
     'Content-Type': 'application/json',
-    'Prefer': 'resolution=merge-duplicates,return=representation'
+    'Prefer': 'resolution=merge-duplicates,return=minimal'
   };
   const r = rows();
   let pushed = 0;
-  for (const [table, data] of [['pilots', r.pilots], ['scores', r.scores], ['gauntlet_days', r.gauntlet_days], ['deck_stats', r.deck_stats]]) {
-    if (!data.length) continue;
-    /* PostgREST caps payload size; chunk conservatively */
-    for (let i = 0; i < data.length; i += 500) {
-      const chunk = data.slice(i, i + 500);
-      const res = await fetch(`${URL_}/rest/v1/${table}?on_conflict=${table === 'gauntlet_days' ? 'day' : 'deck_id'}`,
-        { method: 'POST', headers, body: JSON.stringify(chunk) });
-      if (!res.ok) {
-        console.error(`db-sync: ${table} push failed ${res.status}: ${(await res.text()).slice(0, 300)}`);
-        process.exit(1);
-      }
-      pushed += chunk.length;
+  for (const table of ['pilots', 'scores', 'gauntlet_days', 'deck_stats']) {
+    pushed += await restUpsert(URL_, headers, table, r[table]);
+  }
+  await restDeleteAbsent(URL_, headers, 'scores', 'deck_id', r.scores.map(s => s.deck_id));
+  await restDeleteAbsent(URL_, headers, 'pilots', 'deck_id', r.pilots.map(p => p.deck_id));
+  await restDeleteAbsent(URL_, headers, 'gauntlet_days', 'day', r.gauntlet_days.map(d => d.day), true);
+  const rich = await restTableExists(URL_, headers, 'board_standings');
+  if (!rich) {
+    console.log('db-sync: board_standings is not on the mirror yet — apply tools/mirror-schema.sql to publish per-mode boards, seasons and pilot cards');
+  } else {
+    for (const table of ['board_standings', 'seasons', 'pilot_cards']) {
+      pushed += await restUpsert(URL_, headers, table, r[table]);
     }
-    console.log(`db-sync: ${table} ← ${data.length} row(s)`);
+    await restDeletePairs(URL_, headers, 'board_standings', r.board_standings.map(s => s.mode + '\0' + s.deck_id));
+    await restDeletePairs(URL_, headers, 'seasons', r.seasons.map(s => s.season + '\0' + s.deck_id));
+    await restDeleteAbsent(URL_, headers, 'pilot_cards', 'deck_id', r.pilot_cards.map(p => p.deck_id));
   }
   console.log(`db-sync: pushed ${pushed} row(s) to the mirror`);
 }
@@ -185,7 +453,7 @@ async function verify() {
   };
   const r = rows();
   const [mp, ms, mg, md] = await Promise.all([
-    get('pilots', 'deck_id,callsign,runs,best_score'), get('scores', 'deck_id,pilot,score'),
+    get('pilots', 'deck_id,callsign,runs,best_score,best_wave'), get('scores', 'deck_id,pilot,score'),
     get('gauntlet_days', 'day,top_score'), get('deck_stats', 'pilots,runs,top_score')
   ]);
   let fail = 0;
@@ -200,6 +468,22 @@ async function verify() {
   eq(md[0]?.top_score, deckTop, 'deck_stats.top_score');
   const mirrorTop = Math.max(0, ...ms.map(s => s.score));
   eq(mirrorTop, deckTop, 'max(scores.score)');
+  const standingsProbe = await fetch(`${URL_}/rest/v1/board_standings?select=mode,deck_id,score,rank&limit=1`, { headers: { apikey: KEY } });
+  if (standingsProbe.status === 404) {
+    console.log('db-sync: rich tables not published yet (tools/mirror-schema.sql) — classic totals still checked');
+  } else if (!standingsProbe.ok) {
+    console.error(`db-sync: verify board_standings failed ${standingsProbe.status}`);
+    process.exit(1);
+  } else {
+    const [boards, seasons, cards] = await Promise.all([
+      get('board_standings', 'mode,deck_id,score,rank'),
+      get('seasons', 'season,deck_id,pts,rank'),
+      get('pilot_cards', 'deck_id,callsign,main_score')
+    ]);
+    eq(boards.length, r.board_standings.length, 'board_standings row count');
+    eq(seasons.length, r.seasons.length, 'seasons row count');
+    eq(cards.length, r.pilot_cards.length, 'pilot_cards row count');
+  }
   if (fail === 0) {
     console.log(`db-sync: mirror verified — ${mp.length} pilots, ${ms.length} scores, ${mg.length} gauntlet days, top ${deckTop}`);
   } else {

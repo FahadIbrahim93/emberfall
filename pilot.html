@@ -66,7 +66,7 @@ footer a{color:var(--ember);text-decoration:none}
 <script>
 'use strict';
 const MODE_LABEL = { main: 'Endless', daily: 'Daily gauntlet', rush: 'Boss rush' };
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])[c]);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
@@ -81,7 +81,25 @@ function showErr(msg) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  try { return iso.slice(0, 10); } catch (e) { return '—'; }
+  try { return String(iso).slice(0, 10); } catch (e) { return '—'; }
+}
+async function mirrorOpt(path) {
+  const r = await mirrorRest(path);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('mirror ' + r.status);
+  return r.json();
+}
+function paintModes(rows) {
+  if (!rows.length) {
+    document.getElementById('modes').innerHTML = '<div class="empty">No accepted runs on the public mirror for this pilot.</div>';
+    return;
+  }
+  document.getElementById('modes').innerHTML = rows.map(row =>
+    '<div class="row"><span class="mode">' + esc(row.mode) + '</span>' +
+    '<span class="score">' + esc(fmt(row.score)) + '</span>' +
+    '<span>W' + esc(row.wave) + ' · ' + esc(row.ship || '—') +
+    (row.paint ? ' · ' + esc(row.paint) : '') + '</span>' +
+    '<span class="rank">' + (row.rank ? '#' + esc(row.rank) : '') + '</span></div>').join('');
 }
 
 (async () => {
@@ -90,9 +108,40 @@ function fmtDate(iso) {
     document.getElementById('modes').innerHTML = '<div class="empty">Add ?callsign= to the URL.</div>';
     return;
   }
-  document.getElementById('title').firstChild.textContent = esc(callsign).toUpperCase() + ' ';
+  document.getElementById('title').firstChild.textContent = callsign.toUpperCase() + ' ';
   document.title = 'EMBERFALL — ' + callsign + ' (pilot profile)';
   try {
+    const cards = await mirrorOpt('/rest/v1/pilot_cards?select=*&callsign=eq.' + encodeURIComponent(callsign) + '&limit=1');
+    const card = cards && cards[0];
+    if (card) {
+      const career = await mirrorPilotRow(card.callsign);
+      const modes = ['main', 'daily', 'rush'].filter(m => card[m + '_score'] != null).map(m => ({
+        mode: MODE_LABEL[m] || m,
+        score: card[m + '_score'],
+        wave: card[m + '_wave'],
+        ship: card[m + '_ship'],
+        paint: card[m + '_paint'],
+        rank: card[m + '_rank']
+      }));
+      document.getElementById('cards').classList.remove('loading', 'hidden');
+      document.getElementById('hero').classList.remove('hidden');
+      document.getElementById('callsign').textContent = card.callsign;
+      document.getElementById('meta').innerHTML =
+        '<span>Since ' + esc(fmtDate((career && career.created_at) || card.since)) + '</span>' +
+        (card.paint ? '<span>Paint ' + esc(card.paint) + '</span>' : '') +
+        (card.season_key ? '<span>Season ' + esc(card.season_key) + ' #' + esc(card.season_rank) + '</span>' : '');
+      document.getElementById('cRuns').textContent = career ? fmt(career.runs) : '—';
+      document.getElementById('cStreak').textContent = career ? fmt(career.best_streak || 0) : '—';
+      document.getElementById('cWf').textContent = fmt(card.wardenfalls || 0);
+      document.getElementById('cRank').textContent = card.main_rank ? '#' + card.main_rank : '—';
+      paintModes(modes);
+      if (deckParam) {
+        const link = document.getElementById('deckLink');
+        link.href = deckParam + '/pilot/' + encodeURIComponent(card.callsign);
+        link.classList.remove('hidden');
+      }
+      return;
+    }
     const p = await mirrorPilotRow(callsign);
     if (!p) {
       showErr('No pilot named “' + callsign + '” on the public mirror yet. They may fly on a private deck, or the mirror has not synced.');
@@ -118,19 +167,13 @@ function fmtDate(iso) {
     document.getElementById('cStreak').textContent = fmt(p.best_streak || 0);
     document.getElementById('cWf').textContent = fmt(p.wardenfalls || 0);
     document.getElementById('cRank').textContent = rankN ? '#' + rankN : '—';
-    const rankLabel = rankN ? '#' + rankN : '';
-    const modeKeys = modes.filter(m => bests[m]);
-    if (!modeKeys.length) {
-      document.getElementById('modes').innerHTML = '<div class="empty">No accepted runs on the public mirror for this pilot.</div>';
-    } else {
-      document.getElementById('modes').innerHTML = modeKeys.map(m => {
-        const b = bests[m];
-        return '<div class="row"><span class="mode">' + esc(MODE_LABEL[m] || m) + '</span>' +
-          '<span class="score">' + esc(fmt(b.score)) + '</span>' +
-          '<span>W' + esc(b.wave) + ' · ' + esc(b.ship || '—') + '</span>' +
-          '<span class="rank">' + (m === 'main' ? rankLabel : '') + '</span></div>';
-      }).join('');
-    }
+    paintModes(modes.filter(m => bests[m]).map(m => ({
+      mode: MODE_LABEL[m] || m,
+      score: bests[m].score,
+      wave: bests[m].wave,
+      ship: bests[m].ship,
+      rank: m === 'main' ? rankN : null
+    })));
     if (deckParam) {
       const link = document.getElementById('deckLink');
       link.href = deckParam + '/pilot/' + encodeURIComponent(p.callsign);

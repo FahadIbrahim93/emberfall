@@ -98,9 +98,12 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
    clearing `GAME.skyKey` (the title screen owns that path).
 9. **Personalization is public, never secret, never power on boards.** Paint
    ids ride runs to the deck and come back on rows; the server accepts an
-   *allowlisted* id set only. Sigils strip on rush/practice by design — the
-   ladders stay vanilla (see `docs/economy-audit.md` §6 for why sigils are
-   power-swaps, not power-ups).
+   *allowlisted* id set only, including on the score write. A board row is
+   the flight that set the score — hull, wave, paint and mastery — not a
+   mix of columns from other runs. The same dossier is `/pilot/<name>`,
+   the in-game boards, and the public mirror. Sigils strip on rush/practice
+   by design — the ladders stay vanilla (see `docs/economy-audit.md` §6
+   for why sigils are power-swaps, not power-ups).
 
 ## Where new things go
 

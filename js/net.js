@@ -192,13 +192,15 @@ const NET = {
          degrades to local mode like any unreachable remote — the next
          boot tries again. */
       if (!this.deck && !this._adopted && NET.DECK_ADOPTED && location.protocol !== 'file:') {
-        this._adopted = true;   /* latch: the ladder decides once per boot — a pilot who clears the field gets honest auto */
         /* the local-deck check is a seam so the selftest can drive every
            branch without real network; production always takes the fetch.
            Only a DEFINITIVE answer (404 — the origin's own server 404s
            unknown paths) adopts; a timeout or any other inconclusive
            answer stays auto, so a slow machine can never steal a
-           self-hosted pilot's boot and point it at the world deck. */
+           self-hosted pilot's boot and point it at the world deck.
+           The latch is the adoption itself: a live local deck does not
+           consume it, and a pilot who clears the field after joining the
+           world deck gets honest auto for the rest of the boot. */
         const local = this._localDeckAlive ? await this._localDeckAlive() : await (async () => {
           try {
             const lctl = new AbortController(); const lkill = setTimeout(() => lctl.abort(), 400);
@@ -209,7 +211,10 @@ const NET = {
             return 'unknown';
           } catch (e) { return 'unknown'; }
         })();
-        if (local === 'no') this.deck = NET.DECK_ADOPTED;
+        if (local === 'no') {
+          this._adopted = true;
+          this.deck = NET.DECK_ADOPTED;
+        }
       }
       if (this.deck) {
         /* a hand-typed address must look like one before we dial it */
@@ -497,11 +502,13 @@ const NET = {
     bd.innerHTML = (j.top && j.top.length)
       ? j.top.map((r, i) => {
           const medal = i < 3 ? 'color:var(--gold)' : '';
+          const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
+          const href = (typeof pilotUrl === 'function') ? pilotUrl(r.n) : '#';
           return '<div class="row">' +
-            '<span class="rk" style="' + medal + '">' + pad2(i + 1) + '</span>' +
-            '<span class="nm">' + esc(r.n) + '</span>' +
+            '<span class="rk" style="' + medal + '">' + pad2(rk) + '</span>' +
+            '<span class="nm"><a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a></span>' +
             '<span class="sc">' + fmt(r.pts) + '</span>' +
-            '<span class="wv">' + r.runs + ' runs</span></div>';
+            '<span class="wv">' + (Number.isFinite(+r.runs) ? Math.trunc(+r.runs) : 0) + ' runs</span></div>';
         }).join('')
       : '<div class="empty">No plausibility-checked runs this week yet.<br>The ladder is wide open.</div>';
     const you = $('seasonYou');
@@ -624,8 +631,9 @@ const NET = {
         const mine = this.user && r.n === this.user.name;
         const gpt = r.p && PAINTS.find(x => x.id === r.p);
         const gstar = honor && honor.at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
           '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
           (h ? ' · ' + esc(h.name) : '') +
@@ -677,7 +685,34 @@ const NET = {
     }
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
+    const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
     try {
+      const stand = await mirrorRest('/rest/v1/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
+        encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50');
+      if (stand.ok) {
+        const rows = await stand.json();
+        if (!rows.length) {
+          box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
+          return;
+        }
+        box.innerHTML = rows.map(r2 => {
+          const h = (typeof HULLS !== 'undefined') && HULLS.find(x => x.id === r2.ship);
+          const pt = r2.paint && (typeof PAINTS !== 'undefined') && PAINTS.find(x => x.id === r2.paint);
+          const rk = Number.isFinite(+r2.rank) ? Math.trunc(+r2.rank) : 0;
+          const wave = Number.isFinite(+r2.wave) ? Math.trunc(+r2.wave) : 1;
+          return '<div class="row">' +
+            '<span class="rk">' + pad2(rk) + '</span>' +
+            '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
+            '<a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+            (h ? ' · ' + esc(h.name) : '') +
+            (Number.isFinite(+r2.mastery) && +r2.mastery > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r2.mastery) + '</span>' : '') +
+            '</span><span class="sc">' + padN(r2.score, 7) + '</span>' +
+            '<span class="wv">W' + pad2(wave) + '</span></div>';
+        }).join('') +
+          '<p class="empty" style="padding:8px 0 0;text-align:left">The same best-run board the deck publishes, read from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        return;
+      }
+      if (stand.status !== 404) throw new Error('mirror ' + stand.status);
       const rows = await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,best_wave,wardenfalls,runs&order=best_score.desc&limit=100');
       if (!rows.length) {
         box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
@@ -687,10 +722,11 @@ const NET = {
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
         '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
-        esc(r2.callsign) + '</a>' + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
+        esc(r2.callsign) + '</a>' +
+        (Number.isFinite(+r2.wardenfalls) && +r2.wardenfalls > 0 ? ' <span style="color:var(--gold);font-size:.6rem">✦' + Math.trunc(+r2.wardenfalls) + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
-        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed hourly. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
     } catch (e) {
       box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
     }
@@ -716,8 +752,9 @@ const NET = {
         const dstar = honorOf(META.donated || 0) && honorOf(META.donated || 0).at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
         /* v4.10 medal pips: the deck's ledger says what this pilot earned today */
         const pips = medalPips(dj.md && dj.md[r.n]);
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
           '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
           (h ? ' · ' + esc(h.name) : '') + '</span>' +

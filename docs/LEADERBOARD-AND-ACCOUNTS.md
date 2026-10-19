@@ -11,7 +11,7 @@ without a runtime cloud dependency on the hot path.*
 | Single writer | Command Deck SQLite owns accounts, sessions, scores, profiles, duels |
 | Public read scale | Supabase Postgres mirror (RLS: `anon` SELECT only) |
 | Cross-origin play | Bearer sessions + CORS allowlist ([ADR 0002](adr/0002-cross-origin-deck-bearer-sessions.md)) |
-| Honest ranks | Only `verdict = accepted` runs board; review/rejected never rank |
+| Honest ranks | Only `verdict = accepted` runs board; the row is that flight; ties share a rank |
 | Profile privacy | Passwords, sessions, telemetry, vault JSON never leave SQLite |
 | Eventual mirror | `tools/db-sync.mjs` pushes public facts on operator cadence |
 
