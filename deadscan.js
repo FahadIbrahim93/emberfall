@@ -212,7 +212,7 @@ const XSS_ALLOW = [
   { re: /grid-template-columns:1fr auto auto/ },
 ];
 function auditSinks(src, file) {
-  const re = /\.innerHTML\s*=/g;
+  const re = /\.innerHTML\s*\+?=/g;
   let mm;
   while ((mm = re.exec(src))) {
     const line = src.slice(0, mm.index).split('\n').length;

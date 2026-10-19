@@ -55,6 +55,28 @@ You can also reach the maintainer through the repository owner profile.
   key, and the service key lives only in the operator's environment —
   see [ADR 0001](docs/adr/0001-sqlite-authoritative-supabase-mirror.md)
 
+## Embedding and operator notes
+
+The static game (GitHub Pages, and the Vercel mirror once `vercel.json`
+is deployed) is what a third-party page frames. The command deck itself
+keeps `X-Frame-Options: DENY` — that origin holds the session cookie.
+
+- A cross-origin iframe cannot retarget the deck. `?deck=` and a stored
+  deck address are ignored while framed, the deck field is disabled, and
+  password change / account deletion are disabled. Top-level visits still
+  honor `?deck=` and the settings field, and a deck address must be a
+  plain http(s) URL.
+- `GET /api/feedback` is not a public API. Production (`NODE_ENV=production`)
+  and any deck with `TRUST_PROXY=1` answer 403 unless the request sends
+  header `X-Emberfall-Ops` equal to `EF_OPS_TOKEN`. Read notes from the
+  SQLite file with `node tools/feedback-report.mjs` instead. Do not commit
+  `EF_OPS_TOKEN`. The value used by `tools/drill-feedback.mjs` is a
+  scratch-deck fixture, not a live credential.
+- GitHub Pages cannot set `frame-ancestors`. The Vercel config allows
+  framing only from this site and `bountyboard.gg` (apex, `www`, and
+  subdomains). Add another origin there before a different site frames
+  the Vercel URL.
+
 ## Deployment posture
 
 One process, one origin. Put production behind TLS (nginx/Caddy) with

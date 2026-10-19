@@ -5,6 +5,41 @@
 /* Talks to the self-hosted backend (server.js) when it is reachable.
    Every path degrades silently to pure-local play — the game never
    blocks, never errors, and never requires the network. */
+
+/* A deck address is where passwords and Google ID tokens are sent.
+   Only a plain http(s) URL qualifies: no userinfo, no whitespace, no
+   characters that can break out of an HTML attribute. */
+function deckUrlAllowed(v) {
+  if (!v || /[\u0000-\u0020"'<>\\]/.test(v)) return false;
+  try {
+    const u = new URL(v);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (u.username || u.password) return false;
+    return true;
+  } catch (e) { return false; }
+}
+/* Cross-origin parent pages choose the iframe URL, including ?deck=.
+   `window` may be absent when the deck client is evaluated under Node. */
+function crossOriginFramed() {
+  try {
+    if (typeof window === 'undefined' || window.top === window.self) return false;
+    void window.top.location.href;
+    return false;
+  } catch (e) { return true; }
+}
+/* q is the raw ?deck= value, or null when the parameter is absent.
+   A cross-origin embed never honors the query or a stored override:
+   both are attacker-controlled once a parent can set the iframe src. */
+function chooseDeckAddress(q, stored, framed) {
+  if (framed) return '';
+  if (q !== null && q !== undefined) {
+    const v = String(q).trim().replace(/\/+$/, '');
+    if (!v || deckUrlAllowed(v)) return v;
+  }
+  const s = String(stored || '').trim().replace(/\/+$/, '');
+  return s && deckUrlAllowed(s) ? s : '';
+}
+
 const NET = {
   on: false, user: null, probed: false,
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
@@ -18,8 +53,9 @@ const NET = {
      Empty = auto: probe this origin's own server (LAN + self-hosted play,
      unchanged since v3.2). Set = a remote deck: the Pages game (or any
      mirror of the shell) flies that deck's boards, accounts and duels
-     cross-origin. '?deck=<url>' on the address bar wins once and
-     persists; '?deck=' (empty) clears back to auto. */
+     cross-origin. On a top-level visit, '?deck=<url>' wins once and
+     persists; '?deck=' (empty) clears back to auto. A cross-origin
+     embed ignores both the query and any stored override. */
   /* v4.26.1 — the ADOPTED deck: deck.json ships with the page, so the
      live game joins the world deck with zero configuration. The ladder
      in probe() decides once per boot: a pilot's stored choice first,
@@ -34,19 +70,37 @@ const NET = {
       r.send(null);
       if (r.status !== 200 && r.status !== 0) return '';
       const j = JSON.parse(r.responseText);
-      return (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
+      const raw = (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
+      return deckUrlAllowed(raw) ? raw : '';
     } catch (e) { return ''; }
   })(),
 
   deck: (function () {
     let q = null;
-    try { q = new URLSearchParams(location.search).get('deck'); } catch (e) { }
-    if (q !== null) {
-      const v = q.trim().replace(/\/+$/, '');
-      try { localStorage.setItem('emberfall2.deck', v); } catch (e) { }
-      return v;
+    let has = false;
+    try {
+      const params = new URLSearchParams(location.search);
+      has = params.has('deck');
+      if (has) q = params.get('deck');
+    } catch (e) { }
+    let stored = '';
+    try { stored = localStorage.getItem('emberfall2.deck') || ''; } catch (e) { }
+    const framed = crossOriginFramed();
+    const chosen = chooseDeckAddress(has ? q : null, stored, framed);
+    if (!framed) {
+      const rawStored = String(stored || '').trim().replace(/\/+$/, '');
+      if (has) {
+        const v = String(q == null ? '' : q).trim().replace(/\/+$/, '');
+        if (!v || deckUrlAllowed(v)) {
+          try { localStorage.setItem('emberfall2.deck', v); } catch (e) { }
+        } else if (rawStored && !deckUrlAllowed(rawStored)) {
+          try { localStorage.removeItem('emberfall2.deck'); } catch (e) { }
+        }
+      } else if (rawStored && !deckUrlAllowed(rawStored)) {
+        try { localStorage.removeItem('emberfall2.deck'); } catch (e) { }
+      }
     }
-    try { return localStorage.getItem('emberfall2.deck') || ''; } catch (e) { return ''; }
+    return chosen;
   })(),
 
   /* the bearer half of a cross-origin session (empty for same-origin
@@ -56,7 +110,12 @@ const NET = {
   })(),
 
   setDeck(v) {
-    this.deck = (v || '').trim().replace(/\/+$/, '');
+    /* an embed cannot be talked into shipping credentials elsewhere,
+       and a non-URL must never become the address we dial */
+    if (crossOriginFramed()) return;
+    const next = (v || '').trim().replace(/\/+$/, '');
+    if (next && !deckUrlAllowed(next)) return;
+    this.deck = next;
     /* a new deck means a new session world: drop the old bearer */
     this.token = '';
     try { localStorage.removeItem('emberfall2.token'); } catch (e) { }
@@ -538,9 +597,9 @@ const NET = {
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(i + 1) + '</span>' +
           '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
-          '<a href="' + pilotUrl(r.n) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
           (h ? ' · ' + esc(h.name) : '') +
-          (r.m ? ' <span style="color:var(--gold);font-size:.6rem">M' + r.m + '</span>' : '') + '</span>' +
+          (Number.isFinite(+r.m) && +r.m > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r.m) + '</span>' : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
       }).join('');
@@ -809,7 +868,7 @@ function renderSkyLog() {
     return '<div class="row" style="grid-template-columns:1fr auto auto">' +
       '<span class="nm" style="color:' + kind[1] + '">' + kind[0] +
       ' <span style="color:var(--dimmer);font-size:.6rem">W' + pad2(e.w) + ' · ' +
-      ((DIFF[e.d] || DIFF[1]).name) + (e.m && e.m !== 'endless' ? ' · ' + e.m : '') + '</span></span>' +
+      ((DIFF[e.d] || DIFF[1]).name) + (e.m && e.m !== 'endless' ? ' · ' + esc(e.m) : '') + '</span></span>' +
       '<span class="wv">' + when(e.t) + '</span>' +
       '<span class="sc">' + (e.a ? '+' + fmt(e.a) : '—') + '</span></div>';   // school/pyre/fleet paid nothing — an honest dash
   }).join('');

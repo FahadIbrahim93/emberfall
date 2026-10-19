@@ -132,8 +132,10 @@ jobs:
           done
           B1=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
           B2=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
+          F=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8124/api/feedback)
           kill $TRUST_PID
           [ "$B1" = "400" ] && [ "$B2" = "400" ] || { echo "TRUST_PROXY path broken: $B1/$B2"; exit 1; }
+          [ "$F" = "403" ] || { echo "feedback read must refuse a TRUST_PROXY deck with no ops token: $F"; exit 1; }
           echo "TRUST_PROXY=1: XFF accepted as limiter/validation key path (bad-name 400 both times)"
 
       - name: Browser smoke

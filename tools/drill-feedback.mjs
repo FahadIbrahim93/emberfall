@@ -35,9 +35,12 @@ const say = (...a) => console.log(...a);
 const good = m => { pass++; say('  ok  -', m); };
 const bad = m => { fail++; say('  FAIL-', m); };
 
-async function req(method, p, { body, token, ip } = {}) {
+const OPS = 'drill-ops-token';   /* fixture for THIS scratch deck only — not a live credential */
+
+async function req(method, p, { body, token, ip, ops } = {}) {
   const headers = { ...HDR };
   if (token) headers.Authorization = 'Bearer ' + token;
+  if (ops) headers['X-Emberfall-Ops'] = ops;
   if (ip) headers['X-Forwarded-For'] = ip;
   const res = await fetch(BASE + p, { method, headers, body: body ? JSON.stringify(body) : undefined });
   let json = null;
@@ -50,7 +53,7 @@ const tokenOf = sc => { const m = /EF_SESSION=([^;\r]+)/.exec(sc || ''); return 
 function bootDeck(dataDir) {
   child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname + '/..',
-    env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir, TRUST_PROXY: '1' },
+    env: { ...process.env, PORT: String(PORT), EF_DATA_DIR: dataDir, TRUST_PROXY: '1', EF_OPS_TOKEN: OPS },
     stdio: 'ignore'
   });
 }
@@ -111,7 +114,9 @@ async function main() {
   signed.status === 200 ? good('signed-in note accepted') : bad('signed note: ' + JSON.stringify(signed.json));
 
   say('── the reads: operator list + stats aggregates');
-  const list = await req('GET', '/api/feedback', { ip: '203.0.113.10' });
+  const open = await req('GET', '/api/feedback', { ip: '203.0.113.10' });
+  open.status === 403 ? good('operator read is not public on a TRUST_PROXY deck') : bad('public feedback read: ' + open.status);
+  const list = await req('GET', '/api/feedback', { ip: '203.0.113.10', ops: OPS });
   const rows = (list.json && list.json.list) || [];
   const signedRow = rows.find(r => r.text === 'signed note from the account world');
   (rows.length >= 6 && signedRow && signedRow.pilot === uname) ? good('operator read: ' + rows.length + ' notes, signed author named, anon rows nameless')

@@ -150,9 +150,11 @@ NODE_ENV=production TRUST_PROXY=1 EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahad
   cookies cannot cross origins
 - the global tab reads YOUR live boards with pagination; names link to
   `https://<your-deck>/pilot/<callsign>` profiles
-- players can also point ANY copy of the game at any deck themselves:
-  Settings → Command deck → "deck address" field, or `?deck=<url>` on the
-  address bar — both persist on the device
+- on a top-level visit, players can point a copy of the game at any deck
+  themselves: Settings → Command deck → "deck address" field, or
+  `?deck=<url>` on the address bar — both persist on the device. A
+  cross-origin embed ignores both and stays on the adopted deck in
+  `deck.json`
 - prove the door before you open it: `node tools/drill-cross-origin.mjs`
   (CI runs it on every push; 23 checks incl. the disallowed-origin
   silence and the bearer-logout kill)
@@ -171,6 +173,25 @@ fly secrets set NODE_ENV=production TRUST_PROXY=1 \
 fly deploy
 curl https://<your-deck-name>.fly.dev/api/health   # → ok:true
 ```
+
+If the arcade frames the Vercel mirror as well, add that origin to the
+same list (`https://emberfall-game-two.vercel.app`). The iframe's parent
+(`bountyboard.gg`) is not a CORS origin — the browser sends the game
+host as `Origin`.
+
+`EF_OPS_TOKEN` is optional and never committed. Without it, a production
+or proxied deck refuses `GET /api/feedback` (pilot notes are not a public
+board). Read them on the machine that has the SQLite file:
+`node tools/feedback-report.mjs --db /data/emberfall.db`. To read over
+HTTP later, print a token, save it outside the repo, then set that saved
+value as its own secret:
+
+```bash
+openssl rand -hex 24
+fly secrets set EF_OPS_TOKEN=<the value you just saved>
+```
+
+Send header `X-Emberfall-Ops: <the token>` on `GET /api/feedback`.
 
 **Optional — Google sign-in (v4.26):** create an OAuth client at
 <https://console.cloud.google.com/apis/credentials> (type *Web

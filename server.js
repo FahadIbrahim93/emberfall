@@ -943,6 +943,23 @@ function readSnap(userId, taken) {
   try { return JSON.parse(row.data); } catch (e) { return null; }
 }
 
+/* Pilot notes are free text plus, for signed-in authors, a callsign.
+   Never serve that list to the internet. A same-host reverse proxy
+   makes every visitor look like loopback, so TRUST_PROXY and
+   production both require EF_OPS_TOKEN. Compare in constant time. */
+function feedbackReadAllowed(req) {
+  const configured = process.env.EF_OPS_TOKEN || '';
+  const presented = String(req.headers['x-emberfall-ops'] || '');
+  if (configured && presented.length === configured.length) {
+    const a = Buffer.from(presented);
+    const b = Buffer.from(configured);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+  if (IS_PROD || TRUST_PROXY) return false;
+  const addr = (req.socket && req.socket.remoteAddress) || '';
+  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+}
+
 async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see clientIp */
   /* ---- public ---- */
   if (req.method === 'GET' && pathname === '/api/health') {
@@ -1008,8 +1025,15 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
 
   /* operator read: newest 100 notes, prose + flight shape only. Names
      appear solely for signed-in authors (they chose to attach identity);
-     there are no IPs, no emails, nothing else to leak. */
+     there are no IPs, no emails, nothing else to leak.
+     The route is not public. A production process, or any deck that
+     trusts X-Forwarded-For, answers 403 unless the caller presents
+     EF_OPS_TOKEN (header X-Emberfall-Ops). Loopback reads stay open
+     only for a local, non-proxied deck so drills and `curl` on the
+     operator's own machine keep working. Remote notes are read from
+     the SQLite file (tools/feedback-report.mjs), not from this URL. */
   if (req.method === 'GET' && pathname === '/api/feedback') {
+    if (!feedbackReadAllowed(req)) return bad(res, 'not available', 403);
     if (!rateLimit(ip, 'stats', 30, 60000)) return bad(res, 'slow down', 429);
     const list = db.prepare(`
       SELECT f.id, f.text, f.ship, f.wave, f.mode, f.created, u.name AS pilot

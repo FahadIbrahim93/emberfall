@@ -1,0 +1,23 @@
+# The public game host should ship the shell, not the command deck.
+# GitHub already publishes this source. These paths are how the Vercel
+# mirror was also serving server.js, ops.html and the operator tools.
+
+server.js
+ops.html
+Dockerfile
+.dockerignore
+fly.toml
+smoke.sh
+check.sh
+deadscan.js
+package.json
+package-lock.json
+playwright.config.js
+vitest.config.ts
+tools
+tests
+packages
+.github
+.freebuff
+goldens
+node_modules

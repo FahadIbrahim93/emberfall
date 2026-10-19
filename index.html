@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>EMBERFALL — Orbital Intercept</title>
 <!-- v4.23: the game previews properly wherever a pilot shares it -->
 <meta property="og:title" content="EMBERFALL — Orbital Intercept">
@@ -1039,7 +1040,8 @@ function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI)
    deck's /pilot/<name> profile page. The deck address rides along:
    NET.deck when the game flies a remote deck, otherwise this origin. */
 function pilotUrl(name) {
-  const base = (typeof NET !== 'undefined' && NET.deck) || location.origin;
+  let base = location.origin;
+  if (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck)) base = NET.deck;
   return base + '/pilot/' + encodeURIComponent(String(name || ''));
 }
 function esc(s) {
@@ -6434,19 +6436,19 @@ function endRun() {
     if (r) {
       el.classList.remove('hidden');
       const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
-        ? ' · gauntlet #' + r.seasonMe.rank
+        ? ' · gauntlet #' + esc(r.seasonMe.rank)
         : '';
       el.innerHTML = r.verdict === 'rejected'
         ? '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>'
         : r.verdict === 'review'
         ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + r.rank + seasonLine + '</span>';
+        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + esc(r.rank) + seasonLine + '</span>';
       if (mode === 'daily' && r.verdict === 'accepted' && r.daily) {
         const medals = applyDailyResult(r);
         if (medals.length) {
           const st = META.daily || {};
-          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.join(' · ') +
-            '</b><span>day streak ' + (st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + st.best : '') + '</span></div>';
+          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.map(esc).join(' · ') +
+            '</b><span>day streak ' + esc(st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + esc(st.best) : '') + '</span></div>';
         }
       }
     } else {
@@ -6774,6 +6776,14 @@ function paintAccount() {
   const setOn = $('s-set') && $('s-set').classList.contains('on');
   if (on && !u && setOn) NET.probe().then(() => paintGoogle());
   else if ($('googleBox')) $('googleBox').classList.add('hidden');
+  /* destructive account actions are real clicks; a framing page must not
+     be able to position them under the player's cursor */
+  if (typeof crossOriginFramed === 'function' && crossOriginFramed()) {
+    for (const id of ['btnAcctDel', 'btnAcctPass', 'mgmtPassCur', 'mgmtPassNew', 'mgmtDelPass']) {
+      const el = $(id);
+      if (el) el.disabled = true;
+    }
+  }
 }
 /* v4.22 — the deck address row: the one field that decides WHICH deck the
    game flies. Committed on change (blur/Enter); a wrong address is not an
@@ -6781,6 +6791,14 @@ function paintAccount() {
 function paintDeckRow() {
   const inp = $('deckUrl');
   if (!inp) return;
+  const framed = typeof crossOriginFramed === 'function' && crossOriginFramed();
+  if (framed) {
+    inp.disabled = true;
+    inp.value = NET.deck;
+    $('deckHint').textContent = 'This page is embedded, so it stays on the official deck. A framing site cannot redirect your password or Google sign-in. Open the game in its own tab to choose a different deck.';
+    return;
+  }
+  inp.disabled = false;
   if (document.activeElement !== inp) inp.value = NET.deck;
   $('deckHint').textContent = NET.deck
     ? 'Flying ' + NET.deck + ' — accounts, boards and duels come from there. Clear the field to return to this network.'
@@ -6886,6 +6904,9 @@ function paintGoogle() {
   const show = NET.on && !NET.user && NET.googleClientId;
   box.classList.toggle('hidden', !show);
   if (!show) return;
+  if (typeof crossOriginFramed === 'function' && crossOriginFramed() && $('gHint')) {
+    $('gHint').textContent = 'Embedded page: Google sign-in often will not open here. A password still reaches only the official deck. For Google, open the game in its own tab.';
+  }
   if (!gsiLoaded) {
     gsiLoaded = true;
     const s = document.createElement('script');
@@ -6928,6 +6949,12 @@ function armGoogle() {
   inp.addEventListener('change', async () => {
     const v = inp.value.trim().replace(/\/+$/, '');
     if (v === NET.deck) return;
+    if (typeof crossOriginFramed === 'function' && crossOriginFramed()) { inp.value = NET.deck; return; }
+    if (v && typeof deckUrlAllowed === 'function' && !deckUrlAllowed(v)) {
+      note('Deck address must be an http(s) URL with no password in it', 'bad');
+      inp.value = NET.deck;
+      return;
+    }
     NET.setDeck(v);
     note(v ? 'Probing ' + v.replace(/^https?:\/\//, '') + '…' : 'Back to the local deck…', 'dim');
     const on = await NET.probe();
@@ -8601,6 +8628,32 @@ function runSelfTests() {
     NET.setDeck(savedDeck);
     NET.token = savedTok;
     try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+  });
+  T('deck address: embeds and hostile URLs cannot retarget credentials', () => {
+    ok(deckUrlAllowed('https://emberfall-deck.fly.dev'), 'https deck');
+    ok(deckUrlAllowed('http://127.0.0.1:8165'), 'loopback drill deck');
+    ok(!deckUrlAllowed('javascript:alert(1)'), 'javascript scheme refused');
+    ok(!deckUrlAllowed('https://user:pass@evil.example'), 'userinfo refused');
+    ok(!deckUrlAllowed('https://evil.example/?q="><img>'), 'markup refused');
+    ok(!deckUrlAllowed(''), 'blank is not an address');
+    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', true), '', 'cross-origin embed ignores the query and the stored override');
+    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', false), 'https://evil.example', 'top-level ?deck= still wins');
+    eq(chooseDeckAddress(null, 'https://mine.example', false), 'https://mine.example', 'stored choice stands when no query');
+    eq(chooseDeckAddress('', 'https://mine.example', false), '', 'empty ?deck= clears back to auto');
+    eq(chooseDeckAddress('"><img>', 'https://mine.example', false), 'https://mine.example', 'hostile query falls through to the stored deck');
+    eq(chooseDeckAddress(null, 'javascript:alert(1)', false), '', 'poisoned storage is dropped');
+    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
+    try {
+      NET.deck = 'https://keep.example';
+      NET.token = 'keep-tok';
+      NET.setDeck('javascript:alert(1)');
+      eq(NET.deck, 'https://keep.example', 'setDeck refuses a non-http address');
+      eq(NET.token, 'keep-tok', 'a refused address does not drop the session');
+    } finally {
+      NET.deck = savedDeck;
+      NET.token = savedTok;
+      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+    }
   });
   T('battery default: touch devices cap at 60, desktop uncapped', () => {
     eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
