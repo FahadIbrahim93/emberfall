@@ -6,6 +6,16 @@
    Every path degrades silently to pure-local play — the game never
    blocks, never errors, and never requires the network. */
 
+/* Portal mode (window.EMBERFALL_PORTAL, or ?portal=1) is the build web
+   game portals ship: no deck, no public mirror, no other host. Scores
+   stay in localStorage. The flag is read at load, before any request. */
+function emberfallPortal() {
+  try {
+    if (typeof window !== 'undefined' && window.EMBERFALL_PORTAL) return true;
+    if (typeof location !== 'undefined' && /(?:^|[?&])portal=1(?:&|$)/.test(String(location.search || ''))) return true;
+  } catch (e) { }
+  return false;
+}
 /* A deck address is where passwords and Google ID tokens are sent.
    Only a plain http(s) URL qualifies: no userinfo, no whitespace, no
    characters that can break out of an HTML attribute. */
@@ -63,6 +73,7 @@ const NET = {
      local accounts), the adopted deck third, honest local mode last.
      file:// boots never adopt (a local file has no accounts contract). */
   DECK_ADOPTED: (function () {
+    if (emberfallPortal()) return '';   /* a portal never adopts a remote deck */
     try {
       if (location.protocol === 'file:') return '';   /* local file play stays local */
       const r = new XMLHttpRequest();
@@ -76,6 +87,7 @@ const NET = {
   })(),
 
   deck: (function () {
+    if (emberfallPortal()) return '';   /* ignore ?deck= and any stored address */
     let q = null;
     let has = false;
     try {
@@ -110,6 +122,7 @@ const NET = {
   })(),
 
   setDeck(v) {
+    if (emberfallPortal()) return;
     /* an embed cannot be talked into shipping credentials elsewhere,
        and a non-URL must never become the address we dial */
     if (crossOriginFramed()) return;
@@ -132,6 +145,7 @@ const NET = {
      count stays one-per-device. Everything fails SILENT: signal must
      never disturb play, not even with a console error. */
   async sendFeedback(text, flight) {
+    if (emberfallPortal()) return false;
     try {
       await this.probe();
       if (!this.on) return false;
@@ -141,10 +155,19 @@ const NET = {
   },
 
   funnel(stage) {
+    if (emberfallPortal()) return;
     this.req('POST', '/api/funnel', { stage }).catch(() => { /* silent, always */ });
   },
 
   async probe() {
+    if (emberfallPortal()) {
+      this.deck = '';
+      this.on = false;
+      this.user = null;
+      this.probed = true;
+      this.googleClientId = '';
+      return false;
+    }
     /* v4.25 fix — the stale-false race (caught by the offline-flush test):
        the old probe set this.probed = true IMMEDIATELY, so concurrent
        callers during the 6s handshake got probed=true with on=false and
@@ -253,6 +276,11 @@ const NET = {
   },
 
   async req(method, path, body) {
+    if (emberfallPortal()) {
+      const err = new Error('portal');
+      err.status = 0;
+      throw err;
+    }
     const headers = Object.assign({}, this.hdrs);
     if (this.token) headers.Authorization = 'Bearer ' + this.token;
     const r = await fetch(this.deck + path, {
@@ -557,9 +585,11 @@ const NET = {
     if (!status) return;
     await this.probe();
     if (!this.on) {
-      status.textContent = this.deck
-        ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
-        : 'Command deck offline — playing in local mode.';
+      status.textContent = emberfallPortal()
+        ? 'Scores stay on this device.'
+        : this.deck
+          ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
+          : 'Command deck offline — playing in local mode.';
       this.renderMirrorBoards();
       return;
     }
@@ -629,6 +659,22 @@ const NET = {
     const body = $('globalBody');
     body.classList.remove('hidden');
     $('globalSignin').classList.add('hidden');
+    if (emberfallPortal()) {
+      const season = $('seasonBox'); if (season) season.classList.add('hidden');
+      const duels = $('duelBox'); if (duels) duels.classList.add('hidden');
+      const gYou = $('globalYou'); if (gYou) gYou.classList.add('hidden');
+      const dYou = $('dailyYou'); if (dYou) dYou.classList.add('hidden');
+      const stat = $('dailyStat');
+      if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
+      if (typeof renderBoard === 'function') {
+        const mode = typeof boardMode === 'function' ? boardMode() : 'main';
+        const box = $('globalBoard');
+        if (box) renderBoard(box, mode, null);
+        const day = $('dailyBoard');
+        if (day) renderBoard(day, 'daily', null);
+      }
+      return;
+    }
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
     try {

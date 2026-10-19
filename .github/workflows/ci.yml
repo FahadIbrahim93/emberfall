@@ -315,3 +315,45 @@ jobs:
           curl -fsS "$URL/sw.js" | grep -q 'emberfall-v' || { echo "sw.js missing cache marker"; exit 1; }
           curl -fsS "$URL/js/art.js" | grep -q 'ART v3' || { echo "js/art.js wrong payload"; exit 1; }
           echo "live smoke: byte-identical index · 17/17 shell+press assets · payload markers OK"
+
+  portal:
+    name: portal build (size · hosts · zip root)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y zip unzip
+
+      - name: Build the portal payload
+        run: |
+          set -euo pipefail
+          npm run build:portal
+          if [ ! -f dist-portal.zip ]; then
+            echo "dist-portal.zip is missing after the portal build"
+            exit 1
+          fi
+
+      - name: Zip is under 20 MB and index.html is at the root
+        run: |
+          set -euo pipefail
+          test -f dist-portal/index.html
+          if [ ! -f dist-portal.zip ]; then
+            echo "dist-portal.zip is missing"
+            exit 1
+          fi
+          size=$(stat -c%s dist-portal.zip)
+          echo "dist-portal.zip bytes: $size"
+          test "$size" -lt 20971520
+          # names only; index.html must be a root entry, not nested
+          unzip -Z1 dist-portal.zip | grep -qx 'index.html'
+
+      - name: Payload has no deck, mirror, or GitHub hosts
+        run: |
+          set -euo pipefail
+          if grep -R -a -n -F -e 'supabase' -e 'fly.dev' -e 'github.com' dist-portal; then
+            echo "forbidden host string in dist-portal"
+            exit 1
+          fi
+          echo "portal payload: no supabase / fly.dev / github.com"
