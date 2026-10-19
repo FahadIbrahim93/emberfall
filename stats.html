@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>EMBERFALL — world stats &amp; leaderboard</title>
 <style>
 :root{--bg:#0b0d14;--panel:#12141d;--line:#232736;--ink:#e8e6e0;--dim:#8b8fa0;--ember:#ff8a2b;--crimson:#b82c3a}
@@ -78,15 +79,15 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
     else {
       b.innerHTML = board.map((r, i) =>
         '<div class="row"><span class="rank">' + String(i + 1).padStart(2, '0') + '</span>' +
-        '<span class="name">' + esc(r.callsign) + (r.wardenfalls ? ' <span class="wf">✦' + r.wardenfalls + '</span>' : '') + '</span>' +
-        '<span class="wf">' + r.runs + (r.runs === 1 ? ' run' : ' runs') + '</span>' +
+        '<span class="name">' + esc(r.callsign) + (r.wardenfalls ? ' <span class="wf">✦' + esc(r.wardenfalls) + '</span>' : '') + '</span>' +
+        '<span class="wf">' + esc(r.runs) + (r.runs === 1 ? ' run' : ' runs') + '</span>' +
         '<span class="score">' + esc(r.best_score) + '</span></div>').join('');
     }
     const d = document.getElementById('days');
     if (!days.length) { d.innerHTML = '<div class="day"><span class="d">no gauntlet days flown yet</span></div>'; }
     else {
       d.innerHTML = days.map(x =>
-        '<div class="day"><span class="d">' + esc(x.day) + ' · ' + x.pilots + ' pilot' + (x.pilots === 1 ? '' : 's') + '</span>' +
+        '<div class="day"><span class="d">' + esc(x.day) + ' · ' + esc(x.pilots) + ' pilot' + (x.pilots === 1 ? '' : 's') + '</span>' +
         '<span class="p">' + esc(x.top_pilot || '—') + '</span>' +
         '<span class="s">' + esc(x.top_score) + '</span></div>').join('');
     }

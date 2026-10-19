@@ -6,7 +6,8 @@
 #   fly launch --no-deploy --name <your-deck-name> --region iad --copy-config
 #   fly volumes create ef_data --size 1 --region iad
 #   fly secrets set NODE_ENV=production TRUST_PROXY=1 \
-#     EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io
+#     EF_LIVE_LEDGER=1 EF_CORS_ORIGINS=https://fahadibrahim93.github.io \
+#     EF_OPS_TOKEN=<random>   # optional; gates GET /api/feedback. Never commit it.
 #   fly deploy
 # Optional (v4.26): Google sign-in — fly secrets set EF_GOOGLE_CLIENT_ID=<id>
 # (see docs/DEPLOYMENT.md; unset = the feature does not exist, honestly)

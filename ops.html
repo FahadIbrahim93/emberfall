@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="robots" content="noindex,nofollow">
 <title>EMBERFALL — deck ops</title>
 <style>
@@ -61,7 +62,7 @@ function funnelRows(f) {
   return stages.map((s, i) => {
     const n = f[s] || 0;
     const pct = (i === 0 || !boot) ? '' : ' · ' + Math.round(100 * n / boot) + '% of boot';
-    return '<tr><td>' + s + '</td><td>' + n + '</td><td style="color:var(--dim)">' + pct + '</td></tr>';
+    return '<tr><td>' + esc(s) + '</td><td>' + esc(n) + '</td><td style="color:var(--dim)">' + esc(pct) + '</td></tr>';
   }).join('');
 }
 
