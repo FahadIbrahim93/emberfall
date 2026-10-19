@@ -644,7 +644,7 @@ const NET = {
       box.innerHTML = rows.map((r2, i) =>
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm"><a href="pilot.html?callsign=' + encodeURIComponent(r2.callsign) + '" style="color:inherit;text-decoration:none">' +
+        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
         esc(r2.callsign) + '</a>' + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +

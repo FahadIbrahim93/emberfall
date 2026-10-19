@@ -167,6 +167,10 @@ expect "ac2 register"      '"ok":true'                      -X POST "$BASE/api/r
 # honest arc: 3 waves, ~45s, growing counters
 CPH='[[2.1,1,320,4,30,12,3,1],[12.4,2,940,11,72,31,8,2],[25.0,3,1880,19,118,54,15,2],[44.7,3,2410,24,151,66,21,2]]'
 expect "honest run accepted" '"verdict":"accepted"'           -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+expect "pilot profile JSON"   '"bests":'                     "$BASE/pilot/Ace$R"
+expect "pilot API alias"      '"ranks":'                     "$BASE/api/pilot/Ace$R"
+expect "pilot ranks main"     '"main":'                      "$BASE/api/pilot/Ace$R"
+expect "pilot 404"            'no such pilot'                "$BASE/pilot/nobody-$(date +%s)"
 # replay: identical arc again → rejected
 REPLAY="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}")"
 if printf '%s' "$REPLAY" | grep -q 'replay'; then ok "replay rejected"; else no "replay rejected  →  ${REPLAY:0:140}"; fi
@@ -183,9 +187,6 @@ expect "mismatch reviewed"    '"verdict":"review"'          -X POST "$BASE/api/s
 # seasons
 expect "season endpoint"      '"season":"'                   "$BASE/api/season"
 expect "season has structure" '"ends":'                      "$BASE/api/season"
-expect "pilot profile JSON"   '"bests":'                     "$BASE/pilot/Pilot$R"
-expect "pilot API alias"      '"ranks":'                     "$BASE/api/pilot/Pilot$R"
-expect "pilot 404"            'no such pilot'                "$BASE/pilot/nobody-$(date +%s)"
 
 say ""; say "── v3.3 duels ──"
 # Ace$R sends a duel to Pilot$R; Pilot$R logs in, fetches inbox + ghost, marks beaten

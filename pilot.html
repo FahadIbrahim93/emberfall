@@ -106,9 +106,7 @@ function fmtDate(iso) {
     const pilots = await get('/rest/v1/pilots?callsign=eq.' + encodeURIComponent(callsign) + '&select=*');
     let p = pilots[0];
     if (!p) {
-      const rows = await get('/rest/v1/pilots?select=*&limit=500');
-      const want = callsign.toLowerCase();
-      p = rows.find(r => String(r.callsign || '').toLowerCase() === want);
+      p = (await get('/rest/v1/pilots?callsign=ilike.' + encodeURIComponent(callsign) + '&select=*&limit=1'))[0];
     }
     if (!p) {
       showErr('No pilot named “' + callsign + '” on the public mirror yet. They may fly on a private deck, or the mirror has not synced.');
