@@ -1,17 +1,18 @@
 name: Bug report
-description: Something in the game or the deck behaves wrong
+description: Something in the game or the deck isn't working right
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for flying. If this is a security issue (auth, sessions,
-        score integrity), please use a private security advisory instead.
+        Thanks for reporting. If this is a security issue (sign-in, sessions,
+        score integrity), please use a private security advisory instead:
+        https://github.com/FahadIbrahim93/emberfall/security/advisories/new
   - type: textarea
     id: what
     attributes:
       label: What happened?
-      description: What did you expect, what happened instead?
+      description: What did you expect, and what happened instead?
     validations:
       required: true
   - type: dropdown
@@ -19,7 +20,9 @@ body:
     attributes:
       label: Where
       options:
+        - Live game (Vercel)
         - Live game (GitHub Pages)
+        - Portal build
         - Self-hosted deck (server.js)
         - Local file (file://)
         - Tools / CI
@@ -30,7 +33,7 @@ body:
     id: repro
     attributes:
       label: Reproduction
-      description: Steps, and whether a battery check (smoke/drill/selftest) catches it
+      description: Steps to reproduce. Mention it if a test or drill already catches it.
       placeholder: |
         1.
         2.
@@ -40,4 +43,4 @@ body:
     id: build
     attributes:
       label: Build / version
-      description: The footline version, or the commit/tag
+      description: The version shown at the bottom of the title screen, or a commit or tag

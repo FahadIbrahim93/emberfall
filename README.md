@@ -1,109 +1,84 @@
 # EMBERFALL v4.27.0 — Orbital Intercept
 
-<p align="center">
-  <img src="docs/screenshots/title.png" alt="EMBERFALL title screen — the registry, the corridor, the daily run" width="880">
-</p>
+**A free arcade space shooter that runs in your browser.** Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard. Fly close to the fire, graze bullets for points, and see how deep you get.
 
-**A zero-build arcade space shooter that fits in your browser and never stops proving itself.**
-Everything — art, music, sound — is generated procedurally at runtime: no asset files, no build
-step, no runtime npm dependencies. Play it offline, host it anywhere, or attach the self-hosted
-**Command Deck** for accounts, cloud saves, duels and worldwide boards.
-
-<p align="center">
-  <a href="https://fahadibrahim93.github.io/emberfall/">▶ Play live</a> ·
-  <a href="#command-deck--accounts-cloud-saves-worldwide-boards-optional">Command Deck</a> ·
-  <a href="docs/DATABASE.md">Database</a> ·
-  <a href="docs/DEPLOYMENT.md">Deployment</a> ·
-  <a href="ARCHITECTURE.md">Architecture</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+**▶ Play now: https://emberfall-game-two.vercel.app/** (also on [GitHub Pages](https://fahadibrahim93.github.io/emberfall/))
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
-[![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
-[![press kit](https://img.shields.io/badge/press%20kit-playtest%20recruiting-ff8a2b)](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html)
-![tests](https://img.shields.io/badge/tests-selftest%2077%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
-[![top score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.topScore&label=top%20score)](docs/DATABASE.md)
-
-A zero-build, static orbital intercept shooter. Art, music, and sound are generated procedurally at runtime. The game has no runtime package dependencies and plays locally from `index.html`; hosted installs work offline after their first successful service-worker install.
-
-## Launch status (2026-10-20)
-
-- **Play it:** https://emberfall-game-two.vercel.app/ and on GitHub Pages at https://fahadibrahim93.github.io/emberfall/ (both return 200).
-- **Portal build:** `npm run build:portal` writes `dist-portal.zip` (index.html at the root, under 20 MB) and fails loudly if no zip is produced (#11, #13). Portal mode turns on via `window.EMBERFALL_PORTAL` or `?portal=1`.
-- **Distribution:** submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are planned.
-- **Global leaderboards & pilot profiles:** the shared best-run dossier code merged in #14; treat it as not live until the production rollout is announced.
-- Release notes: [`CHANGELOG.md`](CHANGELOG.md).
-
-## Play
-
-- **Any device, right now:** play the deployed build at **https://emberfall-game-two.vercel.app/** or **https://fahadibrahim93.github.io/emberfall/** — or open `index.html` in a modern browser. Chrome, Edge, Firefox, Safari, desktop or phone.
-- **Offline PWA:** for install-as-app, serve the folder once over HTTP(S) (or use the live URL) so the service worker can cache the shell.
-- **Keyboard:** `WASD`/arrows fly · `Space` fire · `Shift` dash · `E` pulse · `P` pause · `M` mute · `F` fullscreen
-- **Touch:** drag anywhere to fly (fires for you); DASH / PULSE buttons bottom-right
-- **Gamepad:** sticks/buttons auto-detected
+[![press kit](https://img.shields.io/badge/press%20kit-playtest%20recruiting-ff8a2b)](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html)
 
 <p align="center">
-  <img src="docs/screenshots/gameplay.png" alt="Deep-range intercept: the corridor, hostile fire, the HUD" width="880">
+  <img src="docs/press/emberfall-wave1.gif" alt="The first seconds of wave 1: hostile fire, kills and combo ticks" width="720">
 </p>
-- **Campaign, progression, personality:** fly the **Solar Tour** (8 worlds, Mercury to the Kuiper Gate, each with its own sky, hazard and hostile doctrine), bank **hull mastery** (+8%→+15% score, dash, salvage sight) and **kill plaques** (Blooded 200 → Legend of the Yard 5,000, engraved on your docked hull), wear **paints** and a **sigil** — one worn sigil, its price stated in a real weakness — and see your colors on every leaderboard, worldwide, and on the rival ghosts that race you.
 
-## CI & deployment
+No install and no accounts needed. The art, music and sound are all generated in code at runtime, so there are no asset files, no build step and no runtime npm packages. After the first visit it works offline.
 
-Every push runs the full gate battery (syntax, dead-code + module load order, economy model, API smoke) via GitHub Actions; green builds of `main` auto-publish the playable game to **GitHub Pages** — and the deploy job re-fetches the published URL and asserts it is byte-identical to what just merged. **Every release is an annotated tag**, so rollback is one command (`git checkout v4.15.3`). Full story: `docs/DEPLOYMENT.md`. The Pages build is the static game only — leaderboards/accounts need the self-hosted `node server.js` command deck (the game detects this and runs in local mode, saving to the device).
+## Controls
 
-## Install as an app (PWA)
+| | |
+|---|---|
+| Move | `WASD` or arrow keys |
+| Fire | `Space` (or turn on autofire in Settings) |
+| Dash | `Shift` |
+| Pulse | `E` (or `Q`) |
+| Pause | `P` or `Esc` |
+| Mute / fullscreen | `M` / `F` |
+| Touch | Drag anywhere to fly (it fires for you). DASH and PULSE buttons sit bottom-right. |
+| Gamepad | Detected automatically. |
 
-Serve the folder over http/https and open it — the browser will offer **Install app** (Chrome/Edge desktop + Android). On iOS Safari: Share → *Add to Home Screen*.
+## Features
+
+- **Five ships**, each with its own trade-offs, including SERAPH with a continuous cutting lance.
+- **Four modes:** Endless, Boss Rush, the Daily Gauntlet (one seed for everyone, every day) and the Solar Tour (eight worlds, Mercury to the Kuiper Gate).
+- **Scoring that rewards nerve:** graze bullets, chain combos and draft a boon after each boss.
+- **A hangar to come back to:** paints, sigils, hull mastery and kill plaques.
+- **Accessible by default:** four colour palettes, reduced-motion support, left-handed and large touch layouts, and a high-visibility bullets option.
+- **Installable PWA** that plays offline.
+- **Optional Command Deck server** for accounts, cloud saves, duels and shared leaderboards (see below).
+
+**Leaderboards and pilot profiles:** the code is merged (#12, #14), but they are **not live yet**. They go live once the Command Deck server is deployed. Until then the game saves to your device.
+
+<p align="center">
+  <img src="docs/screenshots/gameplay.png" alt="Gameplay: the corridor, hostile fire and the HUD" width="720">
+</p>
+
+## Run it locally
+
+Open `index.html` in a modern browser, or serve the folder so the service worker can install:
 
 ```bash
-# from this folder, pick any one:
-python -m http.server 8080
-npx serve .
+python -m http.server 8080      # or: npx serve .
+# then open http://localhost:8080
 ```
 
-Then open `http://localhost:8080` — the game registers its service worker and works fully offline from then on.
-
-## Hosting
-
-It's one HTML file plus an optional `sw.js`. Any static host works: GitHub Pages, Netlify, Vercel, Cloudflare Pages, an S3 bucket — upload and go.
-
-## Command Deck — accounts, cloud saves, worldwide boards (optional)
-
-The game is complete offline. Add the self-hosted backend and it gains a real
-account system, cloud saves, and plausibility-checked community leaderboards — with
-**zero npm dependencies** (Node ≥ 22, built-in SQLite). The full data layer is
-documented in [`docs/DATABASE.md`](docs/DATABASE.md); the short version:
+To run the optional Command Deck (Node 22 or newer, no npm packages):
 
 ```bash
-node server.js            # http://localhost:8123 — serves game + API
-bash smoke.sh             # API + static-hygiene + load battery, all green
+node server.js                  # http://localhost:8123, serves the game + API
 ```
 
-- **Auth:** callsign + password, scrypt-hashed (async, off the event loop), per-user salt, constant-time compare; optional **Google sign-in** (`EF_GOOGLE_CLIENT_ID`) — the deck verifies the ID token itself against Google's JWKS and mints its own session, so a Gmail pilot is the same users row on the same boards (a pre-existing callsign matching the email's local part is adopted, never duplicated; email addresses never appear on a public board)
-- **Account self-management:** pilots change their password, see where they're signed in, and delete the account outright — one CASCADE transaction evicts every board entry, ledger row and cloud save, and the callsign is tombstoned so it can never be re-registered (all pinned in smoke)
-- **Sessions:** 32-byte tokens, only SHA-256 stored, HttpOnly SameSite `Secure`-on-TLS cookies, 30-day expiry; Google sign-in mints these same sessions and never stores any Google credential
-- **Static allowlist:** only the game shell is served — data/, server source, git metadata, dotfiles all 404 (regression-tested in smoke.sh)
-- **Hardened:** same-origin JSON guard, per-IP/user rate limits, input caps, parameterized SQL, 2s busy_timeout so brief write contention self-heals, security headers + CSP; production requires HTTPS
-- **Cloud saves:** meta progression + settings sync across devices via last-write-wins merge with server convergence
-- **Save vault:** the deck keeps six rolling snapshots per account (taken on real deltas — an hour apart or ≥512 bytes of changed content) and serves them read-only at `/api/profile/snaps`; restore is client-side (Settings → Command deck → Save vault…), replacing the local save from the picked snapshot. A bad write, a wiped browser, or a debugging probe can no longer destroy earned progress.
-- **Leaderboards:** top 10 per mode (endless / daily / boss rush), per-user best, and a plausibility-checked community rank — unverified runs never rank
-- **Daily Gauntlet board:** daily runs rank on one shared, day-scoped board (`GET /api/scores?mode=daily&day=YYYY-MM-DD`, UTC days) — every pilot flies the same seeded gauntlet, the field resets at midnight UTC, and the world screen carries the day board beside the Weekly Gauntlet
-- **Daily medals & streaks:** four medal tiers — Crest 120 / Crown 260 / Eclipse 450 alloy any day, Solar Guard 800 on Sundays only (when the honor guard escorts the capital), earned by wave depth or score, paid once per tier per UTC day from a server-side ledger — accepted, plausibility-checked runs only; consecutive flew days build a streak (best kept forever), shown beside your row on the day board along with gold medal pips read straight from the deck's ledger and a weekly recap (streak · flew days · the next laurel's horizon); the 14- and 30-day streaks gift the OXBLOOD and MIDNIGHT paints — earned, never sold; the Daily's tempo tightens through the week (Monday 0.94× → Sunday 1.18×, weekend waves pay 1.05–1.40×)
-- **Vault restore offer:** sign in on a device the deck remembers as clearly richer (more hulls, no fewer kills), and the hangar offers the snapshot restore once a day — one confirm, never nagging
-- **Deployment:** one process, one origin — place production behind HTTPS (for example nginx with `NODE_ENV=production TRUST_PROXY=1`). Back up the database with `node tools/db-backup.js --verify` (live snapshots, no deck stop; see [Database backups](docs/DATABASE.md#backups)). The database lives outside the served tree by default (`../emberfall-data`, override with `EF_DATA_DIR`); an existing `data/emberfall.db` is migrated there on first start.
+If no deck answers, the game checks `/api/health` once and quietly stays local.
 
-When no server is present the client probes `/api/health` once, fails silently,
-and stays 100% local — the exact same game, stored in the browser.
+## Portal build
 
-## Verification
+For web game portals:
 
-Every push runs the gates on GitHub Actions (badge above); the live-smoke job additionally asserts the published site is byte-identical to the merged commit.
+```bash
+npm run build:portal
+```
 
-- Open [`index.html?selftest`](https://fahadibrahim93.github.io/emberfall/index.html?selftest) — the built-in suite runs (77 checks) in a panel (bottom right): **77 tests, all PASS**. It covers math/RNG and determinism, persistence merges and migrations, combat sim (60s headless + sustained 120Hz load), the beam hull's balance model, the sigil/mastery/plaque/feat contracts, the profiler math, the reduced-motion contract (sky drift, dock idle, cloudbank drift), a colorblind floor on the paint wardrobe, and the save-vault sanitizer (CIE-Lab ΔE under protan/deutan/tritan simulation, Machado 2009). The same suite runs headless in CI (`tools/selftest-ci.js`) against a committed test-name baseline, so the number above is gated, not aspirational.
-- `bash check.sh` + `node deadscan.js --check` locally — syntax + dead-code/load-order gates (what CI runs)
-- Settings → *Render quality: Auto* lets the game tune itself to your device.
+This writes `dist-portal/` and `dist-portal.zip` (with `index.html` at the zip root, under 20 MB). It injects `window.EMBERFALL_PORTAL=true`, strips off-site links and fails with an error if the zip isn't created. You can also force portal mode on any copy with `?portal=1`. In portal mode, scores stay on the device.
+
+## Tech stack
+
+- **Game:** one `index.html` plus a few plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
+- **Offline:** a service worker (`sw.js`) and a web app manifest.
+- **Command Deck:** `server.js` on Node 22, using the built-in `node:sqlite`. No dependencies.
+- **Public mirror:** a read-only Supabase copy of the public leaderboard facts ([ADR 0001](docs/adr/0001-sqlite-authoritative-supabase-mirror.md)).
+- **Tests:** an in-game self-test (`index.html?selftest`, 77 checks), Vitest for the TypeScript sim in `packages/sim`, Playwright browser tests and a set of server drills in `tools/`.
+
+More detail: [Architecture](ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Database](docs/DATABASE.md) · [Leaderboards & accounts](docs/LEADERBOARD-AND-ACCOUNTS.md) · [Roadmap](docs/ROADMAP.md).
 
 <!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
 ## The fun curve — the game, measured release over release
@@ -129,299 +104,27 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 <!-- fun-curve:end -->
 
-## The global leaderboard, mirrored
-
-The deck's SQLite is the only authoritative store (one file, zero
-dependencies, backed up live). A read-only **Supabase mirror** publishes
-the public facts — callsigns, accepted scores, the flight that set each
-board score, season history, and a pilot card — so the world can query
-real numbers without touching the game server. Row-level security allows
-the world to read and no one to write; password hashes, sessions and
-telemetry never leave the deck. Apply [`tools/mirror-schema.sql`](tools/mirror-schema.sql)
-once, then `node tools/db-sync.mjs`. Until that schema is applied, the
-classic `leaderboard` view still answers.
-Architecture: [`docs/adr/0001`](docs/adr/0001-sqlite-authoritative-supabase-mirror.md) ·
-[`docs/adr/0003`](docs/adr/0003-best-run-boards-and-public-dossiers.md) ·
-data layer: [`docs/DATABASE.md`](docs/DATABASE.md) ·
-UMS + boards: [`docs/LEADERBOARD-AND-ACCOUNTS.md`](docs/LEADERBOARD-AND-ACCOUNTS.md) ·
-public profiles: [`pilot.html`](pilot.html) (mirror) and `/pilot/<callsign>` (live deck).
-
-```bash
-# the public leaderboard, right now, from any machine:
-curl "https://bhcczyyhadornihhzpsu.supabase.co/rest/v1/leaderboard?select=*" \
-  -H "apikey: sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O"
-```
-
-Sync is operator-side and opt-in (`node tools/db-sync.mjs`, service key by
-env, never committed); the deck also answers `GET /api/stats` directly from
-the authoritative store for a no-mirror deployment.
-
-## The Daily Gauntlet — a pilot's guide
-
-One seeded Gauntlet a day, shared by every pilot on Earth. Everything below is ledgered by the Command Deck and enforced there — the client displays, the deck authorizes.
-
-**The week has a shape.** The day key (`YYYY-MM-DD`, UTC) seeds the run, so every pilot flies the same corridor. A seven-step tempo tightens Monday → Sunday: *Opening* (0.94× squad cadence) through *Eclipse* (1.18×), and the weekend pays for it — waves score 1.05× midweek, 1.25× Saturday, **1.40× Sunday**.
-
-**Medals — paid once per tier per UTC day, by the deck.** Highest tier reached wins the display, but every tier reached pays:
-
-| Medal | Wave gate | Score gate | Alloy | When |
-|---|---|---|---|---|
-| Crest | 5 | 4,000 | 120 | every day |
-| Crown | 10 | 12,000 | 260 | every day |
-| Eclipse | 15 | 26,000 | 450 | every day |
-| Solar Guard | 20 | 40,000 | 800 | Sundays — the honor guard escorts the capital |
-| Wardenfall | 16 | — | 1,000 | rare Sundays only — see below |
-
-Everyday full house: **830/day**. Sunday full house: **1,630**. A Wardenfall Sunday pays **2,630**. Waves *or* score opens each tier — steady pilots and fast shooters both stay in the game. Only runs the deck marks **accepted** rank and pay; a reviewed or rejected run pays nothing, and re-flying a tier the same day pays exactly zero.
-
-**Rare Sundays.** One Sunday in seven — decided by a hash of the day key every pilot already shares, so the whole world knows at the same moment — the wave-5 capital is replaced by **Wardenfall**, the Gate Warden's corrupted sibling: four faster shield arcs, denser spikes, a twin-beam surge. Fell it and fly to wave 16 for the 1,000-alloy honor. The rare tier is wave-gated *only*: a wave-16 daily cannot exist unless the capital fell, so the kill is provable from the run itself — a huge score at wave 2 claims nothing.
-
-**Streaks.** Consecutive UTC days with an accepted daily run. Same-day re-runs are idempotent, a missed day resets to 1, and the best streak is kept forever. Streak feats at **7 / 14 / 30** days (*Seven suns, Fortnight, A pilot's month*) enter the feat record — the 14- and 30-day laurels gift two paints that can never be bought: OXBLOOD and MIDNIGHT, chosen by a colorblind-safety search so every pilot can tell them apart on the boards.
-
-**The flawless season.** Fly an accepted run every single day of one Gauntlet week (Monday–Sunday UTC, no gaps — the deck counts distinct ledger days, not your streak) and the **FLAWLESS SEASON** feat lands, with the honor engraved on your docked hull — Roman numerals for repeats, `· X+` past ten. Cross-device by construction: the count lives in the deck's ledger, and any device you sign in on adopts it.
-
-**Watermarks.** Your device tracks the deck's lifetime payout total for your account and adopts it on sign-in (never the reverse) — so a fresh laptop learns what you were paid without re-banking a single coin.
-
 ## What's new in v4.27.0 — "The Same Ladder"
 
-- Boards, the `/pilot` page, and the public mirror now describe the same flight: the one that set the score. Ties share a rank. Season history and per-mode standings publish once `tools/mirror-schema.sql` is applied. Proven by `tools/drill-boards.mjs`.
-## What's new in v4.26.0 — "The Open Gate"
+- Boards, the `/pilot` page and the public mirror now all describe the same flight: the one that set the score. Ties share a rank. Older release notes are in [CHANGELOG.md](CHANGELOG.md).
 
-- Sign in with Google — the deck verifies the ID token itself and mints its own session, so a Gmail pilot is the same pilot on the same boards, with callsign linking for classic accounts.
-## What's new in v4.25.0 — "The Listening Deck"
+## Contributing
 
-- one-line pilot notes on the game-over screen (anon-friendly, offline-queued, capped 5/h), PII-free funnel instrumentation (boot-armed-k1-w5, salted daily device hash), ops.html funnel+notes cards, feedback-report and monday-digest tools - and the probe() stale-false race fix the flush test flushed out
-## What's new in v4.24.0 — "Signal"
+Bug reports, playtest notes and PRs are all welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md). The short version:
 
-- the fun curve renders on the recruiting page (marker-maintained, CI-checked); playtest feedback becomes a structured issue form asking the exact four questions; the deck gets ops.html - a noindex operator cockpit over health census, the live-ledger fence, limiter telemetry and the Wardenfall honor total
-## What's new in v4.23.1 — "The Fence"
-
-- live-ledger fence: EF_LIVE_LEDGER=1 decks report live:true in health and smoke, all 13 drills, and the browser suite REFUSE them - the battery never writes to production (born of the 2026-09-27 incident: a release battery seeded 5 machine pilots into the live Wardenfall deck; purged)
-## What's new in v4.23.0 — "Glasscockpit"
-
-- Ops gets a glasscockpit: /api/health now carries per-bucket 429 telemetry with no PII so limiter regressions show in ops instead of hiding in logs, the replay drill grew a ways-matrix proving the anti-cheat window honest across modes, perturbed telemetry shapes and per-hash windows, the game and the recruiting page preview properly wherever they are shared, and Fly.io deployment became a five-minute checklist with a committed fly.toml.
-## What's new in v4.22.2 — "Open Surfaces"
-
-- The surface audit closes the input-accessibility class everywhere: the playfield canvas now announces itself with the flight controls to assistive tech, the settings dialog traps Tab focus when opened from the title, and the action keys stay quiet behind modal screens — Enter on a settings switch no longer also launches a run.
-## What's new in v4.22.1 — "The Recruiting Page"
-
-- The playtest recruiting kit becomes a live, linkable page: an itch-style press one-pager with the hero shot, the wave-1 GIF, the CI-measured facts and the four playtest questions, deployed with the site and verified by the live-smoke job — send one link, recruit the first ten.
-## What's new in v4.22.0 — "The World Stage"
-
-- The global leaderboard actually works now: the deck learns a CORS allowlist and issues bearer sessions so the Pages game can sign up, sign in, climb the live boards and duel across origins, every pilot name links to a /pilot profile page, boards page past the top ten, and a deck-address field in settings aims any copy of the game at any deck.
-## What's new in v4.21.2 — "Always Reachable"
-
-- The DASH and PULSE buttons are now reachable on every device: hybrid pointer setups (touch second, mouse primary) get the touch controls via any-pointer detection with a first-touch upgrade as backstop, and the buttons answer Enter and Space for keyboard and screen-reader pilots with a guard so a real tap never double-spends a pulse; the roadmap also gains the container deployment path — the proven docker guarantees and the three gaps to a real rollout.
-## What's new in v4.21.1 — "The Curve"
-
-- **The fun curve ships** — every release now leaves one measured row (bot wave depth, kills, grazes, median fps) in a committed scoreboard, rendered as a README trend table, recorded by CI after the browser suite flies each new version, and gated so the table can never drift from the data.
-- **The touch controls are always reachable** — v4.21.1 removed the never-unhidden `hidden` attribute so DASH/PULSE could exist at all; v4.21.2 finishes the job: hybrid devices (touch as a *secondary* pointer — touch monitors, convertibles) now get the buttons via `any-pointer` detection, a first-touch upgrade catches whatever detection still misses, and the buttons answer Enter/Space so keyboard and screen-reader pilots can fire them, with a 700ms guard so a real tap never double-spends a pulse. Pinned by `tests/touch-buttons.spec.js`.
-- **The fun curve ships** — every release now leaves one measured row (bot wave depth, kills, grazes, median fps) in a committed scoreboard, rendered as a README trend table, recorded by CI after the browser suite flies each new version, and gated so the table can never drift from the data.
-## What's new in v4.21.0 — "Proof of Play"
-
-- An autopilot bot now proves the core loop THROUGH PLAY (wave 3, 28 kills, grazes, combo x2 — pinned in CI), a fresh pilot is taught the striker at first sight, the press kit ships with a real wave-1 GIF, /api/health exposes a pilot census, and the battery refuses to touch a ledger that is not a scratch deck.
-## What's new in v4.20.0 — "First Contact"
-
-- Wave 1 fights back (first shooter at ~6s), the title shows your hull breathing on its pad, the blink-flanker Wisp joins wave 16+, a nine-lane tier-7 capstone weapon lands, and a new instrumented audit plays the game and pins the first-60-seconds contract.
-## What's new in v4.19.1 — "The probe-able deck"
-
-- Production mode keeps /api/health answerable over plain HTTP (it leaks nothing); every real endpoint still 426s without TLS, and the container deck proves it in CI — bare probe, prod 426, named-volume persistence, non-root.
-## What's new in v4.19.0 — "Gates in the build"
-
-- The replay window is drilled; the deck ships as a container whose build IS the battery; the world stats page is one click from the mirror.
-## What's new in v4.18.0 — "The world, even offline"
-
-- Deckless players now see the worldwide leaderboard — the Global tab falls back to the read-only public mirror with the world's publishable key, and the deck-linked boards render again after a shipped ReferenceError left them blank for anyone with ranked runs; account self-management is UI-proven end to end, /api/stats is rate-limited, and the deck database earns a daily verified backup.
-## What's new in v4.17.1 — "The world page"
-
-- stats.html puts the global leaderboard and gauntlet history on the open web — reading the locked public mirror with the world's key, styled to the game, failing gracefully when the mirror sleeps; the game's CSP now allows the mirror origin on that one page and nothing else.
-## What's new in v4.17.0 — "The mirror"
-
-- The deck's SQLite stays the only authoritative store, and a read-only Supabase mirror now publishes the public facts — callsigns, accepted scores, gauntlet days, lifetime totals — with row-level security letting the world read and no one write; tools/db-sync.mjs pumps it keylessly or by operator key, the deck answers /api/stats straight from the source, and no gameplay path ever touches the cloud.
-## What's new in v4.16.0 — "Own your ledger"
-
-- Accounts can now change their password, list their sessions, and delete themselves outright — one CASCADE transaction evicts every board entry and the callsign is retired forever — while the save vault actually holds six snapshots again (the old prune threw silently; rebuilt and drilled).
-## What's new in v4.15.3 — "Pinned boots stay pinned"
-
-- **Port resolution with intent** — an explicit `--port` flag now outranks an ambient `PORT` variable (previously `Number(env.PORT || flag) || 8123` let a stray shell export — this worktree's had `PORT=0` — silently hijack a pinned boot onto the default port). Values that don't parse to an integer 1–65535 exit with a loud error instead of silently falling back, and an occupied port fails with one honest line instead of a stack trace.
-- **`tools/drill-port.mjs`** (CI step) — seven checks pin the whole contract: the flag beats a poisoned ambient `PORT`, `PORT` is honored without a flag, the 8123 default (proven two-world: on a free port it boots and answers, on a busy one the child must die on `EADDRINUSE` — never squat elsewhere), `PORT=0` without a flag exits loudly (the old chain silently defaulted), garbage flag/env values exit 1, and the boot log announces the port it actually took.
-
-## What's new in v4.15.2 — "The deck remembers"
-
-- **Sign-ins already survived restarts — now it's proven** — sessions are SQLite-backed (SHA-256 token hash, HttpOnly cookie), and `tools/drill-sessions.mjs` (CI step) proves the contract the hard way: SIGKILL the deck, reboot on the same ledger, and the same cookie still authenticates with the pilot's data intact. The actual gap was the opposite of lost logins: expired session rows were only removed lazily (when that exact dead token was presented again), so rows accumulated forever.
-- **Session hygiene** — expired rows are now swept at boot and daily; live sessions are untouched (only `expires < now` is deleted), and explicit logout still ends the session immediately. All three behaviors pinned by the drill (13 checks).
-
-## What's new in v4.15.1 — "Dead ghosts never pile up"
-
-- **Duel ghost retention** — a duel is only flyable on its own day ("today's run only" is the create-time rule), so the deck now prunes challenges older than the retention window (7 days default, `EF_DUEL_RETENTION_DAYS`-tunable, floored at 1) at boot and every six hours — ghost payloads and their beats (by cascade) go with them. The cutoff derives from the same day-clock as the gauntlet, so a rehearsal deck prunes on its pinned day too.
-- **One day-clock for duels** — the retention drill caught duels reading a third, private day derivation (`utcToday()` with `new Date()`) that ignored the rehearsal clock entirely; create, inbox and retention now read the same `deckDayOf` clock. On a pinned deck, a duel for the pinned day is accepted *and served* — proven in the drill, and the SQL-binding scanner still finds every day binding string-proven.
-- **`tools/drill-retention.mjs`** (CI step) — four sequential deck boots on one data dir: the 10-day-old duel pruned at boot, the 2-day-old kept, the pinned cutoff followed (09-27 prunes 09-18), the strictly-`<` boundary honored (09-25 keeps 09-18), the env window honored (14d keeps both), and the pinned-day duel coherent end to end.
-
-## What's new in v4.15 — "The rehearsal clock"
-
-- **Rehearse the rare Sunday before it arrives** — `EF_DECK_DAY=YYYY-MM-DD` pins the deck's *day* (and nothing else) for live-fire drills: the daily gauntlet day, the medal window and the Wardenfall verdict become rehearsal-able on any calendar day. Deliberately narrow: sessions, rate limits, replay windows and board seasons stay on the honest wall clock, and the boot log announces a pinned deck loudly.
-- **The honor loop, proven on the day itself** — `tools/drill-rare-sunday.mjs` (CI step) boots a pinned scratch deck on the deck's next real rare Sunday (2026-09-27) and flies the whole loop: an honest wave-16 run earns the Wardenfall medal with `wardenfall: 1` and the pinned day in the ledger, `/api/me` answers the lifetime count, a same-day repeat cannot inflate it, a wave-15 pilot on the same day is refused — and `/api/health`'s epoch proves the override never moved real time.
-
-## What's new in v4.14 — "The day of the fall"
-
-- **The rare day announces itself** — the countdown read the rare Sunday itself as "the next window is Nd away": on the one day the call-to-action matters most, the UI pointed *past* the live boss. The countdown now reads **0** on the rare day, the Daily tile says **WARDENFALL IS UP**, and the guide says "Wardenfall is up today" — pinned by a selftest that walks the seed to the next rare day and re-renders on it, and by a new parity-gate display contract checked across all 74 rare Sundays in the 2,922-day sweep.
-- **The ledger travels, rehearsed end-to-end (v4.14.1)** — a two-device browser spec registers through the real account panel, seeds a felled fall into the deck ledger (day stamped from the deck's own clock), then signs in on a fresh profile: the plaque and the feat arrive with no run flown. The E2E caught the `/api/me` adoption path skipping the feat mint — fixed; the honor mints at every adoption point.
-- **The deck's self-defense, executable** — `tools/drill-limiters.mjs` boots its own scratch deck and proves every rate-limit bucket honestly answers 429 at its budget (register 10, login 15, score 20, challenge 12, beat 12) with telemetry-backed probes so nothing 429s for the wrong reason. Until now the limiters were proven only by accident — a smoke burst and a drill stumbling into a 429. A CI step on every push.
-
-## What's new in v4.13 — "The fall, felled"
-
-- **The WARDENFALL plaque** — fell the rare Sunday boss and the honor becomes a possession: a deck-verified feat (`The fall, felled`), a lifetime `wardenfalls` count in the deck's ledger, and a gold sigil-crest plaque on the dock (one ✦ per fall, `×N` past five). No client claim can mint it — the deck derives the rare verdict itself and only an accepted daily run can carry it.
-- **Monotonic adoption, cross-device** — the count rides the same contract as the alloy watermark: `/api/me` answers `wardenfalls` at sign-in (fresh devices learn their history), the daily submit response carries both the per-run flag and the deck's lifetime count (v4.13.1 — same-day reconciliation), and both adoption paths only ever rise.
-- **Same-day reconciliation (v4.13.1)** — the daily submit response carries the deck's *lifetime* `wardenfalls` count beside the per-run flag, so two falls on two rare Sundays read honestly everywhere the same day — no `/api/me` pass needed.
-- **Proven live on a scratch deck** — an honest wave-16 daily run on a plain Wednesday answered `wardenfall: 0`, a felled fall seeded into the ledger flipped `/api/me` to `wardenfalls: 1`, and 71 self-tests pin the feat's mode-gating, mint-once adoption and plaque contract.
-
-## What's new in v4.12 — "The gates that watch the gates"
-
-- **Executable SQL-binding audit** (`tools/audit-sql-bindings.js`, in CI) — the trap class behind the v4.11.1 week-window bug (epoch-ms bound against TEXT `created_day`) is now scanner-guarded across all 47 prepared statements. Mutation-verified: it fails on the pre-fix server.
-- **Permanent parity gate** (`tools/parity-daily.js`, in CI) — the client's medal *display* and the deck's medal *authorization* are cross-extracted from source on every push: 2,922 days of rare-Sunday verdict agreement, a 900-check medal grid with cross-summed payouts, and the wave-2 anti-cheat pin (a score shortcut can never pay an un-felled Wardenfall). Mutation-verified with a drifted tier.
-- **The guide renders itself** — the in-game Daily Gauntlet card is derived live from `DAILY_MEDALS`/`DAILY_TEMPO` (mutation-pinned: edit a table, the text follows), and the Daily tile walks the seed forward for a **Wardenfall horizon** — "in Nd" — with an honest 56-day cap where silence is the answer.
-- **Live-fire drill #2: the duels week — now a CI step** — the full challenge loop flown against a running deck: create → inbox → ghost ownership → beat → idempotence → ownership refusals. Proven green on a scratch deck (24/24) and promoted to `tools/drill-duels.mjs`, replayed on every push by the smoke job (the drill's session budget stays inside the limiter window by construction; verified idempotent on rerun).
-
-## What's new in v4.5 – v4.11 — "The pilot's ledger & the shared sky"
-
-- **v4.11 — rare Sundays & the flawless week:** one Sunday in seven (drawn from the shared day key) wakes **Wardenfall**, the Gate Warden's corrupted sibling — four faster shield arcs, denser spikes, a twin-beam surge — worth its own wave-16 medal of 1,000 alloy, authorized by the deck's own derivation of the day. Fly a flawless Gauntlet week (accepted runs, seven UTC days) and the **FLAWLESS SEASON** feat lands with a dock plaque in Roman numerals. Rare-tier anti-cheat is structural: wave-gated only, so the kill is provable from the run itself — parity proven across 2,922 days of client/deck agreement.
-
-- **v4.5 — the yard gives back:** irreversible alloy→honor donations at three tiers (Patron / Shipwright / Yardmaster) paying pure cosmetics — dock plate, gold ✦ board sigil, engraved title; the balance sim reaches 60 tests with golden parity for the boss statlines and the full Solar Tour registry; dock breathing and cloudbank drift honor reduced-motion; the paint wardrobe is pinned to measured CIE76 ΔE floors under protan/deutan/tritan (Machado 2009 matrices).
-- **v4.6 — nothing earned is ever lost again:** the save vault (six rolling deck-side snapshots per account, inline restore), a build stub-guard that would have caught the placeholder-page incident in seconds, deterministic golden replays and type-specific foe AI in the mirror, and live SQLite backup tooling with verification.
-- **v4.7 — the Daily goes worldwide:** one shared, day-scoped board for the seeded Daily Gauntlet (UTC days, server-windowed queries, today's fleet only) plus a once-a-day vault restore offer when the deck remembers a richer save than this device.
-- **v4.8 — the week has a shape:** the Daily's tempo tightens Monday→Sunday with weekend score pay (Eclipse Sunday 1.40×), three once-per-tier-per-day medals from the deck's ledger (Crest / Crown / Eclipse), day streaks with the best kept forever, and the faucet audited in the economy model.
-- **v4.9 — devotion, decorated:** streak feats at 7/14/30 days gifting two colorblind-verified laurel paints, Eclipse Sundays with an elite honor guard and the day-gated Solar Guard medal, a one-time in-game guide to the Gauntlet's contract, and a deck busy_timeout proven against foreign write locks.
-- **v4.10 — the ledger on the board:** medal pips on the Daily day board read from the deck's ledger (two runs pool their honors), a weekly recap on the you-row (streak, flew days, the next laurel's horizon), and a reproducible deck query profiler — every board query measured sub-millisecond at 20× real scale.
-
-## What's new in v4.0 – v4.4 — "Worlds that fight back & the pilot's hangar"
-
-- **v4.0 — hazards & new hostiles:** six environmental systems (gravity wells, ion storms, cryofield, ring haze, flare tides, sulfur clouds) and six hostile classes with real verbs — pack telepathy, mortar arcs that burst into shrapnel, ally mending, rotating fire fans, honest rail telegraphs, and your own shadow mirrored back at you.
-- **v4.1 — the dock:** your hull at 7× on a breathing pad, refit hot-spots pinned to the schematic, a paint shop, the tour wall, and a zero-stakes test range.
-- **v4.2 – v4.3 — power priced in weakness:** the sigil bay (five sigils, each stating its price), hull mastery with tested awards, paints on local + worldwide boards and on rival ghosts, kill plaques earned per hull, duel entries in their challenger's colors.
-- **v4.4 — the ledger closes:** eight new feats across tour, hazards, sigils, mastery, plaques and the wardrobe; economy audit updated with the extracted sink tables (`docs/economy-audit.md` §6); backdrop bakes are now keyed, so same-sky wave starts cost zero (measured 3.65 ms per avoided bake).
-
-## What's new in v3.7 — hardening, honesty, fonts
-
-- **Command Deck static allowlist:** the deck now serves exactly the game shell and nothing else — the database, source, git metadata and shell scripts all 404, enforced by a permanent smoke battery (T-LEAK) in CI
-- **Honest boards:** unverified (review) runs no longer rank anywhere, including your own rank line; the smoke battery asserts an unaccepted run leaves the board empty
-- **Security pass:** rate limits key on the real client IP behind proxies (`TRUST_PROXY`), password hashing moved off the event loop (async scrypt), logout cookie carries `Secure` on TLS
-- **The 37-check self-test suite now gates CI headless**, with an exact-count + exact-name baseline so claims stay true
-- **Brand fonts self-hosted** (Michroma + Chakra Petch, OFL) — the real identity renders on `file://` and offline
-- **First-launch polish:** no changelog in front of a new player, no touch buttons over the title, dialogs that fit a phone screen
-- **Economy correction:** the graze-heat multiplier now decays as documented (3s from the last graze) instead of freezing at its last value
-
-## What's new in v3.5 – v3.6.1 — "The Living Sky & the Prism"
-
-- **The living sky:** five rare events (comets, golden comets, graveyard fleets, relief convoys, pyres) on a shared scheduler with a tunable Sky traffic setting — alloy bonuses, career feats, a Sky log, and edge pointers so you never miss one
-- **The deep sky breathes:** ring-band shear, storm swirl, creeping moon terminator, and three-plane nebula parallax — barely perceptible in the moment, unmistakable across a session; all palette-aware and frozen under reduced-motion
-- **SERAPH, Prism-class:** the fifth hull and the second weapon class — a continuous cutting lance with a heat economy, piercing every hostile in its line; balance locked by suite tests
-- **Cozy onboarding:** codex cards on first sight, flight school drills, dynamic difficulty easing, larger ships and touch controls, four accessibility palettes
-- **Tooling era:** FPS profiler panel (Settings → Show FPS), economy simulator calibrated on real telemetry, dead-code/load-order gates, and CI that tests and publishes every release
-
-## What's new in v3.3 — "Provenance"
-
-- **Run provenance:** every run records checkpoint telemetry (one sample per wave/boss/heartbeat) and the server checks the aggregate for plausible progression
-- **Anti-cheat engine:** rejects impossible depth, impossible score mass, impossible scoring velocity, non-monotonic tampering, malformed arcs, and 24h replays — 27/27 adversarial test battery
-- **Score checks:** `accepted` runs pass aggregate plausibility checks and rank; `review` runs are stored but do not rank; rejected runs never touch the ladder. This is not an authoritative anti-cheat replay.
-- **Weekly Gauntlet:** Monday-UTC seasons; your best five accepted runs of the week score the ladder, with live countdown and your rank
-- **Friend duels:** send today's daily-run ghost to any pilot on the deck — a win is claimed only after the recipient finishes a higher-scoring, plausibility-checked run
-- **Boards clean up:** global ladders show accepted plausibility-checked runs only
-
-## What's new in v3.2 — "Command Deck"
-
-- **Account system:** register/sign-in in Settings → Command deck; session persists across reloads; sign out keeps local progress
-- **Worldwide boards:** new Global tab on the title screen — plausibility-checked top 10 per mode plus your own rank
-- **Community runs:** every finished run posts to the deck (when signed in); accepted runs show their global rank on the game-over screen
-- **Cloud saves:** alloy, hulls, refits, feats and settings follow the pilot between devices, with stale-copy protection in both directions
-- **Update-proof shell:** service worker now ships updates immediately (network-first) and never caches the API
-
-## What's new in v3.9 — "Solar Tour"
-
-- **Solar Tour mode:** eight worlds, Mercury to the Kuiper Gate, in one hull — checkpoints bank alloy as you clear each world, death pays for ground held, sealing the Gate is the clear
-- **A different sky every world:** endless and daily runs tour the solar system too — seeded world rotation every five waves, per-world tinted hostiles and rebuilt skies (storms, rings, craters, city lights); accessibility palettes keep their opposition, halving the tint
-- **Selftest suite grows to 44**, including registry invariants, tint-vs-palette opposition checks and pure tour-settle math
-
-## What's new in v3.1 — "Momentum"
-
-- **Boss Rush mode:** all four capitals back-to-back, then an endless tail at wave-20 tempo — the showcase run
-- **Replay ghosts:** your best daily run records itself and races you — draft, claim, and chase your own best line
-- **High-vis bullets option:** dark rim on hostile fire for bright rooms / OLED
-- **Performance gate:** the 20-test self-suite now includes a sustained-load benchmark — worst-case combat must hold the 120Hz sim budget on every commit
-- **Economy audited:** hull-focused pilots reach their first hull around run 7; full collection completes around runs 31–35, after which a prestige sink is still recommended
-
-## What's new in v3.0 — "Expanded Edition"
-
-- **Post-processing stack:** two-stage bloom, chromatic aberration on impacts, per-palette final grade
-- **Dynamic light layer:** engine glow, beam/explosion illumination, boss arrival wash
-- **Backdrop life:** derelict capital silhouettes drifting past, and the Gate — a rift that widens as you descend the waves
-- **Ship FX:** hostile warp-ins, dash afterimages, elite auras, boss phase shockwaves
-- **Cinematics:** boss intro letterbox + nameplate, wave-clear micro slow-mo, game-over zoom
-- **3 new hostiles:** Ram (telegraphed charge), Sniper (laser-sight lock-on), Shieldbreaker (EMP that disables your systems)
-- **4th capital ship:** the Gate Warden, deep in the endless progression
-- **Boons:** after each boss, draft 1 of 3 run-long upgrades and build a build
-- **Daily mutators:** every daily run has a seeded twist — Glass Cannon, Swarm Protocol, and friends
-- **Audio expansion:** per-boss scoring variants, title theme, low-hull sub-drone, game-over sting, combo stingers
-- **Quality of life:** FPS cap for battery, save export/import, left-handed + large touch layouts, lifetime stats
-
-## Repository layout
-
-```
-index.html            the game: markup, CSS, inline core (sim, waves, render, UI, boot)
-js/art.js             ART v3 — materials + hull/hostile/capital/pickup renderers
-js/input.js           four input schemes behind one contract, bound at boot
-js/audio.js           synthesised voices + adaptive score
-js/sky.js             sky events — comets, fleets, convoys, pyres (single owner)
-js/net.js             command-deck client: auth, cloud saves, outbox
-sw.js                 offline cache (network-first, versioned cache generation)
-server.js             the Command Deck: accounts, SQLite, boards, trust boundaries (zero deps)
-smoke.sh              API + static-hygiene (T-LEAK) + load battery
-check.sh              syntax gate (modules + inline payload)
-deadscan.js           dead-code, load-order, XSS-sink and static-exposure gates (--check = CI gate)
-packages/sim          TypeScript mirror of the game's pure sim (RNG, catalogs,
-                      combat math) — tests/golden.test.ts extracts the live
-                      constants from index.html and pins every copy, so the
-                      extraction can never silently drift from the payload
-                      that actually ships
-tools/selftest-ci.js  headless CI runner for the in-game ?selftest suite (baselined)
-tools/selftest-baseline.json  the committed suite contract: totals + exact test names
-tools/selftest-probe.js  local harness: totals, failures, name list
-tools/selftest-baseline.js  regenerate the baseline from a live green run
-tools/econsim.js      meta-economy simulator, constants extracted from source
-tools/drill-duels.mjs  live-fire duels drill: the full challenge loop against a running deck (CI step)
-tools/drill-limiters.mjs  self-defense drill: boots its own scratch deck and proves every rate-limit bucket answers 429 at its budget (CI step)
-tools/drill-rare-sunday.mjs  rehearsal drill: flies the whole Wardenfall honor loop on the EF_DECK_DAY-pinned rare Sunday (CI step)
-tools/drill-retention.mjs  retention drill: four deck boots prove stale duels pruned, the boundary honest, the env window honored (CI step)
-tools/drill-sessions.mjs  session drill: login survives SIGKILL + reboot, expired rows swept, live rows and logout honored (CI step)
-tools/drill-vault.mjs     save-vault drill: snapshot lands, throttle engages, the six-newest prune holds (CI step)
-tools/release.mjs      release choreography: audit/stamp every version site, gated selftest-baseline regen, annotated tag (refuses dirty trees and drifted stamps)
-tools/db-sync.mjs      public-mirror pump: accepted scores + gauntlet aggregates → Supabase (REST push / keyless SQL / verify; ADR 0001)
-tools/stats-snapshot.mjs  living-badge feed: public mirror totals → docs/stats.json (keyless, hourly via CI)
-tools/drill-port.mjs      port drill: --port flag beats poisoned env PORT, bad values die loudly, the default is proven free AND busy (CI step)
-tools/audit-sql-bindings.js  executable audit: every prepared statement, INTEGER-vs-TEXT trap class (CI gate)
-tools/parity-daily.js  client↔deck daily-economy parity gate, cross-extracted from source (CI gate)
-tools/genicons.js     PWA icon generator (hand-rolled PNG encoder)
-tools/drill-google.mjs  Google sign-in contract: minted RS256 tokens, session mint, callsign linking, concurrent first sign-ins join one pilot (CI step)
-tools/drill-cross-origin.mjs  ADR 0002 drill: CORS grants, bearer sessions, pagination, pilot profiles across origins (CI step)
-tools/drill-boards.mjs  best-run boards, shared ranks, the /pilot dossier, and mirror SQL (CI step)
-tools/drill-replay.mjs  replay drill: the 24h anti-cheat window, per-pilot and per-hash integrity (CI step)
-tools/drill-feedback.mjs  listening-deck drill: notes + funnel caps, dedupe, closed vocabulary, aggregates (CI step)
-tools/drill-onboarding.mjs  launch-day drill: stranger → signed-up → honest run → ranked worldwide, through the real deck client (CI step)
-tools/drill-lighthouse.mjs  adoption-ladder drill: choice · local · adopt · auto, file:// and CORS guard rails, live zero-config signup (CI step)
-tools/deck-deploy.mjs  one command to a live deck: plan / doctor / launch / deploy / verify (flyctl wrapper, FLY_API_TOKEN-aware)
-tools/mirror-alarm.mjs  keyless mirror smoke detector: unreachable · stale >24h · machine-pilot contamination (hourly CI step)
-tools/db-backup.js     live ledger backup with --verify (a backup that was never validated is not a backup)
-tools/testpilot-report.mjs  read-only production census: pilots, runs, duels, integrity
-tools/feedback-report.mjs  playtest note reader: volume, keyword themes, newest notes
-tools/monday-digest.mjs  weekly operator digest: fun curve + funnel + notes + next rare Sunday
-tools/stubguard.js    restore recipe guardian: a payload that stops looking like the game dies in seconds
-tests/game.spec.js    Playwright browser smoke (boot, local-only assets, core flow)
-docs/economy-audit.md economy tuning report, calibrated on real telemetry
-docs/performance.md   measured CPU/GPU baseline + method
-fonts/                self-hosted brand fonts (Michroma, Chakra Petch — SIL OFL 1.1)
+```bash
+npm ci
+bash check.sh                   # syntax gate
+npm test                        # sim tests, browser tests, self-test (Node 22+)
 ```
 
-`emberfall.html` — a pristine v2.0 monolith — is no longer tracked: it carried a pre-hardening CSP and third-party font references, and shipping a legacy payload alongside the game invites drift and confusion. It remains reachable in git history if the artifact is ever needed.
+Found a security issue? Please report it privately. See [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). Bundled fonts are SIL OFL 1.1 (see `fonts/`).
+MIT. See [LICENSE](LICENSE).
+
+## Credits
+
+Made by Hope Theory (AgentHope).
+Fonts: [Michroma](https://fonts.google.com/specimen/Michroma) and [Chakra Petch](https://fonts.google.com/specimen/Chakra+Petch), both SIL Open Font License 1.1, self-hosted in `fonts/`.
