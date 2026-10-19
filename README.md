@@ -22,7 +22,7 @@ step, no runtime npm dependencies. Play it offline, host it anywhere, or attach 
 [![Play live](https://img.shields.io/website?url=https%3A%2F%2Ffahadibrahim93.github.io%2Femberfall%2F&label=play%20live)](https://fahadibrahim93.github.io/emberfall/)
 [![press kit](https://img.shields.io/badge/press%20kit-playtest%20recruiting-ff8a2b)](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html)
 ![tests](https://img.shields.io/badge/tests-selftest%2077%20%C2%B7%20smoke%20%2B%20drills%20%2B%20sim%20%2B%20browser%20grow%20every%20release-blue)
-![license](https://img.shields.io/badge/license-MIT-green)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![deck pilots](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.pilots&label=deck%20pilots)](docs/DATABASE.md)
 [![top score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FFahadIbrahim93%2Femberfall%2Fmain%2Fdocs%2Fstats.json&query=%24.topScore&label=top%20score)](docs/DATABASE.md)
 
@@ -38,7 +38,7 @@ A zero-build, static orbital intercept shooter. Art, music, and sound are genera
 
 ## Play
 
-- **Any device, right now:** play the deployed build at **https://fahadibrahim93.github.io/emberfall/** — or open `index.html` in a modern browser. Chrome, Edge, Firefox, Safari, desktop or phone.
+- **Any device, right now:** play the deployed build at **https://emberfall-game-two.vercel.app/** or **https://fahadibrahim93.github.io/emberfall/** — or open `index.html` in a modern browser. Chrome, Edge, Firefox, Safari, desktop or phone.
 - **Offline PWA:** for install-as-app, serve the folder once over HTTP(S) (or use the live URL) so the service worker can cache the shell.
 - **Keyboard:** `WASD`/arrows fly · `Space` fire · `Shift` dash · `E` pulse · `P` pause · `M` mute · `F` fullscreen
 - **Touch:** drag anywhere to fly (fires for you); DASH / PULSE buttons bottom-right
@@ -421,3 +421,7 @@ fonts/                self-hosted brand fonts (Michroma, Chakra Petch — SIL OF
 ```
 
 `emberfall.html` — a pristine v2.0 monolith — is no longer tracked: it carried a pre-hardening CSP and third-party font references, and shipping a legacy payload alongside the game invites drift and confusion. It remains reachable in git history if the artifact is ever needed.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Bundled fonts are SIL OFL 1.1 (see `fonts/`).
