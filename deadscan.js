@@ -23,7 +23,9 @@ const fs = require('fs');
    cannot match a bare sigil with \b */
 const JS_ALLOW = new Set(['$', '$$',
   /* mirror-public.js — called from standalone pages (stats.html, pilot.html), not index inline */
-  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow']);
+  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow',
+  /* reviewed 2026-10-20: mirrorDeckHref (#22) is the safe deck-link builder called from pilot.html */
+  'mirrorDeckHref']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
 /* fragments that appear inside data:/font: URLs and URL fragments, not real
    class names — 'woff2' joined when brand fonts became self-hosted files */
