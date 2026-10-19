@@ -94,6 +94,7 @@ expect "static index"      'EMBERFALL'                      "$BASE/"
 # exactly where it belongs: stats.html (public boards) + index.html (the
 # deckless worldwide tab) — and nowhere else, e.g. sw.js never carries it
 expect "stats page serves" 'world stats'                    "$BASE/stats.html"
+expect "pilot profile page serves" 'public profile'         "$BASE/pilot.html"
 # v4.24: the operator cockpit serves from the deck, is noindex/nofollow,
 # and keeps a closed CSP (no mirror origin on an ops page)
 expect "ops page serves" 'DECK OPS'                          "$BASE/ops.html"
@@ -102,10 +103,11 @@ printf '%s' "$OPS_HDRS" | grep -qi 'x-robots-tag: noindex' && ok "ops page is no
 CSP_STATS="$(curl -s -I "$BASE/stats.html" | grep -i content-security-policy)"
 CSP_INDEX="$(curl -s -I "$BASE/index.html" | grep -i content-security-policy)"
 CSP_SW="$(curl -s -I "$BASE/sw.js" | grep -i content-security-policy)"
-if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && printf '%s' "$CSP_INDEX" | grep -q 'supabase.co'; then
-  ok "CSP: mirror origin allowed on stats.html + index.html (the deckless worldwide tab)"
+CSP_PILOT="$(curl -s -I "$BASE/pilot.html" | grep -i content-security-policy)"
+if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && printf '%s' "$CSP_INDEX" | grep -q 'supabase.co' && printf '%s' "$CSP_PILOT" | grep -q 'supabase.co'; then
+  ok "CSP: mirror origin allowed on stats.html + pilot.html + index.html"
 else
-  no "CSP missing mirror origin — stats: $(printf '%s' "$CSP_STATS" | head -c 80) index: $(printf '%s' "$CSP_INDEX" | head -c 80)"
+  no "CSP missing mirror origin — stats: $(printf '%s' "$CSP_STATS" | head -c 60) pilot: $(printf '%s' "$CSP_PILOT" | head -c 60) index: $(printf '%s' "$CSP_INDEX" | head -c 60)"
 fi
 if [ -z "$CSP_SW" ]; then ok "sw.js carries no CSP (nothing to leak)"; else no "unexpected CSP on sw.js: $(printf '%s' "$CSP_SW" | head -c 80)"; fi
 expect "register guard (no header)" 'missing origin header'  -X POST "$BASE/api/register" -H 'Content-Type: application/json' -d '{"name":"x","password":"y"}'
@@ -165,6 +167,12 @@ expect "ac2 register"      '"ok":true'                      -X POST "$BASE/api/r
 # honest arc: 3 waves, ~45s, growing counters
 CPH='[[2.1,1,320,4,30,12,3,1],[12.4,2,940,11,72,31,8,2],[25.0,3,1880,19,118,54,15,2],[44.7,3,2410,24,151,66,21,2]]'
 expect "honest run accepted" '"verdict":"accepted"'           -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}"
+expect "pilot profile JSON"   '"bests":'                     "$BASE/pilot/Ace$R"
+expect "pilot API alias"      '"ranks":'                     "$BASE/api/pilot/Ace$R"
+expect "pilot ranks main"     '"main":'                      "$BASE/api/pilot/Ace$R"
+expect "pilot 404"            'no such pilot'                "$BASE/pilot/nobody-$(date +%s)"
+PILOT_CACHE="$(curl -s -I "$BASE/pilot/Ace$R" | grep -i '^cache-control:')"
+if printf '%s' "$PILOT_CACHE" | grep -qi 'max-age=60'; then ok "pilot profile is publicly cacheable (60s)"; else no "pilot cache-control  →  ${PILOT_CACHE:-missing}"; fi
 # replay: identical arc again → rejected
 REPLAY="$(curl -s -b "$JAR" -c "$JAR" -X POST "$BASE/api/scores" -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d "{\"mode\":\"main\",\"score\":2410,\"wave\":3,\"ship\":\"vesper\",\"diff\":1,\"runT\":44.7,\"kills\":24,\"cps\":$CPH}")"
 if printf '%s' "$REPLAY" | grep -q 'replay'; then ok "replay rejected"; else no "replay rejected  →  ${REPLAY:0:140}"; fi
@@ -223,18 +231,21 @@ say ""; say "── P0-10: the week window is a TEXT-day filter, not a lifetime 
 # row — weekDays silently counted the pilot's lifetime. The discriminator is
 # a ledger row from BEFORE this week flown by the already-logged-in pilot:
 # it must stay outside the window (only this Monday's row counts).
-WDB="${EF_DATA_DIR_DB:-$(dirname "$0")/../emberfall-data/emberfall.db}"
+if [ -n "${EF_DATA_DIR:-}" ]; then WDB="${EF_DATA_DIR%/}/emberfall.db"; else WDB="${EF_DATA_DIR_DB:-$(dirname "$0")/../emberfall-data/emberfall.db}"; fi
 WD0="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
-node -e "
+if ! node -e "
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync(process.argv[1]);
 const u = db.prepare('SELECT id FROM users WHERE name = ?').get(process.argv[2]);
 if (!u) { console.error('seed target pilot missing'); process.exit(1); }
 db.prepare('INSERT OR REPLACE INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak) VALUES (?,?,?,?,?,?,?)')
   .run(u.id, '2026-01-05', '2026-01-05', 5000, 8, 120, 1);   /* ten weeks old: outside every current window */
-db.close();" "$WDB" "Pilot$R"
-WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
-if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
+db.close();" "$WDB" "Pilot$R"; then
+  no "week window seed could not open $WDB"
+else
+  WD1="$(curl -s -b "$JAR" "$BASE/api/me" | grep -o '"weekDays":[0-9]*' | cut -d: -f2)"
+  if [ -n "$WD0" ] && [ "$WD1" = "$WD0" ]; then ok "week window excludes out-of-week ledger rows (weekDays $WD0 -> $WD1)"; else no "week window WRONG: weekDays $WD0 -> $WD1 (lifetime leak or window broken)"; fi
+fi
 
 say ""; say "── v4.16: account self-management ──"
 # A dedicated pilot + dedicated jar, so the deletion cascade is proven

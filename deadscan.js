@@ -21,7 +21,9 @@ const fs = require('fs');
 
 /* reviewed 2026-09-17: not dead — '$'/'$$' are the DOM helpers and the regex
    cannot match a bare sigil with \b */
-const JS_ALLOW = new Set(['$', '$$']);
+const JS_ALLOW = new Set(['$', '$$',
+  /* mirror-public.js — called from standalone pages (stats.html, pilot.html), not index inline */
+  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
 /* fragments that appear inside data:/font: URLs and URL fragments, not real
    class names — 'woff2' joined when brand fonts became self-hosted files */

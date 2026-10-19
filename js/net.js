@@ -6,6 +6,16 @@
    Every path degrades silently to pure-local play — the game never
    blocks, never errors, and never requires the network. */
 
+/* Portal mode (window.EMBERFALL_PORTAL, or ?portal=1) is the build web
+   game portals ship: no deck, no public mirror, no other host. Scores
+   stay in localStorage. The flag is read at load, before any request. */
+function emberfallPortal() {
+  try {
+    if (typeof window !== 'undefined' && window.EMBERFALL_PORTAL) return true;
+    if (typeof location !== 'undefined' && /(?:^|[?&])portal=1(?:&|$)/.test(String(location.search || ''))) return true;
+  } catch (e) { }
+  return false;
+}
 /* A deck address is where passwords and Google ID tokens are sent.
    Only a plain http(s) URL qualifies: no userinfo, no whitespace, no
    characters that can break out of an HTML attribute. */
@@ -63,6 +73,7 @@ const NET = {
      local accounts), the adopted deck third, honest local mode last.
      file:// boots never adopt (a local file has no accounts contract). */
   DECK_ADOPTED: (function () {
+    if (emberfallPortal()) return '';   /* a portal never adopts a remote deck */
     try {
       if (location.protocol === 'file:') return '';   /* local file play stays local */
       const r = new XMLHttpRequest();
@@ -76,6 +87,7 @@ const NET = {
   })(),
 
   deck: (function () {
+    if (emberfallPortal()) return '';   /* ignore ?deck= and any stored address */
     let q = null;
     let has = false;
     try {
@@ -110,6 +122,7 @@ const NET = {
   })(),
 
   setDeck(v) {
+    if (emberfallPortal()) return;
     /* an embed cannot be talked into shipping credentials elsewhere,
        and a non-URL must never become the address we dial */
     if (crossOriginFramed()) return;
@@ -132,6 +145,7 @@ const NET = {
      count stays one-per-device. Everything fails SILENT: signal must
      never disturb play, not even with a console error. */
   async sendFeedback(text, flight) {
+    if (emberfallPortal()) return false;
     try {
       await this.probe();
       if (!this.on) return false;
@@ -141,10 +155,19 @@ const NET = {
   },
 
   funnel(stage) {
+    if (emberfallPortal()) return;
     this.req('POST', '/api/funnel', { stage }).catch(() => { /* silent, always */ });
   },
 
   async probe() {
+    if (emberfallPortal()) {
+      this.deck = '';
+      this.on = false;
+      this.user = null;
+      this.probed = true;
+      this.googleClientId = '';
+      return false;
+    }
     /* v4.25 fix — the stale-false race (caught by the offline-flush test):
        the old probe set this.probed = true IMMEDIATELY, so concurrent
        callers during the 6s handshake got probed=true with on=false and
@@ -169,13 +192,15 @@ const NET = {
          degrades to local mode like any unreachable remote — the next
          boot tries again. */
       if (!this.deck && !this._adopted && NET.DECK_ADOPTED && location.protocol !== 'file:') {
-        this._adopted = true;   /* latch: the ladder decides once per boot — a pilot who clears the field gets honest auto */
         /* the local-deck check is a seam so the selftest can drive every
            branch without real network; production always takes the fetch.
            Only a DEFINITIVE answer (404 — the origin's own server 404s
            unknown paths) adopts; a timeout or any other inconclusive
            answer stays auto, so a slow machine can never steal a
-           self-hosted pilot's boot and point it at the world deck. */
+           self-hosted pilot's boot and point it at the world deck.
+           The latch is the adoption itself: a live local deck does not
+           consume it, and a pilot who clears the field after joining the
+           world deck gets honest auto for the rest of the boot. */
         const local = this._localDeckAlive ? await this._localDeckAlive() : await (async () => {
           try {
             const lctl = new AbortController(); const lkill = setTimeout(() => lctl.abort(), 400);
@@ -186,7 +211,10 @@ const NET = {
             return 'unknown';
           } catch (e) { return 'unknown'; }
         })();
-        if (local === 'no') this.deck = NET.DECK_ADOPTED;
+        if (local === 'no') {
+          this._adopted = true;
+          this.deck = NET.DECK_ADOPTED;
+        }
       }
       if (this.deck) {
         /* a hand-typed address must look like one before we dial it */
@@ -253,6 +281,11 @@ const NET = {
   },
 
   async req(method, path, body) {
+    if (emberfallPortal()) {
+      const err = new Error('portal');
+      err.status = 0;
+      throw err;
+    }
     const headers = Object.assign({}, this.hdrs);
     if (this.token) headers.Authorization = 'Bearer ' + this.token;
     const r = await fetch(this.deck + path, {
@@ -559,9 +592,11 @@ const NET = {
     if (!status) return;
     await this.probe();
     if (!this.on) {
-      status.textContent = this.deck
-        ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
-        : 'Command deck offline — playing in local mode.';
+      status.textContent = emberfallPortal()
+        ? 'Scores stay on this device.'
+        : this.deck
+          ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
+          : 'Command deck offline — playing in local mode.';
       this.renderMirrorBoards();
       return;
     }
@@ -632,15 +667,28 @@ const NET = {
     const body = $('globalBody');
     body.classList.remove('hidden');
     $('globalSignin').classList.add('hidden');
-    const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';
-    const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
+    if (emberfallPortal()) {
+      const season = $('seasonBox'); if (season) season.classList.add('hidden');
+      const duels = $('duelBox'); if (duels) duels.classList.add('hidden');
+      const gYou = $('globalYou'); if (gYou) gYou.classList.add('hidden');
+      const dYou = $('dailyYou'); if (dYou) dYou.classList.add('hidden');
+      const stat = $('dailyStat');
+      if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
+      if (typeof renderBoard === 'function') {
+        const mode = typeof boardMode === 'function' ? boardMode() : 'main';
+        const box = $('globalBoard');
+        if (box) renderBoard(box, mode, null);
+        const day = $('dailyBoard');
+        if (day) renderBoard(day, 'daily', null);
+      }
+      return;
+    }
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
     const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
     try {
-      const headers = { apikey: KEY };
-      const stand = await fetch(SB + '/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
-        encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50', { headers });
+      const stand = await mirrorRest('/rest/v1/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
+        encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50');
       if (stand.ok) {
         const rows = await stand.json();
         if (!rows.length) {
@@ -650,11 +698,10 @@ const NET = {
         box.innerHTML = rows.map(r2 => {
           const h = (typeof HULLS !== 'undefined') && HULLS.find(x => x.id === r2.ship);
           const pt = r2.paint && (typeof PAINTS !== 'undefined') && PAINTS.find(x => x.id === r2.paint);
-          const href = 'stats.html?pilot=' + encodeURIComponent(r2.callsign);
           return '<div class="row">' +
             '<span class="rk">' + pad2(r2.rank) + '</span>' +
             '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
-            '<a href="' + esc(href) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+            '<a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
             (h ? ' · ' + esc(h.name) : '') +
             (Number.isFinite(+r2.mastery) && +r2.mastery > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r2.mastery) + '</span>' : '') +
             '</span><span class="sc">' + padN(r2.score, 7) + '</span>' +
@@ -664,9 +711,7 @@ const NET = {
         return;
       }
       if (stand.status !== 404) throw new Error('mirror ' + stand.status);
-      const r = await fetch(SB + '/leaderboard?select=*', { headers });
-      if (!r.ok) throw new Error('mirror ' + r.status);
-      const rows = await r.json();
+      const rows = await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,best_wave,wardenfalls,runs&order=best_score.desc&limit=100');
       if (!rows.length) {
         box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
         return;
@@ -674,8 +719,8 @@ const NET = {
       box.innerHTML = rows.map((r2, i) =>
         '<div class="row">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm"><a href="' + esc('stats.html?pilot=' + encodeURIComponent(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
-        (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
+        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
+        esc(r2.callsign) + '</a>' + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + esc(r2.wardenfalls) + '</span>' : '') + '</span>' +
         '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
         '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
         '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
@@ -708,7 +753,8 @@ const NET = {
         return '<div class="row' + (mine ? ' me' : '') + '">' +
           '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
-          pilotLink(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          (h ? ' · ' + esc(h.name) : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">D' + pad2(r.w || 1) + pips + '</span></div>';
       }).join('');
@@ -753,14 +799,6 @@ function weekRecapLine(daily, weekDays) {
 /* v4.10 medal pips: render the deck's earned-medal names as a compact
    gold tag — pure so the suite pins its exact output. Always gold: medals
    are achievements, and they must never read as a second callsign color. */
-/* A callsign on a live board opens that pilot's dossier on the deck that
-   holds the account. The mirror boards link to stats.html instead — they
-   have no deck session to ask. */
-function pilotLink(name) {
-  const href = (typeof pilotUrl === 'function') ? pilotUrl(name) : '#';
-  return '<a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(name) + '</a>';
-}
-
 function medalPips(md) {
   if (!md || !md.length) return '';
   return ' <span style="color:var(--gold)">' + md.map(esc).join('·') + '</span>';

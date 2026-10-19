@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS scores (
   created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scores_board ON scores(mode, score DESC);
+CREATE INDEX IF NOT EXISTS idx_scores_user_mode ON scores(user_id, mode, score DESC);
 CREATE TABLE IF NOT EXISTS profiles (
   user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   data     TEXT NOT NULL,
@@ -305,12 +306,31 @@ addCol('challenges', 'paint', 'TEXT');
 /* Old "verified" rows were checked by the same client-telemetry heuristic.
    Do not silently preserve a stronger claim than the server can establish. */
 db.prepare("UPDATE scores SET verdict = 'legacy' WHERE verdict IS NULL OR verdict = 'verified'").run();
-/* Accepted runs are the only rows a board ever reads. A partial index keeps
-   rejected and review flights out of that scan; the extra columns cover the
-   best-run window (score, the flight that set it, and its public colors). */
+/* Accepted runs are the only rows a board ever reads. The mode-leading
+   partial index covers the best-run window. The user-leading one covers a
+   profile read (one pilot, one mode, the flight that set the score). */
+const userModeIdx = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_scores_user_mode'").get();
+if (userModeIdx && !/created/.test(userModeIdx.sql || '')) db.exec('DROP INDEX idx_scores_user_mode');
 db.exec(`CREATE INDEX IF NOT EXISTS idx_scores_accepted_board
   ON scores(mode, user_id, score DESC, created, id, wave, ship, diff, paint, mastery)
   WHERE verdict = 'accepted'`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_scores_user_mode
+  ON scores(user_id, mode, score DESC, created, id, wave, ship, paint, mastery)
+  WHERE verdict = 'accepted'`);
+
+const STMT_PILOT_BEST = db.prepare(`
+  SELECT score AS s, wave AS w, ship, created AS d, paint AS p, mastery AS m FROM scores
+  WHERE user_id = ? AND mode = ? AND verdict = 'accepted'
+  ORDER BY score DESC, created ASC, id ASC LIMIT 1`);
+const STMT_PILOT_RANK = db.prepare(`
+  SELECT COUNT(DISTINCT user_id) AS n FROM scores
+  WHERE mode = ? AND verdict = 'accepted' AND score > ?`);
+const STMT_PILOT_DAILY = db.prepare(`
+  SELECT COUNT(*) AS flew, COALESCE(SUM(paid), 0) AS paid,
+    COALESCE(SUM(CASE WHEN wardenfall = 1 THEN 1 ELSE 0 END), 0) AS wf
+  FROM daily_stats WHERE user_id = ?`);
+const STMT_PILOT_RUNS = db.prepare(`
+  SELECT COUNT(*) AS c FROM scores WHERE user_id = ? AND verdict = 'accepted'`);
 
 /* ───────────────────── run provenance: verify before trust ─────────────────────
    The sim lives on the client, so cheating is not preventable — it is
@@ -516,7 +536,10 @@ function seasonBoard(ts, userId) {
     const row = db.prepare(`
       WITH weekly AS (
         SELECT s.user_id, s.score,
-          ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
+          ROW_NUMBER() OVER (
+          PARTITION BY s.user_id
+          ORDER BY s.score DESC, s.created ASC, s.id ASC
+        ) AS rn
         FROM scores s WHERE s.mode = 'main' AND s.created >= ? AND s.user_id = ?
           AND s.verdict = 'accepted'
       )
@@ -525,7 +548,10 @@ function seasonBoard(ts, userId) {
       const better = db.prepare(`
         WITH weekly AS (
           SELECT s.user_id, s.score,
-            ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.score DESC) AS rn
+            ROW_NUMBER() OVER (
+              PARTITION BY s.user_id
+              ORDER BY s.score DESC, s.created ASC, s.id ASC
+            ) AS rn
           FROM scores s WHERE s.mode = 'main' AND s.created >= ?
             AND s.verdict = 'accepted'
         )
@@ -579,23 +605,11 @@ function bestBoard(mode, winSql, winArgs, offset) {
   };
 }
 function pilotBest(userId, mode) {
-  const b = db.prepare(`
-    SELECT score AS s, wave AS w, ship, created AS d, paint AS p, mastery AS m
-    FROM scores
-    WHERE user_id = ? AND mode = ? AND verdict = 'accepted'
-    ORDER BY score DESC, created ASC, id ASC
-    LIMIT 1`).get(userId, mode);
+  const b = STMT_PILOT_BEST.get(userId, mode);
   if (!b || b.s == null) return null;
-  const better = db.prepare(`
-    WITH best AS (
-      SELECT user_id, score,
-             ROW_NUMBER() OVER (
-               PARTITION BY user_id
-               ORDER BY score DESC, created ASC, id ASC
-             ) AS rn
-      FROM scores WHERE mode = ? AND verdict = 'accepted'
-    )
-    SELECT COUNT(*) AS n FROM best WHERE rn = 1 AND score > ?`).get(mode, b.s);
+  /* Any accepted score above this best means that pilot's best is above it,
+     so a distinct-user count is the same competition rank as the window. */
+  const better = STMT_PILOT_RANK.get(mode, b.s);
   return {
     s: Number(b.s), w: Number(b.w), ship: b.ship, flown: Number(b.d),
     paint: publicPaint(b.p), mastery: Number(b.m) || 0, rank: Number(better.n) + 1
@@ -605,12 +619,13 @@ function pilotDossier(name) {
   const row = db.prepare('SELECT id, name, created FROM users WHERE name_lower = ?').get(String(name || '').toLowerCase());
   if (!row) return null;
   const bests = {};
+  const ranks = {};
   for (const m2 of MODES) {
     const b = pilotBest(row.id, m2);
-    if (b) bests[m2] = b;
+    if (b) { bests[m2] = b; ranks[m2] = b.rank; }
   }
-  const falls = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(row.id).c;
-  const days = db.prepare('SELECT COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM daily_stats WHERE user_id = ?').get(row.id);
+  const dayAgg = STMT_PILOT_DAILY.get(row.id);
+  const runs = Number(STMT_PILOT_RUNS.get(row.id).c);
   const paintRow = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(row.id);
   let worn = null;
   try {
@@ -619,8 +634,8 @@ function pilotDossier(name) {
   } catch (e) { /* a broken profile JSON still has a public board dossier */ }
   const seasonMe = seasonBoard(now(), row.id).me;
   return {
-    ok: true, name: row.name, since: row.created, bests,
-    wardenfalls: Number(falls), flewDays: Number(days.c), alloyPaid: Number(days.paid),
+    ok: true, name: row.name, since: row.created, bests, ranks, runs,
+    wardenfalls: Number(dayAgg.wf), flewDays: Number(dayAgg.flew), alloyPaid: Number(dayAgg.paid),
     paint: publicPaint(worn),
     season: seasonMe && seasonMe.runs > 0
       ? { key: seasonKey(now()), pts: Number(seasonMe.pts), runs: Number(seasonMe.runs), best: Number(seasonMe.best), rank: Number(seasonMe.rank) }
@@ -941,11 +956,11 @@ function handlePreflight(req, res) {
   return true;
 }
 
-function send(res, code, obj) {
+function send(res, code, obj, cachePublic) {
   const body = JSON.stringify(obj);
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+    'Cache-Control': cachePublic ? 'public, max-age=60, stale-while-revalidate=120' : 'no-store',
     'X-Content-Type-Options': 'nosniff',
     'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin') || ''
   });
@@ -994,9 +1009,9 @@ const MIME = {
    audit's P0 leak (GET /data/emberfall.db → 200) and is regression-tested
    by the static-hygiene battery in smoke.sh (T-LEAK). */
 const STATIC_OK = new Set([
-  '/index.html', '/stats.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
+  '/index.html', '/stats.html', '/pilot.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
   '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
-  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
+  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/mirror-public.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
   '/fonts/chakra-petch-700.woff2'
@@ -1039,7 +1054,7 @@ function serveStatic(req, res, urlPath) {
          in (EF_GOOGLE_CLIENT_ID set) — an unconfigured deck's CSP stays
          exactly as closed as before. */
       const gsi = GOOGLE_ID ? ' https://accounts.google.com https://gstatic.com' : '';
-      const connect = file.endsWith('stats.html') || file.endsWith('index.html')
+      const connect = file.endsWith('stats.html') || file.endsWith('pilot.html') || file.endsWith('index.html')
         ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + gsi + extra
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
@@ -1649,28 +1664,40 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     return send(res, 200, { ok: true, day, top: topN, me, md, more, offset });
   }
 
-  /* ADR 0002 — the pilot profile: the minimum public fact set a leader-
-     board row promises (callsign, hull, paint colors, honors). The global
-     tab links every name to /pilot/<name>; 404 keeps retired callsigns
-     honest. Cookie or bearer, session optional. */
-  if (req.method === 'GET' && /^\/pilot\/[^/]+$/.test(pathname)) {
+  /* ADR 0002 — one dossier for /pilot/<name> and /api/pilot/<name>.
+     Browsers that ask for HTML get the page. Drills and clients get JSON.
+     JSON is cacheable for a minute; the HTML page is not. */
+  const pilotMatch = (req.method === 'GET' || req.method === 'HEAD') && pathname.match(/^\/(?:api\/)?pilot\/([^/]+)$/);
+  if (pilotMatch) {
+    const apiAlias = pathname.startsWith('/api/');
     let name = '';
-    try { name = decodeURIComponent(pathname.slice('/pilot/'.length)); }
+    try { name = decodeURIComponent(pilotMatch[1]); }
     catch (e) {
-      if (wantsHtml(req)) return writeHtml(res, 400, '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Bad callsign — EMBERFALL</title></head><body style="background:#0b0d14;color:#e8e6e0;font:16px system-ui;padding:48px"><p>Bad callsign.</p><p><a style="color:#ff8a2b" href="/">Back to the game</a></p></body></html>');
-      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('bad callsign');
+      if (req.method === 'GET' && !apiAlias && wantsHtml(req)) {
+        return writeHtml(res, 400, '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Bad callsign — EMBERFALL</title></head><body style="background:#0b0d14;color:#e8e6e0;font:16px system-ui;padding:48px"><p>Bad callsign.</p><p><a style="color:#ff8a2b" href="/">Back to the game</a></p></body></html>');
+      }
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(req.method === 'HEAD' ? '' : 'bad callsign');
     }
     const dossier = pilotDossier(name);
     if (!dossier) {
-      if (wantsHtml(req)) {
+      if (req.method === 'GET' && !apiAlias && wantsHtml(req)) {
         return writeHtml(res, 404, '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>No such pilot — EMBERFALL</title></head><body style="background:#0b0d14;color:#e8e6e0;font:16px system-ui;padding:48px"><p>No such pilot: ' + escHtml(name) + '</p><p><a style="color:#ff8a2b" href="/">Back to the game</a></p></body></html>');
       }
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('no such pilot');
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(req.method === 'HEAD' ? '' : 'no such pilot');
     }
-    if (wantsHtml(req)) return writeHtml(res, 200, pilotPage(dossier));
-    return send(res, 200, dossier);
+    if (req.method === 'GET' && !apiAlias && wantsHtml(req)) return writeHtml(res, 200, pilotPage(dossier));
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'X-Content-Type-Options': 'nosniff',
+        'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin') || ''
+      });
+      return res.end();
+    }
+    return send(res, 200, dossier, true);
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {

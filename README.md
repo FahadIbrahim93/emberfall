@@ -134,7 +134,9 @@ once, then `node tools/db-sync.mjs`. Until that schema is applied, the
 classic `leaderboard` view still answers.
 Architecture: [`docs/adr/0001`](docs/adr/0001-sqlite-authoritative-supabase-mirror.md) ·
 [`docs/adr/0003`](docs/adr/0003-best-run-boards-and-public-dossiers.md) ·
-data layer: [`docs/DATABASE.md`](docs/DATABASE.md).
+data layer: [`docs/DATABASE.md`](docs/DATABASE.md) ·
+UMS + boards: [`docs/LEADERBOARD-AND-ACCOUNTS.md`](docs/LEADERBOARD-AND-ACCOUNTS.md) ·
+public profiles: [`pilot.html`](pilot.html) (mirror) and `/pilot/<callsign>` (live deck).
 
 ```bash
 # the public leaderboard, right now, from any machine:

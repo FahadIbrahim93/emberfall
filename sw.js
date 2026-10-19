@@ -2,8 +2,8 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v4.45';
-const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js', './js/art.js', './js/input.js',
+const CACHE = 'emberfall-v4.47';
+const CORE = ['./', './index.html', './stats.html', './pilot.html', './js/audio.js', './js/sky.js', './js/mirror-public.js', './js/net.js', './js/art.js', './js/input.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png',
   './fonts/michroma-400.woff2', './fonts/chakra-petch-400.woff2', './fonts/chakra-petch-500.woff2',
   './fonts/chakra-petch-600.woff2', './fonts/chakra-petch-700.woff2'];

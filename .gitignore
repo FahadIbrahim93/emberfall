@@ -4,6 +4,8 @@ test-results/
 playwright-report/
 coverage/
 dist/
+dist-portal/
+dist-portal.zip
 .freebuff/*.log
 .freebuff/*.log.err
 *.tsbuildinfo

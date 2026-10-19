@@ -709,9 +709,9 @@ body.needrotate #rotate{display:grid}
               <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
               <div id="dailyBoard"></div>
               <div id="dailyYou" class="hidden"></div>
-              <p class="empty" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
+              <p class="empty" id="dayBoardNote" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
             </div>
-            <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
+            <p class="empty" id="globalBoardNote" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
             <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
@@ -1011,6 +1011,7 @@ body.needrotate #rotate{display:grid}
 </div>
 <script src="js/audio.js"></script>
 <script src="js/sky.js"></script>
+<script src="js/mirror-public.js"></script>
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
@@ -1036,13 +1037,16 @@ const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const hyp = (x, y) => Math.sqrt(x * x + y * y);
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
-/* v4.22: a pilot's name is a LINK on the global board — it opens the
-   deck's /pilot/<name> profile page. The deck address rides along:
-   NET.deck when the game flies a remote deck, otherwise this origin. */
+/* v4.22+ — pilot links: live deck → /pilot/<name> (authoritative JSON);
+   deckless Pages → pilot.html?callsign= (public mirror profile). */
 function pilotUrl(name) {
-  let base = location.origin;
-  if (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck)) base = NET.deck;
-  return base + '/pilot/' + encodeURIComponent(String(name || ''));
+  const enc = encodeURIComponent(String(name || ''));
+  const remote = (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck))
+    ? NET.deck.replace(/\/$/, '') : '';
+  if (typeof NET !== 'undefined' && NET.on) {
+    return (remote || location.origin) + '/pilot/' + enc;
+  }
+  return 'pilot.html?callsign=' + enc;
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -6759,8 +6763,44 @@ function openSettings(from) {
   showScreen('s-set', true);
   $('btnSetClose').focus();
 }
+/* Portal chrome: no deck field, no account/Google/LAN row, no feedback or
+   duel send, no external or social anchors. Local boards stay. */
+function applyPortalChrome() {
+  if (typeof emberfallPortal !== 'function' || !emberfallPortal()) return;
+  const hide = id => { const el = $(id); if (el) el.classList.add('hidden'); };
+  ['deckRow', 'acctFields', 'googleBox', 'acctSigned', 'lanBox', 'lanSolo', 'fbRow', 'duelRow', 'globalSignin', 'btnInstall', 'swRegister'].forEach(hide);
+  const acct = $('lAcct');
+  if (acct && acct.parentElement) acct.parentElement.classList.add('hidden');
+  const lan = $('lLan');
+  if (lan && lan.parentElement) lan.parentElement.classList.add('hidden');
+  const dayNote = $('dayBoardNote');
+  if (dayNote) dayNote.textContent = 'One seed, one day — your best on this device. Waves carry the D tag.';
+  const gNote = $('globalBoardNote');
+  if (gNote) gNote.textContent = 'This device — runs saved in local storage.';
+  const status = $('globalStatus');
+  if (status && !status.dataset.portal) {
+    status.dataset.portal = '1';
+    status.textContent = 'Scores stay on this device.';
+  }
+  const bannedHost = ['github.' + 'com', 'fly.' + 'dev', 'supa' + 'base', 'twitter.' + 'com', 'discord.', 'itch.' + 'io', 'youtube.' + 'com', 'reddit.' + 'com', 'accounts.' + 'google'];
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    const lower = href.toLowerCase();
+    let external = false;
+    try {
+      if (/^(https?:)?\/\//i.test(href)) {
+        const u = new URL(href, location.href);
+        external = u.origin !== location.origin;
+      }
+    } catch (e) { external = /^https?:/i.test(href); }
+    if (external || bannedHost.some(s => lower.indexOf(s) !== -1)) {
+      a.replaceWith(document.createTextNode(a.textContent || ''));
+    }
+  });
+}
 /* ── command deck account panel (settings) ── */
 function paintAccount() {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
   const on = NET.on, u = NET.user;
   $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
   $('acctFields').classList.toggle('hidden', !on || !!u);
@@ -6823,6 +6863,7 @@ function bindPassToggle() {
    itself (/api/lan), the phone just needs the URL. */
 let lanCache = null;
 async function paintLan() {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
   const on = NET.on;
   $('lanBox').classList.toggle('hidden', !on);
   $('lanSolo').classList.toggle('hidden', on);
@@ -6901,6 +6942,7 @@ let gsiLoaded = false;
 function paintGoogle() {
   const box = $('googleBox');
   if (!box) return;
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { box.classList.add('hidden'); return; }
   const show = NET.on && !NET.user && NET.googleClientId;
   box.classList.toggle('hidden', !show);
   if (!show) return;
@@ -7043,6 +7085,7 @@ bindClick('btnSaveClose', () => { AU.ui(); showScreen('s-save', false); if (GAME
 let deferredInstall = null;
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) return;
   deferredInstall = e;
   const b = $('btnInstall');
   if (b) b.classList.remove('hidden');
@@ -7066,6 +7109,7 @@ addEventListener('appinstalled', () => {
    is already installed there); the click plays the UI sound only, since
    the recipe text IS the feature. */
 addEventListener('load', () => {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) return;
   if (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
   if (!/iP(hone|ad|od)/.test(navigator.userAgent) || window.MSStream) return;
   const b = $('btnInstall'), sub = $('installSubTxt');
@@ -7278,7 +7322,7 @@ const NOTES = [
   {
     v: '4.27.0',
     items: [
-      'Boards, the pilot page, and the public mirror now tell one story: the row is the flight that set the score (hull, wave, paint, mastery), ties share a rank, and /pilot renders that dossier as a page. Season history and per-mode standings publish with the mirror schema.'
+      'Boards, the pilot page, and the public mirror now tell one story: the row is the flight that set the score (hull, wave, paint, mastery), ties share a rank, and /pilot renders that dossier as a page. Deckless copies open pilot.html from the mirror. Season history and per-mode standings publish with the mirror schema.'
     ]
   },
   {
@@ -8575,13 +8619,17 @@ function runSelfTests() {
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
   T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
-    const savedDeck = NET.deck;
+    const savedDeck = NET.deck, savedOn = NET.on;
     NET.deck = '';
+    NET.on = true;
     eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
     eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
     NET.deck = 'https://deck.example.com';
     eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
+    NET.on = false;
+    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'deckless mirror profile page');
     NET.deck = savedDeck;
+    NET.on = savedOn;
   });
   T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
     const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
@@ -9107,7 +9155,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.26.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.27.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -9178,6 +9226,7 @@ $('s-boot').addEventListener('pointerdown', finishBoot);
 $('s-boot').addEventListener('click', finishBoot);
 
 function boot() {
+  applyPortalChrome();
   loadCfg();
   SETTING_PAINTS.forEach(p => p());   // saved prefs repaint switches/segments
   loadMeta();
@@ -9320,6 +9369,7 @@ requestAnimationFrame(frame);
    Hosts that cannot serve sw.js simply skip it — the game never depends on it. */
 function tryRegisterSW() {
   try {
+    if (typeof emberfallPortal === 'function' && emberfallPortal()) return false;
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return false;
     if (!('serviceWorker' in navigator)) return false;
     navigator.serviceWorker.register('sw.js').catch(() => { });
