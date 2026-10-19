@@ -70,7 +70,17 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
-const deckParam = (params.get('deck') || '').trim().replace(/\/$/, '');
+// Only http(s) deck origins become links. javascript:, data:, and anything
+// else that new URL() parses is dropped, so ?deck= cannot inject script.
+function safeDeckBase(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  let u;
+  try { u = new URL(v); } catch (_) { return ''; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+  return (u.origin + u.pathname).replace(/\/$/, '');
+}
+const deckParam = safeDeckBase(params.get('deck'));
 
 function showErr(msg) {
   const el = document.getElementById('err');
@@ -137,7 +147,7 @@ function paintModes(rows) {
       paintModes(modes);
       if (deckParam) {
         const link = document.getElementById('deckLink');
-        link.href = deckParam + '/pilot/' + encodeURIComponent(card.callsign);
+        link.href = new URL(deckParam + '/pilot/' + encodeURIComponent(card.callsign)).href;
         link.classList.remove('hidden');
       }
       return;
@@ -176,7 +186,7 @@ function paintModes(rows) {
     })));
     if (deckParam) {
       const link = document.getElementById('deckLink');
-      link.href = deckParam + '/pilot/' + encodeURIComponent(p.callsign);
+      link.href = new URL(deckParam + '/pilot/' + encodeURIComponent(p.callsign)).href;
       link.classList.remove('hidden');
     }
   } catch (e) {
