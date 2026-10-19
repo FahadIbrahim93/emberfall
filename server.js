@@ -824,7 +824,7 @@ const MIME = {
    audit's P0 leak (GET /data/emberfall.db → 200) and is regression-tested
    by the static-hygiene battery in smoke.sh (T-LEAK). */
 const STATIC_OK = new Set([
-  '/index.html', '/stats.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
+  '/index.html', '/stats.html', '/pilot.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
   '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
   '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
@@ -869,7 +869,7 @@ function serveStatic(req, res, urlPath) {
          in (EF_GOOGLE_CLIENT_ID set) — an unconfigured deck's CSP stays
          exactly as closed as before. */
       const gsi = GOOGLE_ID ? ' https://accounts.google.com https://gstatic.com' : '';
-      const connect = file.endsWith('stats.html') || file.endsWith('index.html')
+      const connect = file.endsWith('stats.html') || file.endsWith('pilot.html') || file.endsWith('index.html')
         ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + gsi + extra
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
@@ -906,6 +906,50 @@ function publicProfile(userId) {
   if (!row) return null;
   try { return { data: JSON.parse(row.data), updated: row.updated }; }
   catch (e) { return null; }
+}
+
+/* ADR 0002 — one public profile shape for /pilot/<name> and /api/pilot/<name>.
+   Only accepted runs rank; paint is allowlisted; retired callsigns 404. */
+function pilotRankForBest(userId, mode, bestScore) {
+  if (bestScore == null) return null;
+  const better = db.prepare(`
+    SELECT COUNT(DISTINCT s.user_id) AS n FROM scores s
+    WHERE s.mode = ? AND s.verdict = 'accepted' AND s.score > ?`).get(mode, bestScore);
+  return Number(better.n) + 1;
+}
+
+function pilotPublicByCallsign(rawName) {
+  const name = String(rawName || '').trim();
+  if (!name) return null;
+  const row = db.prepare('SELECT id, name, created FROM users WHERE name_lower = ?').get(name.toLowerCase());
+  if (!row) return null;
+  const bests = {};
+  const ranks = {};
+  for (const m2 of MODES) {
+    const b = db.prepare(`
+      SELECT score AS s, wave AS w, ship FROM scores
+      WHERE user_id = ? AND mode = ? AND verdict = 'accepted'
+      ORDER BY score DESC LIMIT 1`).get(row.id, m2);
+    if (b && b.s != null) {
+      bests[m2] = { s: Number(b.s), w: Number(b.w), ship: b.ship || null };
+      ranks[m2] = pilotRankForBest(row.id, m2, Number(b.s));
+    }
+  }
+  const falls = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(row.id).c;
+  const days = db.prepare('SELECT COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM daily_stats WHERE user_id = ?').get(row.id);
+  const runs = db.prepare("SELECT COUNT(*) AS c FROM scores WHERE user_id = ? AND verdict = 'accepted'").get(row.id).c;
+  const paintRow = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(row.id);
+  let paint = null;
+  try {
+    const pd = JSON.parse(paintRow ? paintRow.data : '{}');
+    paint = pd && pd.meta && pd.meta.paint ? String(pd.meta.paint).slice(0, 24) : null;
+  } catch (e) { /* malformed profile must not break a public read */ }
+  return {
+    ok: true, name: row.name, since: row.created, bests, ranks,
+    wardenfalls: Number(falls), flewDays: Number(days.c), alloyPaid: Number(days.paid),
+    runs: Number(runs),
+    paint: paint && PAINT_IDS.has(paint) ? paint : null
+  };
 }
 
 /* ---- the vault: rolling hourly profile snapshots (read-only backup) ----
@@ -1487,29 +1531,13 @@ async function handleApi(req, res, pathname, ip) { /* ip is proxy-aware, see cli
     return send(res, 200, { ok: true, day, top: topN, me, md, more, offset });
   }
 
-  /* ADR 0002 — the pilot profile: the minimum public fact set a leader-
-     board row promises (callsign, hull, paint colors, honors). The global
-     tab links every name to /pilot/<name>; 404 keeps retired callsigns
-     honest. Cookie or bearer, session optional. */
-  if (req.method === 'GET' && /^\/pilot\/[^/]+$/.test(pathname)) {
-    const name = decodeURIComponent(pathname.slice('/pilot/'.length));
-    const row = db.prepare('SELECT id, name, created FROM users WHERE name_lower = ?').get(name.toLowerCase());
-    if (!row) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no such pilot'); }
-    const bests = {};
-    for (const m2 of MODES) {
-      const b = db.prepare("SELECT MAX(score) AS s, MAX(wave) AS w FROM scores WHERE user_id = ? AND mode = ? AND verdict = 'accepted'").get(row.id, m2);
-      if (b && b.s != null) bests[m2] = { s: Number(b.s), w: Number(b.w) };
-    }
-    const falls = db.prepare('SELECT COUNT(*) AS c FROM daily_stats WHERE user_id = ? AND wardenfall = 1').get(row.id).c;
-    const days = db.prepare('SELECT COUNT(*) AS c, COALESCE(SUM(paid),0) AS paid FROM daily_stats WHERE user_id = ?').get(row.id);
-    const paintRow = db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(row.id);
-    let paint = null;
-    try { const pd = JSON.parse(paintRow ? paintRow.data : '{}'); paint = pd && pd.meta && pd.meta.paint ? String(pd.meta.paint).slice(0, 24) : null; } catch (e) { }
-    return send(res, 200, {
-      ok: true, name: row.name, since: row.created, bests,
-      wardenfalls: Number(falls), flewDays: Number(days.c), alloyPaid: Number(days.paid),
-      paint: paint && PAINT_IDS.has(paint) ? paint : null
-    });
+  /* ADR 0002 — public pilot profiles. /pilot/<name> and /api/pilot/<name>
+     share one payload; GitHub Pages uses pilot.html + the mirror instead. */
+  const pilotMatch = req.method === 'GET' && pathname.match(/^\/(?:api\/)?pilot\/([^/]+)$/);
+  if (pilotMatch) {
+    const profile = pilotPublicByCallsign(decodeURIComponent(pilotMatch[1]));
+    if (!profile) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('no such pilot'); }
+    return send(res, 200, profile);
   }
 
   if (req.method === 'GET' && pathname === '/api/season') {

@@ -94,6 +94,7 @@ expect "static index"      'EMBERFALL'                      "$BASE/"
 # exactly where it belongs: stats.html (public boards) + index.html (the
 # deckless worldwide tab) — and nowhere else, e.g. sw.js never carries it
 expect "stats page serves" 'world stats'                    "$BASE/stats.html"
+expect "pilot profile page serves" 'public profile'         "$BASE/pilot.html"
 # v4.24: the operator cockpit serves from the deck, is noindex/nofollow,
 # and keeps a closed CSP (no mirror origin on an ops page)
 expect "ops page serves" 'DECK OPS'                          "$BASE/ops.html"
@@ -102,10 +103,11 @@ printf '%s' "$OPS_HDRS" | grep -qi 'x-robots-tag: noindex' && ok "ops page is no
 CSP_STATS="$(curl -s -I "$BASE/stats.html" | grep -i content-security-policy)"
 CSP_INDEX="$(curl -s -I "$BASE/index.html" | grep -i content-security-policy)"
 CSP_SW="$(curl -s -I "$BASE/sw.js" | grep -i content-security-policy)"
-if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && printf '%s' "$CSP_INDEX" | grep -q 'supabase.co'; then
-  ok "CSP: mirror origin allowed on stats.html + index.html (the deckless worldwide tab)"
+CSP_PILOT="$(curl -s -I "$BASE/pilot.html" | grep -i content-security-policy)"
+if printf '%s' "$CSP_STATS" | grep -q 'supabase.co' && printf '%s' "$CSP_INDEX" | grep -q 'supabase.co' && printf '%s' "$CSP_PILOT" | grep -q 'supabase.co'; then
+  ok "CSP: mirror origin allowed on stats.html + pilot.html + index.html"
 else
-  no "CSP missing mirror origin — stats: $(printf '%s' "$CSP_STATS" | head -c 80) index: $(printf '%s' "$CSP_INDEX" | head -c 80)"
+  no "CSP missing mirror origin — stats: $(printf '%s' "$CSP_STATS" | head -c 60) pilot: $(printf '%s' "$CSP_PILOT" | head -c 60) index: $(printf '%s' "$CSP_INDEX" | head -c 60)"
 fi
 if [ -z "$CSP_SW" ]; then ok "sw.js carries no CSP (nothing to leak)"; else no "unexpected CSP on sw.js: $(printf '%s' "$CSP_SW" | head -c 80)"; fi
 expect "register guard (no header)" 'missing origin header'  -X POST "$BASE/api/register" -H 'Content-Type: application/json' -d '{"name":"x","password":"y"}'
@@ -181,6 +183,9 @@ expect "mismatch reviewed"    '"verdict":"review"'          -X POST "$BASE/api/s
 # seasons
 expect "season endpoint"      '"season":"'                   "$BASE/api/season"
 expect "season has structure" '"ends":'                      "$BASE/api/season"
+expect "pilot profile JSON"   '"bests":'                     "$BASE/pilot/Pilot$R"
+expect "pilot API alias"      '"ranks":'                     "$BASE/api/pilot/Pilot$R"
+expect "pilot 404"            'no such pilot'                "$BASE/pilot/nobody-$(date +%s)"
 
 say ""; say "── v3.3 duels ──"
 # Ace$R sends a duel to Pilot$R; Pilot$R logs in, fetches inbox + ghost, marks beaten

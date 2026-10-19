@@ -130,7 +130,9 @@ totals — so the world can query real numbers without touching the game
 server. Row-level security allows the world to read and no one to write;
 password hashes, sessions and telemetry never leave the deck.
 Architecture: [`docs/adr/0001`](docs/adr/0001-sqlite-authoritative-supabase-mirror.md) ·
-data layer: [`docs/DATABASE.md`](docs/DATABASE.md).
+data layer: [`docs/DATABASE.md`](docs/DATABASE.md) ·
+UMS + boards: [`docs/LEADERBOARD-AND-ACCOUNTS.md`](docs/LEADERBOARD-AND-ACCOUNTS.md) ·
+public profiles: [`pilot.html`](pilot.html?callsign=) (mirror) and `/pilot/<callsign>` (live deck).
 
 ```bash
 # the public leaderboard, right now, from any machine:

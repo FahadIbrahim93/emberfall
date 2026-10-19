@@ -3,7 +3,8 @@
 *The database behind accounts, leaderboards, duels and the daily gauntlet.
 One SQLite file, zero dependencies (Node ≥ 22 ships `node:sqlite`), one
 process owning it — with a read-only public mirror on Supabase for the
-world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).*
+world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).
+End-to-end UMS + leaderboard flow: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).*
 
 ## The file
 
