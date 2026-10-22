@@ -1020,7 +1020,7 @@ const MIME = {
 const STATIC_OK = new Set([
   '/index.html', '/stats.html', '/pilot.html', '/ops.html', '/sw.js', '/manifest.webmanifest',
   '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
-  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/mirror-public.js', '/js/net.js',
+  '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/mirror-public.js', '/js/cloud.js', '/js/vendor/supabase.js', '/js/net.js',
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
   '/fonts/chakra-petch-700.woff2'
@@ -1064,7 +1064,7 @@ function serveStatic(req, res, urlPath) {
          exactly as closed as before. */
       const gsi = GOOGLE_ID ? ' https://accounts.google.com https://gstatic.com' : '';
       const connect = file.endsWith('stats.html') || file.endsWith('pilot.html') || file.endsWith('index.html')
-        ? "connect-src 'self' https://bhcczyyhadornihhzpsu.supabase.co" + gsi + extra
+        ? "connect-src 'self' https://rgmbexmodebegllahotc.supabase.co" + gsi + extra
         : "connect-src 'self'";
       headers['Content-Security-Policy'] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'" + gsi +

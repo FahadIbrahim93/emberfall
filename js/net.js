@@ -590,6 +590,7 @@ const NET = {
   async renderGlobal() {
     const status = $('globalStatus'), body = $('globalBody');
     if (!status) return;
+    if (typeof CLOUD !== 'undefined') CLOUD.open().catch(() => {});
     await this.probe();
     if (!this.on) {
       status.textContent = emberfallPortal()
@@ -684,49 +685,44 @@ const NET = {
       return;
     }
     const box = $('globalBoard');
-    box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
+    box.innerHTML = '<div class="empty">Reading the worldwide board…</div>';
     const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
-    try {
-      const stand = await mirrorRest('/rest/v1/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
-        encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50');
-      if (stand.ok) {
-        const rows = await stand.json();
-        if (!rows.length) {
-          box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
-          return;
-        }
-        box.innerHTML = rows.map(r2 => {
-          const h = (typeof HULLS !== 'undefined') && HULLS.find(x => x.id === r2.ship);
-          const pt = r2.paint && (typeof PAINTS !== 'undefined') && PAINTS.find(x => x.id === r2.paint);
-          const rk = Number.isFinite(+r2.rank) ? Math.trunc(+r2.rank) : 0;
-          const wave = Number.isFinite(+r2.wave) ? Math.trunc(+r2.wave) : 1;
-          return '<div class="row">' +
-            '<span class="rk">' + pad2(rk) + '</span>' +
-            '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') +
-            '<a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
-            (h ? ' · ' + esc(h.name) : '') +
-            (Number.isFinite(+r2.mastery) && +r2.mastery > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r2.mastery) + '</span>' : '') +
-            '</span><span class="sc">' + padN(r2.score, 7) + '</span>' +
-            '<span class="wv">W' + pad2(wave) + '</span></div>';
-        }).join('') +
-          '<p class="empty" style="padding:8px 0 0;text-align:left">The same best-run board the deck publishes, read from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
-        return;
-      }
-      if (stand.status !== 404) throw new Error('mirror ' + stand.status);
-      const rows = await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,best_wave,wardenfalls,runs&order=best_score.desc&limit=100');
-      if (!rows.length) {
-        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
-        return;
-      }
-      box.innerHTML = rows.map((r2, i) =>
-        '<div class="row">' +
+    const rowHtml = (r2, i, tag) => {
+      const st = r2.stats || {};
+      const h = (typeof HULLS !== 'undefined') && typeof st.ship === 'string' && HULLS.find(x => x.id === st.ship);
+      const wave = Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1;
+      const mine = typeof CLOUD !== 'undefined' && CLOUD.user && r2.user_id === CLOUD.user.id;
+      return '<div class="row' + (mine ? ' me' : '') + '">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' +
-        esc(r2.callsign) + '</a>' +
-        (Number.isFinite(+r2.wardenfalls) && +r2.wardenfalls > 0 ? ' <span style="color:var(--gold);font-size:.6rem">✦' + Math.trunc(+r2.wardenfalls) + '</span>' : '') + '</span>' +
-        '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
-        '<span class="wv">W' + pad2(Number.isFinite(+r2.best_wave) ? Math.trunc(+r2.best_wave) : 1) + '</span></div>').join('') +
-        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed when an operator syncs. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+        (h ? ' · ' + esc(h.name) : '') + '</span>' +
+        '<span class="sc">' + padN(r2.score, 7) + '</span>' +
+        '<span class="wv">' + tag + pad2(wave) + '</span></div>';
+    };
+    /* the Daily board: today's UTC seed, best run per pilot */
+    const dayBox = $('dailyBoard'), dstat = $('dailyStat'), dYou = $('dailyYou');
+    if (dYou) dYou.classList.add('hidden');
+    if (dayBox) {
+      const day = new Date().toISOString().slice(0, 10);
+      if (dstat) dstat.textContent = 'today · ' + day + ' · worldwide';
+      mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(rows => {
+        dayBox.innerHTML = rows.length
+          ? rows.map((r2, i) => rowHtml(r2, i, 'D')).join('')
+          : '<div class="empty">Nobody has flown today\u2019s seed.<br>The first one is yours.</div>';
+      }).catch(() => { dayBox.innerHTML = '<div class="empty">The day board could not be reached.</div>'; });
+    }
+    /* rush has no worldwide board and the daily lives above: both show endless */
+    const gmode = MIRROR_MODE[mode] && mode !== 'daily' ? MIRROR_MODE[mode] : 'endless';
+    try {
+      const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode +
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Sign in above, pick a callsign, and fly.</div>';
+        return;
+      }
+      box.innerHTML = rows.map((r2, i) => rowHtml(r2, i, 'W')).join('') +
+        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best run per pilot, live from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
     } catch (e) {
       box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
     }

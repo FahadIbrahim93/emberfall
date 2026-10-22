@@ -79,9 +79,21 @@ test('mirror hardening: strict deck URLs, wildcard guard, integer checks, paint 
   expect(r.bestBad).toBeNull();
   expect(r.paintOk).toBe('gold');
   expect(r.paintBad).toBe('');
-  // Only the exact-match lookup ran, and it named public columns (no select=*, no last_seen_at).
-  expect(r.hits.length).toBe(1);
-  expect(r.hits[0]).not.toContain('ilike');
-  expect(r.hits[0]).not.toContain('select=*');
-  expect(r.hits[0]).not.toContain('last_seen');
+  // A name that is not a legal callsign never reaches the network (no wildcard lookup at all).
+  expect(r.hits.length).toBe(0);
+});
+
+test('pilot lookup escapes _ and names only public columns', async ({ page }) => {
+  await page.goto('/pilot.html');
+  const hits = await page.evaluate(async () => {
+    const seen = [];
+    const realFetch = window.fetch;
+    window.fetch = (u) => { seen.push(String(u)); return Promise.resolve(new Response('[]', { status: 200 })); };
+    try { await mirrorPilotRow('Ace_1'); } finally { window.fetch = realFetch; }
+    return seen;
+  });
+  expect(hits.length).toBe(1);
+  expect(hits[0]).toContain('/rest/v1/profiles?callsign=ilike.Ace%5C_1');
+  expect(hits[0]).toContain('select=id,callsign,created_at');
+  expect(hits[0]).not.toContain('select=*');
 });

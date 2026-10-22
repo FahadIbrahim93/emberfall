@@ -118,14 +118,27 @@ function paintBoard(rows, legacy) {
 }
 async function loadBoard() {
   document.querySelectorAll('#tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.mode === mode));
-  const stand = await opt('/rest/v1/board_standings?select=callsign,score,wave,ship,paint,mastery,rank&mode=eq.' +
-    encodeURIComponent(mode) + '&order=rank.asc,flown_at.asc&limit=50');
-  if (stand) { paintBoard(stand, false); return; }
-  if (mode !== 'main') {
-    document.getElementById('board').innerHTML = '<div class="empty">Per-mode boards publish after the mirror schema is applied. The classic career board is still on the Classic tab.</div>';
+  if (mode === 'rush') {
+    document.getElementById('board').innerHTML = '<div class="empty">Rush runs stay on each pilot\u2019s device — no worldwide board.</div>';
     return;
   }
-  paintBoard(await mirrorJson('/rest/v1/leaderboard?select=callsign,best_score,wardenfalls,runs&order=best_score.desc&limit=100'), true);
+  const rows = mode === 'daily'
+    ? await mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + new Date().toISOString().slice(0, 10) +
+        '&select=callsign,score,stats&order=score.desc,created_at.asc&limit=50')
+    : await mirrorJson('/rest/v1/leaderboard_global?mode=eq.endless&select=callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+  paintBoard(rows.map((r, i) => ({ rank: i + 1, callsign: r.callsign, score: r.score,
+    wave: r.stats && r.stats.wave, ship: r.stats && typeof r.stats.ship === 'string' ? r.stats.ship : null })), false);
+}
+/* gauntlet days, derived from the daily best-run board (no sync pump) */
+function gauntletDays(rows) {
+  const by = new Map();
+  for (const r of rows) {
+    const d = by.get(r.day) || { day: r.day, pilots: 0, runs: 0, top_score: 0, top_pilot: '' };
+    d.pilots++; d.runs++;
+    if (r.score > d.top_score) { d.top_score = r.score; d.top_pilot = r.callsign; }
+    by.set(r.day, d);
+  }
+  return [...by.values()].slice(0, 8);
 }
 function showPilot(card) {
   const el = document.getElementById('pilot');
@@ -149,7 +162,7 @@ function showPilot(card) {
   try {
     const [stats, days, seasons, pilotName] = await Promise.all([
       mirrorJson('/rest/v1/deck_stats?select=pilots,runs,top_score'),
-      mirrorJson('/rest/v1/gauntlet_days?select=day,pilots,runs,top_score,top_pilot&order=day.desc&limit=8'),
+      mirrorJson('/rest/v1/leaderboard_daily?select=day,callsign,score&order=day.desc,score.desc&limit=1000').then(gauntletDays),
       opt('/rest/v1/seasons?select=season,callsign,pts,runs,best,rank&order=season.desc,rank.asc&limit=40'),
       Promise.resolve(q.get('pilot') || q.get('callsign'))
     ]);
@@ -172,7 +185,7 @@ function showPilot(card) {
       }
     });
     const sbox = document.getElementById('seasons');
-    if (!seasons) sbox.innerHTML = '<div class="day"><span class="d">season history publishes with the mirror schema</span></div>';
+    if (!seasons) sbox.innerHTML = '<div class="day"><span class="d">weekly seasons live on a linked command deck</span></div>';
     else if (!seasons.length) sbox.innerHTML = '<div class="day"><span class="d">no gauntlet seasons flown yet</span></div>';
     else sbox.innerHTML = seasons.map(x =>
       '<div class="day"><span class="d">' + esc(x.season) + ' · #' + esc(x.rank) + '</span>' +

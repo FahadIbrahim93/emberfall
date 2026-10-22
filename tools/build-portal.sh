@@ -52,9 +52,14 @@ html = html.replace(
 html = html.replace(/Supabase/g, 'public');
 fs.writeFileSync(path.join(out, 'index.html'), html);
 
+/* Supabase accounts never ship in a portal build: scores stay on the device. */
+fs.rmSync(path.join(out, 'js', 'cloud.js'), { force: true });
+html = fs.readFileSync(path.join(out, 'index.html'), 'utf8').replace('<script src="js/cloud.js"></script>\n', '');
+fs.writeFileSync(path.join(out, 'index.html'), html);
+
 const mirrorPath = path.join(out, 'js', 'mirror-public.js');
 let mirror = fs.readFileSync(mirrorPath, 'utf8');
-const host = "const MIRROR_ORIGIN = 'https://bhcczyyhadornihhzpsu.supabase.co';";
+const host = "const MIRROR_ORIGIN = 'https://rgmbexmodebegllahotc.supabase.co';";
 if (!mirror.includes(host)) {
   console.error('build-portal: mirror host literal missing from js/mirror-public.js');
   process.exit(1);
@@ -63,7 +68,7 @@ mirror = mirror.replace(host, "const MIRROR_ORIGIN = '';");
 fs.writeFileSync(mirrorPath, mirror);
 
 let sw = fs.readFileSync(path.join(out, 'sw.js'), 'utf8');
-sw = sw.replace(" './stats.html', './pilot.html',", '');
+sw = sw.replace(" './stats.html', './pilot.html',", '').replace(" './js/cloud.js',", '');
 fs.writeFileSync(path.join(out, 'sw.js'), sw);
 EOF
 

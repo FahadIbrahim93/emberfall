@@ -1,7 +1,5 @@
--- EMBERFALL accounts + global leaderboard (Supabase-only, ADR 0003: best run per player per board).
--- DRAFT: not yet applied — project bhcczyyhadornihhzpsu is not in the connected Supabase account.
--- Legacy mirror tables (pilots, scores, deck_stats …) are left intact; deck_stats is
--- replaced by a live view so the mirror alarm stays green without a sync pump.
+-- EMBERFALL accounts + global leaderboard (Supabase, ADR 0003: best run per player per board).
+-- Applied to project rgmbexmodebegllahotc (fresh). Clean schema: no legacy mirror tables.
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
@@ -83,9 +81,7 @@ from public.player_scores s join public.profiles p on p.id = s.user_id
 where s.mode = 'daily' order by s.day, s.user_id, s.score desc, s.created_at;
 grant select on public.leaderboard_global, public.leaderboard_daily to anon, authenticated;
 
--- deck_stats becomes live: freshness = now(), so the alarm is green whenever the DB answers.
--- (mirror-alarm compares deck_stats.pilots to the profile count, see tools/mirror-alarm.mjs)
-drop table if exists public.deck_stats;
+-- deck_stats is a live view: freshness = now(); tools/mirror-alarm.mjs compares pilots to the profile count.
 create view public.deck_stats with (security_invoker = true) as
 select (select count(*) from public.profiles)::int as pilots,
        (select count(*) from public.player_scores)::int as runs,
