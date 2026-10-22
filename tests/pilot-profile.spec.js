@@ -24,7 +24,7 @@ test('pilot profile page accepts callsign query', async ({ page }) => {
   const hero = page.locator('#hero');
   // The lookup hits the live public board over the network; wait for it to
   // settle into one of its two end states instead of sampling at a fixed time.
-  await expect(err.or(hero)).toBeVisible({ timeout: 20000 });
+  await expect(page.locator('#err:visible, #hero:visible').first()).toBeVisible({ timeout: 20000 });
   if (await err.isVisible()) {
     await expect(err).toContainText(/mirror|pilot/i);
   } else {
