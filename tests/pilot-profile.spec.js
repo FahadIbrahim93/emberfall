@@ -20,11 +20,12 @@ test('pilot profile page loads and handles missing callsign', async ({ page }) =
 
 test('pilot profile page accepts callsign query', async ({ page }) => {
   await page.goto('/pilot.html?callsign=SmokeTestPilot');
-  await page.waitForTimeout(1500);
   const err = page.locator('#err');
   const hero = page.locator('#hero');
-  const errVisible = await err.isVisible();
-  if (errVisible) {
+  // The lookup hits the live public board over the network; wait for it to
+  // settle into one of its two end states instead of sampling at a fixed time.
+  await expect(err.or(hero)).toBeVisible({ timeout: 20000 });
+  if (await err.isVisible()) {
     await expect(err).toContainText(/mirror|pilot/i);
   } else {
     await expect(hero).toBeVisible();
