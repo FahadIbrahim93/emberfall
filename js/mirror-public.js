@@ -1,10 +1,10 @@
 'use strict';
 /* Public Supabase mirror client (ADR 0001). Publishable key only — safe to embed. */
-const MIRROR_ORIGIN = 'https://bhcczyyhadornihhzpsu.supabase.co';
-const MIRROR_KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
-/* Public pilot columns only. last_seen_at is login activity; select=*
-   would request it and fail once the column privilege is revoked. */
-const MIRROR_PILOT_COLS = 'deck_id,callsign,created_at,runs,best_score,best_wave,total_paid,best_streak,wardenfalls';
+const MIRROR_ORIGIN = 'https://rgmbexmodebegllahotc.supabase.co';
+const MIRROR_KEY = 'sb_publishable_AXsBx7XpoUMLPVTyb4Rkhg_EDt_gB1Y';
+/* Game mode -> worldwide board mode (migrations: endless|daily|school).
+   Rush has no public board: it stays on the device. */
+const MIRROR_MODE = { main: 'endless', daily: 'daily', school: 'school' };
 
 /* A profile page may link back to a deck the visitor named. Only a plain
    http(s) URL qualifies — a javascript: or data: deck parameter must not
@@ -32,11 +32,11 @@ async function mirrorJson(path, opts) {
   return r.json();
 }
 
-/* O(1) mirror payload: count pilots strictly ahead on best_score (no full board). */
+/* Rank on the endless board: count pilots strictly ahead (no full board). */
 async function mirrorMainRank(bestScore) {
   const n = Number(bestScore);
   if (!Number.isSafeInteger(n) || n <= 0) return null;
-  const r = await mirrorRest('/rest/v1/pilots?best_score=gt.' + n + '&select=deck_id', {
+  const r = await mirrorRest('/rest/v1/leaderboard_global?mode=eq.endless&score=gt.' + n + '&select=user_id', {
     headers: { Prefer: 'count=exact' }
   });
   if (!r.ok) throw new Error('mirror rank ' + r.status);
@@ -45,24 +45,32 @@ async function mirrorMainRank(bestScore) {
   return m ? parseInt(m[1], 10) + 1 : 1;
 }
 
+/* A public profile: callsign (case-insensitive, exact) + best endless run.
+   Shape kept close to the old mirror row so pilot.html renders it as-is. */
 async function mirrorPilotRow(callsign) {
   const raw = String(callsign || '').trim();
   if (!raw) return null;
-  const enc = encodeURIComponent(raw);
-  const cols = '&select=' + MIRROR_PILOT_COLS + '&limit=1';
-  let rows = await mirrorJson('/rest/v1/pilots?callsign=eq.' + enc + cols);
-  if (rows[0]) return rows[0];
   /* ILIKE wildcards would turn a crafted name into a match against someone else. */
-  if (/[%_*\\]/.test(raw)) return null;
-  rows = await mirrorJson('/rest/v1/pilots?callsign=ilike.' + enc + cols);
-  return rows[0] || null;
+  if (!/^[A-Za-z0-9_-]{3,16}$/.test(raw)) return null;
+  const enc = encodeURIComponent(raw.replace(/_/g, '\\_'));
+  const rows = await mirrorJson('/rest/v1/profiles?callsign=ilike.' + enc + '&select=id,callsign,created_at&limit=1');
+  const p = rows[0];
+  if (!p) return null;
+  const best = await mirrorJson('/rest/v1/leaderboard_global?user_id=eq.' + p.id + '&mode=eq.endless&select=score&limit=1');
+  return { deck_id: p.id, callsign: p.callsign, created_at: p.created_at,
+    best_score: best[0] ? best[0].score : 0, runs: null, best_streak: 0, wardenfalls: 0 };
 }
 
-async function mirrorModeBest(pilotDeckId, mode) {
-  const id = Number(pilotDeckId);
-  if (!Number.isSafeInteger(id) || id <= 0) return null;
-  const rows = await mirrorJson('/rest/v1/scores?pilot=eq.' + id +
-    '&mode=eq.' + encodeURIComponent(mode) +
-    '&select=score,wave,ship&order=score.desc,flown_at.asc&limit=1');
-  return rows[0] || null;
+async function mirrorModeBest(pilotId, mode) {
+  const id = String(pilotId || '');
+  const m = MIRROR_MODE[mode];
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !m) return null;
+  const view = m === 'daily' ? 'leaderboard_daily' : 'leaderboard_global';
+  const rows = await mirrorJson('/rest/v1/' + view + '?user_id=eq.' + id +
+    (m === 'daily' ? '' : '&mode=eq.' + m) +
+    '&select=score,stats&order=score.desc,created_at.asc&limit=1');
+  const r = rows[0];
+  if (!r) return null;
+  const st = r.stats || {};
+  return { score: r.score, wave: Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1, ship: typeof st.ship === 'string' ? st.ship : null };
 }

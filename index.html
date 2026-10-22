@@ -693,6 +693,22 @@ body.needrotate #rotate{display:grid}
         <div id="tab-feats" class="hidden"></div>
         <div id="tab-sky" class="hidden"></div>
         <div id="tab-global" class="hidden">
+          <div id="cloudBox" class="hidden" style="padding:6px 0 4px">
+            <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
+            <div id="cloudIn" style="display:grid;gap:6px">
+              <button class="up" id="cloudAnon" type="button">Play as guest (no email)</button>
+              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email for a sign-in link" aria-label="Email for a sign-in link" maxlength="254">
+              <button class="up" id="cloudSend" type="button">Email me a sign-in link</button>
+              <input id="cloudCode" inputmode="numeric" autocomplete="one-time-code" placeholder="or the code from the email" aria-label="Sign-in code" maxlength="10">
+              <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+            </div>
+            <div id="cloudMe" class="hidden" style="display:grid;gap:6px">
+              <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}">
+              <button class="up" id="cloudSave" type="button">Save callsign</button>
+              <button class="up" id="cloudOut" type="button">Sign out</button>
+            </div>
+            <p class="empty" id="cloudMsg" style="text-align:left;padding:4px 0" role="status" aria-live="polite"></p>
+          </div>
           <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
           <div id="globalBody" class="hidden">
             <div id="seasonBox" class="hidden">
@@ -1013,6 +1029,7 @@ body.needrotate #rotate{display:grid}
 <script src="js/audio.js"></script>
 <script src="js/sky.js"></script>
 <script src="js/mirror-public.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
@@ -6443,6 +6460,12 @@ function endRun() {
     ovRankEl.classList.remove('hidden');
     ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
   };
+  /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
+  if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
+    CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
+      .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
+      .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
+  }
   NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele,
     { paint: META.paint, mastery: masteryLevel(META.ship) }).then(r => {
     const el = $('ovRank');

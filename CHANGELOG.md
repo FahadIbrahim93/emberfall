@@ -5,6 +5,11 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 ## [Unreleased]
 
 ### Added
+- Worldwide accounts and boards on Supabase (project `rgmbexmodebegllahotc`): guest or email sign-in, a callsign, runs posted through the `submit_score` RPC, and Global/Daily boards read live. Local scores, offline play and portal builds are unchanged.
+
+### Removed
+- `tools/db-sync.mjs`, `tools/mirror-schema.sql` and the hourly stats workflow (they targeted the retired mirror and failed every hour).
+
 - Boards, pilot profiles and the public mirror now show the same best run (#14). Merged, but not live until the Command Deck server is deployed.
 
 ## 2026-10-19

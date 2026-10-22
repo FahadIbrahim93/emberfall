@@ -201,6 +201,9 @@ if (fs.existsSync('js')) {
    below with a reason (mirroring the JS allowlist philosophy: reviewed,
    dated, prefer false negatives). New unescaped sinks fail CI. */
 const XSS_ALLOW = [
+  /* reviewed 2026-10-23: rowHtml (js/net.js, Supabase boards) esc()s the
+     callsign and hull name and pads the numbers; no raw row text reaches the sink */
+  { re: /rows\.map\(\(r2, i\) => rowHtml\(r2, i, '[DW]'\)\)/ },
   /* reviewed 2026-09-21: SHIP_ICON is a repo constant; the count is a clamped
      Math.max/min over GAME.lives — no external string reaches the sink.
      (Keyed on the expression, not the line number: lines drift, intent doesn't.) */

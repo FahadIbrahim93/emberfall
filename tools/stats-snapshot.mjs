@@ -20,8 +20,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '..', 'docs', 'stats.json');
-const URL_ = (process.env.SUPABASE_URL || 'https://bhcczyyhadornihhzpsu.supabase.co').replace(/\/$/, '');
-const KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
+const URL_ = (process.env.SUPABASE_URL || 'https://rgmbexmodebegllahotc.supabase.co').replace(/\/$/, '');
+const KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_AXsBx7XpoUMLPVTyb4Rkhg_EDt_gB1Y';
 
 const res = await fetch(`${URL_}/rest/v1/deck_stats?select=pilots,runs,top_score,updated_at`, {
   headers: { apikey: KEY }
@@ -32,7 +32,7 @@ if (!res.ok) {
 }
 const rows = await res.json();
 if (!rows.length) {
-  console.error('stats-snapshot: mirror has no deck_stats row — run tools/db-sync.mjs first');
+  console.error('stats-snapshot: no deck_stats row — is the leaderboard migration applied?');
   process.exit(1);
 }
 const next = JSON.stringify({

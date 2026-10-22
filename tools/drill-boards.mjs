@@ -160,29 +160,7 @@ async function main() {
     ? good('season ladder sums the best runs and ranks Ace first')
     : bad('season: ' + JSON.stringify(lead));
 
-  say('── mirror SQL publishes the same row');
-  const { DatabaseSync } = await import('node:sqlite');
-  const poked = new DatabaseSync(path.join(dataDir, 'emberfall.db'));
-  poked.exec('PRAGMA busy_timeout = 2000');
-  const aceId = poked.prepare("SELECT id FROM users WHERE name_lower = 'ace board'").get().id;
-  poked.prepare(`INSERT INTO daily_stats (user_id, day, created_day, best_score, best_wave, paid, streak, wardenfall)
-    VALUES (?, ?, ?, 1, 1, 0, 1, 0)`).run(aceId, "2026-01-01'); drop table pilots; --", "2026-01-01'); drop table pilots; --");
-  poked.close();
-  const sql = await new Promise((resolve, reject) => {
-    const childSql = spawn(process.execPath, ['tools/db-sync.mjs', '--print-sql'], {
-      cwd: ROOT, env: { ...process.env, EF_DATA_DIR: dataDir }
-    });
-    let out = '', err = '';
-    childSql.stdout.on('data', c => { out += c; });
-    childSql.stderr.on('data', c => { err += c; });
-    childSql.on('exit', code => code === 0 ? resolve(out) : reject(new Error(err || ('exit ' + code))));
-  }).catch(e => { bad('db-sync: ' + e.message); return ''; });
-  /'Ace Board', 8000, 4, 'vesper', 'gold'/.test(sql) && /'Ace Board', 10410, 2, 8000, 1/.test(sql) &&
-    !sql.includes('<x>') && sql.includes('insert into public.pilot_cards') && /'Ace Board', '[^']+', 'slate'/.test(sql) &&
-    sql.includes("2026-01-01''); drop table pilots; --") && !sql.includes("2026-01-01'); drop table pilots; --") &&
-    !/last_seen_at, '[^']+'/.test(sql)
-    ? good('mirror SQL carries the best-run standing, the season total, and the allowlisted paint')
-    : bad('sql missing the dossier — snippet: ' + sql.slice(0, 240));
+  /* the db-sync mirror pump was retired with the Supabase accounts schema (ADR 0003 / PR feat/supabase-leaderboard) */
 
   if (child) child.kill('SIGKILL');
   if (fail === 0) say(`DRILL-BOARDS: ALL GREEN (${pass} checks)`);

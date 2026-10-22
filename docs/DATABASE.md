@@ -73,7 +73,11 @@ that was never selected. Two lessons, both enforced now:
    and readback is byte-for-byte
 2. the repair rebuilds old tables in place and logs loudly at boot
 
-## The public mirror (Supabase, read-only)
+## Supabase (2026-10-23)
+
+The public mirror below is **retired**. Accounts and worldwide boards for the static site now live in Supabase project `rgmbexmodebegllahotc`; see [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md#supabase-accounts-and-worldwide-boards-2026-10-23) and the migration in `supabase/migrations/`. `tools/db-sync.mjs` and `tools/mirror-schema.sql` were removed.
+
+## The public mirror (historical, retired 2026-10-23)
 
 Per [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md), the deck's
 SQLite is the only authoritative store; a Supabase Postgres project
