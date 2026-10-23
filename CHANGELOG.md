@@ -4,6 +4,14 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Sign-in
+- Email code flow: 6-digit one-time-code input (auto-verifies), "Code sent to … · Change", Resend with a 60 s cooldown, plain-language errors for rate limits, unconfirmed email, wrong password, expired code and offline. A pending code survives reload for 15 min. Verify falls back to the signup token type, so new users' confirmation codes work too. Unconfirmed password sign-in resends the code automatically.
+
+### Mobile UX
+- Phone title fits one screen (360–412 px): profile chip top-left, Boards/What's new/Settings icons top-right, logo scales with clamp(), mode grid, one large Launch in the thumb zone. No horizontal overflow.
+- Touch HUD: Dash bottom-right (76 px) with a cooldown ring and charge badge, Bomb diagonal with a count badge, pressed states, safe-area insets, mirrored in lefty mode, timer moved off the play area. Desktop is unchanged.
+- SW cache v4.54. Spec: docs/specs/mobile-ux-v2.md.
+
 ### Security
 - CSP: `connect-src` limited to the Supabase project (was any `https:`); unused Google Identity script/style/frame sources removed; `frame-src 'none'`, `worker-src`/`manifest-src 'self'` added. Google sign-in is a redirect and is unaffected.
 - `npm audit fix`: dev dependency `source-map-js` advisory resolved.

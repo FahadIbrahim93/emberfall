@@ -540,7 +540,7 @@ body.needrotate #rotate{display:grid}
      guideline) and tighter tracking so 'Threats' clears the 48px cells that
      a 320px phone's 240px panel allows — measured, not guessed */
   .tab{padding:13px 2px;letter-spacing:.12em}
-  .title-grid{grid-template-columns:1fr;gap:26px;padding:calc(56px + var(--sat)) 18px calc(90px + var(--sab))}
+  .title-grid{grid-template-columns:minmax(0,1fr);gap:26px;padding:calc(56px + var(--sat)) 18px calc(90px + var(--sab))}
   #s-title{align-content:start}
   .side{max-height:none}
   .bay-cols{grid-template-columns:1fr}
@@ -571,7 +571,7 @@ body.needrotate #rotate{display:grid}
 }
 
 /* accounts v2 (docs/specs/accounts-v2.md): pilot chip, profile, board tabs, mobile */
-.pilot-strip{display:grid;grid-template-columns:1fr auto;gap:8px}
+.pilot-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .pilot-chip{display:flex;align-items:center;gap:10px;min-height:52px;text-align:left}
 .pilot-chip canvas{width:28px;height:28px;flex:none}
 .pc-txt{display:flex;flex-direction:column;min-width:0}
@@ -816,6 +816,127 @@ body.sheet-open #s-title{overflow:hidden}
    field keeps body{touch-action:none}. */
 .screen,.sheet-body,button{touch-action:manipulation}
 .sheet-body{touch-action:pan-y pinch-zoom}
+
+/* ═════════════ v4.30 phone title — one screen, thumb-first (docs/specs/mobile-ux-v2.md) ═════════════
+   Top bar: pilot chip left, icon buttons right (status/menus live up top).
+   Logo scales with min(vw, vh) so it can never force the column wider than
+   the phone. Modes sit in a 2-column grid; LAUNCH is the one dominant CTA,
+   bottom of the screen, in the natural thumb zone. Phones in portrait only:
+   landscape and desktop keep their layout. */
+.title-grid{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)}
+h1{max-width:100%}
+#cloudIn:has(#cloudCodeRow:not(.hidden)) #cloudHow,#cloudIn:has(#cloudCodeRow:not(.hidden)) #cloudOtp{display:none}
+.otp-sent{font-size:var(--t-sm);color:var(--txt-2);margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.otp-sent b{color:var(--ink);font-weight:600;word-break:break-all}
+.linkbtn{background:none;border:0;color:var(--aether);font:inherit;font-size:var(--t-xs);letter-spacing:.12em;text-transform:uppercase;
+  min-height:var(--tap);padding:0 var(--s2);cursor:pointer}
+.linkbtn:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+#cloudBox input.otp{font-size:24px;letter-spacing:.5em;text-align:center;font-variant-numeric:tabular-nums;min-height:56px;padding-left:.5em}
+#cloudHow{margin:calc(0px - var(--s1)) 0 0}
+@media (max-width:900px) and (orientation:portrait){
+  .title-grid{grid-template-columns:minmax(0,1fr);width:100%;max-width:560px;row-gap:var(--s6);
+    padding:calc(var(--s3) + var(--sat)) calc(var(--s4) + var(--sar)) calc(var(--s4) + var(--sab)) calc(var(--s4) + var(--sal))}
+  .title-main{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--s2);align-content:start;
+    min-height:calc(100dvh - var(--s3) - var(--s4) - var(--sat) - var(--sab));
+    grid-template-rows:auto auto auto auto auto minmax(var(--s4),1fr) auto auto auto auto auto auto}
+  .title-main>*{grid-column:1/-1;min-width:0}
+  .title-main .title-menu,.title-main .pilot-strip,.title-main .menu.title-menu .duo,.title-main .pair.util{display:contents}
+  .title-menu{width:100%}
+  /* row 1 — top bar */
+  #btnPilot{grid-row:1;grid-column:1/7;min-height:52px;padding:var(--s2) var(--s3)}
+  #btnBoards{grid-row:1;grid-column:7/9}
+  #btnNotes{grid-row:1;grid-column:9/11}
+  #btnSettings{grid-row:1;grid-column:11/13}
+  #btnBoards,#btnNotes,#btnSettings{font-size:0;letter-spacing:0;padding:0!important;min-height:52px;display:grid;place-items:center;text-align:center}
+  #btnBoards .sub,#btnNotes .sub,#btnSettings .sub{display:none}
+  #btnBoards::before,#btnNotes::before,#btnSettings::before{content:"";display:block;width:22px;height:22px;background:currentColor;
+    -webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat}
+  #btnBoards{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M7 4h10v5a5 5 0 0 1-10 0z'/%3E%3Cpath d='M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8'/%3E%3C/svg%3E");color:var(--amber)}
+  #btnNotes{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z'/%3E%3C/svg%3E")}
+  #btnSettings{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1'/%3E%3C/svg%3E")}
+  .pilot-chip canvas{width:30px;height:30px}
+  .pc-txt .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* rows 2-5 — brand */
+  .title-main .eyebrow{grid-row:2;margin:var(--s5) 0 0;font-size:.58rem;letter-spacing:.24em}
+  .title-main h1{grid-row:3;font-size:clamp(2.2rem,min(13.5vw,8.5vh),4.4rem);width:auto;margin:var(--s1) 0 0}
+  .title-main .oparthib{grid-row:4;margin:var(--s1) 0 0;font-size:.58rem;letter-spacing:.24em}
+  .title-main .lede{grid-row:5;margin:var(--s3) 0 0;font-size:.8rem;line-height:1.55;max-width:46ch;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  /* row 6 is the flexible gap: everything below hugs the thumb zone */
+  #btnDaily{grid-row:7;grid-column:1/-1}
+  #btnHangar{grid-row:8;grid-column:1/7}
+  #btnSchool{grid-row:8;grid-column:7/13}
+  #btnRush{grid-row:9;grid-column:1/7}
+  #btnTour{grid-row:9;grid-column:7/13}
+  #btnInstall{grid-row:10;grid-column:1/-1;min-height:var(--tap);padding:var(--s2) var(--s4)}
+  #btnInstall .sub{display:none}
+  #btnLaunch{grid-row:11;grid-column:1/-1;min-height:68px;font-size:var(--t-md);letter-spacing:.22em;padding:var(--s3) var(--s5);
+    box-shadow:0 8px 28px rgba(255,138,43,.28)}
+  .title-main .creds{grid-row:12;margin:var(--s1) 0 0;text-align:center;font-size:.6rem;line-height:1.8}
+  .title-menu .btn{min-height:60px;padding:var(--s3) var(--s4)}
+  .title-menu .btn .sub,.menu.title-menu .duo .sub{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hero-canvas{top:34%}
+}
+@media (max-width:900px) and (orientation:portrait) and (pointer:coarse){
+  .title-main .creds kbd,.title-main .creds br{display:none}
+  .title-main .creds{font-size:0}
+  .title-main .creds::after{content:"Drag anywhere to fly · touch fires for you";font-size:.62rem;letter-spacing:.1em}
+}
+@media (max-width:900px) and (orientation:portrait) and (max-height:740px){
+  .title-main .lede,.title-main .eyebrow{display:none}
+  .title-main h1{margin-top:var(--s4)}
+  .title-menu .btn{min-height:52px;padding:var(--s2) var(--s4)}
+  #btnLaunch{min-height:60px}
+}
+@media (max-width:900px) and (orientation:portrait) and (max-height:640px){
+  .title-menu .btn .sub,.menu.title-menu .duo .sub{display:none}
+  .title-main .oparthib{display:none}
+}
+
+/* ═════════════ v4.30 touch HUD — shmup conventions ═════════════
+   Status up top (hard-to-reach zone), actions in a bottom-right arc around
+   the resting thumb, ship lane (bottom centre) left clear. Dash = most used,
+   so it sits nearest the thumb; Pulse (rare, 2 per run) above-left of it.
+   Each button carries its own state: a cooldown ring and a count badge, so
+   the gauges below the hull are not needed on touch. */
+body.touchmode .tbtn{width:var(--tbtn);height:var(--tbtn);font-size:.5rem;letter-spacing:.16em;
+  background:radial-gradient(circle at 50% 40%,rgba(20,30,52,.78),rgba(6,10,20,.7));border:1px solid rgba(53,224,255,.35);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .08s,box-shadow .12s,background-color .12s}
+body.touchmode .tbtn b{font-size:1.25rem;margin-bottom:1px}
+body.touchmode .tbtn::before{content:"";position:absolute;inset:-4px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(currentColor calc(var(--f,1) * 360deg),rgba(255,255,255,.08) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px))}
+body.touchmode #bBomb::before{background:conic-gradient(currentColor 360deg,transparent 0)}
+body.touchmode .tbtn::after{content:attr(data-n);position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;padding:0 6px;
+  border-radius:11px;display:grid;place-items:center;font:700 .72rem/1 system-ui,sans-serif;letter-spacing:0;
+  background:currentColor;box-shadow:0 0 0 2px rgba(3,5,11,.9)}
+body.touchmode .tbtn:not([data-n])::after{display:none}
+body.touchmode .tbtn:active{transform:scale(.92);box-shadow:0 0 0 6px rgba(53,224,255,.18),0 0 28px rgba(53,224,255,.45)}
+body.touchmode #bBomb:active{box-shadow:0 0 0 6px rgba(155,107,255,.2),0 0 28px rgba(155,107,255,.5)}
+body.touchmode .tbtn.cool{opacity:.45}
+body.touchmode #bDash{right:calc(20px + var(--sar));bottom:calc(28px + var(--sab));left:auto}
+body.touchmode #bBomb{width:calc(var(--tbtn) * .82);height:calc(var(--tbtn) * .82);
+  right:calc(28px + var(--tbtn) * .9 + var(--sar));bottom:calc(36px + var(--tbtn) * .9 + var(--sab));left:auto}
+body.touchmode.lefty #bDash{right:auto;left:calc(20px + var(--sal))}
+body.touchmode.lefty #bBomb{right:auto;left:calc(28px + var(--tbtn) * .9 + var(--sal))}
+/* the badge text must read on its own fill */
+body.touchmode .tbtn::after{color:#03050b;background:var(--aether)}
+body.touchmode #bBomb::after{background:var(--violet)}
+/* readouts the buttons now carry */
+body.touchmode .br .gauge:not(#heatG),body.touchmode .br>.lbl{display:none}
+body.touchmode .br{bottom:calc(64px + var(--sab))}
+body.touchmode #btnPause{width:48px;height:48px}
+@media (max-width:600px){
+  /* narrow phones: wave/boss line drops below the score row so it never
+     collides with Score or Best */
+  .tc{top:calc(64px + var(--sat));width:min(300px,64vw)}
+  #sector{display:none}
+  .best .lbl{display:none}
+  #best{margin-top:0;font-size:.8rem}
+  .tl{left:calc(16px + var(--sal))}
+  .tr{right:calc(12px + var(--sar))}
+}
 </style>
 </head>
 <body>
@@ -897,7 +1018,7 @@ body.sheet-open #s-title{overflow:hidden}
   <canvas id="heroCanvas" class="hero-canvas" width="680" height="680" aria-hidden="true"></canvas>
   <div class="hero-tag" id="heroTag" aria-hidden="true"></div>
   <div class="title-grid">
-    <div>
+    <div class="title-main">
       <p class="eyebrow">Sol Defense Command · deep-range intercept</p>
       <h1><span class="a">EMBER</span><span class="b">FALL</span></h1>
       <p class="oparthib">অপার্থিব — the otherworldly tide</p>
@@ -907,7 +1028,7 @@ body.sheet-open #s-title{overflow:hidden}
       <div class="menu title-menu">
         <div class="pilot-strip" id="pilotStrip">
           <button class="btn pilot-chip" id="btnPilot" type="button" aria-label="Pilot account"><canvas id="pilotAv" width="56" height="56" aria-hidden="true"></canvas><span class="pc-txt"><b id="pilotName">Guest</b><span class="sub" id="pilotSub">Sign in to post scores</span></span></button>
-          <button class="btn pilot-boards" id="btnBoards" type="button">Boards<span class="sub">Daily · All-time</span></button>
+          <button class="btn pilot-boards" id="btnBoards" type="button" aria-label="Boards">Boards<span class="sub">Daily · All-time</span></button>
         </div>
         <button class="btn key" id="btnLaunch">Launch intercept<span class="sub" id="launchSub">Endless · escalating waves</span></button>
         <button class="btn" id="btnHangar">Hangar<span class="sub" id="hangarSub">Hulls and refits</span></button>
@@ -919,8 +1040,8 @@ body.sheet-open #s-title{overflow:hidden}
       </div>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
         <div class="pair util">
-          <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
-          <button class="btn ghost" id="btnSettings">Settings<span class="sub">Audio · display</span></button>
+          <button class="btn ghost" id="btnNotes" aria-label="What's new">What's new<span class="sub" id="notesSub">Changelog</span></button>
+          <button class="btn ghost" id="btnSettings" aria-label="Settings">Settings<span class="sub">Audio · display</span></button>
         </div>
       </div>
       <p class="creds">
@@ -958,10 +1079,14 @@ body.sheet-open #s-title{overflow:hidden}
               <label class="fld"><span class="fld-l">Email</span>
                 <input id="cloudEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-label="Email" maxlength="254"></label>
               <button class="btn key c" id="cloudOtp" type="button">Email me a sign-in code</button>
-              <div id="cloudCodeRow" class="form hidden">
-                <label class="fld"><span class="fld-l">Sign-in code</span>
-                  <input id="cloudCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" aria-label="Sign-in code" maxlength="10"></label>
-                <button class="btn key c" id="cloudVerify" type="button">Verify code</button>
+              <p class="note-s" id="cloudHow">No password needed: we email you a 6-digit code.</p>
+              <div id="cloudCodeRow" class="form otp-row hidden">
+                <p class="otp-sent">Code sent to <b id="cloudSentTo"></b> <button class="linkbtn" id="cloudChange" type="button">Change</button></p>
+                <label class="fld"><span class="fld-l">6-digit code</span>
+                  <input id="cloudCode" class="otp" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder="••••••" aria-label="Sign-in code" maxlength="10"></label>
+                <button class="btn key c" id="cloudVerify" type="button">Verify &amp; sign in</button>
+                <button class="btn ghost c" id="cloudResend" type="button">Resend code</button>
+                <p class="note-s">No email after a minute? Check Spam and Promotions, or use a password below.</p>
               </div>
               <button class="btn c hidden" id="cloudGoogle" type="button">Continue with Google</button>
               <details id="cloudPw" class="disclose"><summary>Use a password instead</summary>
@@ -2205,7 +2330,7 @@ const SHOT_SCALE = 1.18;
 const TOUCH = {
   stick: Math.round(118 * SHIP_SCALE),
   knob: Math.round(44 * SHIP_SCALE),
-  btn: Math.round(74 * SHIP_SCALE),
+  btn: 76,   /* v4.30: 64-80 dp is the mobile-game norm; 96 px covered the lane */
   apply() {
     const s = document.documentElement.style;
     s.setProperty('--tstick', this.stick + 'px');
@@ -6257,8 +6382,16 @@ function syncHUD(dt) {
   $('dashFill').style.transform = 'scaleX(' + frac + ')';
   setText('bombN', String(P.bombs));
   const bd = $('bDash'), bb = $('bBomb');
-  if (bd) bd.classList.toggle('cool', P.charges < 1);
-  if (bb) bb.classList.toggle('cool', P.bombs < 1);
+  if (bd) {
+    bd.classList.toggle('cool', P.charges < 1);
+    const f = Math.round(frac * 40) / 40;   /* cooldown ring + charge badge (touch) */
+    if (bd._f !== f) { bd._f = f; bd.style.setProperty('--f', f); }
+    if (bd.dataset.n !== String(P.charges)) bd.dataset.n = P.charges;
+  }
+  if (bb) {
+    bb.classList.toggle('cool', P.bombs < 1);
+    if (bb.dataset.n !== String(P.bombs)) bb.dataset.n = P.bombs;
+  }
 
   if (boss && !boss.dying) {
     const pct = clamp(boss.hp / boss.maxHp, 0, 1);

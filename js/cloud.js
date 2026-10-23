@@ -74,15 +74,81 @@ const CLOUD = {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('Enter a valid email.');
     const { error } = await sb.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
     if (error) throw error;
-    this.otpEmail = e;
+    this.rememberOtp(e, 'email');
   },
+  /* resend the sign-up confirmation (a new pilot whose first email never came,
+     or a password sign-in refused with email_not_confirmed) */
+  async resendSignup(email) {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const e = String(email || this.otpEmail || '').trim();
+    const { error } = await sb.auth.resend({ type: 'signup', email: e, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) throw error;
+    this.rememberOtp(e, 'signup');
+  },
+  /* the pending code survives a reload: on phones, switching to the mail app
+     often discards the tab */
+  rememberOtp(e, kind) {
+    this.otpEmail = e; this.otpKind = kind || 'email';
+    try { localStorage.setItem('ef.otp', JSON.stringify({ e, k: this.otpKind, t: Date.now() })); } catch (x) { }
+  },
+  restoreOtp() {
+    try {
+      const o = JSON.parse(localStorage.getItem('ef.otp') || 'null');
+      if (o && o.e && Date.now() - o.t < 15 * 60e3) { this.otpEmail = o.e; this.otpKind = o.k || 'email'; return o; }
+    } catch (x) { }
+    return null;
+  },
+  forgetOtp() { this.otpEmail = null; try { localStorage.removeItem('ef.otp'); } catch (x) { } },
   async verifyOtp(code) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
-    const t = String(code || '').replace(/\s+/g, '');
+    const t = String(code || '').replace(/\D+/g, '');
     if (!/^\d{6,10}$/.test(t)) throw new Error('Enter the code from the email.');
-    const { error } = await sb.auth.verifyOtp({ email: this.otpEmail, token: t, type: 'email' });
+    let { error } = await sb.auth.verifyOtp({ email: this.otpEmail, token: t, type: 'email' });
+    /* a brand-new pilot's first email is a sign-up confirmation: its code verifies as 'signup' */
+    if (error && /expired|invalid|not found/i.test(error.message || '')) {
+      const r = await sb.auth.verifyOtp({ email: this.otpEmail, token: t, type: 'signup' });
+      if (!r.error) error = null;
+    }
     if (error) throw error;
+    this.forgetOtp();
     await this.refresh();
+  },
+  /* Supabase errors -> words a pilot can act on. Returns { msg, wait } */
+  explain(e) {
+    const m = String(e && e.message || e || ''), code = e && (e.code || e.error_code) || '';
+    const secs = /after (\d+) seconds?/i.exec(m);
+    if (secs) return { msg: 'Please wait ' + secs[1] + ' s before asking for another code.', wait: +secs[1] };
+    if (code === 'over_email_send_rate_limit' || /rate limit/i.test(m) || (e && e.status === 429))
+      return { msg: 'Email limit reached for now. Wait a few minutes, or use a password below.', wait: 60 };
+    if (code === 'email_not_confirmed' || /not confirmed/i.test(m)) return { msg: 'This email is not confirmed yet.', unconfirmed: true };
+    if (code === 'invalid_credentials' || /invalid login/i.test(m)) return { msg: 'Wrong email or password.' };
+    if (code === 'otp_expired' || /token has expired|invalid.*(otp|token)|expired or is invalid/i.test(m)) return { msg: 'That code is wrong or has expired. Tap Resend for a new one.' };
+    if (code === 'user_already_exists' || /already registered/i.test(m)) return { msg: 'That email already has an account. Sign in instead.' };
+    if (code === 'weak_password' || /password should/i.test(m)) return { msg: m.slice(0, 140) };
+    if (m === 'offline' || /failed to fetch|network/i.test(m)) return { msg: 'Can\'t reach the server. Check your connection and try again.' };
+    return { msg: m.slice(0, 140) || 'Something went wrong. Try again.' };
+  },
+  /* one cooldown for every "send me an email" button */
+  cooldown(sec) {
+    clearInterval(this._cd);
+    const end = Date.now() + sec * 1000;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      ['cloudOtp', 'cloudResend'].forEach(id => {
+        const b = document.getElementById(id); if (!b) return;
+        if (!b.dataset.label) b.dataset.label = b.textContent;
+        b.disabled = left > 0;
+        b.textContent = left > 0 ? 'Send again in ' + left + ' s' : b.dataset.label;
+      });
+      if (!left) clearInterval(this._cd);
+    };
+    tick(); this._cd = setInterval(tick, 1000);
+  },
+  showCode(focus) {
+    const row = document.getElementById('cloudCodeRow'); if (row) row.classList.remove('hidden');
+    const to = document.getElementById('cloudSentTo'); if (to) to.textContent = this.otpEmail || '';
+    const em = document.getElementById('cloudEmail'); if (em && this.otpEmail && !em.value) em.value = this.otpEmail;
+    const c = document.getElementById('cloudCode'); if (c && focus) try { c.focus(); } catch (e) { }
   },
   /* providers on in the Supabase dashboard (public settings endpoint) */
   async providers() {
@@ -318,20 +384,50 @@ const CLOUD = {
       const btn = ev && ev.currentTarget;
       if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true'); }
       this.say('');
-      try { await fn(); this.paint(); } catch (e) { this.paint(); this.say(String(e && e.message || e).slice(0, 140), true); }
-      finally { if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); } }
+      let wait = 0;
+      try { await fn(); this.paint(); } catch (e) {
+        this.paint();
+        const x = this.explain(e);
+        wait = x.wait || 0;
+        if (x.unconfirmed) {
+          /* password sign-in refused: send a fresh confirmation code instead of a dead end */
+          try { await this.resendSignup(val('cloudEmail')); this.showCode(true); this.say('This email is not confirmed yet. We sent a new code: enter it below.'); wait = 60; }
+          catch (e2) { const y = this.explain(e2); wait = y.wait || 0; this.say('This email is not confirmed yet. ' + y.msg, true); }
+        } else this.say(x.msg, true);
+      }
+      finally { if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); } if (wait) this.cooldown(wait); }
     };
     on('cloudSignIn', run(async () => { await this.signInEmail(val('cloudEmail'), val('cloudPass')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudSignUp', run(async () => {
       const pending = await this.signUpEmail(val('cloudEmail'), val('cloudPass'));
-      this.say(pending ? 'Check your inbox to confirm your email, then sign in.' : 'Account created. Pick your callsign to post runs.');
+      if (pending) { this.rememberOtp(String(val('cloudEmail')).trim(), 'signup'); this.showCode(false); this.cooldown(60); }
+      this.say(pending ? 'Almost there: confirm your email. Enter the code from the email below, or tap its link.' : 'Account created. Pick your callsign to post runs.');
     }));
     on('cloudOtp', run(async () => {
       await this.sendOtp(val('cloudEmail'));
-      const row = document.getElementById('cloudCodeRow'); if (row) row.classList.remove('hidden');
-      this.say('Code sent to ' + this.otpEmail + '. Tap the link in the email or enter the code.');
-      const c = document.getElementById('cloudCode'); if (c) try { c.focus(); } catch (e) { }
+      this.showCode(true);
+      this.say('Code sent. It can take a minute: check Spam and Promotions too.');
+      this.cooldown(60);
     }));
+    on('cloudResend', run(async () => {
+      if (this.otpKind === 'signup') await this.resendSignup(this.otpEmail); else await this.sendOtp(this.otpEmail || val('cloudEmail'));
+      this.say('New code sent to ' + this.otpEmail + '.');
+      this.cooldown(60);
+    }));
+    on('cloudChange', () => {
+      this.forgetOtp();
+      const row = document.getElementById('cloudCodeRow'); if (row) row.classList.add('hidden');
+      const em = document.getElementById('cloudEmail'); if (em) try { em.focus(); em.select(); } catch (e) { }
+      this.say('');
+    });
+    /* digits only; a full 6-digit code (typed, pasted or autofilled) verifies itself */
+    const code = document.getElementById('cloudCode');
+    if (code) code.addEventListener('input', () => {
+      const d = code.value.replace(/\D+/g, '').slice(0, 10);
+      if (d !== code.value) code.value = d;
+      clearTimeout(this._auto);
+      if (d.length === 6) this._auto = setTimeout(() => { const b = document.getElementById('cloudVerify'); if (b && !b.disabled && code.value.length === 6) b.click(); }, 700);
+    });
     on('cloudVerify', run(async () => { await this.verifyOtp(val('cloudCode')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudGoogle', run(async () => { await this.signInGoogle(); }));
     on('btnPilot', () => this.showAccount());
@@ -380,6 +476,7 @@ const CLOUD = {
     this.providers().then(p => { const g = document.getElementById('cloudGoogle'); if (g) g.classList.toggle('hidden', !p.google); });
     await this.refresh();
     this.paint();
+    if (!this.user && this.restoreOtp()) { this.showCode(false); this.say('Enter the code we emailed to ' + this.otpEmail + '.'); }
   },
   boot() {
     if (!this.available()) return;
