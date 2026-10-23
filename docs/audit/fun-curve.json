@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.28.0",
+      "date": "2026-10-23",
+      "codename": "Guest Pass",
+      "loop": {
+        "wave": 2,
+        "kills": 25,
+        "grazes": 4,
+        "combo": 13,
+        "mult": 3,
+        "medianFps": 34
+      },
+      "first60": {
+        "medianFps": 21,
+        "firstPlayingMs": 684,
+        "firstKillMs": 684,
+        "fbSeen": 6
+      }
+    },
+    {
       "version": "4.27.0",
       "date": "2026-10-19",
       "codename": "The Same Ladder",
