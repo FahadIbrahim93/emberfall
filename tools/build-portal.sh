@@ -14,8 +14,7 @@ LIMIT=$((20 * 1024 * 1024))
 rm -rf "$OUT" "$ZIP"
 mkdir -p "$OUT/js" "$OUT/fonts" "$OUT/icons"
 
-# Playable shell only. Ops, stats, tests, tools, goldens, docs, the deck
-# server, package metadata, and markdown stay out. LICENSE stays.
+# Playable shell only. Stats, tests, tools, goldens, docs, package metadata, and markdown stay out. LICENSE stays.
 cp "$ROOT/index.html" "$OUT/index.html"
 cp "$ROOT/js/"*.js "$OUT/js/"
 cp "$ROOT/fonts/"*.woff2 "$OUT/fonts/"
@@ -41,10 +40,6 @@ if (!html.includes('window.EMBERFALL_PORTAL=true')) {
 // Social / off-site share cards point at the project site. A portal copy
 // does not carry them.
 html = html.replace(/^[ \t]*<meta (?=[^>]*(?:property="og:|name="twitter:))[^>]*content="https?:[^"]*"[^>]*>\n/gm, '');
-html = html.replace(
-  "ok(deckUrlAllowed('https://emberfall-deck.fly.dev'), 'https deck');",
-  "ok(deckUrlAllowed('https://deck.example.com'), 'https deck');"
-);
 html = html.replace(
   "s.src = 'https://accounts.google.com/gsi/client';",
   "s.src = '';"
@@ -93,8 +88,8 @@ if (!n) { console.error("no inline payload"); process.exit(1); }
 
 # Exclusions the portal zip must not carry.
 for bad in \
-  ops.html stats.html server.js Dockerfile fly.toml smoke.sh check.sh deadscan.js \
-  package.json package-lock.json deck.json \
+  stats.html pilot.html check.sh deadscan.js \
+  package.json package-lock.json \
   tests tools goldens docs packages .github
 do
   if [ -e "$OUT/$bad" ]; then

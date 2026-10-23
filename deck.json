@@ -1,5 +1,0 @@
-{
-  "deck": "https://emberfall-deck.fly.dev",
-  "since": "2026-10-01",
-  "note": "the game page adopts this deck ambiently when no pilot has chosen otherwise. On a top-level visit, a pilot's explicit choice (deck address field or ?deck=) wins. A cross-origin embed ignores ?deck= and any stored override and stays on this deck. Delete this file (or set deck to \"\") to return to auto-probe-only behavior. Bump the sw.js CACHE generation on any change."
-}

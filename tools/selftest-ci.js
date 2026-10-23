@@ -31,14 +31,13 @@ async function waitForServer(url, ms) {
 }
 
 (async () => {
-  /* CI runs this AFTER the deck is already up (smoke + browser smoke reuse
-     it). If something already answers on the port, attach to it instead of
-     spawning a second server — starting one would just EADDRINUSE. */
+  /* If something already serves the game on the port, attach to it instead
+     of spawning a second static server (that would just EADDRINUSE). */
   let server = null;
-  let deckUp = false;
-  try { const r = await fetch(`http://127.0.0.1:${PORT}/api/health`); deckUp = r.ok; } catch (e) { /* none */ }
-  if (!deckUp) {
-    server = spawn(process.execPath, ['server.js'], {
+  let up = false;
+  try { const r = await fetch(`http://127.0.0.1:${PORT}/index.html`); up = r.ok; } catch (e) { /* none */ }
+  if (!up) {
+    server = spawn(process.execPath, ['tools/serve-static.mjs', '--port', String(PORT)], {
       env: { ...process.env, PORT: String(PORT) },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -50,7 +49,7 @@ async function waitForServer(url, ms) {
   }
 
   try {
-    await waitForServer(`http://127.0.0.1:${PORT}/api/health`, 20000);
+    await waitForServer(`http://127.0.0.1:${PORT}/index.html`, 20000);
 
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();

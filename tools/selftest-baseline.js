@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* selftest-baseline.js — one-shot: boots the deck, runs ?selftest, and writes
+/* selftest-baseline.js — one-shot: boots the static server, runs ?selftest, and writes
    tools/selftest-baseline.json from the LIVE results. Run this when the suite
    changes, review the diff, and commit it together with the suite change.
    CI (tools/selftest-ci.js) then asserts totals AND the exact test set — a
@@ -10,9 +10,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 
 (async () => {
-  const server = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: '8123' }, stdio: 'ignore'
-  });
+  const server = spawn(process.execPath, ['tools/serve-static.mjs', '--port', '8123'], { stdio: 'ignore' });
   await new Promise(r => setTimeout(r, 1500));
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();

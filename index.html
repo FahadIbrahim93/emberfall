@@ -8669,7 +8669,7 @@ function runSelfTests() {
     const savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
     const savedLocal = NET._localDeckAlive, savedProbed = NET.probed;
     try {
-      ok(typeof NET.DECK_ADOPTED === 'string', 'the adoption record loaded (deck.json rides the page)');
+      ok(typeof NET.DECK_ADOPTED === 'string', 'the adoption slot exists (empty since the deck was removed)');
       NET.DECK_ADOPTED = 'https://adopt.example.com';
       const begin = () => { NET.deck = ''; NET.probed = false; NET.probeP = null; NET.on = false; };
       const freeze = p => { NET.probed = true; NET.probeP = null; return p.catch(() => false); };   /* take the ladder's decision, never the network */
@@ -8717,7 +8717,7 @@ function runSelfTests() {
     try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
   });
   T('deck address: embeds and hostile URLs cannot retarget credentials', () => {
-    ok(deckUrlAllowed('https://emberfall-deck.fly.dev'), 'https deck');
+    ok(deckUrlAllowed('https://deck.example.com'), 'https deck');
     ok(deckUrlAllowed('http://127.0.0.1:8165'), 'loopback drill deck');
     ok(!deckUrlAllowed('javascript:alert(1)'), 'javascript scheme refused');
     ok(!deckUrlAllowed('https://user:pass@evil.example'), 'userinfo refused');

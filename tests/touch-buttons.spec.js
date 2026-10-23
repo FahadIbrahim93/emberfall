@@ -17,7 +17,7 @@ const fs = require('fs');
    End or the pair coalesces. */
 
 async function playing(page) {
-  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' });
+  await page.goto('/', { waitUntil: 'load' });
   await page.keyboard.press('Space');                      // arm
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 9000 });
   await page.getByRole('button', { name: /Launch intercept/i }).click();
@@ -32,7 +32,7 @@ test('coarse-pointer device: touchmode at boot, buttons visible while flying', a
 
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
-  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' });
+  await page.goto('/', { waitUntil: 'load' });
   expect(await page.evaluate(() => matchMedia('(any-pointer:coarse)').matches)).toBe(true);
   await page.keyboard.press('Space');
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 9000 });

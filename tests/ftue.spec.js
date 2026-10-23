@@ -5,7 +5,7 @@ const { test, expect } = require('@playwright/test');
    assertions hold for a genuine first-launch player. */
 
 async function titleUp(page) {
-  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' });
+  await page.goto('/', { waitUntil: 'load' });
   await page.keyboard.press('Space');
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 9000 });
 }
@@ -72,7 +72,7 @@ test('phone portrait: notes dialog opens via What\'s new and Done is on-screen',
 
 test('returning pilot with an unread version still gets the changelog offer', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' });
+  await page.goto('/', { waitUntil: 'load' });
   // mark a PRIOR version as seen: the profile now predates v3.7.0
   await page.evaluate(() => {
     localStorage.setItem('emberfall2.notesSeen', JSON.stringify('3.6.1'));

@@ -1,13 +1,7 @@
-# The public game host should ship the shell, not the command deck.
-# GitHub already publishes this source. These paths are how the Vercel
-# mirror was also serving server.js, ops.html and the operator tools.
+# The public game host ships the static shell only. Repo tooling, tests,
+# the sim package and database migrations stay off Vercel (GitHub already
+# publishes the source). deadscan.js pins this list in CI.
 
-server.js
-ops.html
-Dockerfile
-.dockerignore
-fly.toml
-smoke.sh
 check.sh
 deadscan.js
 package.json
@@ -17,6 +11,7 @@ vitest.config.ts
 tools
 tests
 packages
+supabase
 .github
 .freebuff
 goldens
