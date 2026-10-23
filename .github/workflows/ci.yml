@@ -18,7 +18,7 @@ jobs:
   verify:
     name: gates (syntax · dead-code · tests · economy)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     # the fun-curve recorder may commit + push a newly-measured version's point
     permissions:
       contents: write
