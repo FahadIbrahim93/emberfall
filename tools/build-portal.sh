@@ -40,10 +40,6 @@ if (!html.includes('window.EMBERFALL_PORTAL=true')) {
 // Social / off-site share cards point at the project site. A portal copy
 // does not carry them.
 html = html.replace(/^[ \t]*<meta (?=[^>]*(?:property="og:|name="twitter:))[^>]*content="https?:[^"]*"[^>]*>\n/gm, '');
-html = html.replace(
-  "s.src = 'https://accounts.google.com/gsi/client';",
-  "s.src = '';"
-);
 html = html.replace(/Supabase/g, 'public');
 fs.writeFileSync(path.join(out, 'index.html'), html);
 

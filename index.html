@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#03050b">
 <meta name="description" content="EMBERFALL — an accessible, instant-play orbital intercept shooter. Hold the last corridor. Plays offline, on anything.">
 <meta name="mobile-web-app-capable" content="yes">
@@ -812,6 +812,10 @@ body.sheet-open #s-title{overflow:hidden}
   .title-menu .btn.key{min-height:52px}
   .title-menu .pair.util .sub{display:none}
 }
+/* pinch-zoom is allowed (WCAG 1.4.4); menus/sheets block double-tap zoom only. The play
+   field keeps body{touch-action:none}. */
+.screen,.sheet-body,button{touch-action:manipulation}
+.sheet-body{touch-action:pan-y pinch-zoom}
 </style>
 </head>
 <body>

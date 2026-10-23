@@ -4,6 +4,17 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Security
+- CSP: `connect-src` limited to the Supabase project (was any `https:`); unused Google Identity script/style/frame sources removed; `frame-src 'none'`, `worker-src`/`manifest-src 'self'` added. Google sign-in is a redirect and is unaffected.
+- `npm audit fix`: dev dependency `source-map-js` advisory resolved.
+
+### Fixed
+- Accessibility: pinch-zoom is no longer disabled (`user-scalable=no`, `maximum-scale=1` removed; axe `meta-viewport`). Menus use `touch-action:manipulation` so fast taps don't zoom.
+- Service worker: removed a dead `/api/` bypass left from the old server; cache `emberfall-v4.53`.
+
+### Docs / tooling
+- Accounts v2 spec marked shipped (v4.29.0). Dependabot config for npm and GitHub Actions. Dead GSI rewrite removed from `tools/build-portal.sh`.
+
 ## [4.29.0] — 2026-10-23 "Pilot Card"
 
 ### Fixed
