@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.29.0",
+      "date": "2026-10-23",
+      "codename": "Pilot Card",
+      "loop": {
+        "wave": 3,
+        "kills": 27,
+        "grazes": 4,
+        "combo": 10,
+        "mult": 2,
+        "medianFps": 45
+      },
+      "first60": {
+        "medianFps": 38,
+        "firstPlayingMs": 622,
+        "firstKillMs": 622,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.28.0",
       "date": "2026-10-23",
       "codename": "Guest Pass",
