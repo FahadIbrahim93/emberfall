@@ -30,6 +30,7 @@ const NET = {
   async renderMirrorBoards() {
     const body = $('globalBody');
     body.classList.remove('hidden');
+    NET.boardTab(NET.board || 'daily');
     if (emberfallPortal()) {
       const stat = $('dailyStat');
       if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
@@ -43,48 +44,100 @@ const NET = {
       return;
     }
     const box = $('globalBoard');
-    box.innerHTML = '<div class="empty">Reading the worldwide board…</div>';
+    box.innerHTML = '<div class="skel" role="status" aria-label="Loading board"><i></i><i></i><i></i><i></i><i></i><i></i></div>';
+    const dayEl = $('dailyBoard'); if (dayEl && !dayEl.querySelector('.row')) dayEl.innerHTML = '<div class="skel" role="status" aria-label="Loading board"><i></i><i></i><i></i><i></i><i></i><i></i></div>';
     const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
+    const AV = NET.avatars || (NET.avatars = {});
+    const avIcon = uid => AV[uid] ? '<img class="av" alt="" src="' + avatarUrl(AV[uid]) + '">' : '';
+    /* avatars ride beside the board rows: one extra read of profiles.avatar */
+    const withAvatars = async rows => {
+      const ids = rows.map(r => r.user_id).filter(id => id && !(id in AV));
+      if (ids.length) {
+        try {
+          const ps = await mirrorJson('/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,avatar');
+          for (const p of ps) AV[p.id] = p.avatar || null;
+        } catch (e) { }
+      }
+      return rows;
+    };
     const rowHtml = (r2, i, tag) => {
       const st = r2.stats || {};
       const h = (typeof HULLS !== 'undefined') && typeof st.ship === 'string' && HULLS.find(x => x.id === st.ship);
       const wave = Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1;
       const mine = typeof CLOUD !== 'undefined' && CLOUD.user && r2.user_id === CLOUD.user.id;
-      return '<div class="row' + (mine ? ' me' : '') + '">' +
-        '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
-        (h ? ' · ' + esc(h.name) : '') + '</span>' +
-        '<span class="sc">' + padN(r2.score, 7) + '</span>' +
-        '<span class="wv">' + tag + pad2(wave) + '</span></div>';
+      return '<div class="row' + (mine ? ' me' : '') + (i < 3 ? ' top' : '') + '">' +
+        '<span class="rk">' + (i + 1) + '</span>' +
+        '<span class="nm">' + avIcon(r2.user_id) + '<a href="' + esc(pilotUrl(r2.callsign)) + '">' + esc(r2.callsign) + '</a>' +
+        (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') + '</span>' +
+        '<span class="sc">' + fmt(r2.score) + '</span>' +
+        '<span class="wv" title="' + (tag === 'D' ? 'Daily' : 'Worldwide') + ' wave">' + wave + '</span></div>';
     };
     /* the Daily board: today's UTC seed, best run per pilot */
     const dayBox = $('dailyBoard'), dstat = $('dailyStat');
     if (dayBox) {
       const day = new Date().toISOString().slice(0, 10);
-      if (dstat) dstat.textContent = 'today · ' + day + ' · worldwide';
+      if (dstat) dstat.textContent = day + ' UTC';
       mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(rows => {
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars).then(rows => {
         dayBox.innerHTML = rows.length
           ? rows.map((r2, i) => rowHtml(r2, i, 'D')).join('')
-          : '<div class="empty">Nobody has flown today\u2019s seed.<br>The first one is yours.</div>';
-      }).catch(() => { dayBox.innerHTML = '<div class="empty">The day board could not be reached.</div>'; });
+          : '<div class="empty"><b>No runs yet today</b>Fly today\u2019s seed to set the first score.</div>';
+      }).catch(() => { dayBox.innerHTML = '<div class="empty err"><b>Board unavailable</b>The day board could not be reached. Try again shortly.</div>'; });
     }
     /* rush has no worldwide board and the daily lives above: both show endless */
     const gmode = MIRROR_MODE[mode] && mode !== 'daily' ? MIRROR_MODE[mode] : 'endless';
     try {
       const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars);
+      NET.paintMyRank(rows, gmode);
       if (!rows.length) {
-        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Sign in above, pick a callsign, and fly.</div>';
+        box.innerHTML = '<div class="empty"><b>No ranked pilots on the public board yet</b>Sign in, choose a callsign and fly an Endless run.</div>';
         return;
       }
       box.innerHTML = rows.map((r2, i) => rowHtml(r2, i, 'W')).join('') +
-        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best run per pilot, live from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+        '<p class="note-s board-foot">Best run per pilot, live from the public mirror. <a href="stats.html">World stats</a></p>';
     } catch (e) {
-      box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
+      box.innerHTML = '<div class="empty err"><b>Board unavailable</b>The public mirror is not answering. Your runs are saved on this device.</div>';
     }
   }
 };
+
+/* Daily / All-time board tabs (accounts v2) */
+NET.boardTab = function (name) {
+  NET.board = name === 'all' ? 'all' : 'daily';
+  const body = $('globalBody');
+  if (body) { body.classList.toggle('b-all', NET.board === 'all'); body.classList.toggle('b-daily', NET.board === 'daily'); }
+  document.querySelectorAll('.btab').forEach(b => { const on = b.dataset.board === NET.board; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+};
+/* "your rank": pinned under the top 50 when the signed-in pilot is not on it */
+NET.paintMyRank = async function (rows, gmode) {
+  const el = $('myRank');
+  if (!el) return;
+  el.classList.add('hidden');
+  const me = typeof CLOUD !== 'undefined' && CLOUD.user && CLOUD.profile;
+  if (!me || rows.some(r => r.user_id === CLOUD.user.id)) return;
+  try {
+    const mine = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode + '&user_id=eq.' + CLOUD.user.id + '&select=score&limit=1');
+    if (!mine[0]) { el.innerHTML = '<p class="note-s">You have no ranked run yet. Your next Endless run posts here.</p>'; el.classList.remove('hidden'); return; }
+    const rk = gmode === 'endless' ? await mirrorMainRank(mine[0].score) : null;
+    el.innerHTML = '<div class="row me"><span class="rk">' + (rk ? fmt(rk) : '—') + '</span><span class="nm">' + esc(CLOUD.profile.callsign) + '<span class="hl">You</span></span><span class="sc">' + fmt(mine[0].score) + '</span><span class="wv"></span></div>';
+    el.classList.remove('hidden');
+  } catch (e) { }
+};
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('.btab');
+  if (!b) return;
+  NET.boardTab(b.dataset.board);
+  const t = $(b.dataset.board === 'all' ? 'globalBoard' : 'dailyBoard');
+  if (t) try { t.scrollIntoView({ block: 'nearest' }); } catch (e2) { }
+});
+const AVATARS = ['vesper', 'halcyon', 'atlas', 'wraith', 'seraph'];
+const _avUrl = {};
+function avatarUrl(id) {
+  if (!AVATARS.includes(id)) id = 'vesper';
+  if (_avUrl[id]) return _avUrl[id];
+  try { return (_avUrl[id] = hullPreview(id, 16).toDataURL()); } catch (e) { return ''; }
+}
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
   const honor = honorOf(META.donated || 0);
@@ -234,6 +287,8 @@ function renderSkyLog() {
   }).join('');
 }
 function switchTab(name) {
+  /* the Global tab's content lives in the account sheet while it is open */
+  if (name === 'global' && typeof CLOUD !== 'undefined' && CLOUD.closeSheet) CLOUD.closeSheet();
   $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
   ['scores', 'roster', 'feats', 'sky', 'global'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
   if (name === 'roster') renderRoster();

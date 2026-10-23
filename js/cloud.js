@@ -55,7 +55,7 @@ const CLOUD = {
     if (this.user && this.user.is_anonymous) { try { await sb.auth.signOut(); } catch (e) { } this.user = null; }
     this.profile = null;
     if (this.user) {
-      const { data: rows } = await sb.from('profiles').select('id,callsign').eq('id', this.user.id).limit(1);
+      const { data: rows } = await sb.from('profiles').select('id,callsign,avatar').eq('id', this.user.id).limit(1);
       this.profile = rows && rows[0] ? rows[0] : null;
     }
     return this.user;
@@ -65,6 +65,69 @@ const CLOUD = {
      worldwide boards only ever hold signed-up pilots. */
   playGuest() {
     try { localStorage.setItem('ef.guest', '1'); } catch (e) { }
+  },
+  /* passwordless: one email carries a magic link AND a 6-digit code (the code
+     works in installed apps where the link opens another browser) */
+  async sendOtp(email) {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const e = String(email || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('Enter a valid email.');
+    const { error } = await sb.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+    if (error) throw error;
+    this.otpEmail = e;
+  },
+  async verifyOtp(code) {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const t = String(code || '').replace(/\s+/g, '');
+    if (!/^\d{6,10}$/.test(t)) throw new Error('Enter the code from the email.');
+    const { error } = await sb.auth.verifyOtp({ email: this.otpEmail, token: t, type: 'email' });
+    if (error) throw error;
+    await this.refresh();
+  },
+  /* providers on in the Supabase dashboard (public settings endpoint) */
+  async providers() {
+    if (this._prov) return this._prov;
+    try {
+      const r = await fetch(MIRROR_ORIGIN + '/auth/v1/settings', { headers: { apikey: MIRROR_KEY } });
+      this._prov = r.ok ? ((await r.json()).external || {}) : {};
+    } catch (e) { this._prov = {}; }
+    return this._prov;
+  },
+  async signInGoogle() {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+    if (error) throw error;
+  },
+  async setAvatar(id) {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const { data, error } = await sb.rpc('set_avatar', { p_avatar: id });
+    if (error) throw error;
+    this.profile = data;
+    return data;
+  },
+  /* guest -> account: offer this device's Endless best to the board once */
+  async carryGuestBest() {
+    if (!this.profile) return null;
+    let key = 'ef.carried.' + this.user.id;
+    try { if (localStorage.getItem(key)) return null; } catch (e) { return null; }
+    const best = (typeof loadBoard === 'function' ? loadBoard('main') : [])
+      .reduce((a, r) => (r && +r.s > (a ? +a.s : 0) ? r : a), null);
+    try { localStorage.setItem(key, '1'); } catch (e) { }
+    if (!best || !(+best.s >= 1)) return null;
+    try { return await this.submit('main', +best.s, { wave: Math.max(1, +best.w || 1), ship: best.k, src: 'guest' }); } catch (e) { return null; }
+  },
+  async stats() {
+    if (!this.user || typeof mirrorJson !== 'function') return null;
+    const id = this.user.id, day = new Date().toISOString().slice(0, 10);
+    const [g, d, n] = await Promise.all([
+      mirrorJson('/rest/v1/leaderboard_global?mode=eq.endless&user_id=eq.' + id + '&select=score&limit=1').catch(() => []),
+      mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day + '&user_id=eq.' + id + '&select=score&limit=1').catch(() => []),
+      mirrorRest('/rest/v1/player_scores?user_id=eq.' + id + '&select=id', { headers: { Prefer: 'count=exact', Range: '0-0' } })
+        .then(r => +((r.headers.get('content-range') || '').split('/')[1] || 0)).catch(() => 0)
+    ]);
+    const best = g[0] ? g[0].score : 0;
+    const rank = best && typeof mirrorMainRank === 'function' ? await mirrorMainRank(best).catch(() => null) : null;
+    return { best, rank, today: d[0] ? d[0].score : 0, runs: n };
   },
   async signUpEmail(email, password) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
@@ -116,14 +179,59 @@ const CLOUD = {
     document.getElementById('cloudIn').classList.toggle('hidden', signed);
     document.getElementById('cloudMe').classList.toggle('hidden', !signed);
     this.paintTitle();
-    if (!signed) { st.textContent = 'Playing as guest: scores stay on this device. Sign in or create an account to post worldwide.'; return; }
-    const who = (this.user.email || 'pilot');
+    this.paintProfile();
+    this.sheetHead();
+    if (!signed) { st.textContent = 'Guest scores stay on this device. Sign in with your email to post runs to the worldwide boards. No password needed.'; return; }
+    const who = (this.user.email || '');
     const cs = document.getElementById('cloudCallsign');
+    const pm = document.getElementById('pfMail'); if (pm) pm.textContent = who;
     st.textContent = this.profile
-      ? 'Signed in as ' + this.profile.callsign + ' (' + who + ') · endless and daily runs post worldwide.'
-      : 'Signed in (' + who + ') · first flight: pick a callsign to post runs.';
+      ? 'Your Endless and Daily runs post to the worldwide boards.'
+      : 'Signed in. Next, pick a callsign to start posting runs.';
     if (!this.profile && cs && !cs.value) { try { cs.focus(); } catch (e) { } }
     if (this.profile && !cs.value) cs.value = this.profile.callsign;
+  },
+  drawAv(canvas, id) {
+    if (!canvas || typeof HULL_ART === 'undefined') return;
+    const g = canvas.getContext('2d'), w = canvas.width;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, w);
+    g.setTransform(w / 92, 0, 0, w / 92, w / 2, w / 2);
+    try { (HULL_ART[id] || HULL_ART.vesper)(g, { thrust: 1, boost: false, t: 1 }); } catch (e) { }
+  },
+  paintProfile() {
+    const av = (this.profile && this.profile.avatar) || 'vesper';
+    this.drawAv(document.getElementById('pfAv'), av);
+    const nm = document.getElementById('pfName');
+    if (nm) nm.textContent = this.profile ? this.profile.callsign : 'New pilot';
+    const pick = document.getElementById('avPick');
+    if (pick && !pick.dataset.built && typeof AVATARS !== 'undefined') {
+      pick.dataset.built = '1';
+      for (const id of AVATARS) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.dataset.av = id; b.setAttribute('role', 'radio');
+        b.setAttribute('aria-label', (typeof HULLS !== 'undefined' && (HULLS.find(h => h.id === id) || {}).name) || id);
+        const c = document.createElement('canvas'); c.width = c.height = 72; b.appendChild(c);
+        this.drawAv(c, id);
+        b.addEventListener('click', async () => {
+          if (!this.profile) { this.say('Save a callsign first.', true); return; }
+          try { await this.setAvatar(id); this.say('Avatar saved.'); } catch (e) { this.say(String(e && e.message || e).slice(0, 140), true); }
+          this.paint();
+        });
+        pick.appendChild(b);
+      }
+    }
+    if (pick) pick.querySelectorAll('button').forEach(b => { const on = b.dataset.av === av; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    const st = document.getElementById('pfStats');
+    const tiles = v => { if (!st) return; st.querySelectorAll('.pf-s b').forEach((b, i) => { b.textContent = v[i]; }); };
+    const n = x => (x ? (typeof fmt === 'function' ? fmt(x) : String(x)) : '—');
+    if (st) st.classList.toggle('hidden', !this.profile);
+    if (st && this.user && this.profile && !this._statsBusy) {
+      this._statsBusy = true;
+      st.classList.add('busy');
+      this.stats().then(x => {
+        if (x) tiles([n(x.best), x.rank ? '#' + n(x.rank) : '—', n(x.today), n(x.runs || 0)]);
+      }).catch(() => {}).finally(() => { this._statsBusy = false; st.classList.remove('busy'); });
+    }
   },
   /* title-screen account strip */
   paintTitle() {
@@ -132,11 +240,15 @@ const CLOUD = {
     const signed = !!this.user;
     meta.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
     line.textContent = !signed
-      ? 'Guest runs stay on this device. Sign up to post on the worldwide boards.'
-      : this.profile ? 'Your endless and daily runs post to the worldwide boards.'
-      : 'Signed in. Pick a callsign in the Global tab to start posting.';
+      ? 'Guest runs stay on this device. Sign in to post on the worldwide boards.'
+      : this.profile ? 'Your Endless and Daily runs post to the worldwide boards.'
+      : 'Signed in. Choose a callsign to start posting.';
+    const pn = document.getElementById('pilotName'), ps = document.getElementById('pilotSub');
+    if (pn) pn.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
+    if (ps) ps.textContent = signed ? (this.profile ? 'View profile' : 'Choose a callsign') : 'Sign in to post scores';
+    this.drawAv(document.getElementById('pilotAv'), (this.profile && this.profile.avatar) || 'vesper');
     const sb = document.getElementById('btnAcctSign');
-    if (sb) sb.firstChild.textContent = signed ? 'Account' : 'Sign in / Sign up';
+    if (sb) sb.textContent = signed ? 'Profile' : 'Sign in';
   },
   /* game over: guests (or no callsign yet) get "Sign up to post this score" */
   overPrompt(eligible) {
@@ -144,40 +256,128 @@ const CLOUD = {
     if (!el) return;
     el.classList.toggle('hidden', !(eligible && this.available() && !this.profile));
   },
-  showAccount() {
+  /* account + boards open in one modal sheet (bottom sheet on phones). The
+     Global tab's content is moved into it while open and returned on close,
+     so the sidebar tab and the sheet share one DOM and one set of ids. */
+  sheetView: 'acct',
+  sheetHead() {
+    const t = document.getElementById('sheetTitle'), e = document.getElementById('sheetEyebrow');
+    if (!t || !e) return;
+    if (this.sheetView === 'boards') { e.textContent = 'Worldwide'; t.textContent = 'Leaderboards'; return; }
+    e.textContent = 'Pilot account';
+    t.textContent = !this.user ? 'Sign in' : this.profile ? 'Profile' : 'Choose a callsign';
+  },
+  openSheet(view) {
+    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
+    if (!sh || !body || !tab) return false;
     if (typeof toTitle === 'function' && !document.getElementById('s-title').classList.contains('on')) toTitle();
-    if (typeof switchTab === 'function') switchTab('global');
-    this.open().catch(() => {});
+    this.sheetView = view;
+    sh.classList.toggle('v-boards', view === 'boards');
+    sh.classList.toggle('v-acct', view !== 'boards');
+    if (!sh.classList.contains('on')) {
+      this._ret = document.activeElement;
+      while (tab.firstChild) body.appendChild(tab.firstChild);
+      sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('sheet-open');
+    }
+    body.scrollTop = 0;
+    this.sheetHead();
+    return true;
+  },
+  closeSheet() {
+    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
+    if (!sh || !sh.classList.contains('on')) return;
+    sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sheet-open');
+    while (body.firstChild) tab.appendChild(body.firstChild);
+    try { if (this._ret && this._ret.focus) this._ret.focus(); } catch (e) { }
+  },
+  showAccount() {
+    this.openSheet('acct');
+    if (typeof NET !== 'undefined') NET.renderGlobal(); else this.open().catch(() => {});
     const em = document.getElementById(this.user ? 'cloudCallsign' : 'cloudEmail');
-    if (em) { try { em.scrollIntoView({ block: 'center' }); em.focus(); } catch (e) { } }
+    const fine = !matchMedia('(pointer:coarse)').matches;
+    try { if (em && fine) em.focus({ preventScroll: true }); else document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
+  },
+  showBoards() {
+    this.openSheet('boards');
+    if (typeof NET !== 'undefined') NET.renderGlobal();
+    try { document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
   },
   say(msg, bad) {
     const el = document.getElementById('cloudMsg');
     if (!el) return;
     el.textContent = msg;
-    el.style.color = bad ? 'var(--crimson)' : 'var(--dim)';
+    el.classList.toggle('err', !!bad);
+    el.classList.toggle('ok', !bad && !!msg);
   },
   wire() {
     const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
     const val = id => (document.getElementById(id) || {}).value || '';
-    const run = fn => async () => {
+    const run = fn => async ev => {
+      const btn = ev && ev.currentTarget;
+      if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true'); }
+      this.say('');
       try { await fn(); this.paint(); } catch (e) { this.paint(); this.say(String(e && e.message || e).slice(0, 140), true); }
+      finally { if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); } }
     };
     on('cloudSignIn', run(async () => { await this.signInEmail(val('cloudEmail'), val('cloudPass')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudSignUp', run(async () => {
       const pending = await this.signUpEmail(val('cloudEmail'), val('cloudPass'));
       this.say(pending ? 'Check your inbox to confirm your email, then sign in.' : 'Account created. Pick your callsign to post runs.');
     }));
+    on('cloudOtp', run(async () => {
+      await this.sendOtp(val('cloudEmail'));
+      const row = document.getElementById('cloudCodeRow'); if (row) row.classList.remove('hidden');
+      this.say('Code sent to ' + this.otpEmail + '. Tap the link in the email or enter the code.');
+      const c = document.getElementById('cloudCode'); if (c) try { c.focus(); } catch (e) { }
+    }));
+    on('cloudVerify', run(async () => { await this.verifyOtp(val('cloudCode')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
+    on('cloudGoogle', run(async () => { await this.signInGoogle(); }));
+    on('btnPilot', () => this.showAccount());
+    on('btnBoards', () => this.showBoards());
+    const sh = document.getElementById('acctSheet');
+    if (sh) {
+      sh.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) this.closeSheet(); });
+      document.addEventListener('keydown', e => {
+        if (!sh.classList.contains('on')) return;
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeSheet(); return; }
+        if (e.key === 'Tab') { /* keep focus inside the dialog */
+          const f = [...sh.querySelectorAll('button,input,summary,a[href],[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null && !x.disabled);
+          if (!f.length) return;
+          const a = f[0], z = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+        }
+      }, true);
+    }
+    /* Enter submits the field's primary action */
+    const enter = (inp, btn) => { const i = document.getElementById(inp); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = document.getElementById(btn); if (b) b.click(); } }); };
+    enter('cloudEmail', 'cloudOtp'); enter('cloudCode', 'cloudVerify'); enter('cloudPass', 'cloudSignIn'); enter('cloudCallsign', 'cloudSave');
+    /* the virtual keyboard must not cover the field being typed in */
+    document.querySelectorAll('#cloudBox input').forEach(i => i.addEventListener('focus', () => {
+      setTimeout(() => { try { i.scrollIntoView({ block: 'center' }); } catch (e) { } }, 300);
+    }));
+    if (window.visualViewport) visualViewport.addEventListener('resize', () => {
+      const a = document.activeElement;
+      if (a && a.closest && a.closest('#cloudBox')) try { a.scrollIntoView({ block: 'center' }); } catch (e) { }
+    });
     on('cloudGuest', () => { this.playGuest(); this.say('Playing as guest: scores stay on this device.'); });
     on('btnAcctGuest', () => { this.playGuest(); if (typeof startRun === 'function') startRun('endless'); });
     on('btnAcctSign', () => this.showAccount());
     on('btnOvSignUp', () => this.showAccount());
-    on('cloudSave', run(async () => { await this.setCallsign(val('cloudCallsign')); this.say('Callsign saved.'); }));
+    on('cloudSave', run(async () => {
+      await this.setCallsign(val('cloudCallsign'));
+      const carried = await this.carryGuestBest();
+      this.say(carried ? 'Callsign saved. Your guest best is on the board.' : 'Callsign saved.');
+    }));
     on('cloudOut', run(async () => { await this.signOut(); this.say('Signed out. Local scores stay on this device.'); }));
   },
   async open() {
     this.paint();
     if (!this.available()) return;
+    /* only once the pilot opens the account UI: boot stays off the network */
+    this.providers().then(p => { const g = document.getElementById('cloudGoogle'); if (g) g.classList.toggle('hidden', !p.google); });
     await this.refresh();
     this.paint();
   },
