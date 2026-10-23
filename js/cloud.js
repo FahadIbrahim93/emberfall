@@ -10,7 +10,7 @@
      database refuses direct table writes (RLS + no grants).
    ═══════════════════════════════════════════════════════════════════════ */
 const CLOUD = {
-  sb: null, user: null, profile: null, anonOk: false, loading: null,
+  sb: null, user: null, profile: null, anonOk: false, xOk: false, xId: '', loading: null,
   STORE: 'sb-rgmbexmodebegllahotc-auth-token',
 
   available() {
@@ -52,7 +52,8 @@ const CLOUD = {
     if (!sb) return null;
     try {
       const st = await fetch(MIRROR_ORIGIN + '/auth/v1/settings', { headers: { apikey: MIRROR_KEY } });
-      if (st.ok) { const j = await st.json(); this.anonOk = !!(j.external && j.external.anonymous_users); }
+      if (st.ok) { const j = await st.json(); this.anonOk = !!(j.external && j.external.anonymous_users);
+        const ex = j.external || {}; this.xId = ex.x ? 'x' : (ex.twitter ? 'twitter' : ''); this.xOk = !!this.xId; }
     } catch (e) { /* offline: keep the last answer */ }
     const { data } = await sb.auth.getSession();
     this.user = data && data.session ? data.session.user : null;
@@ -68,6 +69,20 @@ const CLOUD = {
     const { error } = await sb.auth.signInAnonymously();
     if (error) throw error;
     await this.refresh();
+  },
+  /* Sign in with X — Supabase's X / Twitter (OAuth 2.0) provider id is 'x'
+     (falls back to the legacy OAuth 1.0a 'twitter' id if only that one is on).
+     The button stays hidden unless /auth/v1/settings reports it enabled. The
+     session comes back in the URL hash (implicit flow) and is picked up by
+     boot() -> pending() -> refresh(), exactly like the email magic link; the
+     callsign step is the same panel. */
+  async signInX() {
+    const sb = await this.load(); if (!sb) throw new Error('offline');
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: this.xId || 'x',
+      options: { redirectTo: location.origin + location.pathname }
+    });
+    if (error) { this.xOk = false; throw error; }
   },
   async sendEmail(email) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
@@ -115,8 +130,9 @@ const CLOUD = {
     document.getElementById('cloudIn').classList.toggle('hidden', signed);
     document.getElementById('cloudMe').classList.toggle('hidden', !signed);
     document.getElementById('cloudAnon').classList.toggle('hidden', !this.anonOk);
+    const xb = document.getElementById('cloudX'); if (xb) xb.classList.toggle('hidden', !this.xOk);
     if (!signed) { st.textContent = 'Sign in to post runs to the worldwide boards.'; return; }
-    const who = this.user.is_anonymous ? 'guest pilot' : (this.user.email || 'pilot');
+    const who = this.user.is_anonymous ? 'guest pilot' : (this.user.email || (this.user.user_metadata && this.user.user_metadata.user_name ? '@' + this.user.user_metadata.user_name + ' on X' : 'pilot'));
     st.textContent = this.profile
       ? 'Signed in as ' + this.profile.callsign + ' (' + who + ') · endless and daily runs post worldwide.'
       : 'Signed in (' + who + ') · pick a callsign to post runs.';
@@ -133,10 +149,11 @@ const CLOUD = {
     const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
     const val = id => (document.getElementById(id) || {}).value || '';
     const run = fn => async () => {
-      try { await fn(); this.paint(); } catch (e) { this.say(String(e && e.message || e).slice(0, 140), true); }
+      try { await fn(); this.paint(); } catch (e) { this.paint(); this.say(String(e && e.message || e).slice(0, 140), true); }
     };
     on('cloudSend', run(async () => { await this.sendEmail(val('cloudEmail')); this.say('Check your inbox: open the link, or type the code below.'); }));
     on('cloudVerify', run(async () => { await this.verifyCode(val('cloudEmail'), val('cloudCode')); this.say('Signed in.'); }));
+    on('cloudX', run(async () => { this.say('Opening X…'); await this.signInX(); }));
     on('cloudAnon', run(async () => { await this.signInAnon(); this.say('Signed in as a guest on this device.'); }));
     on('cloudSave', run(async () => { await this.setCallsign(val('cloudCallsign')); this.say('Callsign saved.'); }));
     on('cloudOut', run(async () => { await this.signOut(); this.say('Signed out. Local scores stay on this device.'); }));
