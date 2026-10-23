@@ -4,22 +4,21 @@ Ordered by priority, not by release date. Every item ships the usual way: gated 
 
 ## Where things stand (2026-10-23)
 
-- **Live:** player accounts with callsigns, and global and daily leaderboards on Supabase (#25), at https://emberfall-game-two.vercel.app. Sign-in is by email magic link, plus anonymous guest sign-in once it's enabled.
+- **Live:** player accounts with callsigns, and global and daily leaderboards on Supabase (#25), at https://emberfall-game-two.vercel.app. Guests play without an account; email accounts (with email confirmation) post to boards that list registered pilots only.
 - **Recently merged:** security hardening (#19, #22), repo hygiene (#20), the deadscan CI fix (#23), the upper-screen flash fix (#21) and the copy rewrite (#24).
-- **In review:** Sign in with X (#26). Not merged, not live.
+- **Planned:** Sign in with X (#26). It needs a rebase onto the current `main` before it can merge.
 - **Distribution:** submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are next.
 
 ## Now
 
-1. **Sign in with X** (#26): finish review, enable the `x` provider on the project, merge.
-2. **Turn on anonymous sign-in** in the Supabase project so the guest button appears.
-3. **Portal submissions:** itch.io and CrazyGames, using `npm run build:portal`.
+1. **Sign in with X** (#26): rebase onto `main`, finish review, enable the `x` provider on the project, merge.
+2. **Portal submissions:** itch.io and CrazyGames, using `npm run build:portal`.
 
 ## Next
 
-4. **Keyset pagination** for boards once they grow past what offset paging handles well (issue #16).
-5. **More browser coverage** for the stats page and the Global tab (issue #17).
-6. **Accessibility pass:** extend the colour-blind checks already used for paints to UI states, focus rings and screen-reader labels.
+3. **Keyset pagination** for boards once they grow past what offset paging handles well (issue #16).
+4. **More browser coverage** for the stats page and the Global tab (issue #17).
+5. **Accessibility pass:** extend the colour-blind checks already used for paints to UI states, focus rings and screen-reader labels.
 
 ## Not planned
 

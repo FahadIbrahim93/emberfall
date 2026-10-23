@@ -465,8 +465,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 .unlock{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid rgba(155,107,255,.35);
   background:rgba(155,107,255,.09);font-size:.64rem;letter-spacing:.12em}
 .unlock b{color:var(--violet);letter-spacing:.2em}
-.unlock .daily-medals b{color:var(--gold)}
-.unlock .daily-medals span{margin-left:auto;color:var(--dim);letter-spacing:.18em}
 
 /* boot */
 #s-boot{place-items:center;background:var(--void);z-index:12}
@@ -678,6 +676,14 @@ body.needrotate #rotate{display:grid}
       </p>
     </div>
     <aside class="side">
+      <div class="panel" id="acctPanel" style="margin-bottom:12px">
+        <div class="side-head"><h3>Pilot account</h3><span id="acctMeta">Guest</span></div>
+        <p class="empty" id="acctLine" style="text-align:left;padding:0 0 8px">Guest runs stay on this device. Sign up to post on the worldwide boards.</p>
+        <div class="duo" id="acctBtns">
+          <button class="btn" id="btnAcctGuest" type="button">Play as guest<span class="sub">No account · local best</span></button>
+          <button class="btn key" id="btnAcctSign" type="button">Sign in / Sign up<span class="sub">Email or X</span></button>
+        </div>
+      </div>
       <div class="panel">
         <div class="side-head"><h3>Registry</h3><span id="regMeta">Stored on this device</span></div>
       <div class="tabs">
@@ -696,11 +702,11 @@ body.needrotate #rotate{display:grid}
           <div id="cloudBox" class="hidden" style="padding:6px 0 4px">
             <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
             <div id="cloudIn" style="display:grid;gap:6px">
-              <button class="up" id="cloudAnon" type="button">Play as guest (no email)</button>
-              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email for a sign-in link" aria-label="Email for a sign-in link" maxlength="254">
-              <button class="up" id="cloudSend" type="button">Email me a sign-in link</button>
-              <input id="cloudCode" inputmode="numeric" autocomplete="one-time-code" placeholder="or the code from the email" aria-label="Sign-in code" maxlength="10">
-              <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email" aria-label="Email" maxlength="254">
+              <input id="cloudPass" type="password" autocomplete="current-password" placeholder="password (8+ characters)" aria-label="Password" maxlength="72">
+              <button class="up" id="cloudSignIn" type="button">Sign in</button>
+              <button class="up" id="cloudSignUp" type="button">Create account</button>
+              <button class="up" id="cloudGuest" type="button">Play as guest (no account)</button>
             </div>
             <div id="cloudMe" class="hidden" style="display:grid;gap:6px">
               <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}">
@@ -709,36 +715,21 @@ body.needrotate #rotate{display:grid}
             </div>
             <p class="empty" id="cloudMsg" style="text-align:left;padding:4px 0" role="status" aria-live="polite"></p>
           </div>
-          <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
+          <div id="globalStatus" class="empty" style="padding:10px 0">Worldwide boards</div>
           <div id="globalBody" class="hidden">
-            <div id="seasonBox" class="hidden">
-              <div class="side-head"><h3>Weekly Gauntlet</h3><span id="seasonName"></span></div>
-              <p class="empty" id="seasonTimer" style="text-align:left;padding:2px 0 8px"></p>
-              <div id="seasonBoard"></div>
-              <div id="seasonYou" class="hidden"></div>
-              <p class="empty" style="text-align:left;padding:4px 0 10px">Best five plausibility-checked runs this week count.</p>
-            </div>
-            <div id="duelBox" class="hidden">
-              <div class="side-head"><h3>Duels</h3><span>today's run</span></div>
-              <div id="duelList" style="display:grid;gap:6px"></div>
-            </div>
             <div id="dayBox">
               <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
               <div id="dailyBoard"></div>
-              <div id="dailyYou" class="hidden"></div>
               <p class="empty" id="dayBoardNote" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
             </div>
             <p class="empty" id="globalBoardNote" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
             <div id="globalBoard"></div>
-            <div id="globalYou" class="hidden"></div>
-            <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
-              Sign in from Settings to post scores worldwide.</p>
           </div>
         </div>
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.27.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.28.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -866,79 +857,6 @@ body.needrotate #rotate{display:grid}
           <button data-v="2">Busy</button><button data-v="3">Storm</button>
         </div></div>
     </div>
-    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
-      <div class="opt full">
-        <label id="lAcct">Command deck <span id="acctStat" style="color:var(--dimmer);letter-spacing:.08em">local mode</span></label>
-        <div id="deckRow" style="display:grid;gap:6px">
-          <input id="deckUrl" placeholder="DECK ADDRESS (OPTIONAL)" spellcheck="false" autocapitalize="off" autocomplete="url"
-            style="background:rgba(53,224,255,.04);border:1px solid var(--line-soft);font-size:.68rem;letter-spacing:.1em;padding:8px 10px;outline:none;color:var(--ink)">
-          <p class="empty" id="deckHint" style="padding:0;text-align:left;font-size:.62rem;line-height:1.7">Fly a remote deck: type its address (https://deck.example.com) — accounts, worldwide boards and duels come from there. Blank = the deck on this network.</p>
-        </div>
-        <div id="acctFields" style="display:grid;gap:8px">
-          <input id="acctName" maxlength="16" placeholder="CALLSIGN" spellcheck="false" autocomplete="username" autocapitalize="none" autocorrect="off"
-            style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;text-transform:uppercase;outline:none;color:var(--ink)">
-          <div style="position:relative">
-            <input id="acctPass" type="password" maxlength="128" placeholder="PASSWORD (6+ chars)" autocomplete="current-password"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 44px 10px 12px;outline:none;color:var(--ink)">
-            <button id="btnPassVis" type="button" aria-label="Show password" aria-pressed="false"
-              style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dimmer);font-size:.58rem;letter-spacing:.12em;padding:8px;cursor:pointer">show</button>
-          </div>
-          <div class="pair">
-            <button class="btn key" id="btnAcctGo">Sign in</button>
-            <button class="btn" id="btnAcctNew">Create account</button>
-          </div>
-          <div id="googleBox" class="hidden" style="display:grid;gap:6px">
-            <div id="gBtnHost" style="min-height:40px;display:grid;place-items:center"></div>
-            <p class="empty" id="gHint" style="padding:0;text-align:left;font-size:.62rem;line-height:1.7">Your Google account becomes your callsign — the deck never sees your password.</p>
-          </div>
-          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">One account, any device. Cloud-saves your
-            hangar and alloy, posts plausibility-checked community runs to this command deck. Stored only here.</p>
-        </div>
-        <div id="acctSigned" class="hidden">
-          <div class="pair">
-            <button class="btn warn" id="btnAcctOut">Sign out</button>
-            <button class="btn ghost" id="btnAcctMgmt">Account…</button>
-          </div>
-          <p class="empty" style="padding:6px 0 0;text-align:left">Progress syncs automatically while you fly.</p>
-          <div id="acctMgmt" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px;display:grid;gap:8px">
-            <p class="empty" style="padding:0;text-align:left;font-size:.66rem">Change your password, check where you are signed in, or leave the deck for good. Deletion removes every board entry, ledger row and cloud save — the callsign can never be reused.</p>
-            <p class="empty" id="mgmtSess" style="padding:0;text-align:left;font-size:.66rem;color:var(--dimmer)"></p>
-            <input id="mgmtPassCur" type="password" maxlength="128" placeholder="CURRENT PASSWORD" spellcheck="false"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <input id="mgmtPassNew" type="password" maxlength="128" placeholder="NEW PASSWORD (6+ chars)" spellcheck="false" autocomplete="new-password"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <button class="btn ghost" id="btnAcctPass" style="width:100%">Change password</button>
-            <input id="mgmtDelPass" type="password" maxlength="128" placeholder="PASSWORD TO CONFIRM DELETION" spellcheck="false"
-              style="background:rgba(184,44,58,.08);border:1px solid var(--crimson);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <button class="btn warn" id="btnAcctDel" style="width:100%">Delete account forever…</button>
-          </div>
-          <div id="vaultBox" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px">
-            <button class="btn ghost" id="btnVault" style="width:100%">Save vault…</button>
-            <p class="empty" id="vaultNote" style="padding:6px 0 0;text-align:left;display:none"></p>
-            <div id="vaultList" style="display:grid;gap:6px;padding-top:6px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
-      <div class="opt full">
-        <label id="lLan">Play on the go <span id="lanStat" style="color:var(--dimmer);letter-spacing:.08em">this device only</span></label>
-        <div id="lanBox" class="hidden" style="display:grid;gap:8px">
-          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">This command deck is reachable from any device on
-            the same Wi-Fi. Open one of these on your phone — progress, boards and duels follow your account.</p>
-          <div id="lanUrls" style="display:grid;gap:6px"></div>
-          <div class="pair">
-            <button class="btn" id="btnLanCopy">Copy first address</button>
-            <button class="btn ghost" id="btnLanHow">How it works</button>
-          </div>
-          <p class="empty hidden" id="lanHow" style="padding:2px 0;text-align:left;line-height:1.8">The deck binds all network
-            interfaces, so your phone and this machine just need the same Wi-Fi. Same account on both — start a run on the
-            couch, finish it in the garden. A proper public deployment removes the same-network requirement entirely.</p>
-        </div>
-        <p class="empty hidden" id="lanSolo" style="padding:2px 0;text-align:left;line-height:1.8">No command deck detected —
-          launch <b>node server.js</b> to open multiplayer-ready play across your devices.</p>
-      </div>
-    </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
       <button class="btn ghost" id="btnFull">Fullscreen</button>
@@ -997,20 +915,15 @@ body.needrotate #rotate{display:grid}
     <b>Sky watch</b><span id="ovSkyTxt"></span>
   </div>
   <div id="ovSchool" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)"></div>
+  <div id="ovCloud" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)">
+    <b>Sign up to post this score</b><span>guest runs stay on this device · <button class="up" id="btnOvSignUp" type="button">Sign up</button></span>
+  </div>
   <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
       <button class="btn key" id="btnRegister">Save</button>
     </div>
     <div id="ovBoard" style="margin-bottom:20px"></div>
-    <div class="entry hidden" id="duelRow">
-      <input id="duelTo" maxlength="16" placeholder="CHALLENGE A PILOT" spellcheck="false" autocomplete="off" aria-label="Pilot to challenge">
-      <button class="btn" id="btnDuel" style="text-align:center">Send duel</button>
-    </div>
-    <div class="entry" id="fbRow" style="margin-bottom:14px">
-      <input id="fbText" maxlength="280" placeholder="One thing the maker should know (optional)" spellcheck="false" autocomplete="off" aria-label="Feedback for the maker - one line, sent with this flight's shape">
-      <button class="btn" id="btnSendFb" style="text-align:center">Send</button>
-    </div>
     <div class="pair">
       <button class="btn key" id="btnAgain">Fly again</button>
       <button class="btn" id="btnToHangar">Hangar</button>
@@ -1037,7 +950,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.27.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.28.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1055,16 +968,9 @@ const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const hyp = (x, y) => Math.sqrt(x * x + y * y);
 function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
-/* v4.22+ — pilot links: live deck → /pilot/<name> (authoritative JSON);
-   deckless Pages → pilot.html?callsign= (public mirror profile). */
+/* pilot links open the public profile page (reads the public views) */
 function pilotUrl(name) {
-  const enc = encodeURIComponent(String(name || ''));
-  const remote = (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck))
-    ? NET.deck.replace(/\/$/, '') : '';
-  if (typeof NET !== 'undefined' && NET.on) {
-    return (remote || location.origin) + '/pilot/' + enc;
-  }
-  return 'pilot.html?callsign=' + enc;
+  return 'pilot.html?callsign=' + encodeURIComponent(String(name || ''));
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -3317,7 +3223,6 @@ function addScore(n, x, y, big) {
 function registerKill(e) {
   GAME.kills++;
   /* v4.25 funnel: first kill ever this boot — the "it clicked" stage */
-  if (GAME.kills === 1 && typeof NET !== 'undefined') NET.funnel('k1');
   if (P.beam) GAME.hits++;   // beam kills are also beam hits — accuracy stays meaningful
   GAME.combo++;
   GAME.comboT = 3.2;
@@ -4928,7 +4833,6 @@ function updateRushDirector(dt) {
 function startWave(n) {
   DIRECTOR.wave = n; GAME.wave = n;
   /* v4.25 funnel: wave 5 is the depth marker — the game held them this long */
-  if (n === 5 && typeof NET !== 'undefined') NET.funnel('w5');
   DIRECTOR.t = 0; DIRECTOR.phase = 'combat';
   if (GAME.mode === 'rush') { return; }
   DIRECTOR.queue = buildWave(n);
@@ -6421,10 +6325,6 @@ function endRun() {
   const q = qualifiesIn(loadBoard(mode), GAME.score, 8);
   $('entryRow').classList.toggle('hidden', !q);
   if (q) $('pilot').value = DB.get('callsign', '');
-  /* duels are only for the daily — same seed everywhere makes it fair */
-  const dg = DB.get('ghost.daily', null);
-  $('duelRow').classList.toggle('hidden',
-    !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
   renderBoard($('ovBoard'), mode, null, null, META.paint);
   /* school runs are practice: a clean summary, nothing more — no rank,
      no post, no outbox. The +120 is the whole contract. */
@@ -6436,78 +6336,14 @@ function endRun() {
     $('ovSchool').innerHTML = '<b>School report</b><span>' +
       (SCHOOL.payBand ? esc(SCHOOL.payBand) : 'Drills logged. The corridor awaits.') + '</span>';
   }
-  /* Plausibility-checked community posting. Posted now when possible; otherwise
-     the run lands in the OUTBOX and drains automatically once reachable. */
   if (!isSchool) {
-  TELE.sample();
-  const tele = { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() };
-  /* A duel completion is only sent with the finished daily run. The deck
-     checks its score and telemetry before recording the win. */
-  if (GAME.rivalBeat && GHOST.rival && GHOST.rival.duelId) {
-    NET.beatDuel(GHOST.rival.duelId, {
-      score: GAME.score, wave: Math.max(1, GAME.wave), diff: CFG.diff,
-      runT: tele.runT, kills: tele.kills, cps: tele.cps
-    }).then(r => {
-      if (!r || !r.beaten) return;
-      const rv = DB.get('ghost.rival', null);
-      if (rv) { rv.beaten = true; DB.set('ghost.rival', rv); }
-      note('Duel win accepted by the deck', 'good');
-    });
-  }
-  const ovRankEl = $('ovRank');
-  const paintQueued = () => {
-    if (!ovRankEl) return;
-    ovRankEl.classList.remove('hidden');
-    ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
-  };
   /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
+  if (typeof CLOUD !== 'undefined') CLOUD.overPrompt(!GAME.school && GAME.score >= 1);
   if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
     CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
       .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
       .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
   }
-  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele,
-    { paint: META.paint, mastery: masteryLevel(META.ship) }).then(r => {
-    const el = $('ovRank');
-    if (!el) return;
-    if (r) {
-      el.classList.remove('hidden');
-      const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
-        ? ' · gauntlet #' + esc(r.seasonMe.rank)
-        : '';
-      el.innerHTML = r.verdict === 'rejected'
-        ? '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>'
-        : r.verdict === 'review'
-        ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + esc(r.rank) + seasonLine + '</span>';
-      if (mode === 'daily' && r.verdict === 'accepted' && r.daily) {
-        const medals = applyDailyResult(r);
-        if (medals.length) {
-          const st = META.daily || {};
-          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.map(esc).join(' · ') +
-            '</b><span>day streak ' + esc(st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + esc(st.best) : '') + '</span></div>';
-        }
-      }
-    } else {
-      if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
-        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
-        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
-      else el.classList.add('hidden');
-    }
-  }).catch(err => {
-    // queue on transient failures (offline, 5xx, throttling); a definitive
-    // 422 rejection is shown honestly and NOT queued — retrying it would
-    // just burn the same verdict
-    if (NET.user && !(err && err.status === 422)) {
-      OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
-        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
-        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps });
-      paintQueued();
-    } else if (err && err.status === 422 && ovRankEl) {
-      ovRankEl.classList.remove('hidden');
-      ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>';
-    }
-  });
   }
   showScreen('s-over', true);
   if (q && matchMedia('(pointer:fine)').matches) $('pilot').focus();
@@ -6592,7 +6428,7 @@ function drawDock() {
   if (hon) {
     g.font = '600 13px system-ui, sans-serif';
     g.fillStyle = rgba(PAL.gold, hon.at >= 25000 ? .95 : .55);
-    g.fillText((hon.at >= 25000 ? '✦ ' : '') + (NET.user ? NET.user.name.toUpperCase() : (DB.get('callsign', '') || 'PILOT').toUpperCase()) +
+    g.fillText((hon.at >= 25000 ? '✦ ' : '') + (DB.get('callsign', '') || 'PILOT').toUpperCase() +
       ' · ' + hon.name.toUpperCase() + ' OF THE YARD', w / 2, h * .855);
   }
 /* season-end honor — v4.11: the deck has counted a week with no gap */
@@ -6670,8 +6506,7 @@ function refreshTitleMeta() {
   else if (META.tourBest) $('tourSub').textContent = 'Furthest: ' + STAGES[Math.min(7, META.tourBest - 1)].name + ' · ' + META.tourBest + ' of 8 worlds';
   $('regMeta').textContent = (META.runs
     ? META.runs + ' runs · ' + fmt(META.totalKills) + ' kills · best wave ' + Math.max(1, META.bestWave)
-    : 'Stored on this device')
-    + (NET.user ? ' · ' + NET.user.name : '');
+    : 'Stored on this device');
 }
 function pauseRun() {
   if (GAME.state !== 'playing' || GAME.paused) return;
@@ -6706,106 +6541,21 @@ function saveCallsign() {
   AU.pickup();
 }
 
-/* ── the save vault: inspect and restore deck-side profile snapshots ──
-   Restore REPLACES (not max-merges) local progress with the snapshot —
-   that is the point. Last-good recovery for a wiped or clobbered save. */
-function sanitizeSnapMeta(s) {
-  if (!s || typeof s !== 'object') return null;
-  /* ownership validates against the SNAPSHOT's own records, not the local
-     META — this runs exactly when the local save is the broken thing
-     (wiped, clobbered, probe-wrecked). Restore from its own claim. */
-  const owned = Array.isArray(s.owned) ? s.owned.filter(id => HULLS.some(h => h.id === id)) : ['vesper'];
-  if (!owned.length) owned.push('vesper');
-  const paints = Array.isArray(s.paints) && s.paints.length ? s.paints.filter(id => PAINTS.some(p => p.id === id)) : ['yard'];
-  if (!paints.length) paints.push('yard');
-  const sigils = Array.isArray(s.sigils) && s.sigils.length ? s.sigils.filter(x => x === '' || SIGILS.some(g => g.id === x)) : [''];
-  if (!sigils.length) sigils.push('');
-  const o = {};
-  o.alloy = Math.max(0, Math.min(1e9, Math.floor(+s.alloy || 0)));
-  /* the daily-payout watermark MUST survive a snapshot round-trip: the deck
-     pays "full − paidBefore", so losing this field re-banks old medals */
-  o.dailyPaid = Math.max(0, Math.min(1e9, Math.floor(+s.dailyPaid || 0)));
-  o.daily = (s.daily && typeof s.daily === 'object')
-    ? { streak: Math.max(0, Math.floor(+s.daily.streak || 0)),
-        best: Math.max(0, Math.floor(+s.daily.best || 0)),
-        lastDay: typeof s.daily.lastDay === 'string' ? s.daily.lastDay.slice(0, 10) : null }
-    : null;
-  o.ship = owned.includes(s.ship) ? s.ship : 'vesper';
-  o.owned = owned;
-  const r = {};
-  for (const ref of REFITS) r[ref.id] = clamp(+((s.refits || {})[ref.id]) || 0, 0, ref.max);
-  o.refits = r;
-  o.runs = Math.max(0, Math.floor(+s.runs || 0));
-  o.totalKills = Math.max(0, Math.floor(+s.totalKills || 0));
-  o.bestWave = Math.max(0, Math.floor(+s.bestWave || 0));
-  o.tourBest = Math.max(0, Math.floor(+s.tourBest || 0));
-  o.tourCleared = !!s.tourCleared;
-  o.paint = paints.includes(s.paint) ? s.paint : 'yard';
-  o.paints = paints;
-  o.sigil = sigils.includes(s.sigil) ? s.sigil : null;
-  o.sigils = sigils;
-  o.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : null;
-  o.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
-  o.donated = Math.max(0, Math.min(1e9, Math.floor(+s.donated || 0)));
-  o.sky = (s.sky && typeof s.sky === 'object') ? s.sky : {};
-  o.codex = (s.codex && typeof s.codex === 'object') ? s.codex : {};
-  o.skyLog = Array.isArray(s.skyLog) ? s.skyLog.slice(0, 60) : [];
-  o.school = !!s.school;
-  o.dd = (s.dd && typeof s.dd === 'object') ? s.dd : { wave: 0, falls: 0 };
-  return o;
-}
-let vaultOpen = false;
-function paintVault() {
-  const box = $('vaultBox'), list = $('vaultList'), nt = $('vaultNote');
-  box.classList.toggle('hidden', !NET.on || !NET.user);
-  if (!NET.on || !NET.user) { vaultOpen = false; list.innerHTML = ''; nt.style.display = 'none'; return; }
-  if (!vaultOpen) { list.innerHTML = ''; nt.style.display = 'none'; return; }
-  nt.style.display = 'block';
-  nt.textContent = 'Reading the vault…';
-  NET.listSnaps().then(snaps => {
-    if (!snaps.length) { nt.textContent = 'The vault is empty — snapshots appear as you fly.'; return; }
-    nt.textContent = 'Restoring replaces this device\u2019s progress with the snapshot. Earned items are never lost from the account.';
-    list.innerHTML = '';
-    snaps.slice(0, 6).forEach(s => {
-      const b = document.createElement('button');
-      b.className = 'btn ghost';
-      b.style.cssText = 'text-align:left;font-size:.64rem;letter-spacing:.06em';
-      const when = new Date(s.taken).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      b.textContent = when + ' · ' + s.bytes + ' bytes';
-      b.onclick = async () => {
-        b.disabled = true;
-        const snap = await NET.readSnap(s.taken).catch(() => null);
-        if (!snap || !snap.meta) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
-        const clean = sanitizeSnapMeta(snap.meta);
-        if (!clean) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
-        await NET.applySnapshot(clean);
-        note('Vault restored — hangar rebuilt from ' + when, 'good');
-        b.disabled = false;
-      };
-      list.appendChild(b);
-    });
-  }).catch(() => { nt.textContent = 'The vault could not be reached — deck offline?'; });
-}
 
 /* settings screen state */
 let setReturn = 'title';
 function openSettings(from) {
   setReturn = from;
-  paintAccount();
-  NET.probe().then(paintAccount);
+  applyPortalChrome();
   showScreen('s-set', true);
   $('btnSetClose').focus();
 }
-/* Portal chrome: no deck field, no account/Google/LAN row, no feedback or
-   duel send, no external or social anchors. Local boards stay. */
+/* Portal chrome: no worldwide account, no install prompt, no external or
+   social anchors. Local boards stay. */
 function applyPortalChrome() {
   if (typeof emberfallPortal !== 'function' || !emberfallPortal()) return;
   const hide = id => { const el = $(id); if (el) el.classList.add('hidden'); };
-  ['deckRow', 'acctFields', 'googleBox', 'acctSigned', 'lanBox', 'lanSolo', 'fbRow', 'duelRow', 'globalSignin', 'btnInstall', 'swRegister'].forEach(hide);
-  const acct = $('lAcct');
-  if (acct && acct.parentElement) acct.parentElement.classList.add('hidden');
-  const lan = $('lLan');
-  if (lan && lan.parentElement) lan.parentElement.classList.add('hidden');
+  ['btnInstall', 'swRegister'].forEach(hide);
   const dayNote = $('dayBoardNote');
   if (dayNote) dayNote.textContent = 'One seed, one day — your best on this device. Waves carry the D tag.';
   const gNote = $('globalBoardNote');
@@ -6831,119 +6581,6 @@ function applyPortalChrome() {
     }
   });
 }
-/* ── command deck account panel (settings) ── */
-function paintAccount() {
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
-  const on = NET.on, u = NET.user;
-  $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
-  $('acctFields').classList.toggle('hidden', !on || !!u);
-  $('acctSigned').classList.toggle('hidden', !on || !u);
-  paintDeckRow();
-  paintVault();
-  paintLan();
-  /* v4.26: the Google row arms only while the settings screen is ACTUALLY
-     open and the deck says Google is configured (EF_GOOGLE_CLIENT_ID).
-     The boot path must never fetch Google — the game boots with zero
-     third-party network requests (pinned by game.spec.js); opening
-     Settings is the deliberate act that may fetch the button library. */
-  const setOn = $('s-set') && $('s-set').classList.contains('on');
-  if (on && !u && setOn) NET.probe().then(() => paintGoogle());
-  else if ($('googleBox')) $('googleBox').classList.add('hidden');
-  /* destructive account actions are real clicks; a framing page must not
-     be able to position them under the player's cursor */
-  if (typeof crossOriginFramed === 'function' && crossOriginFramed()) {
-    for (const id of ['btnAcctDel', 'btnAcctPass', 'mgmtPassCur', 'mgmtPassNew', 'mgmtDelPass']) {
-      const el = $(id);
-      if (el) el.disabled = true;
-    }
-  }
-}
-/* v4.22 — the deck address row: the one field that decides WHICH deck the
-   game flies. Committed on change (blur/Enter); a wrong address is not an
-   error state, it is local mode with the hint still in front of you. */
-function paintDeckRow() {
-  const inp = $('deckUrl');
-  if (!inp) return;
-  const framed = typeof crossOriginFramed === 'function' && crossOriginFramed();
-  if (framed) {
-    inp.disabled = true;
-    inp.value = NET.deck;
-    $('deckHint').textContent = 'This page is embedded, so it stays on the official deck. A framing site cannot redirect your password or Google sign-in. Open the game in its own tab to choose a different deck.';
-    return;
-  }
-  inp.disabled = false;
-  if (document.activeElement !== inp) inp.value = NET.deck;
-  $('deckHint').textContent = NET.deck
-    ? 'Flying ' + NET.deck + ' — accounts, boards and duels come from there. Clear the field to return to this network.'
-    : 'Fly a remote deck: type its address (https://deck.example.com) — accounts, worldwide boards and duels come from there. Blank = the deck on this network.';
-}
-function bindPassToggle() {
-  const inp = $('acctPass'), btn = $('btnPassVis');
-  if (!inp || !btn) return;
-  btn.onclick = () => {
-    AU.ui();
-    const show = inp.type === 'password';
-    inp.type = show ? 'text' : 'password';
-    btn.textContent = show ? 'hide' : 'show';
-    btn.setAttribute('aria-pressed', String(show));
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    inp.focus();
-  };
-}
-/* LAN play — the on-the-go story before a public deployment: the deck
-   answers on every interface, so any device on the same Wi-Fi can open
-   the game with full account/boards/duels. Addresses come from the deck
-   itself (/api/lan), the phone just needs the URL. */
-let lanCache = null;
-async function paintLan() {
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
-  const on = NET.on;
-  $('lanBox').classList.toggle('hidden', !on);
-  $('lanSolo').classList.toggle('hidden', on);
-  if (!on) { $('lanStat').textContent = 'this device only'; return; }
-  $('lanStat').textContent = 'deck open to your Wi-Fi';
-  try {
-    if (!lanCache) lanCache = await (await fetch('/api/lan')).json();
-    const box = $('lanUrls');
-    box.innerHTML = '';
-    (lanCache.addresses || []).slice(0, 3).forEach(a => {
-      const b = document.createElement('button');
-      b.className = 'btn ghost';
-      b.style.textAlign = 'left';
-      b.style.fontSize = '.66rem';
-      b.style.letterSpacing = '.08em';
-      b.textContent = 'http://' + a + ':8123';
-      b.onclick = () => {
-        navigator.clipboard.writeText(b.textContent)
-          .then(() => note('Copied — open it on your phone', 'good'))
-          .catch(() => note(b.textContent, '', ''));
-      };
-      box.appendChild(b);
-    });
-    if (!(lanCache.addresses || []).length) {
-      box.innerHTML = '<p class="empty" style="padding:2px 0;text-align:left">No LAN address found — connect this machine to a Wi-Fi network.</p>';
-    }
-  } catch (e) { /* non-fatal */ }
-}
-async function acctGo(isNew) {
-  const name = $('acctName').value.trim();
-  const pass = $('acctPass').value;
-  if (!NET.on) { note('No command deck reachable', 'bad'); return; }
-  if (!name || !pass) { note('Callsign and password, pilot', 'bad'); return; }
-  const btn = isNew ? $('btnAcctNew') : $('btnAcctGo');
-  btn.disabled = true;
-  try {
-    if (isNew) await NET.register(name, pass); else await NET.login(name, pass);
-    $('acctPass').value = '';
-    note('Linked · welcome, ' + NET.user.name, 'good');
-    paintAccount();
-    NET.pushProfile();   // lift local progress to the deck right away
-    AU.pickup();
-  } catch (e) {
-    note(String((e && e.message) || e).slice(0, 60), 'bad');
-  }
-  btn.disabled = false;
-}
 function closeSettings() {
   showScreen('s-set', false);
   if (setReturn === 'pause') $('btnResume').focus();
@@ -6958,85 +6595,8 @@ bindClick('btnTour', () => startRun('tour'));
 bindClick('btnDaily', () => startRun('daily'));
 bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
-/* v4.25 funnel: armed — the first launch intent this boot, any mode */
-NET.funnel('armed');
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
-bindPassToggle();
-/* ── v4.26 Google sign-in ───────────────────────────────────────────────
-   One button in the account panel, shown only when the DECK says Google
-   is configured (EF_GOOGLE_CLIENT_ID rides /api/health). The library
-   loads lazily — a deck without Google never fetches it. The ID token
-   goes to /api/auth/google, which verifies it against Google's own keys
-   and mints the deck's OWN session; everything downstream (boards, vault,
-   duels) is identical to a password login. Every failure path is silent:
-   the password fields remain the guaranteed way in. */
-let gsiLoaded = false;
-function paintGoogle() {
-  const box = $('googleBox');
-  if (!box) return;
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { box.classList.add('hidden'); return; }
-  const show = NET.on && !NET.user && NET.googleClientId;
-  box.classList.toggle('hidden', !show);
-  if (!show) return;
-  if (typeof crossOriginFramed === 'function' && crossOriginFramed() && $('gHint')) {
-    $('gHint').textContent = 'Embedded page: Google sign-in often will not open here. A password still reaches only the official deck. For Google, open the game in its own tab.';
-  }
-  if (!gsiLoaded) {
-    gsiLoaded = true;
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.async = true; s.defer = true;
-    s.onload = armGoogle;
-    s.onerror = () => { $('gHint').textContent = ''; };   // library blocked? the password path stands
-    document.head.appendChild(s);
-  }
-  armGoogle();
-}
-function armGoogle() {
-  try {
-    if (!(window.google && google.accounts && google.accounts.id)) return;   // not here yet
-    const host = $('gBtnHost');
-    if (!host || host.dataset.armed) return;
-    google.accounts.id.initialize({
-      client_id: NET.googleClientId,
-      callback: async (resp) => {
-        if (!resp || !resp.credential) return;
-        try {
-          await NET.googleSignIn(resp.credential);
-          $('acctPass').value = '';
-          note('Linked · welcome, ' + NET.user.name, 'good');
-          paintAccount();
-          NET.pushProfile();   // lift local progress right away, same as password sign-in
-          AU.pickup();
-        } catch (e) {
-          note(String((e && e.message) || e).slice(0, 60), 'bad');
-        }
-      }
-    });
-    google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', width: 260 });
-    host.dataset.armed = '1';
-  } catch (e) { /* silent — the panel must never break over Google */ }
-}
-(function () {
-  const inp = $('deckUrl');
-  if (!inp) return;
-  inp.addEventListener('change', async () => {
-    const v = inp.value.trim().replace(/\/+$/, '');
-    if (v === NET.deck) return;
-    if (typeof crossOriginFramed === 'function' && crossOriginFramed()) { inp.value = NET.deck; return; }
-    if (v && typeof deckUrlAllowed === 'function' && !deckUrlAllowed(v)) {
-      note('Deck address must be an http(s) URL with no password in it', 'bad');
-      inp.value = NET.deck;
-      return;
-    }
-    NET.setDeck(v);
-    note(v ? 'Probing ' + v.replace(/^https?:\/\//, '') + '…' : 'Back to the local deck…', 'dim');
-    const on = await NET.probe();
-    note(on ? 'Deck linked' + (NET.deck ? ' (remote)' : '') : 'No deck answered there — staying in local mode', on ? 'good' : 'bad');
-    paintAccount();
-  });
-})();
 bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
@@ -7150,113 +6710,14 @@ addEventListener('load', () => {
   if (b) b.onclick = () => AU.ui();
   if (b) b.classList.remove('hidden');
 });
-bindClick('btnAcctGo', () => acctGo(false));
-bindClick('btnAcctNew', () => acctGo(true));
-/* ── account management: change password · sessions · delete account ──
-   Server endpoints carry the authority; this panel is the honest surface.
-   Deletion asks twice and states the consequences in plain words — a
-   one-keystroke catastrophe is not a feature. */
-let acctMgmtOpen = false;
-async function paintAcctMgmt() {
-  const box = $('acctMgmt');
-  if (!acctMgmtOpen) { box.classList.add('hidden'); return; }
-  box.classList.remove('hidden');
-  try {
-    const r = await NET.req('GET', '/api/account/sessions');
-    $('mgmtSess').textContent = r && r.ok && r.sessions
-      ? r.sessions.length + ' active session' + (r.sessions.length === 1 ? '' : 's') + ' on the deck'
-      : 'session list unavailable';
-  } catch (e) { $('mgmtSess').textContent = 'session list unavailable'; }
-}
-bindClick('btnAcctMgmt', () => { acctMgmtOpen = !acctMgmtOpen; paintAcctMgmt(); AU.ui(); });
-bindClick('btnAcctPass', async () => {
-  const cur = $('mgmtPassCur').value, next = $('mgmtPassNew').value;
-  if (next.length < 6) { note('New password: 6+ characters', 'bad'); AU.ui(); return; }
-  try {
-    const r = await NET.req('POST', '/api/account/password', { current: cur, next });
-    if (r && r.ok) {
-      $('mgmtPassCur').value = ''; $('mgmtPassNew').value = '';
-      note('Password changed — other sessions keep working until they expire', 'good');
-    } else note((r && r.error) || 'Password change failed', 'bad');
-  } catch (e) { note('Password change failed', 'bad'); }
-  AU.ui();
-});
-bindClick('btnAcctDel', async () => {
-  const pw = $('mgmtDelPass').value;
-  const who = NET.user ? NET.user.name : 'this pilot';
-  const first = confirm('Delete the account "' + who + '"?\n\nEvery record leaves the boards — scores, duels, daily ledger, cloud saves, the vault. This cannot be undone.');
-  if (!first) return;
-  const second = prompt('Type ' + who + ' to confirm permanent deletion:');
-  if (!second || second.trim().toUpperCase() !== who.toUpperCase()) return;
-  try {
-    const r = await NET.req('POST', '/api/account/delete', { password: pw });
-    if (r && r.ok && r.deleted) {
-      acctMgmtOpen = false;
-      $('mgmtDelPass').value = '';
-      NET.user = null;
-      try { localStorage.removeItem('ef.remember'); } catch (e) { }
-      paintAccount();
-      note('Account deleted. This device keeps its local save; the callsign is retired.', 'good');
-    } else note((r && r.error) || 'Deletion failed', 'bad');
-  } catch (e) { note('Deletion failed', 'bad'); }
-  AU.ui();
-});
-bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
-bindClick('btnVault', () => { vaultOpen = !vaultOpen; paintVault(); AU.ui(); });
-bindClick('btnLanCopy', () => {
-  const first = document.querySelector('#lanUrls .btn');
-  if (!first) return;
-  navigator.clipboard.writeText(first.textContent)
-    .then(() => note('Copied — open it on your phone', 'good'))
-    .catch(() => note(first.textContent, '', ''));
-  AU.ui();
-});
-bindClick('btnLanHow', () => { $('lanHow').classList.toggle('hidden'); AU.ui(); });
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
 bindClick('btnAbort', () => { GAME.paused = false; if (RANGE.active) { RANGE.stop(); return; } toTitle(); });
 bindClick('btnAbandonTour', () => { GAME.paused = false; endRunTour(); toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
-/* v4.25 — the listening deck. One line per death, anon-friendly, offline-
-   queued (max 5) and flushed on the next boot. Never blocks the flow: the
-   button answers in place and Fly again stays one key away. */
-function fbQueue() { try { return JSON.parse(localStorage.getItem('emberfall2.fb') || '[]'); } catch (e) { return []; } }
-async function sendFeedback() {
-  const el = $('fbText'), btn = $('btnSendFb');
-  const text = el.value.trim();
-  if (text.length < 2) { el.focus(); return; }
-  const flight = { ship: META.ship, wave: Math.max(1, GAME.wave), mode: GAME.mode };
-  btn.disabled = true;
-  const ok = await NET.sendFeedback(text, flight);
-  btn.textContent = ok ? 'Sent ✓' : 'Kept for later';
-  el.value = '';
-  if (!ok) {
-    try { const q = fbQueue(); q.push({ text, flight }); localStorage.setItem('emberfall2.fb', JSON.stringify(q.slice(-5))); } catch (e) { }
-  }
-  setTimeout(() => { btn.textContent = 'Send'; btn.disabled = false; }, 2600);
-}
-async function flushFeedback() {
-  const q = fbQueue(); if (!q.length) return;
-  const rest = [];
-  for (const item of q) { const ok = await NET.sendFeedback(item.text, item.flight); if (!ok) rest.push(item); }
-  try { localStorage.setItem('emberfall2.fb', JSON.stringify(rest)); } catch (e) { }
-}
-bindClick('btnSendFb', sendFeedback);
-$('fbText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.stopPropagation(); sendFeedback(); } });
 bindClick('btnToHangar', () => toHangar());
 bindClick('btnRegister', () => saveCallsign());
-bindClick('btnDuel', async () => {
-  const dg = DB.get('ghost.daily', null);
-  const to = ($('duelTo').value || '').trim();
-  if (!dg || !to) { note('Callsign to challenge, pilot', 'bad'); return; }
-  const btn = $('btnDuel'); btn.disabled = true;
-  const r = await NET.sendDuel(to, dg);
-  btn.disabled = false;
-  if (r && r.error) note(r.error.slice(0, 52), 'bad');
-  else if (r && r.ok) { note('Duel sent to ' + to, 'good'); $('duelTo').value = ''; AU.pickup(); }
-  else note('Command deck unreachable', 'bad');
-});
 bindClick('btnSetClose', () => { AU.ui(); closeSettings(); });
 bindClick('btnFull', () => toggleFullscreen());
 bindClick('stClose', () => { $('st').classList.add('hidden'); });
@@ -7352,6 +6813,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.28.0',
+    items: [
+      'Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.'
+    ]
+  },
   {
     v: '4.27.0',
     items: [
@@ -7804,18 +7271,6 @@ function runSelfTests() {
     const k = todaySeedKey();
     eq(hashStr('emberfall-' + k), hashStr('emberfall-' + k));
     ok(/^\d{4}-\d{2}-\d{2}$/.test(k), 'key shape');
-  });
-  T('outbox freshness filter', () => {
-    const now = Date.now(), k = todaySeedKey();
-    const q = [
-      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE + 6e4 },      // fresh
-      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE - 6e4 },      // too old
-      { mode: 'daily', day: k, at: now - 6e4 },                          // today's daily
-      { mode: 'daily', day: '2001-01-01', at: now - 6e4 }                // rotated-out daily
-    ];
-    const f = OUTBOX.fresh(q);
-    eq(f.length, 2, 'kept');
-    eq(f[0].at, q[0].at); eq(f[1].day, k);
   });
   T('combo tiers', () => {
     [0, 1, 4].forEach(c => eq(multFor(c), 1));
@@ -8443,76 +7898,8 @@ function runSelfTests() {
     GAME.lives = savedLives; GAME.state = savedState;
     R = savedR;
   });
-  T('save vault: sanitizer clamps, validates and defaults a hostile snapshot', () => {
-    const clean = sanitizeSnapMeta({
-      alloy: -50, ship: 'atlas', owned: ['atlas', 'ghost-hull', 42],
-      refits: { plating: 99, ordnance: -3 }, runs: 12.9, totalKills: '140',
-      paint: 'crimson', paints: ['crimson', 'nope'], sigil: 'rampart',
-      sigils: ['rampart', 'bogus'], donated: 1e12, skyLog: new Array(200).fill({ k: 'x' }),
-      dd: null, mastery: 'nope'
-    });
-    eq(clean.alloy, 0);                                    // negative clamps to 0
-    eq(clean.owned.join(','), 'atlas');                    // unknown hulls dropped
-    eq(clean.ship, 'atlas');                               // owned ship survives
-    eq(clean.refits.plating, 5);                           // clamped to the refit max (plating caps at 5)
-    eq(clean.refits.ordnance, 0);
-    eq(clean.runs, 12);                                    // fractional floors
-    eq(clean.totalKills, 140);                             // numeric strings coerce
-    eq(clean.paint, 'crimson');                            // owned paint survives
-    eq(clean.paints.join(','), 'crimson');                 // unknown paints dropped
-    eq(clean.sigil, 'rampart');                            // owned sigil survives
-    eq(clean.sigils.join(','), 'rampart');                 // unknown sigils dropped
-    eq(clean.donated, 1e9);                                // absurd values clamp
-    eq(clean.skyLog.length, 60);                           // log capped at 60
-    eq(clean.mastery, null);
-    eq(clean.dd.wave, 0);
-    eq(sanitizeSnapMeta(null), null);                      // garbage in, nothing out
-    const ghost = sanitizeSnapMeta({ ship: 'wraith' });    // unowned ship falls back
-    eq(ghost.ship, 'vesper');
-    eq(ghost.owned.join(','), 'vesper');
-  });
 
-  T('save vault: boot offer only for strictly richer snapshots', () => {
-    const rich = sanitizeSnapMeta({ owned: ['vesper', 'atlas'], totalKills: 5000, alloy: 8000 });
-    eq(vaultOfferWorthy(rich, { owned: ['vesper'], totalKills: 10 }), true, 'richer vault deserves the offer');
-    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 9000 }), false, 'equal-or-lesser stays quiet');
-    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 5000 }), false, 'equal record stays quiet');
-    eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
-  });
 
-  T('daily gauntlet: weekly recap line covers every branch of the horizon', () => {
-    eq(weekRecapLine(null, 0), '', 'nothing flown: silence');
-    eq(weekRecapLine({ streak: 1 }, 0), 'streak 1 · 7 for the next laurel', 'day one: the horizon shows immediately');
-    eq(weekRecapLine({ streak: 0 }, 2), '2 days this week · 7 for the next laurel', 'a flown week with a broken streak still counts — and is shown the road');
-    eq(weekRecapLine({ streak: 3 }, 3), 'streak 3 · 3 days this week · 7 for the next laurel', 'the full horizon reads in one line');
-    eq(weekRecapLine({ streak: 14 }, 5), 'streak 14 · 5 days this week · 30 for the next laurel', 'the next laurel skips past reached milestones');
-    eq(weekRecapLine({ streak: 30 }, 4), 'streak 30 · 4 days this week', 'a maxed streak drops the horizon clause');
-    eq(weekRecapLine({ streak: 7 }, 1), 'streak 7 · 1 day this week · 14 for the next laurel', 'singular day reads correctly');
-  });
-  T('daily gauntlet: medal pips render the deck ledger compactly', () => {
-    eq(medalPips(undefined), '', 'no ledger entry: no pips');
-    eq(medalPips([]), '', 'empty ledger entry: no pips');
-    eq(medalPips(['Crest']), ' <span style="color:var(--gold)">Crest</span>', 'one medal renders as one gold name');
-    eq(medalPips(['Crest', 'Crown', 'Eclipse']).includes('Crest·Crown·Eclipse'), true, 'multiple medals join with interpuncts');
-    /* hostile ledger entry must not inject — the ledger is server-owned but
-       the renderer stays defensive because it interpolates into innerHTML */
-    const evil = medalPips(['<img src=x onerror=alert(1)>']);
-    ok(!evil.includes('<img'), 'ledger names are escaped before interpolation');
-  });
-  T('daily gauntlet day board shows the streak beside your row', () => {
-    /* mirror of the renderer's exact expression (js/net.js renderDayBoard) */
-    const streakLine = me => (me && me.streak > 1) ? ' · streak ' + me.streak : '';
-    eq(streakLine({ streak: 1 }), '', 'a single day shows no streak tag');
-    eq(streakLine({ streak: 4 }), ' · streak 4', 'a running streak is advertised');
-    eq(streakLine(null), '', 'no daily block: no streak tag');
-    const you = { rank: 2, name: 'PILOT', s: 12345 };
-    NET.meDaily = { streak: 4 };
-    const html = '<div class="row me"><span class="rk">#' + you.rank + '</span>' +
-      '<span class="nm">' + esc(you.name) + '</span>' +
-      '<span class="sc">' + padN(you.s, 7) + '</span><span class="wv">you · today' + streakLine(NET.meDaily) + '</span></div>';
-    ok(html.includes(' · streak 4</span>'), 'streak renders inside the you-row');
-    NET.meDaily = null;
-  });
   T('daily gauntlet day board: seed-key contract, row shape, mutator binding', () => {
     /* the day string IS the seed key — one regex pins the contract for both
        sides (client derives the run seed from it, server windows the board) */
@@ -8550,54 +7937,13 @@ function runSelfTests() {
     ok(['glass', 'swarm', 'overkill'].includes(todayMutator().id), 'mutator comes from the registry');
   });
 
-  T('cloud profile merge converges and rejects stale', () => {
-    const snap = JSON.stringify(META), savedT = DB.get('meta.updated', 0);
-    META.alloy = 100; META.owned = ['vesper']; META.ship = 'vesper';
-    META.refits = { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 };
-    META.feats = {}; META.sky = { comets: 0, golden: 0, fleets: 0 };
-    DB.set('meta.updated', 1000);
-    NET.mergeProfile({ updated: 500, data: { meta: { alloy: 9999 } } });
-    eq(META.alloy, 100, 'stale server profile is ignored');
-    NET.mergeProfile({ updated: 2000, data: { meta: {
-      alloy: 555, owned: ['vesper', 'halcyon'], refits: { plating: 2 },
-      feats: { tfx: 1 }, ship: 'halcyon',
-      sky: { comets: 7, golden: 2, fleets: 3 }
-    } } });
-    eq(META.alloy, 555, 'alloy raised to cloud value');
-    ok(META.owned.includes('halcyon'), 'cloud hull unlocked');
-    eq(META.refits.plating, 2, 'cloud refit merged');
-    ok(META.feats.tfx, 'cloud feat merged');
-    eq(META.sky.comets, 7, 'cloud sky comets merged');
-    eq(META.sky.golden, 2, 'cloud sky golden merged');
-    eq(META.ship, 'halcyon', 'ship follows cloud');
-    Object.assign(META, JSON.parse(snap)); DB.set('meta.updated', savedT); saveMeta();
-  });
   T('quality presets degrade in order', () => {
     const a = qualityFor(0), b = qualityFor(1), c = qualityFor(2);
     ok(a.maxParticles < b.maxParticles && b.maxParticles < c.maxParticles, 'particle budget climbs');
     ok(a.scale <= b.scale && b.scale <= c.scale, 'resolution climbs');
   });
-  T('persistence: skyLog merge union dedupes and interleaves', () => {
-    const snap = JSON.stringify(META.skyLog);
-    META.skyLog = [
-      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },
-      { k: 'fleet', w: 4, d: 1, a: 0, t: 2000, m: 'endless' }
-    ];
-    NET.mergeProfile({ updated: 9e12, data: { meta: { skyLog: [
-      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },        // duplicate — must be dropped
-      { k: 'golden', w: 5, d: 2, a: 250, t: 1500, m: 'daily' },        // interleave by time
-      { k: 'pyre', w: 6, d: 1, a: 0, t: 3000, m: 'endless' }
-    ] } } });
-    eq(META.skyLog.length, 4, 'union keeps 4 unique entries');
-    eq(META.skyLog.map(e => e.t).join(','), '1000,1500,2000,3000', 'sorted chronologically');
-    META.skyLog = JSON.parse(snap);
-  });
-  T('persistence: streak fields merge max-style and migrate from old saves', () => {
+  T('persistence: streak fields migrate from old saves', () => {
     const s0 = META.sky.streakCur, b0 = META.sky.streakBest, c0 = META.sky.comets;
-    NET.mergeProfile({ updated: 9e12, data: { meta: { sky: { comets: 9999, golden: 1, fleets: 1, pyres: 1, streakCur: 990, streakBest: 999 } } } });
-    eq(META.sky.streakCur, 990, 'current streak takes the cloud max (live device may be ahead)');
-    eq(META.sky.streakBest, 999, 'best streak takes the cloud max');
-    eq(META.sky.comets, 9999, 'comets max-merged alongside');
     // legacy save without streak fields must load to zeros, not NaN
     loadMeta();
     ok(Number.isFinite(META.sky.streakCur) && Number.isFinite(META.sky.streakBest), 'legacy save migrates to finite zeros');
@@ -8651,96 +7997,9 @@ function runSelfTests() {
     const part = profStats(r, 2);   // half-filled ring reads only the filled prefix
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
-  T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
-    const savedDeck = NET.deck, savedOn = NET.on;
-    NET.deck = '';
-    NET.on = true;
-    eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
-    eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
-    NET.deck = 'https://deck.example.com';
-    eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
-    NET.on = false;
-    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'deckless mirror profile page');
-    NET.deck = savedDeck;
-    NET.on = savedOn;
-  });
-  T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
-    const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
-    const savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    const savedLocal = NET._localDeckAlive, savedProbed = NET.probed;
-    try {
-      ok(typeof NET.DECK_ADOPTED === 'string', 'the adoption slot exists (empty since the deck was removed)');
-      NET.DECK_ADOPTED = 'https://adopt.example.com';
-      const begin = () => { NET.deck = ''; NET.probed = false; NET.probeP = null; NET.on = false; };
-      const freeze = p => { NET.probed = true; NET.probeP = null; return p.catch(() => false); };   /* take the ladder's decision, never the network */
-      /* 1. a local deck on THIS origin outranks adoption (the v3.2 story) */
-      begin();
-      NET._localDeckAlive = async () => 'ok';
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'local deck alive → stay on this origin (never hijacked to the world deck)');
-      /* 1b. an INCONCLUSIVE local check never adopts — a slow machine
-         must not steal a self-hosted pilot's boot onto the world deck */
-      begin();
-      NET._localDeckAlive = async () => 'unknown';
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'inconclusive local check → honest auto, no adoption');
-      /* 2. a definitive 404 → the adopted deck is dialed */
-      begin();
-      NET._localDeckAlive = async () => 'no';
-      await freeze(NET.probe());
-      eq(NET.deck, 'https://adopt.example.com', 'no local deck → the adopted world deck is dialed');
-      /* 3. adoption latches: a pilot who clears the field gets honest auto */
-      begin();
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'cleared field after adoption → stays empty (no re-adopt this boot)');
-      /* 4. a stored choice outranks everything */
-      localStorage.setItem('emberfall2.deck', 'https://mine.example.com');
-      NET.deck = 'https://mine.example.com';
-      await freeze(NET.probe());
-      eq(NET.deck, 'https://mine.example.com', 'stored choice outranks adoption');
-    } finally {
-      NET.DECK_ADOPTED = savedAdopted; NET.deck = savedDeck; NET.probed = savedProbed; NET.probeP = null;
-      NET.on = savedOn; NET.token = savedTok; NET._localDeckAlive = savedLocal;
-      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-    }
-  });
-  T('v4.22 setDeck: trims the address, clears the bearer, restores clean', () => {
-    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    try { localStorage.setItem('emberfall2.token', 'tok-abc'); } catch (e) { }
-    NET.token = 'tok-abc';
-    NET.setDeck('  https://deck.example.com/  ');
-    eq(NET.deck, 'https://deck.example.com', 'address trimmed, trailing slash gone');
-    ok(!NET.token, 'switching decks drops the old bearer');
-    ok(!localStorage.getItem('emberfall2.token'), 'bearer removed from the store');
-    NET.setDeck(savedDeck);
-    NET.token = savedTok;
-    try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-  });
-  T('deck address: embeds and hostile URLs cannot retarget credentials', () => {
-    ok(deckUrlAllowed('https://deck.example.com'), 'https deck');
-    ok(deckUrlAllowed('http://127.0.0.1:8165'), 'loopback drill deck');
-    ok(!deckUrlAllowed('javascript:alert(1)'), 'javascript scheme refused');
-    ok(!deckUrlAllowed('https://user:pass@evil.example'), 'userinfo refused');
-    ok(!deckUrlAllowed('https://evil.example/?q="><img>'), 'markup refused');
-    ok(!deckUrlAllowed(''), 'blank is not an address');
-    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', true), '', 'cross-origin embed ignores the query and the stored override');
-    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', false), 'https://evil.example', 'top-level ?deck= still wins');
-    eq(chooseDeckAddress(null, 'https://mine.example', false), 'https://mine.example', 'stored choice stands when no query');
-    eq(chooseDeckAddress('', 'https://mine.example', false), '', 'empty ?deck= clears back to auto');
-    eq(chooseDeckAddress('"><img>', 'https://mine.example', false), 'https://mine.example', 'hostile query falls through to the stored deck');
-    eq(chooseDeckAddress(null, 'javascript:alert(1)', false), '', 'poisoned storage is dropped');
-    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    try {
-      NET.deck = 'https://keep.example';
-      NET.token = 'keep-tok';
-      NET.setDeck('javascript:alert(1)');
-      eq(NET.deck, 'https://keep.example', 'setDeck refuses a non-http address');
-      eq(NET.token, 'keep-tok', 'a refused address does not drop the session');
-    } finally {
-      NET.deck = savedDeck;
-      NET.token = savedTok;
-      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-    }
+  T('pilot links: pilotUrl encodes names for the public profile page', () => {
+    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'public profile page');
+    eq(pilotUrl('ACE ONE'), 'pilot.html?callsign=ACE%20ONE', 'names URL-encoded');
   });
   T('battery default: touch devices cap at 60, desktop uncapped', () => {
     eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
@@ -9095,13 +8354,6 @@ function runSelfTests() {
     eq(META.feats.wardenfall, first, 'the feat never re-mints');
     applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1, wardenfalls: 3 } });
     eq(META.daily.wardenfalls, 3, 'the deck\'s lifetime count reconciles a second fall instantly');
-    /* whoami adoption path: NET.adoptLedger carries the lifetime count */
-    META.daily = { streak: 1 }; delete META.feats.wardenfall;
-    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 3 });
-    eq(META.daily.wardenfalls, 3, 'a fresh device learns its falls from /api/me');
-    ok(META.feats.wardenfall, 'the honor mints on adoption — mid-history devices wear it too');
-    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 1 });
-    eq(META.daily.wardenfalls, 3, 'adoption never lowers');
     META.daily = preD; if (preF) META.feats.wardenfall = preF; else delete META.feats.wardenfall; saveMeta();
   });
   T('daily gauntlet: streak feats predict, gift, and stay mode-honest', () => {
@@ -9138,57 +8390,9 @@ function runSelfTests() {
       eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');
     } finally { META.alloy = pre.alloy; META.daily = pre.daily; saveMeta(); }
   });
-  T('two-device ledger adoption — fresh device raises, never lowers, never double-banks', () => {
-    /* the live-fire drill's contract, pinned: whoami()/login() adopt the
-       deck's lifetime view — watermark and flawless count rise to the
-       ledger, the feat rings once, and no alloy coin is minted client-side */
-    const pre = { paid: META.dailyPaid || 0, seasons: (META.daily && META.daily.perfectSeasons) || 0, feat: !!META.feats.perfectseason, alloy: META.alloy };
-    try {
-      NET.adoptLedger({ daily: { total: 4290 }, perfectSeasons: 0 });
-      eq(META.dailyPaid, 4290, 'watermark rises to the deck total');
-      eq(META.alloy, pre.alloy, 'adoption mints nothing — the payout was banked elsewhere');
-      ok(!META.feats.perfectseason, 'no seasons, no feat');
-      NET.adoptLedger({ daily: { total: 5120 }, perfectSeasons: 1 });
-      eq(META.dailyPaid, 5120, 'watermark tracks the ledger upward');
-      eq(META.daily && META.daily.perfectSeasons, 1, 'a fresh device learns its flawless season');
-      ok(META.feats.perfectseason, 'the feat returns with the pilot');
-      NET.adoptLedger({ daily: { total: 100 }, perfectSeasons: 0 });
-      eq(META.dailyPaid, 5120, 'a smaller or stale total never lowers the watermark');
-      eq(META.daily && META.daily.perfectSeasons, 1, 'the count never falls');
-      eq(NET.req ? typeof NET.adoptLedger : 'missing', 'function', 'the seam is real');
-    } finally {
-      META.dailyPaid = pre.paid; if (META.daily) META.daily.perfectSeasons = pre.seasons;
-      if (!pre.feat) delete META.feats.perfectseason; META.alloy = pre.alloy; saveMeta();
-    }
-  });
-  T('listening deck: client contracts, no server needed', () => {
-    ok(typeof NET.sendFeedback === 'function', 'sendFeedback exists on NET');
-    ok(typeof NET.funnel === 'function', 'funnel emitter exists on NET');
-    const btn = $('btnSendFb'), input = $('fbText');
-    ok(!!btn && !!input, 'the game-over widget exists in the markup');
-    eq(btn.tagName, 'BUTTON', 'send is a real button (AT-clickable)');
-    ok(input.getAttribute('aria-label') && input.getAttribute('aria-label').length > 12, 'the note input is labeled for screen readers');
-    const fbQueueSrc = fbQueue.toString();
-    ok(fbQueueSrc.includes('emberfall2.fb'), 'the offline queue has its own storage key');
-    ok(typeof flushFeedback === 'function' && flushFeedback.toString().includes('for (const item of q)'), 'flush drains the whole queue, not just one');
-    const probeSrc = NET.probe.toString();
-    ok(probeSrc.includes('probeP'), 'probe joins its own in-flight handshake (the stale-false race is fenced)');
-    ok(NET.funnel.toString().includes('catch'), 'funnel fails silent — signal never disturbs play');
-  });
-  T('google sign-in: client contracts, no server needed', () => {
-    ok(typeof NET.googleSignIn === 'function', 'googleSignIn exists on NET');
-    ok(NET.googleSignIn.toString().includes('/api/auth/google'), 'it posts the credential to the deck\'s own verifier route');
-    const armSrc = typeof armGoogle === 'function' ? armGoogle.toString() : '';
-    ok(armSrc.includes('google.accounts.id'), 'the GSI library is initialized — never the page credential flow');
-    ok(armSrc.includes('catch'), 'armGoogle fails silent — the panel must never break over Google');
-    ok(NET.probe.toString().includes('googleClientId'), 'the probe reads the deck\'s announced client id');
-    const box = $('googleBox'), host = $('gBtnHost');
-    ok(!!box && !!host, 'the Google row exists in the account panel markup');
-    ok(box.classList.contains('hidden'), 'unarmed state stays hidden — an unconfigured deck shows no Google');
-  });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.27.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.28.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -9249,10 +8453,6 @@ function finishBoot() {
   AU.init(); AU.resume(); MUSIC.start(); AU.uiBig(); AU.unlockiOS();
   showScreen('s-boot', false);
   keepAwake(true);
-  /* v4.25 funnel: boot — the deck dedupes per device per day (salted hash);
-     any feedback queued offline on the last flight rides along now */
-  NET.funnel('boot');
-  flushFeedback();
   toTitle();
 }
 $('s-boot').addEventListener('pointerdown', finishBoot);
@@ -9281,11 +8481,6 @@ function boot() {
   GAME.best = (loadBoard('main')[0] || { s: 0 }).s;
   renderBoard($('tab-scores'), 'main', null);
   refreshTitleMeta();
-  NET.probe().then(() => { paintAccount(); refreshTitleMeta(); });
-  // on-the-go resilience: drain the outbox when connectivity returns,
-  // and retry gently every 2 min in case the deck came back unattended
-  addEventListener('online', kickOutbox);
-  setInterval(() => { if (OUTBOX.load().length) kickOutbox(); }, 120000);
   P.x = W / 2; P.y = H * .82;
   INPUT.aimX = P.x; INPUT.aimY = P.y;
   ATTRACT.x = W / 2; ATTRACT.y = H * .68;

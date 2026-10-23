@@ -24,17 +24,13 @@ async function openGlobalTab(page) {
 
 test('Global tab shows the worldwide mirror or an honest fallback', async ({ page }) => {
   await openGlobalTab(page);
-  /* the static host has no /api; abort the legacy probe outright so the
-     client settles in local mode deterministically */
-  await page.route('**/api/health', route => route.abort());
-  await page.evaluate(() => { NET.on = false; NET.user = null; NET.probed = false; });
   await page.evaluate(() => NET.renderGlobal());
   await page.waitForFunction(() => {
     const el = document.querySelector('#globalBoard');
     const t = el ? (el.textContent || '') : '';
     return el && el.querySelector('.row') !== null || /not answering|No ranked pilots/.test(t);
   }, null, { timeout: 15000 });
-  await expect(page.locator('#globalStatus')).toContainText('local mode');
+  await expect(page.locator('#globalStatus')).toContainText('Worldwide boards');
   const text = await page.locator('#globalBoard').textContent();
   const mirrorRows = await page.locator('#globalBoard .row').count();
   if (mirrorRows > 0) {

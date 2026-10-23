@@ -12,7 +12,7 @@ Please report privately through a [security advisory](https://github.com/FahadIb
 
 The live game is static files on Vercel plus Supabase project `rgmbexmodebegllahotc` for accounts and boards. There is no game server.
 
-- **Auth:** Supabase Auth (email magic link; anonymous sign-in once enabled). Sign in with X is in progress in #26.
+- **Auth:** Supabase Auth with email and password and email confirmation. Guests don't get an auth user, and the RPCs and public views refuse anonymous sessions. Sign in with X is planned (#26).
 - **Writes:** row-level security is on for `profiles` and `player_scores`, and `anon`/`authenticated` have no INSERT, UPDATE or DELETE grants. The only write path is two `SECURITY DEFINER` functions, `submit_score` and `set_callsign`, which live in a schema the API doesn't expose and are called through RPC wrappers.
 - **Limits:** callsigns are 3-16 characters from `[A-Za-z0-9_-]`, unique ignoring case. Scores must be 1 to 10,000,000. Each player can post 6 runs a minute and 300 a day.
 - **Reads:** the public views `leaderboard_global`, `leaderboard_daily` and `deck_stats`, all `security_invoker`.

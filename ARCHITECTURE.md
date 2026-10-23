@@ -34,7 +34,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 |---|---|---|
 | `js/audio.js` | synthesised voices, adaptive score (`AU`, `MUSIC`) | touch game state |
 | `js/sky.js` | sky-event schedulers + `SKY_EVENTS` registry (the single owner of what each event *is*: names, colors, counters) | render or touch META directly (it exposes tick/draw) |
-| `js/net.js` | board/roster rendering, local profile merge, outbox (`NET`); its remote path is dormant with no address set | game rules |
+| `js/net.js` | the Global tab's worldwide boards (`NET`, reads the public views), board/roster/hangar rendering, screen flow | game rules, accounts (`js/cloud.js`) |
 | `js/cloud.js` | Supabase accounts and worldwide boards | game rules |
 | `js/mirror-public.js` | public board reads for `stats.html` and `pilot.html` | write anything |
 | `js/art.js` | materials, hull/hostile/capital/pickup renderers (`HULL_ART`, `FOE_ART`, `BOSS_ART`) | game state; palette-reacts via functions called at draw time |
@@ -48,7 +48,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   `loadCfg()` so saved prefs always render. *Never* bind a settings control
   that paints at eval-time only.
 - `META` (career: alloy, hulls, refits, feats, sky log, streaks, sigils,
-  mastery, hullKills) — persisted locally, merged by net.js; suite-tested for merge union/max semantics and legacy
+  mastery, hullKills) — persisted locally; suite-tested for legacy
   migration. The personalization ledgers (`META.sigils`, `META.mastery`,
   `META.hullKills`) are written only through their bank functions
   (`masteryBankRun`), which share one guard: scored flights only.

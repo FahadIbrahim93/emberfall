@@ -10,14 +10,14 @@
      database refuses direct table writes (RLS + no grants).
    ═══════════════════════════════════════════════════════════════════════ */
 const CLOUD = {
-  sb: null, user: null, profile: null, anonOk: false, loading: null,
+  sb: null, user: null, profile: null, loading: null,
   STORE: 'sb-rgmbexmodebegllahotc-auth-token',
 
   available() {
     if (typeof emberfallPortal === 'function' && emberfallPortal()) return false;
     return typeof fetch === 'function' && typeof document !== 'undefined';
   },
-  /* a session exists (or is arriving in the URL from a magic link) */
+  /* a session exists (or is arriving in the URL from an email confirmation link) */
   pending() {
     try {
       return /access_token=|[?&]code=/.test(location.hash + location.search) || !!localStorage.getItem(this.STORE);
@@ -50,12 +50,9 @@ const CLOUD = {
   async refresh() {
     const sb = await this.load();
     if (!sb) return null;
-    try {
-      const st = await fetch(MIRROR_ORIGIN + '/auth/v1/settings', { headers: { apikey: MIRROR_KEY } });
-      if (st.ok) { const j = await st.json(); this.anonOk = !!(j.external && j.external.anonymous_users); }
-    } catch (e) { /* offline: keep the last answer */ }
     const { data } = await sb.auth.getSession();
     this.user = data && data.session ? data.session.user : null;
+    if (this.user && this.user.is_anonymous) { try { await sb.auth.signOut(); } catch (e) { } this.user = null; }
     this.profile = null;
     if (this.user) {
       const { data: rows } = await sb.from('profiles').select('id,callsign').eq('id', this.user.id).limit(1);
@@ -63,23 +60,25 @@ const CLOUD = {
     }
     return this.user;
   },
-  async signInAnon() {
-    const sb = await this.load(); if (!sb) throw new Error('offline');
-    const { error } = await sb.auth.signInAnonymously();
-    if (error) throw error;
-    await this.refresh();
+  /* Guests need no account at all: no Supabase session, scores stay local
+     (personal best). The database also refuses anonymous sessions, so the
+     worldwide boards only ever hold signed-up pilots. */
+  playGuest() {
+    try { localStorage.setItem('ef.guest', '1'); } catch (e) { }
   },
-  async sendEmail(email) {
+  async signUpEmail(email, password) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
-    const { error } = await sb.auth.signInWithOtp({
-      email: String(email || '').trim(),
+    const { data, error } = await sb.auth.signUp({
+      email: String(email || '').trim(), password: String(password || ''),
       options: { emailRedirectTo: location.origin + location.pathname }
     });
     if (error) throw error;
+    await this.refresh();
+    return !(data && data.session); /* true = confirmation email sent */
   },
-  async verifyCode(email, token) {
+  async signInEmail(email, password) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
-    const { error } = await sb.auth.verifyOtp({ email: String(email || '').trim(), token: String(token || '').trim(), type: 'email' });
+    const { error } = await sb.auth.signInWithPassword({ email: String(email || '').trim(), password: String(password || '') });
     if (error) throw error;
     await this.refresh();
   },
@@ -98,7 +97,7 @@ const CLOUD = {
   /* best-effort: the run is already saved locally before this is called */
   async submit(gameMode, score, stats) {
     const mode = MIRROR_MODE[gameMode];
-    if (!mode || !this.sb || !this.user || !this.profile) return null;
+    if (!mode || !this.sb || !this.user || this.user.is_anonymous || !this.profile) return null;
     const { data, error } = await this.sb.rpc('submit_score', { p_mode: mode, p_score: Math.trunc(score), p_stats: stats || {} });
     if (error) throw error;
     return data;
@@ -108,20 +107,49 @@ const CLOUD = {
   paint() {
     const box = document.getElementById('cloudBox');
     if (!box) return;
+    const ap = document.getElementById('acctPanel');
+    if (ap) ap.classList.toggle('hidden', !this.available());
     if (!this.available()) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     const st = document.getElementById('cloudStatus');
     const signed = !!this.user;
     document.getElementById('cloudIn').classList.toggle('hidden', signed);
     document.getElementById('cloudMe').classList.toggle('hidden', !signed);
-    document.getElementById('cloudAnon').classList.toggle('hidden', !this.anonOk);
-    if (!signed) { st.textContent = 'Sign in to post runs to the worldwide boards.'; return; }
-    const who = this.user.is_anonymous ? 'guest pilot' : (this.user.email || 'pilot');
+    this.paintTitle();
+    if (!signed) { st.textContent = 'Playing as guest: scores stay on this device. Sign in or create an account to post worldwide.'; return; }
+    const who = (this.user.email || 'pilot');
+    const cs = document.getElementById('cloudCallsign');
     st.textContent = this.profile
       ? 'Signed in as ' + this.profile.callsign + ' (' + who + ') · endless and daily runs post worldwide.'
-      : 'Signed in (' + who + ') · pick a callsign to post runs.';
-    const cs = document.getElementById('cloudCallsign');
+      : 'Signed in (' + who + ') · first flight: pick a callsign to post runs.';
+    if (!this.profile && cs && !cs.value) { try { cs.focus(); } catch (e) { } }
     if (this.profile && !cs.value) cs.value = this.profile.callsign;
+  },
+  /* title-screen account strip */
+  paintTitle() {
+    const meta = document.getElementById('acctMeta'), line = document.getElementById('acctLine');
+    if (!meta || !line) return;
+    const signed = !!this.user;
+    meta.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
+    line.textContent = !signed
+      ? 'Guest runs stay on this device. Sign up to post on the worldwide boards.'
+      : this.profile ? 'Your endless and daily runs post to the worldwide boards.'
+      : 'Signed in. Pick a callsign in the Global tab to start posting.';
+    const sb = document.getElementById('btnAcctSign');
+    if (sb) sb.firstChild.textContent = signed ? 'Account' : 'Sign in / Sign up';
+  },
+  /* game over: guests (or no callsign yet) get "Sign up to post this score" */
+  overPrompt(eligible) {
+    const el = document.getElementById('ovCloud');
+    if (!el) return;
+    el.classList.toggle('hidden', !(eligible && this.available() && !this.profile));
+  },
+  showAccount() {
+    if (typeof toTitle === 'function' && !document.getElementById('s-title').classList.contains('on')) toTitle();
+    if (typeof switchTab === 'function') switchTab('global');
+    this.open().catch(() => {});
+    const em = document.getElementById(this.user ? 'cloudCallsign' : 'cloudEmail');
+    if (em) { try { em.scrollIntoView({ block: 'center' }); em.focus(); } catch (e) { } }
   },
   say(msg, bad) {
     const el = document.getElementById('cloudMsg');
@@ -133,11 +161,17 @@ const CLOUD = {
     const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
     const val = id => (document.getElementById(id) || {}).value || '';
     const run = fn => async () => {
-      try { await fn(); this.paint(); } catch (e) { this.say(String(e && e.message || e).slice(0, 140), true); }
+      try { await fn(); this.paint(); } catch (e) { this.paint(); this.say(String(e && e.message || e).slice(0, 140), true); }
     };
-    on('cloudSend', run(async () => { await this.sendEmail(val('cloudEmail')); this.say('Check your inbox: open the link, or type the code below.'); }));
-    on('cloudVerify', run(async () => { await this.verifyCode(val('cloudEmail'), val('cloudCode')); this.say('Signed in.'); }));
-    on('cloudAnon', run(async () => { await this.signInAnon(); this.say('Signed in as a guest on this device.'); }));
+    on('cloudSignIn', run(async () => { await this.signInEmail(val('cloudEmail'), val('cloudPass')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
+    on('cloudSignUp', run(async () => {
+      const pending = await this.signUpEmail(val('cloudEmail'), val('cloudPass'));
+      this.say(pending ? 'Check your inbox to confirm your email, then sign in.' : 'Account created. Pick your callsign to post runs.');
+    }));
+    on('cloudGuest', () => { this.playGuest(); this.say('Playing as guest: scores stay on this device.'); });
+    on('btnAcctGuest', () => { this.playGuest(); if (typeof startRun === 'function') startRun('endless'); });
+    on('btnAcctSign', () => this.showAccount());
+    on('btnOvSignUp', () => this.showAccount());
     on('cloudSave', run(async () => { await this.setCallsign(val('cloudCallsign')); this.say('Callsign saved.'); }));
     on('cloudOut', run(async () => { await this.signOut(); this.say('Signed out. Local scores stay on this device.'); }));
   },

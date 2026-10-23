@@ -14,7 +14,7 @@ You need Node 22 or newer.
 npm ci
 bash check.sh                 # syntax of every module and inline script
 node deadscan.js --check      # dead code, load order, XSS sinks
-npm test                      # sim tests + Playwright + the in-game self-test (77 checks)
+npm test                      # sim tests + Playwright + the in-game self-test (63 checks)
 ```
 
 The browser suite serves the static site itself with `tools/serve-static.mjs` (port 8123; set `E2E_PORT` to move it). After changing the self-test suite, regenerate its baseline with `node tools/selftest-baseline.js`, but only on a green run, and commit it with the change.

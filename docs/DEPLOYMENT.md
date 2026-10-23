@@ -21,8 +21,8 @@ Saves and sign-ins are per origin, so a player on Vercel and the same player on 
 ## Supabase
 
 - **Schema changes:** add a file under `supabase/migrations/` and apply it to the project (Supabase CLI `supabase db push`, or the SQL editor). Applied migrations are never edited.
-- **Auth:** email magic link is on. Anonymous sign-in shows a guest button only once it's enabled in the project's Auth settings. Sign in with X (provider `x`) is pending in #26.
-- **Redirect URLs:** the Vercel and Pages origins must be in the project's allowed redirect URLs for magic links to come back to the game.
+- **Auth:** email and password sign-up is on, with email confirmation. Guests never create an auth user, so anonymous sign-in can stay off. Sign in with X (provider `x`) is planned in #26.
+- **Redirect URLs:** the Vercel and Pages origins must be in the project's allowed redirect URLs so confirmation links come back to the game.
 - **Monitoring:** `node tools/mirror-alarm.mjs` checks that the project answers and `deck_stats` agrees with `profiles`.
 - **Keys:** only the publishable key ships in `js/cloud.js`. The service role key is never committed or used by the game.
 

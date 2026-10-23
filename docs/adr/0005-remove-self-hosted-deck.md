@@ -15,5 +15,5 @@ Remove the deck completely: the server, its Fly and Docker config, the deck-only
 - The browser suite and `?selftest` harness run against `tools/serve-static.mjs`, a test-only static server that mirrors what Vercel publishes.
 - `deadscan` now pins `.vercelignore` instead of the deck's static allowlist.
 - `stats.html` and `pilot.html` stay: they read Supabase's public views.
-- `js/net.js` keeps its board rendering and local profile code; its remote deck path is dormant (no address is ever set) and can be pruned once the auth work on its own branch lands.
+- `js/net.js` keeps its board rendering. Its dormant remote-deck path, and the deck account panel in Settings, were pruned in v4.28.0 when email accounts landed.
 - Duels, cloud saves, the save vault and per-pilot dossiers are not part of the live game. Bringing any back means a Supabase migration, not a server.
