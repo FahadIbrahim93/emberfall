@@ -1,6 +1,21 @@
-# Mobile UX v2 (shipped)
-Standards: Apple HIG game controls (44pt min, frequent actions near the thumbs, menus at the top, visible press states), Material 48dp targets, thumb-zone guidance (64–80dp primary actions, bottom-centre kept clear).
-- Title (phone portrait): a 12-column grid via display:contents. Top bar: pilot chip + 3 icon buttons (52px). The h1 uses clamp(2.2rem,min(13.5vw,8.5vh),4.4rem). Modes 2×2 plus Daily. LAUNCH is 68px at the bottom.
-- HUD (coarse pointer): Dash 76px bottom-right with a conic cooldown ring (--f) and a charge badge (data-n). Bomb is 0.82× and sits up-left. Pause is 48px. Lefty mode mirrors the layout.
-- Sign-in: OTP input with autocomplete=one-time-code, a resend cooldown, and explain() error mapping in js/cloud.js.
-Verified with no overflow at 360/393/412/768/1280.
+# Mobile UX v2 (v4.30)
+
+Status: shipped in feat/mobile-ux-signin.
+
+## Title (phone portrait, ≤900 px)
+- Fits one screen at 360/393/412 px; `scrollWidth == innerWidth`.
+- Top bar: pilot chip (left), Boards / What's new / Settings 44 px icon buttons (right).
+- Wordmark: `clamp(2.2rem, min(13.5vw, 8.5vh), 4.4rem)`; grid columns use `minmax(0,1fr)`.
+- Modes in a 2-column grid; one 68 px Launch CTA at the bottom (thumb zone).
+- Short screens (≤740 / ≤640 px tall) drop lede/eyebrow, then subtitles.
+
+## Touch HUD
+- Dash 76 px bottom-right, Pulse 0.82× diagonally up-left; mirrored for left-handed.
+- Cooldown ring (`--f`), count badge (`data-n`), `:active` glow; bottom centre kept clear.
+- All controls inside `env(safe-area-inset-*)`; pause 48 px; wave timer moved to top on ≤600 px.
+
+## References
+Apple HIG Game controls (44 pt min, frequent actions near the thumb, visible press state);
+thumb-zone guidance (primary action 64–80 dp); safe-area guidance (PlayCanvas, gamedesign.gg).
+
+Desktop layout and all gameplay balance are unchanged.
