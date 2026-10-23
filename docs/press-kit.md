@@ -38,7 +38,7 @@ Measured at v4.21.0. Later releases are in the fun-curve table in the README.
 - Grazing, combos up to ×5 and a weapon ladder up to tier 7
 - Rare "Wardenfall" Sundays (about 1 in 7) with a world boss and a permanent honor
 - An offline PWA that plays fine with no server
-- An optional Command Deck for accounts, duels and shared boards. It's merged but **not live** until the deck is deployed.
+- Global and daily leaderboards with player accounts and callsigns, on Supabase. Live on the Vercel site.
 - No ads, no third-party trackers, nothing to install, MIT source
 
 ## Short blurb

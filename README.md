@@ -12,7 +12,7 @@
   <img src="docs/press/emberfall-wave1.gif" alt="The first seconds of wave 1: hostile fire, kills and combo ticks" width="720">
 </p>
 
-No install and no accounts needed. The art, music and sound are all generated in code at runtime, so there are no asset files, no build step and no runtime npm packages. After the first visit it works offline.
+No install, and you don't need an account to play. The art, music and sound are all generated in code at runtime, so there are no asset files, no build step and no runtime npm packages. After the first visit it works offline.
 
 ## Controls
 
@@ -35,9 +35,18 @@ No install and no accounts needed. The art, music and sound are all generated in
 - **A hangar to come back to:** paints, sigils, hull mastery and kill plaques.
 - **Accessible by default:** four colour palettes, reduced-motion support, left-handed and large touch layouts, and a high-visibility bullets option.
 - **Installable PWA** that plays offline.
-- **Optional Command Deck server** for accounts, cloud saves, duels and shared leaderboards (see below).
+- **Global and daily leaderboards**, live on the Vercel site. Sign in with an email magic link (or as a guest, once anonymous sign-in is turned on), pick a callsign, and your Endless and Daily runs post to the worldwide boards. Sign in with X is in review (#26) and not live yet.
 
-**Leaderboards and pilot profiles:** the code is merged (#12, #14), but they are **not live yet**. They go live once the Command Deck server is deployed. Until then the game saves to your device.
+## Leaderboards and accounts
+
+Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). In short:
+
+- **Accounts:** Supabase Auth. Each player gets a profile with a callsign (3-16 letters, digits, `_` or `-`, unique ignoring case).
+- **Posting a score:** the game calls the `submit_score` RPC after it saves the run locally. Callsigns go through `set_callsign`. Those two RPCs are the only way to write: row-level security is on, the tables accept no direct writes, scores are bounds-checked (1 to 10,000,000), and each player can post at most 6 runs a minute and 300 a day.
+- **Reading the boards:** anyone can read the public views `leaderboard_global` (best run per player per mode), `leaderboard_daily` (best run per player per UTC day) and `deck_stats` (live totals).
+- **What stays local:** Boss Rush, flight school, offline play and portal builds keep scores on the device. The game is fully playable without signing in.
+
+Scores are bounds-checked and rate-limited, not replayed on a server, so a determined cheater could still post a fake score. Details: [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
 
 <p align="center">
   <img src="docs/screenshots/gameplay.png" alt="Gameplay: the corridor, hostile fire and the HUD" width="720">
@@ -52,13 +61,9 @@ python -m http.server 8080      # or: npx serve .
 # then open http://localhost:8080
 ```
 
-To run the optional Command Deck (Node 22 or newer, no npm packages):
+The local copy talks to the same Supabase project as the live site (only the publishable key ships in `js/cloud.js`), so the Global tab works locally. To try schema changes, apply `supabase/migrations/` to your own Supabase project and point `js/cloud.js` at it.
 
-```bash
-node server.js                  # http://localhost:8123, serves the game + API
-```
-
-If no deck answers, the game checks `/api/health` once and quietly stays local.
+`server.js` (the old Command Deck) still runs with `node server.js` for its drills, but it was never deployed and the live game doesn't use it.
 
 ## Portal build
 
@@ -70,15 +75,22 @@ npm run build:portal
 
 This writes `dist-portal/` and `dist-portal.zip` (with `index.html` at the zip root, under 20 MB). It injects `window.EMBERFALL_PORTAL=true`, strips off-site links and fails with an error if the zip isn't created. You can also force portal mode on any copy with `?portal=1`. In portal mode, scores stay on the device.
 
-## Tech stack
+## Architecture
 
 - **Game:** one `index.html` plus a few plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
 - **Offline:** a service worker (`sw.js`) and a web app manifest.
-- **Command Deck:** `server.js` on Node 22, using the built-in `node:sqlite`. No dependencies.
-- **Public mirror:** a read-only Supabase copy of the public leaderboard facts ([ADR 0001](docs/adr/0001-sqlite-authoritative-supabase-mirror.md)).
-- **Tests:** an in-game self-test (`index.html?selftest`, 77 checks), Vitest for the TypeScript sim in `packages/sim`, Playwright browser tests and a set of server drills in `tools/`.
+- **Hosting:** Vercel (main link) and GitHub Pages, both static.
+- **Accounts and boards:** Supabase Auth and Postgres. The browser loads the vendored supabase-js (`js/vendor/supabase.js`) only when it needs it, and writes only through the two RPCs. Schema: [`supabase/migrations/`](supabase/migrations/). Why: [ADR 0004](docs/adr/0004-supabase-source-of-truth.md).
+- **Legacy:** `server.js` (a Node 22 + SQLite "Command Deck") and `fly.toml` are still in the repo, but the deck was never deployed. ADRs 0001-0003 describe that design and are kept for history.
 
-More detail: [Architecture](ARCHITECTURE.md) · [Deployment](docs/DEPLOYMENT.md) · [Database](docs/DATABASE.md) · [Leaderboards & accounts](docs/LEADERBOARD-AND-ACCOUNTS.md) · [Roadmap](docs/ROADMAP.md).
+## Tests
+
+- **In-game self-test:** open `index.html?selftest` (77 checks).
+- **Sim:** Vitest for the TypeScript sim in `packages/sim` (`npm run test:sim`).
+- **Browser:** Playwright (`npm run test:browser`).
+- **Gates in CI:** `check.sh` (syntax), `deadscan.js --check` (dead code and load order), `tools/copyguard.js` (no stale or inflated claims in copy), plus the legacy deck drills in `tools/`.
+
+More detail: [Architecture](ARCHITECTURE.md) · [Changelog](CHANGELOG.md) · [Deployment](docs/DEPLOYMENT.md) · [Database](docs/DATABASE.md) · [Leaderboards & accounts](docs/LEADERBOARD-AND-ACCOUNTS.md) · [Roadmap](docs/ROADMAP.md).
 
 <!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
 ## The fun curve — the game, measured release over release

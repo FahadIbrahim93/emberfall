@@ -116,7 +116,13 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 - New economy constant → keep `tools/econsim.js` extraction patterns in sync —
   they fail loudly when a constant moves.
 
-## The Command Deck (server.js) — the same contract, server-side
+## Accounts and boards (live): Supabase
+
+The live game has no server of its own. `js/cloud.js` loads the vendored supabase-js on demand, signs players in with Supabase Auth, and writes only through the `set_callsign` and `submit_score` RPCs; boards read the public views. See [ADR 0004](docs/adr/0004-supabase-source-of-truth.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
+
+## The Command Deck (server.js) — historical, never deployed
+
+*The section below describes the deck design. It was never deployed and the live game doesn't use it.*
 
 One process, one origin, one SQLite file (`node:sqlite`, zero npm deps).
 The data layer is documented in `docs/DATABASE.md`; the architectural

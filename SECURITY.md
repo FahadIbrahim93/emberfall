@@ -50,7 +50,8 @@ Thanks for reporting responsibly.
   arcs, economy ceilings, velocity + depth floors, 24h replay hashes) —
   the deck is honest that this is detection, not prevention: `accepted`
   runs rank, `review` runs are stored but never rank
-- **The public mirror:** the Supabase project holds read-only projections
+- **Supabase (live):** accounts and boards live in project `rgmbexmodebegllahotc`. RLS is on, the tables take no direct writes, and the only write path is the `submit_score` and `set_callsign` RPCs (bounds-checked, rate-limited). Only the publishable key ships. See [ADR 0004](docs/adr/0004-supabase-source-of-truth.md).
+- **The old public mirror (retired, historical):** the Supabase project held read-only projections
   of public facts only (callsigns, accepted scores, aggregates); RLS
   grants `anon` SELECT and nothing else, the deck never holds a Supabase
   key, and the service key lives only in the operator's environment —
