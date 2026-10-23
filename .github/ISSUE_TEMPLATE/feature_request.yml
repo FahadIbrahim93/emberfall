@@ -1,5 +1,5 @@
 name: Feature request
-description: An idea for the game or the deck
+description: An idea for the game or the site
 labels: [enhancement]
 body:
   - type: textarea
@@ -15,15 +15,15 @@ body:
       label: How would we test it? (optional)
       description: |
         Behaviour changes ship with a check (see CONTRIBUTING.md). If you
-        know which test or drill would cover it, mention it here.
+        know which test would cover it, mention it here.
   - type: dropdown
     id: scope
     attributes:
       label: Scope
       options:
         - Game client (index.html / js/)
-        - Command deck (server.js)
-        - Tools / CI / battery
+        - Accounts / boards (Supabase)
+        - Tools / CI
         - Docs
         - Multiple
     validations:

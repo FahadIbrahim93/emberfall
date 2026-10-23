@@ -20,11 +20,10 @@ Ordered by priority, not by release date. Every item ships the usual way: gated 
 4. **Keyset pagination** for boards once they grow past what offset paging handles well (issue #16).
 5. **More browser coverage** for the stats page and the Global tab (issue #17).
 6. **Accessibility pass:** extend the colour-blind checks already used for paints to UI states, focus rings and screen-reader labels.
-7. **Decide what to do with the legacy Command Deck** (`server.js`, `fly.toml`, the deck drills): keep it as a reference or remove it.
 
 ## Not planned
 
-- **Deploying the Fly Command Deck.** Supabase replaced it ([ADR 0004](adr/0004-supabase-source-of-truth.md)).
+- **A self-hosted game server.** Supabase replaced it ([ADR 0004](adr/0004-supabase-source-of-truth.md), [ADR 0005](adr/0005-remove-self-hosted-deck.md)).
 - **Claiming authoritative anti-cheat.** Scores are bounds-checked and rate-limited, not replayed on a server, and the docs say so.
 
 ## Done recently

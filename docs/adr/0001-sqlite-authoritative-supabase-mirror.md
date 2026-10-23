@@ -1,6 +1,6 @@
 # ADR 0001 — SQLite stays authoritative; Supabase is the public mirror
 
-Date: 2026-09-25 · Status: **SUPERSEDED** by [ADR 0004](0004-supabase-source-of-truth.md) (2026-10-23). The deck was never deployed; Supabase is now the source of truth. Kept as history. · Decides the database / UMS /
+Date: 2026-09-25 · Status: **SUPERSEDED** by [ADR 0004](0004-supabase-source-of-truth.md) (2026-10-23). The deck was never deployed; Supabase is now the source of truth, and the deck code was removed in [ADR 0005](0005-remove-self-hosted-deck.md). Kept only as a decision record; none of the files it names exist any more. · Decides the database / UMS /
 global-leaderboard architecture now that a Supabase connector is available.
 
 ## Context

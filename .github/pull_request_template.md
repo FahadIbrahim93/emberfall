@@ -13,4 +13,4 @@
 
 ## Security notes
 
-<!-- Anything touching auth, the deck API, the mirror schema, or user-supplied URLs/HTML. "None" is fine. -->
+<!-- Anything touching auth, the Supabase schema or RPCs, or user-supplied URLs/HTML. "None" is fine. -->

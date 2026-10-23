@@ -23,8 +23,4 @@ The live game is static files on Vercel plus Supabase project `rgmbexmodebegllah
 
 Scores are bounds-checked and rate-limited, not replayed on a server. A determined player can post a fake score within bounds. We don't claim otherwise.
 
-## Legacy: the Command Deck
-
-`server.js`, `Dockerfile` and `fly.toml` are an older Node + SQLite server design (ADRs 0001-0003). It was never deployed and the live game doesn't use it. CI still runs its drills, so its protections are tested: scrypt password hashing, hashed session tokens, parameterized SQL, per-IP rate limits, a static allowlist, HTTPS enforcement in production and token-gated access to `/api/feedback`.
-
-If you run it yourself: its backups contain password and session hashes, so `backups/` is git-ignored and snapshots must never be committed. Never commit `EF_OPS_TOKEN`; the value in `tools/drill-feedback.mjs` is a scratch fixture. Hosting notes are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+There is no self-hosted server. The old Node + SQLite "command deck" was removed in [ADR 0005](docs/adr/0005-remove-self-hosted-deck.md); Vercel serves static files and Supabase is the only backend.

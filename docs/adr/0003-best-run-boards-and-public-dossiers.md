@@ -1,6 +1,6 @@
 # ADR 0003 — One best-run dossier, three surfaces
 
-Date: 2026-10-19 · Status: **HISTORICAL** (applies only to the Command Deck, which was never deployed; see [ADR 0004](0004-supabase-source-of-truth.md)) · Extends ADR 0001 and ADR 0002.
+Date: 2026-10-19 · Status: **HISTORICAL** (applied only to the Command Deck, which was never deployed and was removed in [ADR 0005](0005-remove-self-hosted-deck.md); kept as a decision record, the code it describes is gone) · Extends ADR 0001 and ADR 0002.
 Does not move accounts or score writes off the Command Deck.
 
 ## Context

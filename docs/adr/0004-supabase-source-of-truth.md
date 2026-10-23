@@ -24,4 +24,4 @@ Accounts and leaderboards live in Supabase project `rgmbexmodebegllahotc`, and t
 - Score checks are weaker than the deck's telemetry checks: bounds and rate limits, not plausibility arcs or replay. A determined cheater can post a fake score within bounds. We say so instead of claiming otherwise.
 - Duels, cloud saves, the save vault and pilot dossiers from the deck design are not part of the live game.
 - Offline play, local boards and portal builds still never touch Supabase.
-- `server.js`, `fly.toml` and ADRs 0002 and 0003 stay in the repo as history until we decide to remove them.
+- The deck code was later removed ([ADR 0005](0005-remove-self-hosted-deck.md)); ADRs 0001-0003 stay as decision records.

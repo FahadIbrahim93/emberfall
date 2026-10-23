@@ -44,16 +44,15 @@ No install and no account needed. Art, music and sound are generated in code at 
 - It's hosted as static files on Vercel. Every push to `main` deploys there automatically (a copy also goes to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/)).
 - Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Boards are read from public views.
 - Scores aren't replayed on a server, so a determined cheater could still post a fake score within bounds. Boss Rush, offline play and portal builds keep scores on the device.
-- `server.js`, `fly.toml` and the `Dockerfile` belong to an older Fly.io "Command Deck" design. It was never deployed and the live game doesn't use it. Treat it as legacy.
 
 More detail in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
 
 ## Local development
 
-Open `index.html` in a browser, or serve the folder so the service worker can install:
+Open `index.html` in a browser, or serve it the way Vercel does so the service worker can install:
 
 ```bash
-python3 -m http.server 8080      # then open http://localhost:8080
+node tools/serve-static.mjs --port 8080   # static files only, same headers as vercel.json
 ```
 
 A local copy talks to the same Supabase project as the live site (only the publishable key ships, in `js/cloud.js`). To try schema changes, apply `supabase/migrations/` to your own project and point `js/cloud.js` at it.
