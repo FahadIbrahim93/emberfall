@@ -7,7 +7,7 @@ const { test, expect } = require('@playwright/test');
    origin for this page only; the CI Pages live-smoke covers the static
    copy through the public host. */
 test('stats page renders the public totals or fails gracefully', async ({ page }) => {
-  await page.goto('http://127.0.0.1:8123/stats.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/stats.html', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('h1')).toContainText('EMBER');
   /* wait for a TERMINAL state: the board stops saying loading — either the
      data landed, the honest empty state rendered, or the error panel showed.

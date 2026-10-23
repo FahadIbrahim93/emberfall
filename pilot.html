@@ -35,7 +35,6 @@ h2{font-family:Michroma,system-ui,sans-serif;font-size:.88rem;letter-spacing:.16
 footer{margin-top:32px;color:var(--dim);font-size:.8rem;display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
 footer a{color:var(--ember);text-decoration:none}
 .err{background:rgba(184,44,58,.12);border:1px solid var(--crimson);border-radius:10px;padding:14px 18px;max-width:760px;color:var(--ink);font-size:.9rem;display:none;margin-bottom:18px}
-.deck-link{color:var(--ember);font-size:.85rem;margin-top:12px;display:inline-block}
 @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
 .loading .n{animation:pulse 1.2s ease-in-out infinite;color:var(--dim)}
 </style>
@@ -47,7 +46,6 @@ footer a{color:var(--ember);text-decoration:none}
 <div class="hero hidden" id="hero">
   <div class="call" id="callsign">—</div>
   <div class="meta" id="meta"></div>
-  <a class="deck-link hidden" id="deckLink" href="#" rel="noopener">Open on the live command deck →</a>
 </div>
 <div class="cards loading" id="cards">
   <div class="card"><div class="n" id="cRuns">…</div><div class="l">runs ranked</div></div>
@@ -72,18 +70,6 @@ const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
 const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
-// Only http(s) deck origins become links. javascript:, data:, and anything
-// else that new URL() parses is dropped, so ?deck= cannot inject script.
-function safeDeckBase(raw) {
-  const v = String(raw || '').trim();
-  if (!v || /[\u0000-\u0020"'<>\\]/.test(v)) return '';
-  let u;
-  try { u = new URL(v); } catch (_) { return ''; }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
-  if (u.username || u.password) return '';
-  return (u.origin + u.pathname).replace(/\/$/, '');
-}
-const deckParam = safeDeckBase(params.get('deck'));
 
 function showErr(msg) {
   const el = document.getElementById('err');
@@ -148,17 +134,11 @@ function paintModes(rows) {
       document.getElementById('cWf').textContent = fmt(card.wardenfalls || 0);
       document.getElementById('cRank').textContent = card.main_rank ? '#' + card.main_rank : '—';
       paintModes(modes);
-      const cardHref = mirrorDeckHref(deckParam, card.callsign);
-      if (cardHref) {
-        const link = document.getElementById('deckLink');
-        link.href = cardHref;
-        link.classList.remove('hidden');
-      }
       return;
     }
     const p = await mirrorPilotRow(callsign);
     if (!p) {
-      showErr('No pilot named “' + callsign + '” on the public mirror yet. They may fly on a private deck, or the mirror has not synced.');
+      showErr('No pilot named “' + callsign + '” on the public mirror yet. They may not have posted a ranked run yet.');
       document.getElementById('modes').innerHTML = '<div class="empty">Not on the public mirror.</div>';
       return;
     }
@@ -188,14 +168,8 @@ function paintModes(rows) {
       ship: bests[m].ship,
       rank: m === 'main' ? rankN : null
     })));
-    const pilotHref = mirrorDeckHref(deckParam, p.callsign);
-    if (pilotHref) {
-      const link = document.getElementById('deckLink');
-      link.href = pilotHref;
-      link.classList.remove('hidden');
-    }
   } catch (e) {
-    showErr('The public mirror is not answering (' + e.message + '). Live deck profiles may still work at /pilot/<name> when a command deck is linked.');
+    showErr('The public mirror is not answering (' + e.message + '). Try again in a moment.');
     document.getElementById('modes').innerHTML = '<div class="empty">unavailable</div>';
   }
 })();

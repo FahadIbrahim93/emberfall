@@ -1,6 +1,6 @@
 # ADR 0002 — Cross-origin pilots: deck addressing, bearer sessions, CORS allowlist
 
-Date: 2026-09-27 · Status: **HISTORICAL** (applies only to the Command Deck, which was never deployed; see [ADR 0004](0004-supabase-source-of-truth.md)) · Decides how the GitHub Pages game
+Date: 2026-09-27 · Status: **HISTORICAL** (applied only to the Command Deck, which was never deployed and was removed in [ADR 0005](0005-remove-self-hosted-deck.md); kept as a decision record, the code it describes is gone) · Decides how the GitHub Pages game
 reaches a self-hosted Command Deck, and how accounts feel for real players.
 
 ## Context

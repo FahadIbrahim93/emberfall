@@ -1,24 +1,10 @@
 'use strict';
-/* Public Supabase mirror client (ADR 0001). Publishable key only — safe to embed. */
+/* Public Supabase board client (ADR 0004). Publishable key only — safe to embed. */
 const MIRROR_ORIGIN = 'https://rgmbexmodebegllahotc.supabase.co';
 const MIRROR_KEY = 'sb_publishable_AXsBx7XpoUMLPVTyb4Rkhg_EDt_gB1Y';
 /* Game mode -> worldwide board mode (migrations: endless|daily|school).
    Rush has no public board: it stays on the device. */
 const MIRROR_MODE = { main: 'endless', daily: 'daily', school: 'school' };
-
-/* A profile page may link back to a deck the visitor named. Only a plain
-   http(s) URL qualifies — a javascript: or data: deck parameter must not
-   become a clickable href. */
-function mirrorDeckHref(deck, callsign) {
-  const raw = String(deck || '').trim().replace(/\/$/, '');
-  if (!raw || /[\u0000-\u0020"'<>\\]/.test(raw)) return '';
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
-    if (u.username || u.password) return '';
-  } catch (e) { return ''; }
-  return raw + '/pilot/' + encodeURIComponent(String(callsign || ''));
-}
 
 function mirrorRest(path, opts) {
   const o = opts || {};

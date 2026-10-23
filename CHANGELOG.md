@@ -13,6 +13,9 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - Docs now describe Supabase as the source of truth for accounts and boards (ADR 0004, superseding ADR 0001). The Fly Command Deck was never deployed; its docs are marked historical.
 - Rewrote the repo copy in a plainer voice (#24).
 
+### Removed
+- The self-hosted command deck (ADR 0005): `server.js`, `fly.toml`, `Dockerfile`, `.dockerignore`, `deck.json`, `ops.html`, `smoke.sh`, the deck-only tools (`deck-deploy`, `db-backup`, the 15 `drill-*` scripts, `live-guard`, `parity-daily`, `audit-sql-bindings`, `feedback-report`, `monday-digest`, `profile-deck`, `testpilot-report`, `selftest-probe`), the deck specs, the Wardenfall deck runbook, and the deck boot, smoke, drill, TRUST_PROXY, port-drill and Docker image CI steps. The browser suite now runs on `tools/serve-static.mjs`; the game no longer fetches `deck.json` or probes `/api/health`.
+
 ### Fixed
 - Upper-screen flash from film grain and chroma split (#21).
 - Restored the deadscan CI gate (#23).

@@ -65,7 +65,7 @@ footer a{color:var(--ember);text-decoration:none}
 <footer>
   <a href="index.html">▶ play the game</a>
   <a href="https://github.com/FahadIbrahim93/emberfall">repository</a>
-  <span>the deck's SQLite is authoritative; this page reads a locked, anon-read-only mirror</span>
+  <span>Supabase is the source of truth; this page reads its public, read-only board views</span>
 </footer>
 <script src="js/mirror-public.js"></script>
 <script>
@@ -185,7 +185,7 @@ function showPilot(card) {
       }
     });
     const sbox = document.getElementById('seasons');
-    if (!seasons) sbox.innerHTML = '<div class="day"><span class="d">weekly seasons live on a linked command deck</span></div>';
+    if (!seasons) sbox.innerHTML = '<div class="day"><span class="d">weekly seasons are not published yet</span></div>';
     else if (!seasons.length) sbox.innerHTML = '<div class="day"><span class="d">no gauntlet seasons flown yet</span></div>';
     else sbox.innerHTML = seasons.map(x =>
       '<div class="day"><span class="d">' + esc(x.season) + ' · #' + esc(x.rank) + '</span>' +

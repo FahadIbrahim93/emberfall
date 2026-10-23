@@ -66,25 +66,10 @@ const NET = {
      cross-origin. On a top-level visit, '?deck=<url>' wins once and
      persists; '?deck=' (empty) clears back to auto. A cross-origin
      embed ignores both the query and any stored override. */
-  /* v4.26.1 — the ADOPTED deck: deck.json ships with the page, so the
-     live game joins the world deck with zero configuration. The ladder
-     in probe() decides once per boot: a pilot's stored choice first,
-     this origin's OWN deck second (self-hosted/LAN pilots keep their
-     local accounts), the adopted deck third, honest local mode last.
-     file:// boots never adopt (a local file has no accounts contract). */
-  DECK_ADOPTED: (function () {
-    if (emberfallPortal()) return '';   /* a portal never adopts a remote deck */
-    try {
-      if (location.protocol === 'file:') return '';   /* local file play stays local */
-      const r = new XMLHttpRequest();
-      r.open('GET', 'deck.json', false);              /* load-time pure: sync before boot */
-      r.send(null);
-      if (r.status !== 200 && r.status !== 0) return '';
-      const j = JSON.parse(r.responseText);
-      const raw = (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
-      return deckUrlAllowed(raw) ? raw : '';
-    } catch (e) { return ''; }
-  })(),
+  /* The self-hosted deck was removed (ADR 0005): there is no adopted
+     deck any more, so this stays empty and probe() never dials one.
+     Accounts and worldwide boards run through Supabase (js/cloud.js). */
+  DECK_ADOPTED: '',
 
   deck: (function () {
     if (emberfallPortal()) return '';   /* ignore ?deck= and any stored address */
@@ -155,7 +140,7 @@ const NET = {
   },
 
   funnel(stage) {
-    if (emberfallPortal()) return;
+    if (emberfallPortal() || !this.deck) return;   /* no deck since ADR 0005: nothing to tell */
     this.req('POST', '/api/funnel', { stage }).catch(() => { /* silent, always */ });
   },
 
@@ -184,7 +169,7 @@ const NET = {
             (400ms): a self-hosted/LAN pilot playing from their deck's own
             origin keeps their local accounts, boards and duels (the v3.2
             story is never hijacked);
-         3. the ADOPTED deck (deck.json) — a true static page joins the
+         3. the ADOPTED deck (always empty since ADR 0005) — a static page joined the
             world deck, so signup and boards work with zero configuration;
          4. nothing answered — local mode, play never blocked.
          Adoption is ambient, not stored: clearing the field or ?deck=
@@ -223,6 +208,9 @@ const NET = {
           if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
         } catch (e) { this.on = false; return false; }
       }
+      /* ADR 0005: the static host has no same-origin deck, so an empty
+         address means local mode without a network round-trip */
+      if (!this.deck) { this.on = false; this.probed = true; return false; }
       try {
         /* 6s: a remote deck on a slow phone network is the norm this must
            survive; the old 2.5s aborted mid-handshake on loaded runners and

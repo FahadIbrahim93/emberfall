@@ -16,20 +16,18 @@ permissions:
 
 jobs:
   verify:
-    name: gates (syntax · dead-code · tests · smoke · economy)
+    name: gates (syntax · dead-code · tests · economy)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # the fun-curve recorder may commit + push a newly-measured version's point
     permissions:
       contents: write
-    env:
-      SERVER_PORT: 8123
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22   # floor: node:sqlite + DatabaseSync need >=22; drill-limiters spawns 'server.js' via process.execPath
+          node-version: 22
 
       - name: Install dependencies
         run: npm ci
@@ -52,96 +50,10 @@ jobs:
       - name: Copy guard (truth-in-copy)
         run: node tools/copyguard.js
 
-      - name: SQL binding audit (INTEGER-vs-TEXT trap class)
-        run: node tools/audit-sql-bindings.js
-
-      - name: Daily-economy parity gate (client display ↔ deck authorization)
-        run: node tools/parity-daily.js
-
       - name: Rare-Sunday verdict math (wardenfall-check, pure)
         run: node tools/wardenfall-check.mjs
 
-      - name: Start Command Deck (detached)
-        run: |
-          # EF_CONNECT_SRC must match playwright.config.js: the Browser smoke
-          # step REUSES this deck (port busy), so this deck's served CSP is
-          # the one the deck-link specs fly under (pages dial the XO deck)
-          # v4.26: same story for Google — the reused deck must announce a
-          # client id and read the SAME JWKS path the playwright config
-          # writes (tmpdir on the runner = /tmp). The deck reads the file
-          # lazily per token, so it may not exist until the config loads.
-          PORT="$SERVER_PORT" EF_CORS_ORIGINS='http://127.0.0.1:8123' EF_CONNECT_SRC='http://127.0.0.1:8165' EF_GOOGLE_CLIENT_ID='e2e-google-client-id.apps.googleusercontent.com' EF_GOOGLE_JWKS_FILE='/tmp/ef-e2e-google-jwks.json' node server.js > server.log 2>&1 &
-          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
-          for i in $(seq 1 40); do
-            if curl -fsS "http://127.0.0.1:$SERVER_PORT/api/health" > /dev/null 2>&1; then
-              echo "deck up (pid $SERVER_PID)"; exit 0
-            fi
-            sleep 0.5
-          done
-          echo "server failed to start"; cat server.log; exit 1
-
-      - name: API smoke (smoke.sh)
-        run: bash smoke.sh
-
-      - name: Duels drill (full challenge loop, live deck)
-        run: node tools/drill-duels.mjs
-
-      - name: Cross-origin drill (ADR 0002 — CORS grants, bearer sessions, pagination, pilot profiles; own scratch deck)
-        run: node tools/drill-cross-origin.mjs
-
-      - name: Board drill (best-run rows, shared ranks, pilot dossier, mirror SQL)
-        run: node tools/drill-boards.mjs
-
-      - name: Limiter drill (every bucket answers 429 at its budget, own scratch deck)
-        run: node tools/drill-limiters.mjs
-
-      - name: Rare-Sunday drill (the Wardenfall honor loop, rehearsed on the pinned day)
-        run: node tools/drill-rare-sunday.mjs
-
-      - name: Ghost-retention drill (stale duels pruned, boundary + env window proven)
-        run: node tools/drill-retention.mjs
-
-      - name: Replay drill (24h anti-cheat window — same arc twice 422s, expires at 25h, per-pilot)
-        run: node tools/drill-replay.mjs
-
-      - name: Session drill (login survives SIGKILL, expired rows swept, logout honored)
-        run: node tools/drill-sessions.mjs
-
-      - name: Google sign-in drill (minted RS256 ID tokens — session mint, linking, leaderboard, refusals, concurrent join)
-        run: node tools/drill-google.mjs
-
-      - name: Onboarding drill (stranger → signed-up → honest run → ranked worldwide, through the real deck client)
-        run: node tools/drill-onboarding.mjs
-
-      - name: Feedback drill (notes + funnel — caps, dedupe, closed vocabulary, aggregates — multi-device via TRUST_PROXY)
-        run: node tools/drill-feedback.mjs
-
-      - name: Lighthouse drill (the deck-adoption ladder — choice · local · adopt · auto, file:// and CORS rails, live zero-config signup)
-        run: node tools/drill-lighthouse.mjs
-
-      - name: Save-vault drill (snapshot lands, throttle engages, the six-newest prune holds)
-        run: node tools/drill-vault.mjs
-
-      - name: Restore rehearsal (live backup → ledger destroyed → restored → pilot logs in; gap 12's third leg)
-        run: node tools/drill-restore.mjs
-
-      - name: TRUST_PROXY limiter keys on the real client IP
-        run: |
-          TRUST_PROXY=1 PORT=8124 node server.js > server-trust.log 2>&1 &
-          TRUST_PID=$!
-          for i in $(seq 1 40); do
-            curl -fsS "http://127.0.0.1:8124/api/health" > /dev/null 2>&1 && break
-            sleep 0.5
-          done
-          B1=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
-          B2=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8124/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -H 'X-Forwarded-For: 9.9.9.9' -d '{"name":"x","password":"y"}')
-          F=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8124/api/feedback)
-          kill $TRUST_PID
-          [ "$B1" = "400" ] && [ "$B2" = "400" ] || { echo "TRUST_PROXY path broken: $B1/$B2"; exit 1; }
-          [ "$F" = "403" ] || { echo "feedback read must refuse a TRUST_PROXY deck with no ops token: $F"; exit 1; }
-          echo "TRUST_PROXY=1: XFF accepted as limiter/validation key path (bad-name 400 both times)"
-
-      - name: Browser smoke
+      - name: Browser suite (static server, tools/serve-static.mjs)
         run: npm run test:browser
 
       # The bot's own flight record is the fun curve: when the browser suite
@@ -170,88 +82,6 @@ jobs:
       - name: In-game self-test suite (?selftest, headless)
         run: node tools/selftest-ci.js
 
-      - name: Stop deck
-        if: always()
-        run: kill "$SERVER_PID" 2>/dev/null || true
-
-      - name: Server log on failure
-        if: failure()
-        run: tail -40 server.log
-
-      # after the deck is stopped so the drill's default-port probe finds a
-      # free 8123 (it must boot and answer there; the busy world is proven
-      # locally against the preview deck — there it must die on EADDRINUSE)
-      - name: Port-resolution drill (flag beats poisoned env PORT, bad values die loudly)
-        run: node tools/drill-port.mjs
-
-  docker:
-    name: deck image (gates stage must pass, runtime must answer /api/health)
-    needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Build image (the gates stage runs the no-browser battery)
-        run: docker build -t emberfall-deck:ci .
-
-      - name: Boot the image and prove /api/health + a full register/login loop
-        run: |
-          docker run -d --name deck -p 8123:8123 -v ef-ci-data:/data emberfall-deck:ci
-          up=0
-          for i in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true'; then up=1; break; fi
-            sleep 0.5
-          done
-          [ "$up" = "1" ] || { docker logs deck; exit 1; }
-          R=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8123/api/register -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"name":"ContainerPilot","password":"container-pass"}')
-          [ "$R" = "200" ] || { echo "register through the image failed: $R"; docker logs deck; exit 1; }
-          echo "container deck: healthy + register 200 (ledger on the /data volume)"
-
-      - name: NODE_ENV contract — bare image probes plain HTTP, prod mode 426s every real endpoint (health exempt)
-        run: |
-          C=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/health)
-          [ "$C" = "200" ] || { echo "bare image health over plain HTTP: $C"; docker logs deck; exit 1; }
-          docker rm -f deck
-          docker run -d --name deckprod -p 8123:8123 -e NODE_ENV=production emberfall-deck:ci
-          # wait for a real HTTP answer — 'docker inspect Running' is true
-          # before node binds the port (the exit-56 race this step caught)
-          H=000
-          for i in $(seq 1 40); do
-            H=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/health || true)
-            [ "$H" != "000" ] && [ -n "$H" ] && break
-            sleep 0.5
-          done
-          G=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/api/scores?mode=daily || true)
-          S=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/index.html || true)
-          [ "$H" = "200" ] || { echo "prod health must stay probe-able over HTTP behind a proxy: $H"; docker logs deckprod; exit 1; }
-          [ "$G" = "426" ] || { echo "prod mode must 426 real API endpoints without TLS: $G"; docker logs deckprod; exit 1; }
-          [ "$S" = "200" ] || { echo "prod mode still serves the static shell: $S"; docker logs deckprod; exit 1; }
-          echo "NODE_ENV contract: prod 426s /api/scores, serves the shell, keeps /api/health probe-able (TLS-terminated deployments stay health-checkable)"
-          docker rm -f deckprod
-
-      - name: Prove the ledger survives a container restart
-        run: |
-          # persistence is only real across a NAMED volume — each container
-          # otherwise gets its own anonymous /data (the 401 this step caught)
-          docker rm -f deck 2>/dev/null || true
-          docker run -d --name deck2 -p 8123:8123 -v ef-ci-data:/data emberfall-deck:ci
-          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:8123/api/health 2>/dev/null | grep -q '"ok":true' && break; sleep 0.5; done
-          L=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8123/api/login -H 'Content-Type: application/json' -H 'X-Emberfall: command-deck' -d '{"name":"ContainerPilot","password":"container-pass"}')
-          [ "$L" = "200" ] || { echo "pilot lost across restart: $L"; docker logs deck2; exit 1; }
-          echo "pilot survived the restart — /data volume persistence proven"
-
-      - name: Non-root runtime proof (the deck user cannot be root)
-        run: |
-          U=$(docker exec deck2 sh -c 'id -u')
-          [ "$U" != "0" ] || { echo "deck runs as root — hardened image contract broken"; exit 1; }
-          echo "deck runs as uid $U (ember)"
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker rm -f deck deck2 deckprod 2>/dev/null || true
-          docker volume rm ef-ci-data 2>/dev/null || true
 
   deploy:
     name: publish to GitHub Pages
@@ -270,7 +100,7 @@ jobs:
       - name: Assemble static site
         run: |
           mkdir -p _site/js _site/icons _site/fonts _site/docs/press
-          cp index.html stats.html sw.js manifest.webmanifest deck.json _site/
+          cp index.html stats.html pilot.html sw.js manifest.webmanifest _site/
           cp js/*.js _site/js/
           cp icons/*.png _site/icons/
           cp fonts/*.woff2 _site/fonts/
@@ -311,7 +141,7 @@ jobs:
           want=$(git show HEAD:index.html | sha256sum | cut -d' ' -f1)
           echo "live sha $live · HEAD sha $want"
           [ "$live" = "$want" ] || { echo "DEPLOY MISMATCH: served index.html is not byte-identical to HEAD"; exit 1; }
-          for f in sw.js manifest.webmanifest deck.json js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2 docs/press-kit.html docs/press/hero.png docs/press/emberfall-wave1.gif; do
+          for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2 docs/press-kit.html docs/press/hero.png docs/press/emberfall-wave1.gif; do
             c=$(curl -s -o /dev/null -w '%{http_code}' "$URL$f")
             [ "$c" = "200" ] || { echo "MISSING $f -> $c"; exit 1; }
           done
@@ -352,7 +182,7 @@ jobs:
           # names only; index.html must be a root entry, not nested
           unzip -Z1 dist-portal.zip | grep -qx 'index.html'
 
-      - name: Payload has no deck, mirror, or GitHub hosts
+      - name: Payload has no Supabase, fly.dev, or GitHub hosts
         run: |
           set -euo pipefail
           if grep -R -a -n -F -e 'supabase' -e 'fly.dev' -e 'github.com' dist-portal; then

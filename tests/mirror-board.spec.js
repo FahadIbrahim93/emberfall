@@ -1,15 +1,11 @@
 const { test, expect } = require('@playwright/test');
 
-/* The Global tab has two honest worlds, both pinned here:
-   1. deck linked  → the live boards render (regression: a bare `honor`
-      identifier once threw a ReferenceError and left the board BLANK
-      whenever any ranked row existed)
-   2. deck offline → the public mirror (ADR 0001) still shows the world's
-      best through its publishable key; if even that sleeps, an honest
-      local-mode line. Never a blank board, never a thrown error. */
+/* The Global tab reads the worldwide Supabase board through its
+   publishable key; if that sleeps, an honest local-mode line. Never a
+   blank board, never a thrown error. */
 
 async function openGlobalTab(page) {
-  await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'domcontentloaded' });
+  await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1800);
   await page.keyboard.press('Space');
   await page.waitForTimeout(900);
@@ -26,30 +22,10 @@ async function openGlobalTab(page) {
   return page.locator('#globalStatus').textContent();
 }
 
-test('Global tab paints with a linked deck (the honor ReferenceError regression)', async ({ page }) => {
+test('Global tab shows the worldwide mirror or an honest fallback', async ({ page }) => {
   await openGlobalTab(page);
-  await expect(page.locator('#globalStatus')).toContainText('Linked to command deck');
-  /* the regression: a bare `honor` threw a ReferenceError inside the ranked
-     row map — the terminal-state wait in openGlobalTab covers both honest
-     shapes (rows on a populated deck, the no-runs message on a fresh one);
-     what it must NEVER be is an empty box under a 'Linked' status, which is
-     exactly what the old crash produced. */
-  const rows = await page.locator('#globalBoard .row').count();
-  const emptyMsg = await page.locator('#globalBoard .empty').count();
-  expect(rows + emptyMsg).toBeGreaterThanOrEqual(1);
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
-  await page.click('[data-tab="global"]');
-  await page.waitForTimeout(800);
-  expect(errors).toEqual([]);
-});
-
-test('deckless Global tab shows the worldwide mirror or an honest fallback', async ({ page }) => {
-  await openGlobalTab(page);
-  /* sever the deck for real: abort the health probe at the network layer so
-     the client's own probe() decides the deck is gone — faking NET.on is a
-     lie the next honest probe() undoes (the first version of this test
-     failed exactly that way). */
+  /* the static host has no /api; abort the legacy probe outright so the
+     client settles in local mode deterministically */
   await page.route('**/api/health', route => route.abort());
   await page.evaluate(() => { NET.on = false; NET.user = null; NET.probed = false; });
   await page.evaluate(() => NET.renderGlobal());

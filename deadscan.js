@@ -4,8 +4,7 @@
    Corpora, each scanned independently (a symbol is dead when its whole-corpus
    word-boundary reference count is 1 — i.e. only its own declaration):
      client — every inline <script> payload in index.html + every js/*.js module
-     server — server.js
-     shell  — smoke.sh + check.sh POSIX functions (name() { ... })
+     shell  — check.sh POSIX functions (name() { ... })
 
    CSS classes declared in index.html's <style> count as dead when they appear
    nowhere in markup, JS or modules.
@@ -23,9 +22,7 @@ const fs = require('fs');
    cannot match a bare sigil with \b */
 const JS_ALLOW = new Set(['$', '$$',
   /* mirror-public.js — called from standalone pages (stats.html, pilot.html), not index inline */
-  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow',
-  /* reviewed 2026-10-20: mirrorDeckHref (#22) is the safe deck-link builder called from pilot.html */
-  'mirrorDeckHref']);
+  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
 /* fragments that appear inside data:/font: URLs and URL fragments, not real
    class names — 'woff2' joined when brand fonts became self-hosted files */
@@ -59,11 +56,8 @@ const modSrcs = fs.existsSync('js')
   : [];
 scanJS('client', inline.concat(modSrcs));
 
-/* ── server ── */
-scanJS('server', [fs.readFileSync('server.js', 'utf8')]);
-
 /* ── shell: POSIX function definitions name() { ── */
-const shellFiles = ['smoke.sh', 'check.sh'].filter(f => fs.existsSync(f));
+const shellFiles = ['check.sh'].filter(f => fs.existsSync(f));
 const shellSrc = shellFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 const shellFns = new Set();
 const fnRe = /(?:^|\n)[ \t]*([A-Za-z_][\w-]*)\s*\(\)\s*\{/g;
@@ -245,47 +239,27 @@ auditSinks(html, 'index.html');
 for (const f of (fs.existsSync('js') ? fs.readdirSync('js').filter(f => f.endsWith('.js')) : []))
   auditSinks(fs.readFileSync('js/' + f, 'utf8'), 'js/' + f);
 
-/* ── static-exposure audit: what the deck must refuse to serve ───────
-   The deck's static handler is an ALLOWLIST (STATIC_OK + flat font/icon
-   prefix rules); everything else 404s. This gate pins that boundary in CI —
-   behaviorally: it extracts the allowlist from server.js and executes the
-   union against sensitive probes (must 404) and the game shell (must serve).
-   Also pins that server state lives OUTSIDE the served root. */
-const srvSrc = fs.readFileSync('server.js', 'utf8');
+/* ── static-exposure audit: what Vercel must not publish ─────────────
+   The site is a static Vercel deploy; .vercelignore is the boundary that
+   keeps repo tooling off the public host. Pin that every non-game path is
+   listed there and that no game shell file is. */
 const exposeFails = [];
-const allowRegion = srvSrc.slice(srvSrc.indexOf('const STATIC_OK'), srvSrc.indexOf('function serveStatic'));
-const SENSITIVE = ['/data/emberfall.db', '/data/emberfall.db-wal', '/data', '/server.js',
-  '/package.json', '/package-lock.json', '/playwright.config.js', '/emberfall.html',
-  '/smoke.sh', '/check.sh', '/deadscan.js', '/.git/config', '/.env', '/js',
-  '/node_modules/x', '/test-results/x', '/docs/x', '/tools/x', '/tests/x', '/.github/x'];
-const SHELL_OK = ['/index.html', '/sw.js', '/manifest.webmanifest', '/js/art.js', '/js/input.js',
-  '/js/audio.js', '/js/sky.js', '/js/net.js', '/icons/icon-192.png', '/icons/icon-512.png',
-  '/fonts/michroma-400.woff2', '/'];
-const setEntries = [...allowRegion.matchAll(/'([^']+)'/g)].map(m => m[1]);
-if (!setEntries.length) exposeFails.push('STATIC_OK allowlist not found in server.js');
+const vIgnore = fs.existsSync('.vercelignore')
+  ? fs.readFileSync('.vercelignore', 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))
+  : null;
+if (!vIgnore) exposeFails.push('.vercelignore missing');
 else {
-  const hasFontRule = /woff2\$\/\.test\(name\)/.test(allowRegion);
-  const hasIconRule = /\.png\$\/\.test\(name\)/.test(allowRegion);
-  if (!hasFontRule || !hasIconRule)
-    exposeFails.push('flat font/icon prefix rules missing from staticAllowed');
-  const allowed = p => {
-    if (p === '/') p = '/index.html';
-    if (setEntries.includes(p)) return true;
-    if (p.startsWith('/fonts/')) return hasFontRule && /^[\w.-]+\.woff2$/.test(p.slice(7));
-    if (p.startsWith('/icons/')) return hasIconRule && /^[\w.-]+\.png$/.test(p.slice(7));
-    return false;
-  };
-  for (const p of SENSITIVE) if (allowed(p)) exposeFails.push('allowlist wrongly permits ' + p);
-  for (const p of SHELL_OK) if (!allowed(p)) exposeFails.push('allowlist wrongly blocks ' + p);
+  const MUST_HIDE = ['package.json', 'package-lock.json', 'playwright.config.js', 'check.sh',
+    'deadscan.js', 'tools', 'tests', 'packages', '.github', 'goldens', 'node_modules', 'supabase'];
+  const SHELL_OK = ['index.html', 'sw.js', 'manifest.webmanifest', 'js', 'icons', 'fonts', 'stats.html', 'pilot.html'];
+  for (const p of MUST_HIDE) if (!vIgnore.includes(p)) exposeFails.push('.vercelignore does not hide ' + p);
+  for (const p of SHELL_OK) if (vIgnore.includes(p)) exposeFails.push('.vercelignore wrongly hides ' + p);
 }
-if (/const DATA_DIR =[^\n]*path\.join\(ROOT,\s*'data'\)/.test(srvSrc))
-  exposeFails.push("server state (DATA_DIR) lives inside the served root");
 
 /* report */
-const order = { client: 0, server: 1, shell: 2 };
+const order = { client: 0, shell: 1 };
 dead.sort((a, b) => order[a.corpus] - order[b.corpus] || (a.name < b.name ? -1 : 1));
-console.log('── corpus sizes: ' + counts.client + ' client symbols, ' +
-  counts.server + ' server symbols, ' + counts.shell + ' shell fns, ' +
+console.log('── corpus sizes: ' + counts.client + ' client symbols, ' + counts.shell + ' shell fns, ' +
   counts.css + ' css classes ──');
 if (dead.length) {
   console.log('── dead symbols ──');
@@ -306,8 +280,7 @@ if (process.argv.includes('--check')) {
     if (exposeFails.length) console.error('STATIC EXPOSURE: ' + exposeFails.join(' | '));
     process.exit(1);
   }
-  console.log('deadscan --check: clean (' + counts.client + ' client, ' +
-    counts.server + ' server, ' + counts.shell + ' shell, ' + counts.css + ' css, xss+exposure audited)');
+  console.log('deadscan --check: clean (' + counts.client + ' client, ' + counts.shell + ' shell, ' + counts.css + ' css, xss+exposure audited)');
 }
 
 function deadCSSReal() { return deadCSS.filter(c => !CSS_NOISE.has(c)); }

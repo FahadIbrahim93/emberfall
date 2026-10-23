@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in the game or the deck isn't working right
+description: Something in the game or the site isn't working right
 labels: [bug]
 body:
   - type: markdown
@@ -23,7 +23,7 @@ body:
         - Live game (Vercel)
         - Live game (GitHub Pages)
         - Portal build
-        - Self-hosted deck (server.js)
+        - Accounts / boards (Supabase)
         - Local file (file://)
         - Tools / CI
         - Docs
@@ -33,7 +33,7 @@ body:
     id: repro
     attributes:
       label: Reproduction
-      description: Steps to reproduce. Mention it if a test or drill already catches it.
+      description: Steps to reproduce. Mention it if a test already catches it.
       placeholder: |
         1.
         2.
