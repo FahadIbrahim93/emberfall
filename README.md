@@ -1,4 +1,4 @@
-# EMBERFALL v4.27.0 — Orbital Intercept
+# EMBERFALL v4.28.0 — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -22,7 +22,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 - **Scoring that pays for nerve:** graze bullets, chain combos, and pick a boon after each boss.
 - **A hangar to come back to:** paints, sigils, hull mastery and kill plaques.
 - **Accessibility options:** four colour palettes, reduced motion, left-handed and large touch layouts, high-visibility bullets.
-- **Global and daily leaderboards.** Sign in with an email magic link, pick a callsign, and your Endless and Daily runs post to the worldwide boards. Sign in with X is in progress (#26).
+- **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Sign in with X is planned.
 - **Installable PWA** that works offline.
 
 ## Controls
@@ -42,7 +42,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 
 - The game is one `index.html` plus a handful of plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
 - It's hosted as static files on Vercel. Every push to `main` deploys there automatically (a copy also goes to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/)).
-- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Boards are read from public views.
+- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
 - Scores aren't replayed on a server, so a determined cheater could still post a fake score within bounds. Boss Rush, offline play and portal builds keep scores on the device.
 
 More detail in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
@@ -68,7 +68,7 @@ npm run test:browser      # Playwright
 npm test                  # sim + browser + in-game self-test
 ```
 
-You can also run the self-test in the page with `index.html?selftest` (77 checks).
+You can also run the self-test in the page with `index.html?selftest` (63 checks).
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -115,6 +115,10 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 | v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
 
 <!-- fun-curve:end -->
+
+## What's new in v4.28.0 — "Guest Pass"
+
+- Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.
 
 ## What's new in v4.27.0 — "The Same Ladder"
 

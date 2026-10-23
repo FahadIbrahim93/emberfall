@@ -12,7 +12,7 @@ The game itself is static and already ships on Vercel and GitHub Pages. What it 
 
 Accounts and leaderboards live in Supabase project `rgmbexmodebegllahotc`, and the browser talks to it directly (#25, merged as `a7d9f94`).
 
-- Supabase Auth handles sign-in: email magic link, plus anonymous sign-in once enabled. Sign in with X is pending (#26).
+- Supabase Auth handles sign-in with email and password (with email confirmation). Guests play without an account and keep scores on the device; boards list registered pilots only. Sign in with X is planned (#26).
 - `profiles` holds callsigns. `player_scores` holds posted runs.
 - Writes go only through the RPCs `set_callsign` and `submit_score`. RLS is on, there are no direct write grants, scores are bounds-checked and posts are rate-limited (6/minute, 300/day per player).
 - The public reads are the views `leaderboard_global`, `leaderboard_daily` and `deck_stats` (now a live view, not a synced table).

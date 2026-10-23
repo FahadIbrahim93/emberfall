@@ -4,6 +4,21 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [4.28.0] — 2026-10-23 "Guest Pass"
+
+### Added
+- Play as a guest with no account. Guest runs save on the device, and the game-over screen offers "Sign up to post this score".
+- Email and password accounts, with email confirmation when the project requires it. A new account picks its callsign on first sign-in.
+- A title-screen account strip showing whether you're a guest or signed in.
+
+### Changed
+- The worldwide boards list registered pilots only. `set_callsign` and `submit_score` refuse anonymous sessions, and the public views hide rows owned by anonymous users (`20261023000200_registered_only_boards.sql`).
+- Sign-in no longer uses email magic links or anonymous guest sign-in.
+
+### Removed
+- The dormant command-deck client: the settings account panel (deck address, deck sign-in, Google sign-in, account management, save vault), the LAN play panel, the game-over feedback box and duel send, the deck season and duel boards, and the remote-deck code in `js/net.js` (address handling, health probe, deck requests, cloud-save merge, score outbox, funnel pings). `js/net.js` now only renders the Global tab from the public views. The in-game self-test drops the 14 checks that covered that code (63 remain).
+
+
 ### Added
 - Worldwide accounts and boards on Supabase (project `rgmbexmodebegllahotc`): guest or email sign-in, a callsign, runs posted through the `submit_score` RPC, and Global/Daily boards read live. Local scores, offline play and portal builds are unchanged.
 
