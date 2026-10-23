@@ -5,7 +5,7 @@ const { test, expect } = require('@playwright/test');
    Supabase is stubbed: no real network, no real accounts. */
 const boot = async page => {
   await page.route('**/auth/v1/settings', r => r.fulfill({ status: 200, contentType: 'application/json',
-    body: JSON.stringify({ external: { email: true, x: false } }) }));
+    body: JSON.stringify({ external: { email: true } }) }));
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof CLOUD !== 'undefined');
   await page.evaluate(() => CLOUD.open());
