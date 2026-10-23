@@ -1,12 +1,25 @@
-# EMBERFALL — the command deck's data layer
+# EMBERFALL — data
 
-*The database behind accounts, leaderboards, duels and the daily gauntlet.
-One SQLite file, zero dependencies (Node ≥ 22 ships `node:sqlite`), one
-process owning it — with a read-only public mirror on Supabase for the
-world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).
-How accounts and boards fit together: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).*
+## What runs today: Supabase
 
-## The file
+Accounts and the worldwide boards live in Supabase project **`rgmbexmodebegllahotc`** (`emberfall`). It is the source of truth ([ADR 0004](adr/0004-supabase-source-of-truth.md)). The schema is in [`supabase/migrations/`](../supabase/migrations/):
+
+| Object | Kind | Notes |
+|---|---|---|
+| `profiles` | table | one row per player (`id` = `auth.users.id`), unique callsign |
+| `player_scores` | table | one row per posted run; `mode` is endless, daily or school; score 1-10,000,000 |
+| `set_callsign`, `submit_score` | RPCs | the only write path; `authenticated` only; rate limit 6/minute and 300/day per player (HTTP 429 when hit) |
+| `leaderboard_global`, `leaderboard_daily`, `deck_stats` | views | public reads; `security_invoker = true`; `deck_stats` is computed live |
+
+RLS is on for both tables with SELECT-only policies, and `anon`/`authenticated` have no INSERT, UPDATE or DELETE grants. The write logic sits in `SECURITY DEFINER` functions in the unexposed `private` schema. To change the schema, add a new migration file; don't edit applied ones. Full details: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).
+
+There is no sync job and nothing to run by hand: the game reads and writes the project directly. The old mirror project (`bhcczyyhadornihhzpsu`), `tools/db-sync.mjs` and the hourly Mirror stats workflow are retired.
+
+## Historical: the Command Deck's SQLite
+
+*Everything below describes the SQLite data layer of `server.js`, the Command Deck from [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md). The deck was never deployed, so none of this holds live player data. It's kept because `server.js` and its drills are still in the repo.*
+
+### The file
 
 The whole deck state lives in **one SQLite database** plus its WAL/SHM
 sidecars, stored **outside the served tree**:
@@ -23,7 +36,7 @@ Tuning: `PRAGMA journal_mode = WAL` (readers never block the writer) and
 `PRAGMA busy_timeout = 2000` (brief write contention self-heals; a lock
 held longer is an ops incident, not a timeout to raise).
 
-## Schema at v4.16
+### Schema at v4.16
 
 Every owned row carries `REFERENCES users(id) ON DELETE CASCADE` — deleting
 a user is one statement, and the tombstone (below) is the only residue.
@@ -47,7 +60,7 @@ runs never sit in the board scan), the day ledger
 filter, never a lifetime count; regression-tested), snapshots, duel
 targets.
 
-## Migrations
+### Migrations
 
 Idempotent, at boot, in code:
 
@@ -60,7 +73,7 @@ Idempotent, at boot, in code:
   trap class that once silently broke the week window cannot return
   without a red CI
 
-## The vault incident (v4.16, fixed + drilled)
+### The vault incident (v4.16, fixed + drilled)
 
 `profile_snaps` originally shipped without an `id` column. The prune
 (`… id NOT IN (…)`) threw on every snapshot write and was **swallowed by
@@ -73,11 +86,11 @@ that was never selected. Two lessons, both enforced now:
    and readback is byte-for-byte
 2. the repair rebuilds old tables in place and logs loudly at boot
 
-## Supabase (2026-10-23)
+### Mirror retired (2026-10-23)
 
 The public mirror below is **retired**. Accounts and worldwide boards for the static site now live in Supabase project `rgmbexmodebegllahotc`; see [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md#supabase-accounts-and-worldwide-boards-2026-10-23) and the migration in `supabase/migrations/`. `tools/db-sync.mjs` and `tools/mirror-schema.sql` were removed.
 
-## The public mirror (historical, retired 2026-10-23)
+### The public mirror (historical, retired 2026-10-23)
 
 Per [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md), the deck's
 SQLite is the only authoritative store; a Supabase Postgres project
@@ -114,7 +127,7 @@ curl "https://bhcczyyhadornihhzpsu.supabase.co/rest/v1/deck_stats?select=*" \
   removes the pilot and their scores from the mirror too (the tool emits
   the deletes; tombstones stay on the deck only).
 
-## Backups
+### Backups
 
 ```bash
 node tools/db-backup.js --verify   # live snapshot + integrity check, no deck stop

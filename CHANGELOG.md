@@ -7,10 +7,31 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 ### Added
 - Worldwide accounts and boards on Supabase (project `rgmbexmodebegllahotc`): guest or email sign-in, a callsign, runs posted through the `submit_score` RPC, and Global/Daily boards read live. Local scores, offline play and portal builds are unchanged.
 
-### Removed
-- `tools/db-sync.mjs`, `tools/mirror-schema.sql` and the hourly stats workflow (they targeted the retired mirror and failed every hour).
+- Player accounts with callsigns and global and daily leaderboards, live on https://emberfall-game-two.vercel.app (#25). Writes go only through `submit_score` and `set_callsign`, with RLS on, bounds checks and rate limits. `deck_stats` is now a live view.
 
-- Boards, pilot profiles and the public mirror now show the same best run (#14). Merged, but not live until the Command Deck server is deployed.
+### Changed
+- Docs now describe Supabase as the source of truth for accounts and boards (ADR 0004, superseding ADR 0001). The Fly Command Deck was never deployed; its docs are marked historical.
+- Rewrote the repo copy in a plainer voice (#24).
+
+### Fixed
+- Upper-screen flash from film grain and chroma split (#21).
+- Restored the deadscan CI gate (#23).
+
+### Security
+- Sanitized pilot deck links and locked down schema PII (#19); hardened mirror queries and the pilot page (#22).
+
+### Housekeeping
+- Repo hygiene: license section, PR template, security reporting link (#20).
+
+### Removed
+- `tools/db-sync.mjs`, `tools/mirror-schema.sql` and the hourly Mirror stats workflow (they targeted the retired mirror project `bhcczyyhadornihhzpsu`, which is no longer used).
+
+### Coming soon
+- Sign in with X (provider `x`), open as #26 and not merged yet.
+
+## Earlier in October
+
+- Boards, pilot profiles and the public mirror were changed to show the same best run (#14). That work targeted the Command Deck, which was never deployed.
 
 ## 2026-10-19
 

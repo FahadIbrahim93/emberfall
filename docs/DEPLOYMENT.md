@@ -1,6 +1,6 @@
 # Deployment
 
-EMBERFALL has two parts. The **static game** is the product, and it runs anywhere. The **Command Deck** (`server.js`) is optional: it adds accounts, cloud saves, duels and shared leaderboards. Without a deck, the game checks `/api/health` once and stays local.
+EMBERFALL is a static game plus a Supabase project. The static files run anywhere. Accounts and the global and daily boards come from Supabase project `rgmbexmodebegllahotc`, which the browser talks to directly with the publishable key. There is no game server to run.
 
 ## Where it lives today
 
@@ -8,7 +8,8 @@ EMBERFALL has two parts. The **static game** is the product, and it runs anywher
 |---|---|---|
 | Vercel | https://emberfall-game-two.vercel.app/ | Main public link (the repo homepage). `vercel.json` sets the security headers and allows framing by bountyboard.gg. |
 | GitHub Pages | https://fahadibrahim93.github.io/emberfall/ | Published by CI after every green push to `main`. |
-| Command Deck | not deployed yet | `deck.json` points at `https://emberfall-deck.fly.dev`, which isn't running. Until it is, leaderboards and profiles aren't live. |
+| Supabase | `https://rgmbexmodebegllahotc.supabase.co` | Accounts, callsigns and the global and daily boards (live since #25). Schema in `supabase/migrations/`. |
+| Command Deck (Fly) | never deployed | `deck.json` still names `https://emberfall-deck.fly.dev`, which was never launched. Nothing live depends on it. |
 
 Saves and sign-ins are per origin, so a player on Vercel and the same player on Pages have separate local saves.
 
@@ -18,6 +19,14 @@ Saves and sign-ins are per origin, so a player on Vercel and the same player on 
 - Every release is an annotated tag (`git tag -l 'v4.*'`). To roll back, re-run the deploy for an older tag in Actions.
 - The service worker is network-first, and its cache name (`emberfall-v4.NN`) changes every release, so installed copies update.
 
+## Supabase
+
+- **Schema changes:** add a file under `supabase/migrations/` and apply it to the project (Supabase CLI `supabase db push`, or the SQL editor). Applied migrations are never edited.
+- **Auth:** email magic link is on. Anonymous sign-in shows a guest button only once it's enabled in the project's Auth settings. Sign in with X (provider `x`) is pending in #26.
+- **Redirect URLs:** the Vercel and Pages origins must be in the project's allowed redirect URLs for magic links to come back to the game.
+- **Monitoring:** `node tools/mirror-alarm.mjs` checks that the project answers and `deck_stats` agrees with `profiles`.
+- **Keys:** only the publishable key ships in `js/cloud.js`. The service role key is never committed or used by the game.
+
 ## Portal build
 
 ```bash
@@ -26,7 +35,11 @@ npm run build:portal
 
 `tools/build-portal.sh` copies the playable files into `dist-portal/`, injects `window.EMBERFALL_PORTAL=true`, strips off-site hosts and writes `dist-portal.zip` with `index.html` at the root (20 MB limit). It uses `zip`, falls back to python3 and exits with an error if no zip is created. `?portal=1` turns on the same mode in any copy. In portal mode, scores stay on the device.
 
-## Running the Command Deck
+## Historical: running the Command Deck
+
+*The Command Deck was never deployed, and the live game doesn't use it. These notes are kept because `server.js`, `Dockerfile` and `fly.toml` are still in the repo and CI still exercises them.*
+
+### Running it
 
 ```bash
 NODE_ENV=production TRUST_PROXY=1 node server.js --port 8123
@@ -36,7 +49,7 @@ NODE_ENV=production TRUST_PROXY=1 node server.js --port 8123
 - **Data** lives outside the served folder (`../emberfall-data/` by default, or `EF_DATA_DIR`). Back it up live with `node tools/db-backup.js --verify`. Backups contain password and session hashes, so `backups/` is git-ignored. Keep copies off the machine.
 - **Ports:** `--port` beats an ambient `PORT`. Bad values exit with an error.
 
-### As a container
+#### As a container
 
 The `Dockerfile` runs the non-browser test gates in its first stage, so a failing gate can't produce an image.
 
@@ -48,7 +61,7 @@ docker run -d --name deck -p 127.0.0.1:8123:8123 \
 
 It runs on `node:22-alpine` as a non-root user (uid 1001), stores data on `/data` and has a health check on `/api/health`. CI checks on every push that a login survives a container restart.
 
-### On Fly.io
+#### On Fly.io
 
 `fly.toml` is in the repo root. The fastest path is the helper:
 
@@ -77,7 +90,7 @@ fly ssh console -C "node /app/tools/db-backup.js --verify --out /data/backups --
 
 Rehearse a restore with `node tools/drill-restore.mjs`, which CI also runs.
 
-### Optional: Google sign-in
+#### Optional: Google sign-in
 
 Create a *Web application* OAuth client in Google Cloud. Add the game and deck origins as authorized JavaScript origins, then run:
 
@@ -87,17 +100,17 @@ fly secrets set EF_GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com && fly deplo
 
 The deck verifies each ID token itself and issues its own session. It stores no Google credentials. If this variable is unset, the button never appears and the route answers 501.
 
-### Optional: reading playtest notes
+#### Optional: reading playtest notes
 
 On production or proxied decks, `GET /api/feedback` is closed. Read notes on the machine with the database: `node tools/feedback-report.mjs --db /data/emberfall.db`. To read them over HTTP, set an `EF_OPS_TOKEN` secret (for example from `openssl rand -hex 24`, never committed) and send it as the `X-Emberfall-Ops` header.
 
-## After the deck is up
+### After the deck is up
 
 1. Open the live game and create an account (Settings → Command deck).
 2. Fly a run and check it shows on the Global tab.
 3. Open `ops.html` on the deck origin to see the census, the limiters and the live-ledger fence.
 
-## Environment variables
+### Deck environment variables
 
 | Variable | What it does |
 |---|---|

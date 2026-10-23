@@ -8,7 +8,7 @@ Thanks for helping. Bug reports, playtest notes and pull requests are all welcom
 
 ## Local loop
 
-You need Node 22 or newer (the deck uses the built-in `node:sqlite`).
+You need Node 22 or newer (the legacy deck drills use the built-in `node:sqlite`).
 
 ```bash
 npm ci

@@ -1,12 +1,12 @@
 # Leaderboards and accounts
 
-How the Command Deck keeps three things apart: the game data it owns, player identity, and the public copy of the leaderboard that anyone can read. Nothing on the gameplay path depends on a cloud service.
+How player accounts and the worldwide boards work. Nothing on the gameplay path depends on a cloud service: you can play, offline, without an account.
 
-> **Status (2026-10-20):** shared boards and pilot profiles are merged (#12, #14) but **not live**. They go live once the Command Deck is deployed (see [DEPLOYMENT.md](DEPLOYMENT.md)). Portal builds always keep scores on the device.
+> **Status (2026-10-23):** live on https://emberfall-game-two.vercel.app since #25 (merged as `a7d9f94`). Supabase is the source of truth for accounts and boards ([ADR 0004](adr/0004-supabase-source-of-truth.md)). Sign-in is by email magic link, plus anonymous guest sign-in once it's enabled on the project. **Sign in with X** (provider `x`) is open as #26 and not merged yet. Portal builds always keep scores on the device.
 
 ## Supabase accounts and worldwide boards (2026-10-23)
 
-The static site (Vercel) now has its own accounts and worldwide boards in Supabase project **`rgmbexmodebegllahotc`** (`https://rgmbexmodebegllahotc.supabase.co`, region ap-southeast-1, free tier). Schema: [`supabase/migrations/20261023000000_accounts_leaderboard.sql`](../supabase/migrations/20261023000000_accounts_leaderboard.sql). The old mirror project (`bhcczyyhadornihhzpsu`) and its sync pump are retired.
+The static site (Vercel) has its own accounts and worldwide boards in Supabase project **`rgmbexmodebegllahotc`** (`https://rgmbexmodebegllahotc.supabase.co`, region ap-southeast-1, free tier). Schema: [`supabase/migrations/20261023000000_accounts_leaderboard.sql`](../supabase/migrations/20261023000000_accounts_leaderboard.sql). The old mirror project (`bhcczyyhadornihhzpsu`) and its sync pump are retired.
 
 | Object | What it is | Who can do what |
 |--------|-----------|-----------------|
@@ -27,13 +27,18 @@ How it is locked:
 Client side (`js/cloud.js`):
 
 - supabase-js v2 is vendored at `js/vendor/supabase.js` (UMD, no build step) and loaded only when the Global tab opens or a session already exists. Only the publishable key ships.
-- Sign-in: anonymous guest (button shows only when the project allows it) or an email magic link / one-time code. Then pick a callsign.
+- Sign-in: an email magic link / one-time code, or an anonymous guest (the button shows only when the project allows it). Sign in with X is pending (#26). Then pick a callsign.
+- A rate-limited post answers HTTP 429 (`20261023000100_rate_limit_http_429.sql`).
 - Endless and daily runs post through `submit_score` after the local save. Rush and flight school stay on the device. Offline play, local boards and portal builds (`tools/build-portal.sh` strips `cloud.js`) never touch Supabase.
 - The Global tab reads `leaderboard_global` and `leaderboard_daily` with the publishable key whenever no command deck is linked; `stats.html` and `pilot.html` read the same views.
 
 Monitoring: `tools/mirror-alarm.mjs` checks the project answers, `deck_stats` is fresh and agrees with `profiles`, and that no machine-pattern callsigns are on the board. The hourly stats workflow and `tools/db-sync.mjs` were removed.
 
-## Design principles
+## Historical: the Command Deck design (never deployed)
+
+Everything below describes the Fly.io + SQLite Command Deck (`server.js`) from ADRs 0001-0003. That deck was never deployed, the Supabase mirror it fed (`bhcczyyhadornihhzpsu`) is no longer used, and `tools/db-sync.mjs` and the hourly stats workflow are gone. It's kept as a record of the design, not as a description of what runs today.
+
+### Design principles
 
 | Principle | Implementation |
 |-----------|----------------|
@@ -46,7 +51,7 @@ Monitoring: `tools/mirror-alarm.mjs` checks the project answers, `deck_stats` is
 
 Following Supabase's advice for read-heavy boards, the filter columns (`mode`, `score DESC`, `callsign`) are indexed, the mirror holds no secrets, and every write goes to one SQLite file (WAL mode) that the deck owns.
 
-## Accounts
+### Accounts
 
 **Registration & auth**
 
@@ -65,7 +70,7 @@ Following Supabase's advice for read-heavy boards, the filter columns (`mode`, `
 - GitHub Pages static build (no secrets)
 - Supabase mirror (public scores only)
 
-## Leaderboards
+### Leaderboards
 
 **Live boards (deck-linked)**
 
@@ -92,14 +97,14 @@ Following Supabase's advice for read-heavy boards, the filter columns (`mode`, `
 | GitHub Pages | `pilot.html?callsign=` | Supabase mirror |
 | In-game links | `pilotUrl()` | Deck when linked; mirror page when deckless |
 
-## Performance notes
+### Performance notes
 
 - **Deck:** `idx_scores_user_mode` covers per-pilot bests; public `/pilot` responses use prepared statements and **`Cache-Control: public, max-age=60`** (safe — no secrets in the payload).
 - **Mirror client:** `js/mirror-public.js` centralizes the publishable key. Leaderboard reads request **narrow columns + limits**; pilot rank uses a **count-only** query (`Prefer: count=exact`) instead of downloading the full board.
 - **Pages:** `pilot.html` loads mode bests as three parallel `limit=1` score queries.
 - **Portal build:** `emberfallPortal()` keeps scores on-device; the Global tab uses local `renderBoard`, not the Supabase mirror.
 
-## Sync & freshness
+### Sync & freshness
 
 ```bash
 # Operator push (service role — never in the game bundle)
@@ -113,21 +118,21 @@ Hourly GitHub Action refreshes `docs/stats.json` and runs `mirror-alarm.mjs`
 (stale / unreachable / contamination). The mirror **feed** remains operator-owned
 ([ROADMAP.md](ROADMAP.md), issue #15).
 
-## Security posture
+### Security posture
 
 - Rate limits on register, login, profile, scores, stats ([smoke.sh](../smoke.sh))
 - Plausibility checking on runs (not claimed as cryptographic replay yet)
 - Static allowlist: DB and server source never HTTP-served
 - Mirror blast radius: callsigns + accepted scores only ([SECURITY.md](../SECURITY.md))
 
-## What we chose not to do
+### What we chose not to do
 
-- **Supabase as gameplay DB** — rejected [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)
+- **Supabase as gameplay DB** — rejected in [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md), later reversed for accounts and boards by [ADR 0004](adr/0004-supabase-source-of-truth.md)
 - **Convex / realtime leaderboard** — not needed; boards refresh when you open the tab
 - **Dual-write on score POST** — mirror lag is acceptable; deck stays available if Supabase sleeps
 
 ## Related docs
 
-- [DATABASE.md](DATABASE.md) — SQLite schema, vault, backups
-- [tools/mirror-schema.sql](../tools/mirror-schema.sql) — canonical Postgres schema, indexes, RLS and column grants
-- [DEPLOYMENT.md](DEPLOYMENT.md) — deck hosting, `EF_CORS_ORIGINS`, rollback
+- [DATABASE.md](DATABASE.md) — the Supabase schema, plus the historical SQLite notes
+- [supabase/migrations/](../supabase/migrations/) — the live Postgres schema, RLS and RPCs
+- [DEPLOYMENT.md](DEPLOYMENT.md) — where the site runs, and the historical deck notes
