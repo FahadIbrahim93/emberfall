@@ -19,6 +19,12 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - Daily / All-time board tabs, avatars on rows, and a pinned "your rank" row.
 - Mobile: 44 px targets, 16 px inputs, safe-area padding, inputs scroll clear of the keyboard.
 
+### Changed (menu polish)
+- Sign-in, profile and boards open in one modal sheet (bottom sheet on phones, centered dialog on tablet/desktop) with a close button, Esc, scrim tap and a focus trap; the Global tab keeps the same content.
+- One button system (primary / secondary / ghost / destructive) with hover, focus, active, disabled and busy states; inset focus rings that survive the clipped corners; 44 px minimum targets.
+- Spacing and type tokens; labelled form fields; profile stats as four tiles; boards as an aligned table (rank, pilot, score, wave) with tabular numbers, thousands separators, loading skeleton, empty and error states.
+- Service worker cache `emberfall-v4.52`.
+
 ## [4.28.0] — 2026-10-23 "Guest Pass"
 
 ### Added

@@ -180,12 +180,14 @@ const CLOUD = {
     document.getElementById('cloudMe').classList.toggle('hidden', !signed);
     this.paintTitle();
     this.paintProfile();
-    if (!signed) { st.textContent = 'Playing as guest: scores stay on this device. Sign in or create an account to post worldwide.'; return; }
-    const who = (this.user.email || 'pilot');
+    this.sheetHead();
+    if (!signed) { st.textContent = 'Guest scores stay on this device. Sign in with your email to post runs to the worldwide boards. No password needed.'; return; }
+    const who = (this.user.email || '');
     const cs = document.getElementById('cloudCallsign');
+    const pm = document.getElementById('pfMail'); if (pm) pm.textContent = who;
     st.textContent = this.profile
-      ? 'Signed in as ' + this.profile.callsign + ' (' + who + ') · endless and daily runs post worldwide.'
-      : 'Signed in (' + who + ') · first flight: pick a callsign to post runs.';
+      ? 'Your Endless and Daily runs post to the worldwide boards.'
+      : 'Signed in. Next, pick a callsign to start posting runs.';
     if (!this.profile && cs && !cs.value) { try { cs.focus(); } catch (e) { } }
     if (this.profile && !cs.value) cs.value = this.profile.callsign;
   },
@@ -220,13 +222,16 @@ const CLOUD = {
     }
     if (pick) pick.querySelectorAll('button').forEach(b => { const on = b.dataset.av === av; b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); });
     const st = document.getElementById('pfStats');
+    const tiles = v => { if (!st) return; st.querySelectorAll('.pf-s b').forEach((b, i) => { b.textContent = v[i]; }); };
+    const n = x => (x ? (typeof fmt === 'function' ? fmt(x) : String(x)) : '—');
+    if (st) st.classList.toggle('hidden', !this.profile);
     if (st && this.user && this.profile && !this._statsBusy) {
       this._statsBusy = true;
+      st.classList.add('busy');
       this.stats().then(x => {
-        if (x) st.textContent = 'All-time best ' + (x.best || '—') + (x.rank ? ' · rank #' + x.rank : '') +
-          ' · today ' + (x.today || '—') + ' · ' + x.runs + ' runs posted';
-      }).finally(() => { this._statsBusy = false; });
-    } else if (st && !this.profile) st.textContent = 'Pick a callsign to post runs and appear on the boards.';
+        if (x) tiles([n(x.best), x.rank ? '#' + n(x.rank) : '—', n(x.today), n(x.runs || 0)]);
+      }).catch(() => {}).finally(() => { this._statsBusy = false; st.classList.remove('busy'); });
+    }
   },
   /* title-screen account strip */
   paintTitle() {
@@ -235,15 +240,15 @@ const CLOUD = {
     const signed = !!this.user;
     meta.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
     line.textContent = !signed
-      ? 'Guest runs stay on this device. Sign up to post on the worldwide boards.'
-      : this.profile ? 'Your endless and daily runs post to the worldwide boards.'
-      : 'Signed in. Pick a callsign in the Global tab to start posting.';
+      ? 'Guest runs stay on this device. Sign in to post on the worldwide boards.'
+      : this.profile ? 'Your Endless and Daily runs post to the worldwide boards.'
+      : 'Signed in. Choose a callsign to start posting.';
     const pn = document.getElementById('pilotName'), ps = document.getElementById('pilotSub');
     if (pn) pn.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
-    if (ps) ps.textContent = signed ? (this.profile ? 'Profile · posting worldwide' : 'Pick a callsign') : 'Sign in · post worldwide';
+    if (ps) ps.textContent = signed ? (this.profile ? 'View profile' : 'Choose a callsign') : 'Sign in to post scores';
     this.drawAv(document.getElementById('pilotAv'), (this.profile && this.profile.avatar) || 'vesper');
     const sb = document.getElementById('btnAcctSign');
-    if (sb) sb.firstChild.textContent = signed ? 'Account' : 'Sign in / Sign up';
+    if (sb) sb.textContent = signed ? 'Profile' : 'Sign in';
   },
   /* game over: guests (or no callsign yet) get "Sign up to post this score" */
   overPrompt(eligible) {
@@ -251,24 +256,70 @@ const CLOUD = {
     if (!el) return;
     el.classList.toggle('hidden', !(eligible && this.available() && !this.profile));
   },
-  showAccount() {
+  /* account + boards open in one modal sheet (bottom sheet on phones). The
+     Global tab's content is moved into it while open and returned on close,
+     so the sidebar tab and the sheet share one DOM and one set of ids. */
+  sheetView: 'acct',
+  sheetHead() {
+    const t = document.getElementById('sheetTitle'), e = document.getElementById('sheetEyebrow');
+    if (!t || !e) return;
+    if (this.sheetView === 'boards') { e.textContent = 'Worldwide'; t.textContent = 'Leaderboards'; return; }
+    e.textContent = 'Pilot account';
+    t.textContent = !this.user ? 'Sign in' : this.profile ? 'Profile' : 'Choose a callsign';
+  },
+  openSheet(view) {
+    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
+    if (!sh || !body || !tab) return false;
     if (typeof toTitle === 'function' && !document.getElementById('s-title').classList.contains('on')) toTitle();
-    if (typeof switchTab === 'function') switchTab('global');
-    this.open().catch(() => {});
+    this.sheetView = view;
+    sh.classList.toggle('v-boards', view === 'boards');
+    sh.classList.toggle('v-acct', view !== 'boards');
+    if (!sh.classList.contains('on')) {
+      this._ret = document.activeElement;
+      while (tab.firstChild) body.appendChild(tab.firstChild);
+      sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('sheet-open');
+    }
+    body.scrollTop = 0;
+    this.sheetHead();
+    return true;
+  },
+  closeSheet() {
+    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
+    if (!sh || !sh.classList.contains('on')) return;
+    sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sheet-open');
+    while (body.firstChild) tab.appendChild(body.firstChild);
+    try { if (this._ret && this._ret.focus) this._ret.focus(); } catch (e) { }
+  },
+  showAccount() {
+    this.openSheet('acct');
+    if (typeof NET !== 'undefined') NET.renderGlobal(); else this.open().catch(() => {});
     const em = document.getElementById(this.user ? 'cloudCallsign' : 'cloudEmail');
-    if (em) { try { em.scrollIntoView({ block: 'center' }); if (!matchMedia('(pointer:coarse)').matches) em.focus(); } catch (e) { } }
+    const fine = !matchMedia('(pointer:coarse)').matches;
+    try { if (em && fine) em.focus({ preventScroll: true }); else document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
+  },
+  showBoards() {
+    this.openSheet('boards');
+    if (typeof NET !== 'undefined') NET.renderGlobal();
+    try { document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
   },
   say(msg, bad) {
     const el = document.getElementById('cloudMsg');
     if (!el) return;
     el.textContent = msg;
-    el.style.color = bad ? 'var(--crimson)' : 'var(--dim)';
+    el.classList.toggle('err', !!bad);
+    el.classList.toggle('ok', !bad && !!msg);
   },
   wire() {
     const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
     const val = id => (document.getElementById(id) || {}).value || '';
-    const run = fn => async () => {
+    const run = fn => async ev => {
+      const btn = ev && ev.currentTarget;
+      if (btn) { btn.disabled = true; btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true'); }
+      this.say('');
       try { await fn(); this.paint(); } catch (e) { this.paint(); this.say(String(e && e.message || e).slice(0, 140), true); }
+      finally { if (btn) { btn.disabled = false; btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); } }
     };
     on('cloudSignIn', run(async () => { await this.signInEmail(val('cloudEmail'), val('cloudPass')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudSignUp', run(async () => {
@@ -278,16 +329,31 @@ const CLOUD = {
     on('cloudOtp', run(async () => {
       await this.sendOtp(val('cloudEmail'));
       const row = document.getElementById('cloudCodeRow'); if (row) row.classList.remove('hidden');
-      this.say('Check your inbox: tap the link, or type the code here.');
+      this.say('Code sent to ' + this.otpEmail + '. Tap the link in the email or enter the code.');
       const c = document.getElementById('cloudCode'); if (c) try { c.focus(); } catch (e) { }
     }));
     on('cloudVerify', run(async () => { await this.verifyOtp(val('cloudCode')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudGoogle', run(async () => { await this.signInGoogle(); }));
     on('btnPilot', () => this.showAccount());
-    on('btnBoards', () => {
-      this.showAccount();
-      const b = document.getElementById('globalBody'); if (b) try { b.scrollIntoView({ block: 'start' }); } catch (e) { }
-    });
+    on('btnBoards', () => this.showBoards());
+    const sh = document.getElementById('acctSheet');
+    if (sh) {
+      sh.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) this.closeSheet(); });
+      document.addEventListener('keydown', e => {
+        if (!sh.classList.contains('on')) return;
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeSheet(); return; }
+        if (e.key === 'Tab') { /* keep focus inside the dialog */
+          const f = [...sh.querySelectorAll('button,input,summary,a[href],[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null && !x.disabled);
+          if (!f.length) return;
+          const a = f[0], z = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
+          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
+        }
+      }, true);
+    }
+    /* Enter submits the field's primary action */
+    const enter = (inp, btn) => { const i = document.getElementById(inp); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = document.getElementById(btn); if (b) b.click(); } }); };
+    enter('cloudEmail', 'cloudOtp'); enter('cloudCode', 'cloudVerify'); enter('cloudPass', 'cloudSignIn'); enter('cloudCallsign', 'cloudSave');
     /* the virtual keyboard must not cover the field being typed in */
     document.querySelectorAll('#cloudBox input').forEach(i => i.addEventListener('focus', () => {
       setTimeout(() => { try { i.scrollIntoView({ block: 'center' }); } catch (e) { } }, 300);

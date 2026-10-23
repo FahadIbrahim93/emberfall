@@ -606,6 +606,212 @@ body.needrotate #rotate{display:grid}
 @media (max-height:520px) and (orientation:landscape){
   .title-grid{padding-left:calc(16px + var(--sal));padding-right:calc(16px + var(--sar))}
 }
+
+/* ═════════════ v4.29.0 menu polish — one system for every menu surface ═════════════
+   spacing 4/8/12/16/24/32 · type: display Michroma, UI Chakra Petch 12/14/16/20 ·
+   accent = ember (primary actions only), aether = links, crimson = destructive/errors.
+   Buttons: primary (.key), secondary (.btn), ghost (.ghost); every state styled;
+   focus rings are inset shadows because the clipped corners clip outlines. */
+:root{
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --t-xs:.6875rem;--t-sm:.8125rem;--t-md:.9375rem;--t-lg:1.25rem;
+  --surface:rgba(9,14,27,.92);--surface-2:rgba(255,255,255,.035);--hair:rgba(255,255,255,.08);
+  --txt-2:#a3adc4;--ring:0 0 0 2px var(--amber);
+  --ease:cubic-bezier(.2,.8,.2,1);--tap:44px;
+}
+/* buttons */
+.btn{min-height:var(--tap);padding:var(--s3) var(--s4);font-size:var(--t-xs);letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink);background:rgba(12,18,34,.78);border:1px solid rgba(255,138,43,.28);
+  transition:background-color .16s var(--ease),border-color .16s var(--ease),color .16s var(--ease),transform .08s var(--ease),box-shadow .16s var(--ease)}
+.btn::after{display:none}
+.btn:hover:not(:disabled){background:rgba(255,138,43,.1);border-color:rgba(255,138,43,.65);padding-left:var(--s4)}
+.btn:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.btn:active:not(:disabled){transform:translateY(1px);background:rgba(255,138,43,.16)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn .sub{font-size:var(--t-xs);letter-spacing:.04em;text-transform:none;color:var(--txt-2);margin-top:2px;font-weight:400}
+.btn.key{background:var(--ember);color:#160b02;border-color:var(--ember);font-weight:700}
+.btn.key .sub{color:rgba(22,11,2,.72)}
+.btn.key:hover:not(:disabled){background:var(--amber);border-color:var(--amber)}
+.btn.key:active:not(:disabled){background:#e9761c}
+.btn.key:focus-visible{box-shadow:inset 0 0 0 2px #160b02,inset 0 0 0 4px var(--amber)}
+.btn.ghost{background:transparent;border-color:var(--hair);color:var(--txt-2)}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2);border-color:rgba(255,255,255,.2);color:var(--ink)}
+.btn.warn,.btn.ghost.warn{color:#ff7a92;border-color:rgba(255,46,85,.3)}
+.btn.warn:hover:not(:disabled){background:rgba(255,46,85,.1);border-color:var(--crimson);color:#ff9aad}
+.btn.c{text-align:center}
+.btn.busy{color:transparent!important}
+.btn.busy::before{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+  border:2px solid rgba(255,255,255,.25);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;color:var(--ink)}
+.btn.key.busy::before{border-color:rgba(22,11,2,.25);border-top-color:#160b02}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+
+/* title menu */
+.menu.title-menu{gap:var(--s2)}
+.title-menu .btn{padding:var(--s3) var(--s4)}
+.title-menu .btn.key{min-height:60px;font-size:var(--t-sm);letter-spacing:.2em}
+.title-menu .pair.util .btn{min-height:var(--tap)}
+.eyebrow{letter-spacing:.3em}
+.oparthib{letter-spacing:.3em}
+.pilot-strip{gap:var(--s2)}
+.pilot-chip,.pilot-boards{min-height:56px}
+.pilot-chip{gap:var(--s3)}
+.pilot-chip canvas{width:32px;height:32px;background:var(--surface-2);border:1px solid var(--hair)}
+.pc-txt b{letter-spacing:.12em}
+.pilot-boards{text-align:center;padding-left:var(--s5)!important;padding-right:var(--s5)!important}
+kbd{border-color:var(--hair);color:var(--txt-2);background:var(--surface-2)}
+.creds{color:var(--dim)}
+
+/* side panels */
+.panel-copy{color:var(--txt-2);font-size:var(--t-sm);line-height:1.55;margin:0 0 var(--s3)}
+#acctPanel{margin-bottom:var(--s3)}
+.side-head h3{font-size:var(--t-xs)}
+.side-head span{font-size:var(--t-xs);letter-spacing:.12em;color:var(--dim)}
+
+/* modal sheet */
+.sheet{position:fixed;inset:0;z-index:13;display:grid;place-items:center;
+  padding:calc(var(--s5) + var(--sat)) calc(var(--s5) + var(--sar)) calc(var(--s5) + var(--sab)) calc(var(--s5) + var(--sal));
+  visibility:hidden;pointer-events:none}
+.sheet.on{visibility:visible;pointer-events:auto}
+.sheet-scrim{position:absolute;inset:0;background:rgba(2,4,9,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .22s var(--ease)}
+.sheet.on .sheet-scrim{opacity:1}
+.sheet-card{position:relative;width:min(480px,100%);max-height:min(760px,100%);display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid rgba(255,138,43,.22);box-shadow:0 24px 64px rgba(0,0,0,.55);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  opacity:0;transform:translateY(12px) scale(.985);transition:opacity .22s var(--ease),transform .22s var(--ease)}
+.sheet.v-boards .sheet-card{width:min(600px,100%)}
+.sheet.on .sheet-card{opacity:1;transform:none}
+.sheet-card:focus{outline:none}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
+  padding:var(--s5) var(--s5) var(--s4);border-bottom:1px solid var(--hair)}
+.sheet-eyebrow{font-size:var(--t-xs);letter-spacing:.28em;text-transform:uppercase;color:var(--ember);margin-bottom:var(--s2)}
+.sheet-head h2{margin:0;font-size:var(--t-lg);letter-spacing:.14em;line-height:1.2}
+.sheet-x{flex:none;width:var(--tap);height:var(--tap);display:grid;place-items:center;color:var(--txt-2);
+  border:1px solid var(--hair);margin:-6px -8px 0 0;transition:color .16s,border-color .16s,background-color .16s}
+.sheet-x:hover{color:var(--ink);border-color:rgba(255,255,255,.24);background:var(--surface-2)}
+.sheet-x:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:var(--s5);touch-action:pan-y;
+  -webkit-user-select:text;user-select:text}
+.sheet.v-acct #globalStatus,.sheet.v-acct #globalBody{display:none!important}
+.sheet.v-boards #cloudBox{display:none!important}
+.sheet #globalStatus{display:none}
+body.sheet-open #s-title{overflow:hidden}
+@media (max-width:599px){
+  .sheet{place-items:end stretch;padding:calc(var(--s6) + var(--sat)) 0 0}
+  .sheet-card,.sheet.v-boards .sheet-card{width:100%;max-height:100%;
+    clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px);transform:translateY(24px)}
+  .sheet-head{padding:var(--s4) calc(var(--s4) + var(--sar)) var(--s3) calc(var(--s4) + var(--sal))}
+  .sheet-body{padding:var(--s4) calc(var(--s4) + var(--sar)) calc(var(--s5) + var(--sab)) calc(var(--s4) + var(--sal))}
+}
+@media (max-height:520px) and (orientation:landscape){
+  .sheet{padding:calc(var(--s2) + var(--sat)) calc(var(--s4) + var(--sar)) calc(var(--s2) + var(--sab)) calc(var(--s4) + var(--sal))}
+  .sheet-card,.sheet.v-boards .sheet-card{width:min(640px,100%);max-height:100%}
+  .sheet-head{padding:var(--s3) var(--s4)}
+  .sheet-body{padding:var(--s3) var(--s4) var(--s4)}
+}
+
+/* forms */
+.form{display:grid;gap:var(--s3)}
+.sheet-lede{color:var(--txt-2);font-size:var(--t-sm);line-height:1.6;margin:0 0 var(--s4)}
+.fld{display:grid;gap:6px}
+.fld-l{font-size:var(--t-xs);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+#cloudBox input{min-height:48px;width:100%;font-size:16px;letter-spacing:.02em;padding:0 var(--s3);color:var(--ink);
+  background:rgba(2,4,10,.6);border:1px solid rgba(255,255,255,.14);border-radius:0;transition:border-color .16s,box-shadow .16s;
+  -webkit-user-select:text;user-select:text}
+#cloudBox input::placeholder{color:#5d6782}
+#cloudBox input:hover{border-color:rgba(255,255,255,.24)}
+#cloudBox input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+#cloudBox input:invalid:not(:placeholder-shown){border-color:rgba(255,46,85,.6)}
+#cloudCallsign{text-transform:uppercase;letter-spacing:.12em!important}
+.inline{display:grid;grid-template-columns:1fr auto;gap:var(--s2)}
+.inline .btn{min-height:48px;padding:0 var(--s5)}
+.disclose summary{list-style:none;cursor:pointer;min-height:var(--tap);display:flex;align-items:center;gap:var(--s2);
+  color:var(--txt-2);font-size:var(--t-sm);letter-spacing:.04em}
+.disclose summary::-webkit-details-marker{display:none}
+.disclose summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(-45deg);transition:transform .16s var(--ease);margin:0 4px 0 2px}
+.disclose[open] summary::before{transform:rotate(45deg)}
+.disclose summary:hover{color:var(--ink)}
+.disclose summary:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.disclose .form{padding-top:var(--s1)}
+.rule{display:flex;align-items:center;gap:var(--s3);color:var(--dimmer);font-size:var(--t-xs);letter-spacing:.2em;text-transform:uppercase}
+.rule::before,.rule::after{content:"";flex:1;height:1px;background:var(--hair)}
+.msg{min-height:0;margin:var(--s3) 0 0;font-size:var(--t-sm);line-height:1.5;color:var(--txt-2)}
+.msg:empty{display:none}
+.msg.ok{color:var(--mint)}
+.msg.err{color:#ff7a92}
+
+/* profile */
+.pf-head{gap:var(--s4);padding:var(--s3);background:var(--surface-2);border:1px solid var(--hair)}
+.pf-head canvas{width:56px;height:56px;flex:none;background:rgba(2,4,10,.5);border:1px solid var(--hair)}
+.pf-id{min-width:0}
+.pf-head b{font-family:Michroma,sans-serif;font-weight:400;font-size:var(--t-md);letter-spacing:.12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-mail{display:block;margin-top:var(--s1);font-size:var(--t-xs);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--hair);border:1px solid var(--hair);line-height:1.2}
+.pf-s{background:var(--surface);padding:var(--s3) var(--s2);text-align:center;min-width:0}
+.pf-s span{display:block;font-size:.625rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.pf-s b{display:block;margin-top:6px;font-size:var(--t-md);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-s:first-child b{color:var(--amber)}
+.pf-stats.busy .pf-s b{color:transparent;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.12),rgba(255,255,255,.05));background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+@media (max-width:380px){.pf-stats{grid-template-columns:1fr 1fr}}
+.av-pick{gap:var(--s2)}
+.av-pick button{min-height:52px;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--hair);transition:border-color .16s,background-color .16s}
+.av-pick button:hover{border-color:rgba(255,255,255,.24)}
+.av-pick button.on{border-color:var(--amber);background:rgba(255,138,43,.12);box-shadow:inset 0 0 0 1px var(--amber)}
+.av-pick button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.av-pick canvas{width:36px;height:36px}
+
+/* boards */
+.btabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0 0 var(--s4);padding:3px;background:rgba(2,4,10,.55);border:1px solid var(--hair)}
+.btab{min-height:40px;border:0;background:transparent;color:var(--dim);font-size:var(--t-xs);letter-spacing:.18em;font-weight:600;
+  transition:background-color .16s var(--ease),color .16s var(--ease)}
+.btab:hover{color:var(--ink)}
+.btab.on{background:rgba(255,138,43,.16);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,138,43,.5)}
+.btab:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.sheet .btab{min-height:var(--tap)}
+.board-meta{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);margin:0 0 var(--s2);
+  font-size:var(--t-xs);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.board-meta span:first-child{color:var(--ink);font-weight:600}
+.bhead,.board .row,#myRank .row{display:grid;grid-template-columns:36px minmax(0,1fr) auto 44px;gap:var(--s3);align-items:center}
+.bhead{padding:0 var(--s3) var(--s2);border-bottom:1px solid var(--hair);font-size:.625rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer)}
+.bhead span:nth-child(3),.bhead span:nth-child(4){text-align:right}
+#globalBody.b-daily .bhead.gb{display:none}
+.board .row,#myRank .row{min-height:var(--tap);padding:0 var(--s3);border-bottom:1px solid rgba(255,255,255,.045);
+  font-size:var(--t-sm);font-variant-numeric:tabular-nums;transition:background-color .12s}
+.board .row:hover{background:var(--surface-2)}
+.board .row .rk,#myRank .row .rk{color:var(--dim);font-size:var(--t-sm);font-weight:600;text-align:left}
+.board .row.top .rk{color:var(--amber)}
+.board .row .nm,#myRank .row .nm{display:flex;align-items:center;gap:var(--s2);letter-spacing:.06em;min-width:0}
+.board .row .nm a{color:var(--ink);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board .row .nm a:hover{color:var(--amber)}
+.board .row .nm a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.board .row .hl,#myRank .row .hl{flex:none;font-size:var(--t-xs);color:var(--dim);letter-spacing:.06em}
+.board .row .av{width:20px;height:20px;margin:0;flex:none}
+.board .row .sc,#myRank .row .sc{text-align:right;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.board .row .wv,#myRank .row .wv{text-align:right;color:var(--dim);font-size:var(--t-sm)}
+.board .row.me,#myRank .row.me{background:rgba(255,138,43,.1);outline:0;box-shadow:inset 2px 0 0 var(--ember)}
+#myRank{margin-top:var(--s2);border-top:1px solid var(--hair);padding-top:var(--s2)}
+.board .empty{padding:var(--s6) var(--s4);text-align:center;color:var(--txt-2);font-size:var(--t-sm);line-height:1.6;letter-spacing:.02em}
+.board .empty b{display:block;color:var(--ink);font-weight:600;letter-spacing:.06em;margin-bottom:var(--s1)}
+.board .empty.err b{color:#ff7a92}
+.note-s{margin:var(--s3) 0 var(--s4);font-size:var(--t-xs);line-height:1.6;color:var(--dim);letter-spacing:.02em}
+.note-s a{color:var(--aether);text-decoration:none;border-bottom:1px solid rgba(53,224,255,.35)}
+.note-s a:hover{border-bottom-color:var(--aether)}
+.skel{display:grid;gap:1px;padding-top:var(--s1)}
+.skel i{display:block;height:var(--tap);background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.07),rgba(255,255,255,.03));
+  background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (max-width:380px){
+  .bhead,.board .row,#myRank .row{grid-template-columns:28px minmax(0,1fr) auto 32px;gap:var(--s2)}
+  .board .row .hl{display:none}
+}
+@media (max-width:900px){.tab{min-height:var(--tap)}}
+@media (max-height:820px){
+  .title-menu .btn.key{min-height:52px}
+  .title-menu .pair.util .sub{display:none}
+}
 </style>
 </head>
 <body>
@@ -696,7 +902,7 @@ body.needrotate #rotate{display:grid}
         Nothing gets past you.</p>
       <div class="menu title-menu">
         <div class="pilot-strip" id="pilotStrip">
-          <button class="btn pilot-chip" id="btnPilot" type="button" aria-label="Pilot account"><canvas id="pilotAv" width="56" height="56" aria-hidden="true"></canvas><span class="pc-txt"><b id="pilotName">Guest</b><span class="sub" id="pilotSub">Sign in · post worldwide</span></span></button>
+          <button class="btn pilot-chip" id="btnPilot" type="button" aria-label="Pilot account"><canvas id="pilotAv" width="56" height="56" aria-hidden="true"></canvas><span class="pc-txt"><b id="pilotName">Guest</b><span class="sub" id="pilotSub">Sign in to post scores</span></span></button>
           <button class="btn pilot-boards" id="btnBoards" type="button">Boards<span class="sub">Daily · All-time</span></button>
         </div>
         <button class="btn key" id="btnLaunch">Launch intercept<span class="sub" id="launchSub">Endless · escalating waves</span></button>
@@ -708,8 +914,10 @@ body.needrotate #rotate{display:grid}
         <button class="btn" id="btnTour">Solar Tour<span class="sub" id="tourSub">Eight worlds · one hull · checkpoints</span></button>
       </div>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
-        <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
-        <button class="btn ghost" id="btnSettings">Settings</button>
+        <div class="pair util">
+          <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
+          <button class="btn ghost" id="btnSettings">Settings<span class="sub">Audio · display</span></button>
+        </div>
       </div>
       <p class="creds">
         <kbd>WASD</kbd> fly · <kbd>Space</kbd> fire · <kbd>Shift</kbd> dash · <kbd>E</kbd> pulse · <kbd>P</kbd> pause<br>
@@ -717,12 +925,12 @@ body.needrotate #rotate{display:grid}
       </p>
     </div>
     <aside class="side">
-      <div class="panel" id="acctPanel" style="margin-bottom:12px">
+      <div class="panel" id="acctPanel">
         <div class="side-head"><h3>Pilot account</h3><span id="acctMeta">Guest</span></div>
-        <p class="empty" id="acctLine" style="text-align:left;padding:0 0 8px">Guest runs stay on this device. Sign up to post on the worldwide boards.</p>
-        <div class="duo" id="acctBtns">
-          <button class="btn" id="btnAcctGuest" type="button">Play as guest<span class="sub">No account · local best</span></button>
-          <button class="btn key" id="btnAcctSign" type="button">Sign in / Sign up<span class="sub">Email code or Google</span></button>
+        <p class="panel-copy" id="acctLine">Guest runs stay on this device. Sign in to post on the worldwide boards.</p>
+        <div class="pair" id="acctBtns">
+          <button class="btn key c" id="btnAcctSign" type="button">Sign in</button>
+          <button class="btn c" id="btnAcctGuest" type="button">Play as guest</button>
         </div>
       </div>
       <div class="panel">
@@ -740,44 +948,58 @@ body.needrotate #rotate{display:grid}
         <div id="tab-feats" class="hidden"></div>
         <div id="tab-sky" class="hidden"></div>
         <div id="tab-global" class="hidden">
-          <div id="cloudBox" class="hidden" style="padding:6px 0 4px">
-            <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
-            <div id="cloudIn" style="display:grid;gap:8px">
-              <input id="cloudEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="email" aria-label="Email" maxlength="254">
-              <button class="up" id="cloudOtp" type="button">Email me a sign-in code</button>
-              <div id="cloudCodeRow" class="hidden" style="display:grid;gap:8px">
-                <input id="cloudCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code (or tap the link)" aria-label="Sign-in code" maxlength="10">
-                <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+          <div id="cloudBox" class="hidden">
+            <p class="sheet-lede" id="cloudStatus">Worldwide account</p>
+            <div id="cloudIn" class="form">
+              <label class="fld"><span class="fld-l">Email</span>
+                <input id="cloudEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-label="Email" maxlength="254"></label>
+              <button class="btn key c" id="cloudOtp" type="button">Email me a sign-in code</button>
+              <div id="cloudCodeRow" class="form hidden">
+                <label class="fld"><span class="fld-l">Sign-in code</span>
+                  <input id="cloudCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" aria-label="Sign-in code" maxlength="10"></label>
+                <button class="btn key c" id="cloudVerify" type="button">Verify code</button>
               </div>
-              <button class="up hidden" id="cloudGoogle" type="button">Continue with Google</button>
-              <details id="cloudPw"><summary>Use a password instead</summary>
-                <div style="display:grid;gap:8px;padding-top:8px">
-                  <input id="cloudPass" type="password" autocomplete="current-password" placeholder="password (8+ characters)" aria-label="Password" maxlength="72">
-                  <button class="up" id="cloudSignIn" type="button">Sign in</button>
-                  <button class="up" id="cloudSignUp" type="button">Create account</button>
+              <button class="btn c hidden" id="cloudGoogle" type="button">Continue with Google</button>
+              <details id="cloudPw" class="disclose"><summary>Use a password instead</summary>
+                <div class="form">
+                  <label class="fld"><span class="fld-l">Password</span>
+                    <input id="cloudPass" type="password" autocomplete="current-password" placeholder="8+ characters" aria-label="Password" maxlength="72"></label>
+                  <div class="pair">
+                    <button class="btn c" id="cloudSignIn" type="button">Sign in</button>
+                    <button class="btn ghost c" id="cloudSignUp" type="button">Create account</button>
+                  </div>
                 </div>
               </details>
-              <button class="up" id="cloudGuest" type="button">Play as guest (no account)</button>
+              <div class="rule"><span>or</span></div>
+              <button class="btn ghost c" id="cloudGuest" type="button">Continue as guest</button>
             </div>
-            <div id="cloudMe" class="hidden" style="display:grid;gap:8px">
-              <div class="pf-head"><canvas id="pfAv" width="72" height="72" aria-hidden="true"></canvas><div><b id="pfName">Pilot</b><span id="pfStats" class="pf-stats">—</span></div></div>
-              <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}" autocapitalize="characters" autocomplete="nickname">
-              <button class="up" id="cloudSave" type="button">Save callsign</button>
-              <div class="av-pick" id="avPick" role="radiogroup" aria-label="Avatar"></div>
-              <button class="up" id="cloudOut" type="button">Sign out</button>
+            <div id="cloudMe" class="form hidden">
+              <div class="pf-head"><canvas id="pfAv" width="112" height="112" aria-hidden="true"></canvas><div class="pf-id"><b id="pfName">Pilot</b><span id="pfMail" class="pf-mail"></span></div></div>
+              <div id="pfStats" class="pf-stats" aria-live="polite">
+                <div class="pf-s"><span>All-time best</span><b>—</b></div><div class="pf-s"><span>World rank</span><b>—</b></div>
+                <div class="pf-s"><span>Today</span><b>—</b></div><div class="pf-s"><span>Runs posted</span><b>—</b></div>
+              </div>
+              <label class="fld"><span class="fld-l">Callsign</span>
+                <span class="inline"><input id="cloudCallsign" placeholder="3–16 · A–Z 0–9 _ -" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}" autocapitalize="characters" autocomplete="nickname">
+                <button class="btn key c" id="cloudSave" type="button">Save</button></span></label>
+              <div class="fld"><span class="fld-l" id="avPickL">Ship icon</span>
+                <div class="av-pick" id="avPick" role="radiogroup" aria-labelledby="avPickL"></div></div>
+              <button class="btn ghost warn c" id="cloudOut" type="button">Sign out</button>
             </div>
-            <p class="empty" id="cloudMsg" style="text-align:left;padding:4px 0" role="status" aria-live="polite"></p>
+            <p class="msg" id="cloudMsg" role="status" aria-live="polite"></p>
           </div>
-          <div id="globalStatus" class="empty" style="padding:10px 0">Worldwide boards</div>
+          <div id="globalStatus" class="sheet-lede">Worldwide boards</div>
           <div id="globalBody" class="hidden">
-            <div class="btabs" role="tablist"><button class="btab on" data-board="daily" role="tab" type="button">Daily</button><button class="btab" data-board="all" role="tab" type="button">All-time</button></div>
+            <div class="btabs" role="tablist" aria-label="Board"><button class="btab on" data-board="daily" role="tab" type="button">Daily</button><button class="btab" data-board="all" role="tab" type="button">All-time</button></div>
             <div id="dayBox">
-              <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
-              <div id="dailyBoard"></div>
-              <p class="empty" id="dayBoardNote" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
+              <div class="board-meta"><span>Daily Gauntlet</span><span id="dailyStat">today</span></div>
+              <div class="bhead" aria-hidden="true"><span>#</span><span>Pilot</span><span>Score</span><span>Wave</span></div>
+              <div id="dailyBoard" class="board"></div>
+              <p class="note-s" id="dayBoardNote">One seed per UTC day. Every pilot flies the same waves.</p>
             </div>
-            <p class="empty" id="globalBoardNote" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
-            <div id="globalBoard"></div>
+            <div class="board-meta" id="globalBoardNote"><span>All-time · Endless</span><span>plausibility-checked runs</span></div>
+            <div class="bhead gb" aria-hidden="true"><span>#</span><span>Pilot</span><span>Score</span><span>Wave</span></div>
+            <div id="globalBoard" class="board"></div>
             <div id="myRank" class="hidden"></div>
           </div>
         </div>
@@ -786,6 +1008,18 @@ body.needrotate #rotate{display:grid}
   </div>
   <div class="footline"><span>EMBERFALL v4.29.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
+
+<!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
+<div id="acctSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-card" role="document" tabindex="-1">
+    <header class="sheet-head">
+      <div><p class="sheet-eyebrow" id="sheetEyebrow">Pilot account</p><h2 id="sheetTitle">Sign in</h2></div>
+      <button class="sheet-x" id="sheetClose" type="button" aria-label="Close" data-close><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></button>
+    </header>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
 
 <!-- ════════ HANGAR ════════ -->
 <section id="s-hangar" class="screen">
