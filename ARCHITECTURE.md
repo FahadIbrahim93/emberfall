@@ -1,8 +1,11 @@
-# EMBERFALL — architecture
+# EMBERFALL architecture
 
-*What owns what, and which way data flows. Written so the next pass builds
-*with* this structure, not against it. Behavior docs live in the README;
-*economy in `docs/economy-audit.md`; performance in `docs/performance.md`.*
+What owns what, and which way data flows. Gameplay behaviour is in the README,
+the economy in `docs/economy-audit.md`, performance in `docs/performance.md`.
+
+**Runtime today:** static files on Vercel (auto-deployed from `main`) plus
+Supabase for accounts and boards. `server.js` is a legacy design that was
+never deployed; its section at the end is kept for history.
 
 ## The load contract (the most important invariant)
 
@@ -65,11 +68,11 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 ## Invariants worth keeping
 
 1. **No build step.** Any change that needs a bundler is a regression.
-2. **Zero npm dependencies** in the runtime path (client and server).
+2. **Zero npm dependencies** in the runtime path. supabase-js is vendored in `js/vendor/` and loaded only when needed.
 3. **The self-test suite is pure logic only** — safe to run inside the live
    game, any time, without polluting the player's profile (it snapshots and
    restores). New mechanics with invariant math get a `T(...)` test.
-4b. **The vault is read-only server-side.** Deck-side profile snapshots
+4b. **(Legacy deck) The vault is read-only server-side.** Deck-side profile snapshots
    (`profile_snaps`, six newest per user, taken on real deltas) are served
    for inspection only — the server NEVER overwrites the live profile on
    behalf of a snapshot. Restores replace META/CFG locally from a
@@ -80,8 +83,8 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
    like the game dies in seconds with the restore recipe) → deadscan --check →
    econsim --json → deck boot → smoke.sh (static-hygiene T-LEAK + API +
    anti-cheat + load) → headless `?selftest` suite against a committed baseline
-   → Playwright smoke → Pages deploy → live byte-fidelity smoke. Green `main`
-   is the live site.
+   → Playwright smoke → Pages deploy → live byte-fidelity smoke. Vercel
+   deploys `main` on push. The deck steps exercise legacy code only.
 5. **Cache generation bumps on any client payload change** (`sw.js` `CACHE`),
    or installed PWAs never see the update.
 6. **Scored math draws from the run-seeded RNG only.** The cosmetic FX stream
@@ -111,8 +114,8 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 - New input scheme → `js/input.js` behind the existing contract.
 - New sky event → one `SKY_EVENTS` row in `js/sky.js` (colors, counters, log
   kind follow automatically).
-- New server capability → `server.js`, mirrored in `smoke.sh` and (if it has
-  invariant math) a suite test client-side.
+- New account or board capability → a new migration in `supabase/migrations/`
+  and the client call in `js/cloud.js`. Don't add features to the legacy `server.js`.
 - New economy constant → keep `tools/econsim.js` extraction patterns in sync —
   they fail loudly when a constant moves.
 
@@ -120,7 +123,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 
 The live game has no server of its own. `js/cloud.js` loads the vendored supabase-js on demand, signs players in with Supabase Auth, and writes only through the `set_callsign` and `submit_score` RPCs; boards read the public views. See [ADR 0004](docs/adr/0004-supabase-source-of-truth.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
 
-## The Command Deck (server.js) — historical, never deployed
+## Legacy: the Command Deck (server.js), never deployed
 
 *The section below describes the deck design. It was never deployed and the live game doesn't use it.*
 

@@ -6,10 +6,10 @@ EMBERFALL is a static game plus a Supabase project. The static files run anywher
 
 | | URL | Notes |
 |---|---|---|
-| Vercel | https://emberfall-game-two.vercel.app/ | Main public link (the repo homepage). `vercel.json` sets the security headers and allows framing by bountyboard.gg. |
+| Vercel | https://emberfall-game-two.vercel.app/ | Main public link (the repo homepage). Deploys automatically on every push to `main`. `vercel.json` sets the security headers and allows framing by bountyboard.gg. |
 | GitHub Pages | https://fahadibrahim93.github.io/emberfall/ | Published by CI after every green push to `main`. |
 | Supabase | `https://rgmbexmodebegllahotc.supabase.co` | Accounts, callsigns and the global and daily boards (live since #25). Schema in `supabase/migrations/`. |
-| Command Deck (Fly) | never deployed | `deck.json` still names `https://emberfall-deck.fly.dev`, which was never launched. Nothing live depends on it. |
+| Command Deck (Fly) | never deployed (legacy) | `deck.json` still names `https://emberfall-deck.fly.dev`, which was never launched. Nothing live depends on it. |
 
 Saves and sign-ins are per origin, so a player on Vercel and the same player on Pages have separate local saves.
 
