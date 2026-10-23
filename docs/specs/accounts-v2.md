@@ -1,6 +1,6 @@
 # Accounts v2 — quick sign-in, pilot profile, boards refresh
 
-Status: in build (branch `feat/accounts-v2`). Builds on v4.28.0 "Guest Pass" (PR #30).
+Status: in build (branch `feat/accounts-v2`, issues #31 #32 #33 #34). Builds on v4.28.0 "Guest Pass" (PR #30).
 Free tiers only: Supabase Auth (free plan, built-in email), Google OAuth (free), Vercel Hobby.
 
 ## Why (audit, 2026-10-23)

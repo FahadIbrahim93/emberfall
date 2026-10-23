@@ -30,6 +30,7 @@ const NET = {
   async renderMirrorBoards() {
     const body = $('globalBody');
     body.classList.remove('hidden');
+    NET.boardTab(NET.board || 'daily');
     if (emberfallPortal()) {
       const stat = $('dailyStat');
       if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
@@ -45,6 +46,19 @@ const NET = {
     const box = $('globalBoard');
     box.innerHTML = '<div class="empty">Reading the worldwide board…</div>';
     const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
+    const AV = NET.avatars || (NET.avatars = {});
+    const avIcon = uid => AV[uid] ? '<img class="av" alt="" src="' + avatarUrl(AV[uid]) + '">' : '';
+    /* avatars ride beside the board rows: one extra read of profiles.avatar */
+    const withAvatars = async rows => {
+      const ids = rows.map(r => r.user_id).filter(id => id && !(id in AV));
+      if (ids.length) {
+        try {
+          const ps = await mirrorJson('/rest/v1/profiles?id=in.(' + ids.join(',') + ')&select=id,avatar');
+          for (const p of ps) AV[p.id] = p.avatar || null;
+        } catch (e) { }
+      }
+      return rows;
+    };
     const rowHtml = (r2, i, tag) => {
       const st = r2.stats || {};
       const h = (typeof HULLS !== 'undefined') && typeof st.ship === 'string' && HULLS.find(x => x.id === st.ship);
@@ -52,7 +66,7 @@ const NET = {
       const mine = typeof CLOUD !== 'undefined' && CLOUD.user && r2.user_id === CLOUD.user.id;
       return '<div class="row' + (mine ? ' me' : '') + '">' +
         '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+        '<span class="nm">' + avIcon(r2.user_id) + '<a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
         (h ? ' · ' + esc(h.name) : '') + '</span>' +
         '<span class="sc">' + padN(r2.score, 7) + '</span>' +
         '<span class="wv">' + tag + pad2(wave) + '</span></div>';
@@ -63,7 +77,7 @@ const NET = {
       const day = new Date().toISOString().slice(0, 10);
       if (dstat) dstat.textContent = 'today · ' + day + ' · worldwide';
       mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(rows => {
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars).then(rows => {
         dayBox.innerHTML = rows.length
           ? rows.map((r2, i) => rowHtml(r2, i, 'D')).join('')
           : '<div class="empty">Nobody has flown today\u2019s seed.<br>The first one is yours.</div>';
@@ -73,7 +87,8 @@ const NET = {
     const gmode = MIRROR_MODE[mode] && mode !== 'daily' ? MIRROR_MODE[mode] : 'endless';
     try {
       const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars);
+      NET.paintMyRank(rows, gmode);
       if (!rows.length) {
         box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Sign in above, pick a callsign, and fly.</div>';
         return;
@@ -85,6 +100,43 @@ const NET = {
     }
   }
 };
+
+/* Daily / All-time board tabs (accounts v2) */
+NET.boardTab = function (name) {
+  NET.board = name === 'all' ? 'all' : 'daily';
+  const body = $('globalBody');
+  if (body) { body.classList.toggle('b-all', NET.board === 'all'); body.classList.toggle('b-daily', NET.board === 'daily'); }
+  document.querySelectorAll('.btab').forEach(b => { const on = b.dataset.board === NET.board; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+};
+/* "your rank": pinned under the top 50 when the signed-in pilot is not on it */
+NET.paintMyRank = async function (rows, gmode) {
+  const el = $('myRank');
+  if (!el) return;
+  el.classList.add('hidden');
+  const me = typeof CLOUD !== 'undefined' && CLOUD.user && CLOUD.profile;
+  if (!me || rows.some(r => r.user_id === CLOUD.user.id)) return;
+  try {
+    const mine = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode + '&user_id=eq.' + CLOUD.user.id + '&select=score&limit=1');
+    if (!mine[0]) { el.innerHTML = '<div class="empty" style="text-align:left">No ranked run yet: your next one posts here.</div>'; el.classList.remove('hidden'); return; }
+    const rk = gmode === 'endless' ? await mirrorMainRank(mine[0].score) : null;
+    el.innerHTML = '<div class="row me"><span class="rk">' + (rk ? pad2(rk) : '—') + '</span><span class="nm">' + esc(CLOUD.profile.callsign) + ' · you</span><span class="sc">' + padN(mine[0].score, 7) + '</span><span class="wv">W</span></div>';
+    el.classList.remove('hidden');
+  } catch (e) { }
+};
+if (typeof document !== 'undefined') document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('.btab');
+  if (!b) return;
+  NET.boardTab(b.dataset.board);
+  const t = $(b.dataset.board === 'all' ? 'globalBoard' : 'dailyBoard');
+  if (t) try { t.scrollIntoView({ block: 'nearest' }); } catch (e2) { }
+});
+const AVATARS = ['vesper', 'halcyon', 'atlas', 'wraith', 'seraph'];
+const _avUrl = {};
+function avatarUrl(id) {
+  if (!AVATARS.includes(id)) id = 'vesper';
+  if (_avUrl[id]) return _avUrl[id];
+  try { return (_avUrl[id] = hullPreview(id, 16).toDataURL()); } catch (e) { return ''; }
+}
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
   const honor = honorOf(META.donated || 0);

@@ -4,6 +4,21 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [4.29.0] — 2026-10-23 "Pilot Card"
+
+### Fixed
+- Phones: the title screen could not scroll (`#s-title{overflow:hidden}` beat `.screen{overflow-y:auto}`), so the account panel and boards below the menu were unreachable unless "desktop site" was on.
+- Returning visitors could run old `js/*.js` against a new `index.html`: scripts are now network-first in the service worker.
+
+### Added
+- Title pilot chip (avatar, callsign or "Guest · Sign in") and a Boards button, above Launch.
+- Passwordless sign-in: an email with a magic link and a code (`signInWithOtp` / `verifyOtp`); password sign-in kept under "Use a password instead".
+- Google sign-in button, hidden until the provider is enabled in Supabase.
+- Profile: ship-icon avatar (`set_avatar`, `20261023000300_profile_avatar.sql`), all-time best, rank, today's best, runs posted.
+- Guest best carried to the board once on the first callsign save.
+- Daily / All-time board tabs, avatars on rows, and a pinned "your rank" row.
+- Mobile: 44 px targets, 16 px inputs, safe-area padding, inputs scroll clear of the keyboard.
+
 ## [4.28.0] — 2026-10-23 "Guest Pass"
 
 ### Added

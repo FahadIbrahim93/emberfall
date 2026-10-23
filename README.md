@@ -1,4 +1,4 @@
-# EMBERFALL v4.28.0 — Orbital Intercept
+# EMBERFALL v4.29.0 — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -117,6 +117,9 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 <!-- fun-curve:end -->
 
+## What's new in v4.29.0 — "Pilot Card"
+
+- Sign in with a one-tap email code (or Google, once enabled), pick a ship-icon avatar, see your stats and rank, and switch the boards between Daily and All-time, now reachable from the title on every phone.
 ## What's new in v4.28.0 — "Guest Pass"
 
 - Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.
