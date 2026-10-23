@@ -678,6 +678,14 @@ body.needrotate #rotate{display:grid}
       </p>
     </div>
     <aside class="side">
+      <div class="panel" id="acctPanel" style="margin-bottom:12px">
+        <div class="side-head"><h3>Pilot account</h3><span id="acctMeta">Guest</span></div>
+        <p class="empty" id="acctLine" style="text-align:left;padding:0 0 8px">Guest runs stay on this device. Sign up to post on the worldwide boards.</p>
+        <div class="duo" id="acctBtns">
+          <button class="btn" id="btnAcctGuest" type="button">Play as guest<span class="sub">No account · local best</span></button>
+          <button class="btn key" id="btnAcctSign" type="button">Sign in / Sign up<span class="sub">Email or X</span></button>
+        </div>
+      </div>
       <div class="panel">
         <div class="side-head"><h3>Registry</h3><span id="regMeta">Stored on this device</span></div>
       <div class="tabs">
@@ -697,11 +705,11 @@ body.needrotate #rotate{display:grid}
             <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
             <div id="cloudIn" style="display:grid;gap:6px">
               <button class="up hidden" id="cloudX" type="button">Sign in with X</button>
-              <button class="up" id="cloudAnon" type="button">Play as guest (no email)</button>
-              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email for a sign-in link" aria-label="Email for a sign-in link" maxlength="254">
-              <button class="up" id="cloudSend" type="button">Email me a sign-in link</button>
-              <input id="cloudCode" inputmode="numeric" autocomplete="one-time-code" placeholder="or the code from the email" aria-label="Sign-in code" maxlength="10">
-              <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email" aria-label="Email" maxlength="254">
+              <input id="cloudPass" type="password" autocomplete="current-password" placeholder="password (8+ characters)" aria-label="Password" maxlength="72">
+              <button class="up" id="cloudSignIn" type="button">Sign in</button>
+              <button class="up" id="cloudSignUp" type="button">Create account</button>
+              <button class="up" id="cloudGuest" type="button">Play as guest (no account)</button>
             </div>
             <div id="cloudMe" class="hidden" style="display:grid;gap:6px">
               <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}">
@@ -998,6 +1006,9 @@ body.needrotate #rotate{display:grid}
     <b>Sky watch</b><span id="ovSkyTxt"></span>
   </div>
   <div id="ovSchool" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)"></div>
+  <div id="ovCloud" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)">
+    <b>Sign up to post this score</b><span>guest runs stay on this device · <button class="up" id="btnOvSignUp" type="button">Sign up</button></span>
+  </div>
   <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
@@ -6462,6 +6473,7 @@ function endRun() {
     ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
   };
   /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
+  if (typeof CLOUD !== 'undefined') CLOUD.overPrompt(!GAME.school && GAME.score >= 1);
   if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
     CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
       .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
