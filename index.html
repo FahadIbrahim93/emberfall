@@ -410,7 +410,9 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .up .buy.no{color:var(--dimmer)}
 
 /* modal-ish screens */
-#s-pause,#s-over,#s-set{place-items:center;padding:20px}
+#s-pause,#s-over,#s-set,#s-ask{place-items:center;padding:20px}
+/* native confirm() is a no-op inside framed arcade players */
+#s-ask{z-index:16;background:rgba(3,5,11,.72)}
 .card{width:min(520px,94vw);padding:clamp(22px,4vw,34px);max-height:calc(100vh - 40px);overflow-y:auto}
 .card.wide{max-height:calc(100dvh - 28px)}   /* small screens: dialog must fit with its Done button reachable */
 @media (max-height:900px){
@@ -1307,6 +1309,19 @@ body.touchmode #btnPause{width:48px;height:48px}
     </div>
     <div class="pair" style="margin-top:9px">
       <button class="btn ghost" id="btnSaveClose">Close</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ IN-GAME CONFIRM — framed arcade players block window.confirm() ════════ -->
+<section id="s-ask" class="screen" role="dialog" aria-modal="true" aria-labelledby="askH" aria-describedby="askMsg">
+  <div class="panel card">
+    <p class="eyebrow" id="askEye">Confirm</p>
+    <h2 id="askH">Are you sure?</h2>
+    <p class="lede" id="askMsg"></p>
+    <div class="pair" style="margin-top:18px">
+      <button class="btn warn" id="btnAskYes" type="button">Confirm</button>
+      <button class="btn" id="btnAskNo" type="button">Cancel</button>
     </div>
   </div>
 </section>
@@ -7016,6 +7031,35 @@ function closeSettings() {
    UI WIRING
    ══════════════════════════════════════════════════════════════════════ */
 function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
+/* Framed arcade players (window.self !== window.top) block confirm() and
+   prompt(), so the click looks dead. One in-game step covers both places. */
+let askYes = null;
+let askReturn = null;
+function askConfirm(message, yesLabel, onYes) {
+  askYes = onYes || null;
+  askReturn = document.activeElement;
+  $('askH').textContent = yesLabel || 'Confirm';
+  $('askMsg').textContent = message;
+  $('btnAskYes').textContent = yesLabel || 'Confirm';
+  showScreen('s-ask', true);
+  $('btnAskNo').focus();
+}
+function dismissAsk() {
+  askYes = null;
+  const back = askReturn;
+  askReturn = null;
+  showScreen('s-ask', false);
+  if (back && back.isConnected && back.focus && $('s-hangar') && $('s-hangar').classList.contains('on')) {
+    back.focus({ preventScroll: true });
+  }
+}
+function settleAsk(ok) {
+  const fn = ok ? askYes : null;
+  dismissAsk();
+  if (fn) fn();
+}
+bindClick('btnAskYes', () => { AU.ui(); settleAsk(true); });
+bindClick('btnAskNo', () => { AU.ui(); settleAsk(false); });
 bindClick('btnLaunch', () => startRun('endless'));
 bindClick('btnTour', () => startRun('tour'));
 bindClick('btnDaily', () => startRun('daily'));
@@ -7027,12 +7071,13 @@ bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
 bindClick('btnWipe', () => {
-  if (!confirm('Erase all alloy, hulls, refits, feats and scores on this device?')) return;
-  DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
-  META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
-  META.runs = 0; META.totalKills = 0; META.bestWave = 0;
-  for (const r of REFITS) META.refits[r.id] = 0;
-  saveMeta(); renderHangar(); note('Progress reset');
+  askConfirm('Erase all alloy, hulls, refits, feats and scores on this device?', 'Reset progress', () => {
+    DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
+    META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
+    META.runs = 0; META.totalKills = 0; META.bestWave = 0;
+    for (const r of REFITS) META.refits[r.id] = 0;
+    saveMeta(); renderHangar(); note('Progress reset');
+  });
 });
 bindClick('btnPause', () => pauseRun());
 
@@ -8222,6 +8267,51 @@ function runSelfTests() {
     const earned = Math.round((0 + 14000 / 140 + 5 * 6) * 1);   /* the run-end formula, alloy 0 */
     ok(earned < DONATIONS[0].at, 'one run cannot out-earn a donation — the sink is real');
     META.donated = sv.d; META.alloy = sv.a;
+  });
+  T('arcade confirm: hangar reset and yard donate ask in-game', () => {
+    /* Bounty Board frames the game and blocks window.confirm(), which made
+       these two buttons look dead. The step has to open, cancel cleanly,
+       and never touch the native dialog. */
+    ok(document.getElementById('s-ask'), 'confirm step is in the page');
+    const native = window.confirm;
+    let calls = 0;
+    window.confirm = () => { calls++; return false; };
+    const sv = { d: META.donated, a: META.alloy, state: GAME.state, ship: META.ship };
+    const hangWas = $('s-hangar').classList.contains('on');
+    try {
+      $('btnWipe').click();
+      ok($('s-ask').classList.contains('on'), 'reset opens the in-game step');
+      ok($('askMsg').textContent.indexOf('Erase all alloy') === 0, 'reset states what it erases');
+      eq($('btnAskYes').textContent, 'Reset progress');
+      $('btnAskNo').click();
+      ok(!$('s-ask').classList.contains('on'), 'cancel closes reset');
+      eq(META.alloy, sv.a, 'cancel does not wipe alloy');
+
+      META.alloy = DONATIONS[0].at; META.donated = 0;
+      renderDonations();
+      $('donateBox').querySelector('button').click();
+      ok($('s-ask').classList.contains('on'), 'donate opens the in-game step');
+      ok($('askMsg').textContent.indexOf('Donate ') === 0, 'donate names the alloy');
+      eq(META.alloy, DONATIONS[0].at, 'alloy stays until the pilot confirms');
+      eq(META.donated, 0, 'honor stays until the pilot confirms');
+      $('btnAskNo').click();
+      eq(META.donated, 0, 'cancel does not donate');
+
+      GAME.state = 'hangar';
+      showScreen('s-hangar', true);
+      let ran = false;
+      askConfirm('Leave the bay?', 'Reset progress', () => { ran = true; });
+      onKeyDown({ code: 'Escape', repeat: false, target: document.body, preventDefault() {} });
+      ok(!ran && !$('s-ask').classList.contains('on'), 'escape cancels and does not confirm');
+      ok($('s-hangar').classList.contains('on'), 'escape does not leave the hangar');
+      eq(calls, 0, 'window.confirm is never called');
+    } finally {
+      window.confirm = native;
+      dismissAsk();
+      META.donated = sv.d; META.alloy = sv.a; META.ship = sv.ship; GAME.state = sv.state;
+      if (!hangWas) showScreen('s-hangar', false);
+      onKeyUp({ code: 'Escape' });
+    }
   });
   T('v4.4 feats: every claim in the registry is checkable and progressible', () => {
     const sv = { k: META.hullKills, m: META.mastery, p: META.paints.length };

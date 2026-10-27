@@ -371,13 +371,15 @@ function renderDonations() {
       AU.ui();
       const amount = next.at - META.donated;
       if (META.alloy < amount) { note('Need ' + fmt(amount - META.alloy) + ' more alloy', 'bad'); return; }
-      if (!confirm('Donate ' + fmt(amount) + ' alloy to the yard? Honor is permanent; the alloy is not.')) return;
-      META.alloy -= amount;
-      META.donated += amount;
-      saveMeta();
-      renderHangar();
-      note('The yard thanks you — ' + next.name, 'rare');
-      AU.unlock();
+      /* confirm() is blocked when the arcade frames the game */
+      askConfirm('Donate ' + fmt(amount) + ' alloy to the yard? Honor is permanent; the alloy is not.', 'Donate', () => {
+        META.alloy -= amount;
+        META.donated += amount;
+        saveMeta();
+        renderHangar();
+        note('The yard thanks you — ' + next.name, 'rare');
+        AU.unlock();
+      });
     };
   } else {
     b.innerHTML = '<span><b>' + esc('Yardmaster') + '</b><p>' + esc('The highest honor is yours. The yard flies your colors.') + '</p></span>' +
@@ -549,6 +551,7 @@ function renderHangar() {
 /* ─────────────────── screen flow ─────────────────── */
 function showScreen(id, on) { const el = $(id); if (el) el.classList.toggle('on', on); }
 function closeAllScreens() {
-  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over', 's-boons', 's-notes'].forEach(id => showScreen(id, false));
+  if (typeof dismissAsk === 'function') dismissAsk();
+  ['s-boot', 's-title', 's-hangar', 's-pause', 's-set', 's-over', 's-boons', 's-notes', 's-ask'].forEach(id => showScreen(id, false));
 }
 function blurActive() { const a = document.activeElement; if (a && a.blur) a.blur(); }
