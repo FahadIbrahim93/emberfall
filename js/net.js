@@ -14,6 +14,22 @@ function emberfallPortal() {
   } catch (e) { }
   return false;
 }
+
+/* Arcade hosts embed the game and block native confirmation dialogs.
+   Keep these irreversible controls unavailable only in framed play. */
+function emberfallIsFramed() {
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+}
+
+/* index.html's hangar control is present in the DOM before this module loads. */
+if (emberfallIsFramed()) {
+  const resetProgressButton = document.getElementById('btnWipe');
+  if (resetProgressButton) resetProgressButton.classList.add('hidden');
+}
 const NET = {
   /* the Global tab: worldwide boards read from the public Supabase views
      (js/mirror-public.js). Accounts and score posting live in js/cloud.js. */
@@ -360,6 +376,11 @@ function renderDonations() {
       '<span class="ms-sub">' + (earned ? '✦ ' : '') + esc(t.perk) + '</span>';
     box.appendChild(d);
   }
+  /* The yard donation is irreversible and asks for native confirm().
+     Arcade frames block that dialog, so omit the action there while keeping
+     the honor ladder visible. The standalone game keeps its normal prompt. */
+  if (next && emberfallIsFramed()) return;
+
   const b = document.createElement('button');
   b.className = 'up';
   if (next) {
