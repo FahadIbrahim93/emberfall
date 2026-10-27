@@ -84,6 +84,13 @@ function onKeyDown(e) {
   AU.init(); AU.resume();
 
   if (GAME.state === 'boot') { finishBoot(); return; }
+  /* the in-game confirm sits over the hangar; Escape must cancel it,
+     not walk back to the title, and Tab stays inside the dialog */
+  if ($('s-ask') && $('s-ask').classList.contains('on')) {
+    if (e.code === 'Escape') { e.preventDefault(); dismissAsk(); }
+    else if (e.code === 'Tab') trapTab(e, $('s-ask'));
+    return;
+  }
   if (e.code === 'KeyM') { AU.muted = !AU.muted; AU.applyVolumes(); note(AU.muted ? 'Audio muted' : 'Audio on'); }
   if (e.code === 'KeyF') toggleFullscreen();
   if (e.code === 'KeyP' || e.code === 'Escape') {

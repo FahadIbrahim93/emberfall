@@ -17,6 +17,7 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - `npm audit fix`: dev dependency `source-map-js` advisory resolved.
 
 ### Fixed
+- Arcade: Reset progress and Donate to the yard ask with an in-game confirm. Framed players block `confirm()`, so those buttons did nothing on the Bounty Board. SW cache `emberfall-v4.55`.
 - Accessibility: pinch-zoom is no longer disabled (`user-scalable=no`, `maximum-scale=1` removed; axe `meta-viewport`). Menus use `touch-action:manipulation` so fast taps don't zoom.
 - Service worker: removed a dead `/api/` bypass left from the old server; cache `emberfall-v4.53`.
 
