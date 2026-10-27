@@ -7027,6 +7027,8 @@ bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
 bindClick('btnWipe', () => {
+  /* Hidden in arcade frames, guarded here too in case a host triggers it. */
+  if (emberfallIsFramed()) return;
   if (!confirm('Erase all alloy, hulls, refits, feats and scores on this device?')) return;
   DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
   META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
