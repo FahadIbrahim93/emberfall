@@ -1,4 +1,21 @@
 'use strict';
+/* Bounty Board / framed arcade: no sign-in, sign-up, or email prompts.
+   Sets portal mode before cloud.js boots; hides auth chrome once DOM is ready. */
+(function () {
+  var framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  if (!framed) return;
+  window.EMBERFALL_PORTAL = true;
+  function hideAuth() {
+    ['btnInstall', 'swRegister', 'btnPilot', 'btnAcctSign', 'btnAcctGuest', 'acctPanel', 'ovCloud', 'cloudBox'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideAuth);
+  else hideAuth();
+})();
+
 /* Public Supabase board client (ADR 0004). Publishable key only — safe to embed. */
 const MIRROR_ORIGIN = 'https://rgmbexmodebegllahotc.supabase.co';
 const MIRROR_KEY = 'sb_publishable_AXsBx7XpoUMLPVTyb4Rkhg_EDt_gB1Y';
