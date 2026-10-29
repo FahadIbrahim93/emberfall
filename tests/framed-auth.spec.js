@@ -8,16 +8,16 @@ test('framed play hides every auth prompt', async ({ page }) => {
     Object.defineProperty(window, 'top', { get: () => ({}) });
   });
   await page.goto('http://127.0.0.1:8123/index.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => typeof emberfallPortal === 'function' && typeof CLOUD !== 'undefined');
+  await page.waitForFunction(() => typeof CLOUD !== 'undefined');
 
-  const framed = await page.evaluate(() => ({
-    portal: emberfallPortal(),
-    framed: typeof emberfallFramed === 'function' && emberfallFramed(),
+  const state = await page.evaluate(() => ({
+    portal: typeof emberfallPortal === 'function' && emberfallPortal(),
+    flag: !!window.EMBERFALL_PORTAL,
     available: CLOUD.available(),
   }));
-  expect(framed.framed).toBe(true);
-  expect(framed.portal).toBe(true);
-  expect(framed.available).toBe(false);
+  expect(state.flag).toBe(true);
+  expect(state.portal).toBe(true);
+  expect(state.available).toBe(false);
 
   await expect(page.locator('#btnPilot')).toHaveClass(/hidden/);
   await expect(page.locator('#btnAcctSign')).toHaveClass(/hidden/);
