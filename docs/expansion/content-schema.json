@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://emberfall-game-two.vercel.app/schemas/expansion-content-v1.json",
+  "title": "Emberfall Expansion Content",
+  "description": "Planning schema only. Runtime implementation must preserve classic-script, file://, deterministic simulation, and no-runtime-dependency constraints.",
+  "type": "object",
+  "required": ["schemaVersion", "systems", "planes", "dailyMissionTemplates"],
+  "properties": {
+    "schemaVersion": { "const": "expansion-content-v1" },
+    "systems": { "type": "array", "items": { "$ref": "#/$defs/solarSystem" }, "minItems": 1 },
+    "planes": { "type": "array", "items": { "$ref": "#/$defs/plane" }, "minItems": 1 },
+    "dailyMissionTemplates": { "type": "array", "items": { "$ref": "#/$defs/missionTemplate" }, "minItems": 1 }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 2,
+      "maxLength": 64
+    },
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "solarSystem": {
+      "type": "object",
+      "required": ["id", "displayName", "primaryVerb", "version", "palette", "signatureHazard", "planets"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "loreLine": { "type": "string", "maxLength": 180 },
+        "primaryVerb": { "enum": ["survive", "overheat", "bend", "momentum", "mutate"] },
+        "version": { "type": "integer", "minimum": 1 },
+        "palette": {
+          "type": "object",
+          "required": ["background", "primary", "accent", "threat", "objective"],
+          "properties": {
+            "background": { "$ref": "#/$defs/color" },
+            "primary": { "$ref": "#/$defs/color" },
+            "accent": { "$ref": "#/$defs/color" },
+            "threat": { "$ref": "#/$defs/color" },
+            "objective": { "$ref": "#/$defs/color" }
+          },
+          "additionalProperties": false
+        },
+        "signatureHazard": { "$ref": "#/$defs/id" },
+        "enemyFamily": { "$ref": "#/$defs/id" },
+        "miniBossRule": { "type": "string", "maxLength": 160 },
+        "bossRule": { "type": "string", "maxLength": 240 },
+        "audioMotif": { "$ref": "#/$defs/id" },
+        "mobileBudget": { "$ref": "#/$defs/performanceBudget" },
+        "planets": { "type": "array", "items": { "$ref": "#/$defs/planet" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "planet": {
+      "type": "object",
+      "required": ["id", "displayName", "systemId", "stages"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "systemId": { "$ref": "#/$defs/id" },
+        "theme": { "type": "string", "maxLength": 160 },
+        "stages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stage" },
+          "minItems": 3,
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "object",
+      "required": ["id", "planetId", "mode", "seedPolicy", "durationSeconds", "encounterSequence", "scoreRules"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "planetId": { "$ref": "#/$defs/id" },
+        "mode": { "enum": ["survival", "convoy", "hunt", "hazard", "relay", "extraction", "boss"] },
+        "purpose": { "type": "string", "maxLength": 240 },
+        "seedPolicy": { "enum": ["local", "daily-compatible", "verified-daily", "tournament"] },
+        "durationSeconds": { "type": "integer", "minimum": 30, "maximum": 600 },
+        "introRule": { "type": "string", "maxLength": 180 },
+        "hazards": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "maxItems": 5 },
+        "enemySets": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "maxItems": 8 },
+        "objectives": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "maxItems": 4 },
+        "encounterSequence": { "type": "array", "items": { "$ref": "#/$defs/encounter" }, "minItems": 1, "maxItems": 20 },
+        "boss": { "$ref": "#/$defs/id" },
+        "scoreRules": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true, "minItems": 1, "maxItems": 8 },
+        "masteryVariantId": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "encounter": {
+      "type": "object",
+      "required": ["id", "atSeconds", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "atSeconds": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "kind": { "enum": ["wave", "hazard", "objective", "elite", "mini-boss", "boss-phase", "extraction" ] },
+        "enemySet": { "$ref": "#/$defs/id" },
+        "hazard": { "$ref": "#/$defs/id" },
+        "objective": { "$ref": "#/$defs/id" },
+        "telegraphSeconds": { "type": "number", "minimum": 0.2, "maximum": 10 },
+        "intensity": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "notes": { "type": "string", "maxLength": 240 }
+      },
+      "additionalProperties": false
+    },
+    "plane": {
+      "type": "object",
+      "required": ["id", "displayName", "role", "strength", "weakness", "ability", "viableModes", "boardPolicy"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "role": { "enum": ["defensive-control", "precision-assassin", "drone-control", "chain-reaction", "phase-mobility", "objective-specialist"] },
+        "strength": { "type": "string", "maxLength": 180 },
+        "weakness": { "type": "string", "maxLength": 180 },
+        "ability": { "$ref": "#/$defs/ability" },
+        "viableModes": { "type": "array", "items": { "enum": ["survival", "convoy", "hunt", "hazard", "relay", "extraction", "boss"] }, "minItems": 2, "uniqueItems": true },
+        "silhouetteKey": { "$ref": "#/$defs/id" },
+        "audioKey": { "$ref": "#/$defs/id" },
+        "boardPolicy": { "enum": ["standard", "daily-allowed", "daily-restricted", "practice-only"] },
+        "powerBudget": { "type": "number", "minimum": 0.8, "maximum": 1.2 }
+      },
+      "additionalProperties": false
+    },
+    "ability": {
+      "type": "object",
+      "required": ["id", "resource", "cooldownSeconds", "telegraph", "reducedMotionFallback"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "resource": { "enum": ["charge", "heat", "energy", "dash-fragment", "objective-integrity"] },
+        "cooldownSeconds": { "type": "number", "minimum": 0.1, "maximum": 60 },
+        "telegraph": { "type": "string", "maxLength": 180 },
+        "reducedMotionFallback": { "type": "string", "maxLength": 180 }
+      },
+      "additionalProperties": false
+    },
+    "missionTemplate": {
+      "type": "object",
+      "required": ["id", "category", "textTemplate", "trackingKey", "rewardType", "deterministic"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "category": { "enum": ["survival", "precision", "priority", "protection", "efficiency", "restriction", "exploration"] },
+        "textTemplate": { "type": "string", "maxLength": 180 },
+        "trackingKey": { "$ref": "#/$defs/id" },
+        "target": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "rewardType": { "enum": ["cosmetic", "prestige", "profile-badge", "daily-points"] },
+        "deterministic": { "const": true },
+        "accountRequiredToPlay": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "dailyPackage": {
+      "type": "object",
+      "required": ["dailyId", "rulesetVersion", "contentVersion", "seed", "stageId", "modifierId", "missions", "verificationPolicy"],
+      "properties": {
+        "dailyId": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "rulesetVersion": { "type": "integer", "minimum": 1 },
+        "contentVersion": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "stageId": { "$ref": "#/$defs/id" },
+        "modifierId": { "$ref": "#/$defs/id" },
+        "missions": { "type": "array", "items": { "$ref": "#/$defs/id" }, "minItems": 3, "maxItems": 3, "uniqueItems": true },
+        "allowedPlanes": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "verificationPolicy": { "enum": ["bounds-checked", "replay-verified", "tournament-reviewed"] }
+      },
+      "additionalProperties": false
+    },
+    "replayContract": {
+      "type": "object",
+      "required": ["seed", "rulesetVersion", "contentVersion", "inputFormatVersion", "fixedStep", "verificationStatus"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "rulesetVersion": { "type": "integer", "minimum": 1 },
+        "contentVersion": { "type": "integer", "minimum": 1 },
+        "inputFormatVersion": { "type": "integer", "minimum": 1 },
+        "fixedStep": { "type": "number", "exclusiveMinimum": 0, "maximum": 0.1 },
+        "inputDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "verificationStatus": { "enum": ["local", "bounds-checked", "replay-verified", "tournament-reviewed"] }
+      },
+      "additionalProperties": false
+    },
+    "performanceBudget": {
+      "type": "object",
+      "required": ["targetFps", "minimumFps", "maxEntityCount", "maxParticleCount", "maxBackdropBakeMs"],
+      "properties": {
+        "targetFps": { "const": 60 },
+        "minimumFps": { "type": "integer", "minimum": 30, "maximum": 60 },
+        "maxEntityCount": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "maxParticleCount": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "maxBackdropBakeMs": { "type": "number", "minimum": 0, "maximum": 8 }
+      },
+      "additionalProperties": false
+    }
+  }
+}
