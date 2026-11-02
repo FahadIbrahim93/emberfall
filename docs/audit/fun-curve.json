@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.27.0",
+      "date": "2026-10-19",
+      "codename": "The Same Ladder",
+      "loop": {
+        "wave": 2,
+        "kills": 23,
+        "grazes": 1,
+        "combo": 11,
+        "mult": 2,
+        "medianFps": 29
+      },
+      "first60": {
+        "medianFps": 20,
+        "firstPlayingMs": 425,
+        "firstKillMs": 1328,
+        "fbSeen": 2
+      }
+    },
+    {
       "version": "4.26.0",
       "date": "2026-09-30",
       "codename": "The Open Gate",

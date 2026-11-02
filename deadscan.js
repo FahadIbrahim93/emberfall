@@ -21,7 +21,11 @@ const fs = require('fs');
 
 /* reviewed 2026-09-17: not dead — '$'/'$$' are the DOM helpers and the regex
    cannot match a bare sigil with \b */
-const JS_ALLOW = new Set(['$', '$$']);
+const JS_ALLOW = new Set(['$', '$$',
+  /* mirror-public.js — called from standalone pages (stats.html, pilot.html), not index inline */
+  'mirrorMainRank', 'mirrorModeBest', 'mirrorPilotRow',
+  /* reviewed 2026-10-20: mirrorDeckHref (#22) is the safe deck-link builder called from pilot.html */
+  'mirrorDeckHref']);
 /* CSS "dead classes" that are font-provider URL fragments, never findings */
 /* fragments that appear inside data:/font: URLs and URL fragments, not real
    class names — 'woff2' joined when brand fonts became self-hosted files */
@@ -197,6 +201,9 @@ if (fs.existsSync('js')) {
    below with a reason (mirroring the JS allowlist philosophy: reviewed,
    dated, prefer false negatives). New unescaped sinks fail CI. */
 const XSS_ALLOW = [
+  /* reviewed 2026-10-23: rowHtml (js/net.js, Supabase boards) esc()s the
+     callsign and hull name and pads the numbers; no raw row text reaches the sink */
+  { re: /rows\.map\(\(r2, i\) => rowHtml\(r2, i, '[DW]'\)\)/ },
   /* reviewed 2026-09-21: SHIP_ICON is a repo constant; the count is a clamped
      Math.max/min over GAME.lives — no external string reaches the sink.
      (Keyed on the expression, not the line number: lines drift, intent doesn't.) */
@@ -212,7 +219,7 @@ const XSS_ALLOW = [
   { re: /grid-template-columns:1fr auto auto/ },
 ];
 function auditSinks(src, file) {
-  const re = /\.innerHTML\s*=/g;
+  const re = /\.innerHTML\s*\+?=/g;
   let mm;
   while ((mm = re.exec(src))) {
     const line = src.slice(0, mm.index).split('\n').length;

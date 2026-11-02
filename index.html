@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>EMBERFALL — Orbital Intercept</title>
 <!-- v4.23: the game previews properly wherever a pilot shares it -->
 <meta property="og:title" content="EMBERFALL — Orbital Intercept">
@@ -696,6 +697,23 @@ body.needrotate #rotate{display:grid}
         <div id="tab-feats" class="hidden"></div>
         <div id="tab-sky" class="hidden"></div>
         <div id="tab-global" class="hidden">
+          <div id="cloudBox" class="hidden" style="padding:6px 0 4px">
+            <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
+            <div id="cloudIn" style="display:grid;gap:6px">
+              <button class="up hidden" id="cloudX" type="button">Sign in with X</button>
+              <button class="up" id="cloudAnon" type="button">Play as guest (no email)</button>
+              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email for a sign-in link" aria-label="Email for a sign-in link" maxlength="254">
+              <button class="up" id="cloudSend" type="button">Email me a sign-in link</button>
+              <input id="cloudCode" inputmode="numeric" autocomplete="one-time-code" placeholder="or the code from the email" aria-label="Sign-in code" maxlength="10">
+              <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+            </div>
+            <div id="cloudMe" class="hidden" style="display:grid;gap:6px">
+              <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}">
+              <button class="up" id="cloudSave" type="button">Save callsign</button>
+              <button class="up" id="cloudOut" type="button">Sign out</button>
+            </div>
+            <p class="empty" id="cloudMsg" style="text-align:left;padding:4px 0" role="status" aria-live="polite"></p>
+          </div>
           <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
           <div id="globalBody" class="hidden">
             <div id="seasonBox" class="hidden">
@@ -713,9 +731,9 @@ body.needrotate #rotate{display:grid}
               <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
               <div id="dailyBoard"></div>
               <div id="dailyYou" class="hidden"></div>
-              <p class="empty" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
+              <p class="empty" id="dayBoardNote" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
             </div>
-            <p class="empty" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
+            <p class="empty" id="globalBoardNote" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
             <div id="globalBoard"></div>
             <div id="globalYou" class="hidden"></div>
             <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
@@ -725,7 +743,7 @@ body.needrotate #rotate{display:grid}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.26.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.27.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ HANGAR ════════ -->
@@ -1016,6 +1034,8 @@ body.needrotate #rotate{display:grid}
 </div>
 <script src="js/audio.js"></script>
 <script src="js/sky.js"></script>
+<script src="js/mirror-public.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
@@ -1029,7 +1049,7 @@ body.needrotate #rotate{display:grid}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.26.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.27.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1053,8 +1073,13 @@ function angDiff(a, b) { return MATHMOD.angDiff(a, b); }
    deck's /pilot/<name> profile page. The deck address rides along:
    NET.deck when the game flies a remote deck, otherwise this origin. */
 function pilotUrl(name) {
-  const base = (typeof NET !== 'undefined' && NET.deck) || location.origin;
-  return base + '/pilot/' + encodeURIComponent(String(name || ''));
+  const enc = encodeURIComponent(String(name || ''));
+  const remote = (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck))
+    ? NET.deck.replace(/\/$/, '') : '';
+  if (typeof NET !== 'undefined' && NET.on) {
+    return (remote || location.origin) + '/pilot/' + enc;
+  }
+  return 'pilot.html?callsign=' + enc;
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -5922,6 +5947,12 @@ function endRun() {
     ovRankEl.classList.remove('hidden');
     ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
   };
+  /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
+  if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
+    CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
+      .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
+      .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
+  }
   NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele,
     { paint: META.paint, mastery: masteryLevel(META.ship) }).then(r => {
     const el = $('ovRank');
@@ -5929,19 +5960,19 @@ function endRun() {
     if (r) {
       el.classList.remove('hidden');
       const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
-        ? ' · gauntlet #' + r.seasonMe.rank
+        ? ' · gauntlet #' + esc(r.seasonMe.rank)
         : '';
       el.innerHTML = r.verdict === 'rejected'
         ? '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>'
         : r.verdict === 'review'
         ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + r.rank + seasonLine + '</span>';
+        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + esc(r.rank) + seasonLine + '</span>';
       if (mode === 'daily' && r.verdict === 'accepted' && r.daily) {
         const medals = applyDailyResult(r);
         if (medals.length) {
           const st = META.daily || {};
-          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.join(' · ') +
-            '</b><span>day streak ' + (st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + st.best : '') + '</span></div>';
+          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.map(esc).join(' · ') +
+            '</b><span>day streak ' + esc(st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + esc(st.best) : '') + '</span></div>';
         }
       }
     } else {
@@ -6252,8 +6283,44 @@ function openSettings(from) {
   showScreen('s-set', true);
   $('btnSetClose').focus();
 }
+/* Portal chrome: no deck field, no account/Google/LAN row, no feedback or
+   duel send, no external or social anchors. Local boards stay. */
+function applyPortalChrome() {
+  if (typeof emberfallPortal !== 'function' || !emberfallPortal()) return;
+  const hide = id => { const el = $(id); if (el) el.classList.add('hidden'); };
+  ['deckRow', 'acctFields', 'googleBox', 'acctSigned', 'lanBox', 'lanSolo', 'fbRow', 'duelRow', 'globalSignin', 'btnInstall', 'swRegister'].forEach(hide);
+  const acct = $('lAcct');
+  if (acct && acct.parentElement) acct.parentElement.classList.add('hidden');
+  const lan = $('lLan');
+  if (lan && lan.parentElement) lan.parentElement.classList.add('hidden');
+  const dayNote = $('dayBoardNote');
+  if (dayNote) dayNote.textContent = 'One seed, one day — your best on this device. Waves carry the D tag.';
+  const gNote = $('globalBoardNote');
+  if (gNote) gNote.textContent = 'This device — runs saved in local storage.';
+  const status = $('globalStatus');
+  if (status && !status.dataset.portal) {
+    status.dataset.portal = '1';
+    status.textContent = 'Scores stay on this device.';
+  }
+  const bannedHost = ['github.' + 'com', 'fly.' + 'dev', 'supa' + 'base', 'twitter.' + 'com', 'discord.', 'itch.' + 'io', 'youtube.' + 'com', 'reddit.' + 'com', 'accounts.' + 'google'];
+  document.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    const lower = href.toLowerCase();
+    let external = false;
+    try {
+      if (/^(https?:)?\/\//i.test(href)) {
+        const u = new URL(href, location.href);
+        external = u.origin !== location.origin;
+      }
+    } catch (e) { external = /^https?:/i.test(href); }
+    if (external || bannedHost.some(s => lower.indexOf(s) !== -1)) {
+      a.replaceWith(document.createTextNode(a.textContent || ''));
+    }
+  });
+}
 /* ── command deck account panel (settings) ── */
 function paintAccount() {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
   const on = NET.on, u = NET.user;
   $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
   $('acctFields').classList.toggle('hidden', !on || !!u);
@@ -6269,6 +6336,14 @@ function paintAccount() {
   const setOn = $('s-set') && $('s-set').classList.contains('on');
   if (on && !u && setOn) NET.probe().then(() => paintGoogle());
   else if ($('googleBox')) $('googleBox').classList.add('hidden');
+  /* destructive account actions are real clicks; a framing page must not
+     be able to position them under the player's cursor */
+  if (typeof crossOriginFramed === 'function' && crossOriginFramed()) {
+    for (const id of ['btnAcctDel', 'btnAcctPass', 'mgmtPassCur', 'mgmtPassNew', 'mgmtDelPass']) {
+      const el = $(id);
+      if (el) el.disabled = true;
+    }
+  }
 }
 /* v4.22 — the deck address row: the one field that decides WHICH deck the
    game flies. Committed on change (blur/Enter); a wrong address is not an
@@ -6276,6 +6351,14 @@ function paintAccount() {
 function paintDeckRow() {
   const inp = $('deckUrl');
   if (!inp) return;
+  const framed = typeof crossOriginFramed === 'function' && crossOriginFramed();
+  if (framed) {
+    inp.disabled = true;
+    inp.value = NET.deck;
+    $('deckHint').textContent = 'This page is embedded, so it stays on the official deck. A framing site cannot redirect your password or Google sign-in. Open the game in its own tab to choose a different deck.';
+    return;
+  }
+  inp.disabled = false;
   if (document.activeElement !== inp) inp.value = NET.deck;
   $('deckHint').textContent = NET.deck
     ? 'Flying ' + NET.deck + ' — accounts, boards and duels come from there. Clear the field to return to this network.'
@@ -6300,6 +6383,7 @@ function bindPassToggle() {
    itself (/api/lan), the phone just needs the URL. */
 let lanCache = null;
 async function paintLan() {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
   const on = NET.on;
   $('lanBox').classList.toggle('hidden', !on);
   $('lanSolo').classList.toggle('hidden', on);
@@ -6378,9 +6462,13 @@ let gsiLoaded = false;
 function paintGoogle() {
   const box = $('googleBox');
   if (!box) return;
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) { box.classList.add('hidden'); return; }
   const show = NET.on && !NET.user && NET.googleClientId;
   box.classList.toggle('hidden', !show);
   if (!show) return;
+  if (typeof crossOriginFramed === 'function' && crossOriginFramed() && $('gHint')) {
+    $('gHint').textContent = 'Embedded page: Google sign-in often will not open here. A password still reaches only the official deck. For Google, open the game in its own tab.';
+  }
   if (!gsiLoaded) {
     gsiLoaded = true;
     const s = document.createElement('script');
@@ -6423,6 +6511,12 @@ function armGoogle() {
   inp.addEventListener('change', async () => {
     const v = inp.value.trim().replace(/\/+$/, '');
     if (v === NET.deck) return;
+    if (typeof crossOriginFramed === 'function' && crossOriginFramed()) { inp.value = NET.deck; return; }
+    if (v && typeof deckUrlAllowed === 'function' && !deckUrlAllowed(v)) {
+      note('Deck address must be an http(s) URL with no password in it', 'bad');
+      inp.value = NET.deck;
+      return;
+    }
     NET.setDeck(v);
     note(v ? 'Probing ' + v.replace(/^https?:\/\//, '') + '…' : 'Back to the local deck…', 'dim');
     const on = await NET.probe();
@@ -6513,6 +6607,7 @@ bindClick('btnSaveClose', () => { AU.ui(); showScreen('s-save', false); if (GAME
 let deferredInstall = null;
 addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) return;
   deferredInstall = e;
   const b = $('btnInstall');
   if (b) b.classList.remove('hidden');
@@ -6536,6 +6631,7 @@ addEventListener('appinstalled', () => {
    is already installed there); the click plays the UI sound only, since
    the recipe text IS the feature. */
 addEventListener('load', () => {
+  if (typeof emberfallPortal === 'function' && emberfallPortal()) return;
   if (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) return;
   if (!/iP(hone|ad|od)/.test(navigator.userAgent) || window.MSStream) return;
   const b = $('btnInstall'), sub = $('installSubTxt');
@@ -6759,6 +6855,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.27.0',
+    items: [
+      'Boards, the pilot page, and the public mirror now tell one story: the row is the flight that set the score (hull, wave, paint, mastery), ties share a rank, and /pilot renders that dossier as a page. Deckless copies open pilot.html from the mirror. Season history and per-mode standings publish with the mirror schema.'
+    ]
+  },
   {
     v: '4.26.0',
     items: [
@@ -8053,13 +8155,17 @@ function runSelfTests() {
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
   T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
-    const savedDeck = NET.deck;
+    const savedDeck = NET.deck, savedOn = NET.on;
     NET.deck = '';
+    NET.on = true;
     eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
     eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
     NET.deck = 'https://deck.example.com';
     eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
+    NET.on = false;
+    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'deckless mirror profile page');
     NET.deck = savedDeck;
+    NET.on = savedOn;
   });
   T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
     const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
@@ -8112,6 +8218,32 @@ function runSelfTests() {
     NET.setDeck(savedDeck);
     NET.token = savedTok;
     try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+  });
+  T('deck address: embeds and hostile URLs cannot retarget credentials', () => {
+    ok(deckUrlAllowed('https://emberfall-deck.fly.dev'), 'https deck');
+    ok(deckUrlAllowed('http://127.0.0.1:8165'), 'loopback drill deck');
+    ok(!deckUrlAllowed('javascript:alert(1)'), 'javascript scheme refused');
+    ok(!deckUrlAllowed('https://user:pass@evil.example'), 'userinfo refused');
+    ok(!deckUrlAllowed('https://evil.example/?q="><img>'), 'markup refused');
+    ok(!deckUrlAllowed(''), 'blank is not an address');
+    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', true), '', 'cross-origin embed ignores the query and the stored override');
+    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', false), 'https://evil.example', 'top-level ?deck= still wins');
+    eq(chooseDeckAddress(null, 'https://mine.example', false), 'https://mine.example', 'stored choice stands when no query');
+    eq(chooseDeckAddress('', 'https://mine.example', false), '', 'empty ?deck= clears back to auto');
+    eq(chooseDeckAddress('"><img>', 'https://mine.example', false), 'https://mine.example', 'hostile query falls through to the stored deck');
+    eq(chooseDeckAddress(null, 'javascript:alert(1)', false), '', 'poisoned storage is dropped');
+    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
+    try {
+      NET.deck = 'https://keep.example';
+      NET.token = 'keep-tok';
+      NET.setDeck('javascript:alert(1)');
+      eq(NET.deck, 'https://keep.example', 'setDeck refuses a non-http address');
+      eq(NET.token, 'keep-tok', 'a refused address does not drop the session');
+    } finally {
+      NET.deck = savedDeck;
+      NET.token = savedTok;
+      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
+    }
   });
   T('battery default: touch devices cap at 60, desktop uncapped', () => {
     eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
@@ -8559,7 +8691,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.26.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.27.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -8630,6 +8762,7 @@ $('s-boot').addEventListener('pointerdown', finishBoot);
 $('s-boot').addEventListener('click', finishBoot);
 
 function boot() {
+  applyPortalChrome();
   loadCfg();
   SETTING_PAINTS.forEach(p => p());   // saved prefs repaint switches/segments
   loadMeta();
@@ -8772,6 +8905,7 @@ requestAnimationFrame(frame);
    Hosts that cannot serve sw.js simply skip it — the game never depends on it. */
 function tryRegisterSW() {
   try {
+    if (typeof emberfallPortal === 'function' && emberfallPortal()) return false;
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return false;
     if (!('serviceWorker' in navigator)) return false;
     navigator.serviceWorker.register('sw.js').catch(() => { });

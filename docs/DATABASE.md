@@ -3,7 +3,8 @@
 *The database behind accounts, leaderboards, duels and the daily gauntlet.
 One SQLite file, zero dependencies (Node ≥ 22 ships `node:sqlite`), one
 process owning it — with a read-only public mirror on Supabase for the
-world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).*
+world to read (see [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md)).
+How accounts and boards fit together: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).*
 
 ## The file
 
@@ -39,7 +40,9 @@ a user is one statement, and the tombstone (below) is the only residue.
 | `beats` | a proven duel win | `(challenge_id, user_id)` PK; score + `run_hash` recorded |
 | `deleted_accounts` | a retired callsign | tombstone: the name can never be re-registered, so board history that displays it cannot be rewritten |
 
-Indexes: boards (`scores(mode, score DESC)`), the day ledger
+Indexes: boards (`scores(mode, score DESC)` plus a partial covering index
+`scores(mode, user_id, score DESC, …) WHERE verdict = 'accepted'` — rejected
+runs never sit in the board scan), the day ledger
 (`daily_stats(user_id, created_day)` — the week window is a TEXT-day
 filter, never a lifetime count; regression-tested), snapshots, duel
 targets.
@@ -70,7 +73,11 @@ that was never selected. Two lessons, both enforced now:
    and readback is byte-for-byte
 2. the repair rebuilds old tables in place and logs loudly at boot
 
-## The public mirror (Supabase, read-only)
+## Supabase (2026-10-23)
+
+The public mirror below is **retired**. Accounts and worldwide boards for the static site now live in Supabase project `rgmbexmodebegllahotc`; see [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md#supabase-accounts-and-worldwide-boards-2026-10-23) and the migration in `supabase/migrations/`. `tools/db-sync.mjs` and `tools/mirror-schema.sql` were removed.
+
+## The public mirror (historical, retired 2026-10-23)
 
 Per [ADR 0001](adr/0001-sqlite-authoritative-supabase-mirror.md), the deck's
 SQLite is the only authoritative store; a Supabase Postgres project
@@ -79,8 +86,13 @@ accepted scores, gauntlet day aggregates, lifetime totals. Password hashes,
 sessions, telemetry, profiles and the vault never leave SQLite.
 
 - **Schema:** `pilots`, `scores`, `gauntlet_days`, `deck_stats` (+ the
-  `leaderboard` view) — RLS enabled everywhere, `anon` gets SELECT and
-  nothing else (anon INSERT is refused, proven by probe)
+  `leaderboard` view), and from v4.27.0 `board_standings`, `seasons`,
+  `pilot_cards` — apply `tools/mirror-schema.sql` once. RLS is enabled
+  and forced; `anon` gets SELECT and nothing else (no write policies).
+  `best_score` / `best_wave` are the single career-best accepted run.
+  `board_standings` is one row per pilot per mode: the flight that set
+  the score, with competition `rank`. `pilot_cards` is the public dossier
+  `/pilot/<name>` already serves. `seasons` is every Monday-UTC week.
 - **Sync:** `node tools/db-sync.mjs` — REST push with the operator's
   service key (`SUPABASE_URL` + `SUPABASE_SERVICE_KEY`), or keyless
   `--print-sql` to stage idempotent SQL, or `--verify` to read back

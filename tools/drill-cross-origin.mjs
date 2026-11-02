@@ -179,6 +179,10 @@ async function main() {
   (who.status === 200 && who.json && who.json.name === 'XO Pilot' && who.json.bests.main && who.json.paint === 'slate')
     ? good('profile serves bests + the worn paint (case-insensitive lookup)')
     : bad('profile: ' + who.status + ' ' + JSON.stringify(who.json).slice(0, 100));
+  const apiPilot = await req('GET', '/api/pilot/xo%20pilot');
+  (apiPilot.status === 200 && apiPilot.json && apiPilot.json.ranks && apiPilot.json.ranks.main)
+    ? good('/api/pilot alias matches /pilot and carries main rank')
+    : bad('/api/pilot: ' + apiPilot.status + ' ' + JSON.stringify(apiPilot.json).slice(0, 120));
   const no = await req('GET', '/pilot/nobody');
   no.status === 404 ? good('unknown pilot 404s') : bad('unknown pilot: ' + no.status);
 

@@ -21,6 +21,51 @@ if (emberfallIsFramed()) {
 /* Talks to the self-hosted backend (server.js) when it is reachable.
    Every path degrades silently to pure-local play — the game never
    blocks, never errors, and never requires the network. */
+
+/* Portal mode (window.EMBERFALL_PORTAL, or ?portal=1) is the build web
+   game portals ship: no deck, no public mirror, no other host. Scores
+   stay in localStorage. The flag is read at load, before any request. */
+function emberfallPortal() {
+  try {
+    if (typeof window !== 'undefined' && window.EMBERFALL_PORTAL) return true;
+    if (typeof location !== 'undefined' && /(?:^|[?&])portal=1(?:&|$)/.test(String(location.search || ''))) return true;
+  } catch (e) { }
+  return false;
+}
+/* A deck address is where passwords and Google ID tokens are sent.
+   Only a plain http(s) URL qualifies: no userinfo, no whitespace, no
+   characters that can break out of an HTML attribute. */
+function deckUrlAllowed(v) {
+  if (!v || /[\u0000-\u0020"'<>\\]/.test(v)) return false;
+  try {
+    const u = new URL(v);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (u.username || u.password) return false;
+    return true;
+  } catch (e) { return false; }
+}
+/* Cross-origin parent pages choose the iframe URL, including ?deck=.
+   `window` may be absent when the deck client is evaluated under Node. */
+function crossOriginFramed() {
+  try {
+    if (typeof window === 'undefined' || window.top === window.self) return false;
+    void window.top.location.href;
+    return false;
+  } catch (e) { return true; }
+}
+/* q is the raw ?deck= value, or null when the parameter is absent.
+   A cross-origin embed never honors the query or a stored override:
+   both are attacker-controlled once a parent can set the iframe src. */
+function chooseDeckAddress(q, stored, framed) {
+  if (framed) return '';
+  if (q !== null && q !== undefined) {
+    const v = String(q).trim().replace(/\/+$/, '');
+    if (!v || deckUrlAllowed(v)) return v;
+  }
+  const s = String(stored || '').trim().replace(/\/+$/, '');
+  return s && deckUrlAllowed(s) ? s : '';
+}
+
 const NET = {
   on: false, user: null, probed: false,
   hdrs: { 'Content-Type': 'application/json', 'X-Emberfall': 'command-deck' },
@@ -34,8 +79,9 @@ const NET = {
      Empty = auto: probe this origin's own server (LAN + self-hosted play,
      unchanged since v3.2). Set = a remote deck: the Pages game (or any
      mirror of the shell) flies that deck's boards, accounts and duels
-     cross-origin. '?deck=<url>' on the address bar wins once and
-     persists; '?deck=' (empty) clears back to auto. */
+     cross-origin. On a top-level visit, '?deck=<url>' wins once and
+     persists; '?deck=' (empty) clears back to auto. A cross-origin
+     embed ignores both the query and any stored override. */
   /* v4.26.1 — the ADOPTED deck: deck.json ships with the page, so the
      live game joins the world deck with zero configuration. The ladder
      in probe() decides once per boot: a pilot's stored choice first,
@@ -43,6 +89,7 @@ const NET = {
      local accounts), the adopted deck third, honest local mode last.
      file:// boots never adopt (a local file has no accounts contract). */
   DECK_ADOPTED: (function () {
+    if (emberfallPortal()) return '';   /* a portal never adopts a remote deck */
     try {
       if (location.protocol === 'file:') return '';   /* local file play stays local */
       const r = new XMLHttpRequest();
@@ -50,19 +97,38 @@ const NET = {
       r.send(null);
       if (r.status !== 200 && r.status !== 0) return '';
       const j = JSON.parse(r.responseText);
-      return (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
+      const raw = (j && typeof j.deck === 'string') ? j.deck.trim().replace(/\/+$/, '') : '';
+      return deckUrlAllowed(raw) ? raw : '';
     } catch (e) { return ''; }
   })(),
 
   deck: (function () {
+    if (emberfallPortal()) return '';   /* ignore ?deck= and any stored address */
     let q = null;
-    try { q = new URLSearchParams(location.search).get('deck'); } catch (e) { }
-    if (q !== null) {
-      const v = q.trim().replace(/\/+$/, '');
-      try { localStorage.setItem('emberfall2.deck', v); } catch (e) { }
-      return v;
+    let has = false;
+    try {
+      const params = new URLSearchParams(location.search);
+      has = params.has('deck');
+      if (has) q = params.get('deck');
+    } catch (e) { }
+    let stored = '';
+    try { stored = localStorage.getItem('emberfall2.deck') || ''; } catch (e) { }
+    const framed = crossOriginFramed();
+    const chosen = chooseDeckAddress(has ? q : null, stored, framed);
+    if (!framed) {
+      const rawStored = String(stored || '').trim().replace(/\/+$/, '');
+      if (has) {
+        const v = String(q == null ? '' : q).trim().replace(/\/+$/, '');
+        if (!v || deckUrlAllowed(v)) {
+          try { localStorage.setItem('emberfall2.deck', v); } catch (e) { }
+        } else if (rawStored && !deckUrlAllowed(rawStored)) {
+          try { localStorage.removeItem('emberfall2.deck'); } catch (e) { }
+        }
+      } else if (rawStored && !deckUrlAllowed(rawStored)) {
+        try { localStorage.removeItem('emberfall2.deck'); } catch (e) { }
+      }
     }
-    try { return localStorage.getItem('emberfall2.deck') || ''; } catch (e) { return ''; }
+    return chosen;
   })(),
 
   /* the bearer half of a cross-origin session (empty for same-origin
@@ -72,7 +138,13 @@ const NET = {
   })(),
 
   setDeck(v) {
-    this.deck = (v || '').trim().replace(/\/+$/, '');
+    if (emberfallPortal()) return;
+    /* an embed cannot be talked into shipping credentials elsewhere,
+       and a non-URL must never become the address we dial */
+    if (crossOriginFramed()) return;
+    const next = (v || '').trim().replace(/\/+$/, '');
+    if (next && !deckUrlAllowed(next)) return;
+    this.deck = next;
     /* a new deck means a new session world: drop the old bearer */
     this.token = '';
     try { localStorage.removeItem('emberfall2.token'); } catch (e) { }
@@ -89,6 +161,7 @@ const NET = {
      count stays one-per-device. Everything fails SILENT: signal must
      never disturb play, not even with a console error. */
   async sendFeedback(text, flight) {
+    if (emberfallPortal()) return false;
     try {
       await this.probe();
       if (!this.on) return false;
@@ -98,10 +171,19 @@ const NET = {
   },
 
   funnel(stage) {
+    if (emberfallPortal()) return;
     this.req('POST', '/api/funnel', { stage }).catch(() => { /* silent, always */ });
   },
 
   async probe() {
+    if (emberfallPortal()) {
+      this.deck = '';
+      this.on = false;
+      this.user = null;
+      this.probed = true;
+      this.googleClientId = '';
+      return false;
+    }
     /* v4.25 fix — the stale-false race (caught by the offline-flush test):
        the old probe set this.probed = true IMMEDIATELY, so concurrent
        callers during the 6s handshake got probed=true with on=false and
@@ -126,13 +208,15 @@ const NET = {
          degrades to local mode like any unreachable remote — the next
          boot tries again. */
       if (!this.deck && !this._adopted && NET.DECK_ADOPTED && location.protocol !== 'file:') {
-        this._adopted = true;   /* latch: the ladder decides once per boot — a pilot who clears the field gets honest auto */
         /* the local-deck check is a seam so the selftest can drive every
            branch without real network; production always takes the fetch.
            Only a DEFINITIVE answer (404 — the origin's own server 404s
            unknown paths) adopts; a timeout or any other inconclusive
            answer stays auto, so a slow machine can never steal a
-           self-hosted pilot's boot and point it at the world deck. */
+           self-hosted pilot's boot and point it at the world deck.
+           The latch is the adoption itself: a live local deck does not
+           consume it, and a pilot who clears the field after joining the
+           world deck gets honest auto for the rest of the boot. */
         const local = this._localDeckAlive ? await this._localDeckAlive() : await (async () => {
           try {
             const lctl = new AbortController(); const lkill = setTimeout(() => lctl.abort(), 400);
@@ -143,7 +227,10 @@ const NET = {
             return 'unknown';
           } catch (e) { return 'unknown'; }
         })();
-        if (local === 'no') this.deck = NET.DECK_ADOPTED;
+        if (local === 'no') {
+          this._adopted = true;
+          this.deck = NET.DECK_ADOPTED;
+        }
       }
       if (this.deck) {
         /* a hand-typed address must look like one before we dial it */
@@ -210,6 +297,11 @@ const NET = {
   },
 
   async req(method, path, body) {
+    if (emberfallPortal()) {
+      const err = new Error('portal');
+      err.status = 0;
+      throw err;
+    }
     const headers = Object.assign({}, this.hdrs);
     if (this.token) headers.Authorization = 'Bearer ' + this.token;
     const r = await fetch(this.deck + path, {
@@ -426,11 +518,13 @@ const NET = {
     bd.innerHTML = (j.top && j.top.length)
       ? j.top.map((r, i) => {
           const medal = i < 3 ? 'color:var(--gold)' : '';
+          const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
+          const href = (typeof pilotUrl === 'function') ? pilotUrl(r.n) : '#';
           return '<div class="row">' +
-            '<span class="rk" style="' + medal + '">' + pad2(i + 1) + '</span>' +
-            '<span class="nm">' + esc(r.n) + '</span>' +
+            '<span class="rk" style="' + medal + '">' + pad2(rk) + '</span>' +
+            '<span class="nm"><a href="' + esc(href) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a></span>' +
             '<span class="sc">' + fmt(r.pts) + '</span>' +
-            '<span class="wv">' + r.runs + ' runs</span></div>';
+            '<span class="wv">' + (Number.isFinite(+r.runs) ? Math.trunc(+r.runs) : 0) + ' runs</span></div>';
         }).join('')
       : '<div class="empty">No plausibility-checked runs this week yet.<br>The ladder is wide open.</div>';
     const you = $('seasonYou');
@@ -512,11 +606,14 @@ const NET = {
   async renderGlobal() {
     const status = $('globalStatus'), body = $('globalBody');
     if (!status) return;
+    if (typeof CLOUD !== 'undefined') CLOUD.open().catch(() => {});
     await this.probe();
     if (!this.on) {
-      status.textContent = this.deck
-        ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
-        : 'Command deck offline — playing in local mode.';
+      status.textContent = emberfallPortal()
+        ? 'Scores stay on this device.'
+        : this.deck
+          ? 'No deck answered at ' + this.deck.replace(/^https?:\/\//, '').slice(0, 28) + ' — local mode.'
+          : 'Command deck offline — playing in local mode.';
       this.renderMirrorBoards();
       return;
     }
@@ -551,12 +648,13 @@ const NET = {
         const mine = this.user && r.n === this.user.name;
         const gpt = r.p && PAINTS.find(x => x.id === r.p);
         const gstar = honor && honor.at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (gpt ? '<i class="pdot" style="background:' + gpt.hull + '"></i>' : '') + gstar +
-          '<a href="' + pilotUrl(r.n) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
           (h ? ' · ' + esc(h.name) : '') +
-          (r.m ? ' <span style="color:var(--gold);font-size:.6rem">M' + r.m + '</span>' : '') + '</span>' +
+          (Number.isFinite(+r.m) && +r.m > 0 ? ' <span style="color:var(--gold);font-size:.6rem">M' + Math.floor(+r.m) + '</span>' : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
       }).join('');
@@ -586,25 +684,61 @@ const NET = {
     const body = $('globalBody');
     body.classList.remove('hidden');
     $('globalSignin').classList.add('hidden');
-    const SB = 'https://bhcczyyhadornihhzpsu.supabase.co/rest/v1';
-    const KEY = 'sb_publishable_rcBoR0FTobKUc_2-QqH2fQ_jS4mqd5O';
+    if (emberfallPortal()) {
+      const season = $('seasonBox'); if (season) season.classList.add('hidden');
+      const duels = $('duelBox'); if (duels) duels.classList.add('hidden');
+      const gYou = $('globalYou'); if (gYou) gYou.classList.add('hidden');
+      const dYou = $('dailyYou'); if (dYou) dYou.classList.add('hidden');
+      const stat = $('dailyStat');
+      if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
+      if (typeof renderBoard === 'function') {
+        const mode = typeof boardMode === 'function' ? boardMode() : 'main';
+        const box = $('globalBoard');
+        if (box) renderBoard(box, mode, null);
+        const day = $('dailyBoard');
+        if (day) renderBoard(day, 'daily', null);
+      }
+      return;
+    }
     const box = $('globalBoard');
-    box.innerHTML = '<div class="empty">Reading the worldwide mirror…</div>';
+    box.innerHTML = '<div class="empty">Reading the worldwide board…</div>';
+    const mode = (typeof boardMode === 'function') ? boardMode() : 'main';
+    const rowHtml = (r2, i, tag) => {
+      const st = r2.stats || {};
+      const h = (typeof HULLS !== 'undefined') && typeof st.ship === 'string' && HULLS.find(x => x.id === st.ship);
+      const wave = Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1;
+      const mine = typeof CLOUD !== 'undefined' && CLOUD.user && r2.user_id === CLOUD.user.id;
+      return '<div class="row' + (mine ? ' me' : '') + '">' +
+        '<span class="rk">' + pad2(i + 1) + '</span>' +
+        '<span class="nm"><a href="' + esc(pilotUrl(r2.callsign)) + '" style="color:inherit;text-decoration:none">' + esc(r2.callsign) + '</a>' +
+        (h ? ' · ' + esc(h.name) : '') + '</span>' +
+        '<span class="sc">' + padN(r2.score, 7) + '</span>' +
+        '<span class="wv">' + tag + pad2(wave) + '</span></div>';
+    };
+    /* the Daily board: today's UTC seed, best run per pilot */
+    const dayBox = $('dailyBoard'), dstat = $('dailyStat'), dYou = $('dailyYou');
+    if (dYou) dYou.classList.add('hidden');
+    if (dayBox) {
+      const day = new Date().toISOString().slice(0, 10);
+      if (dstat) dstat.textContent = 'today · ' + day + ' · worldwide';
+      mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(rows => {
+        dayBox.innerHTML = rows.length
+          ? rows.map((r2, i) => rowHtml(r2, i, 'D')).join('')
+          : '<div class="empty">Nobody has flown today\u2019s seed.<br>The first one is yours.</div>';
+      }).catch(() => { dayBox.innerHTML = '<div class="empty">The day board could not be reached.</div>'; });
+    }
+    /* rush has no worldwide board and the daily lives above: both show endless */
+    const gmode = MIRROR_MODE[mode] && mode !== 'daily' ? MIRROR_MODE[mode] : 'endless';
     try {
-      const r = await fetch(SB + '/leaderboard?select=*', { headers: { apikey: KEY } });
-      if (!r.ok) throw new Error('mirror ' + r.status);
-      const rows = await r.json();
+      const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode +
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
       if (!rows.length) {
-        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Host a deck, fly, sync — or just fly.</div>';
+        box.innerHTML = '<div class="empty">No ranked pilots on the public board yet.<br>Sign in above, pick a callsign, and fly.</div>';
         return;
       }
-      box.innerHTML = rows.map((r2, i) =>
-        '<div class="row">' +
-        '<span class="rk">' + pad2(i + 1) + '</span>' +
-        '<span class="nm">' + esc(r2.callsign) + (r2.wardenfalls ? ' <span style="color:var(--gold);font-size:.6rem">✦' + r2.wardenfalls + '</span>' : '') + '</span>' +
-        '<span class="sc">' + padN(r2.best_score, 7) + '</span>' +
-        '<span class="wv">W' + pad2(r2.best_wave || 1) + '</span></div>').join('') +
-        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best per pilot — the public mirror, refreshed hourly. Fly a deck-linked run to climb it. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
+      box.innerHTML = rows.map((r2, i) => rowHtml(r2, i, 'W')).join('') +
+        '<p class="empty" style="padding:8px 0 0;text-align:left">Worldwide best run per pilot, live from the public mirror. <a href="stats.html" style="color:var(--aether);text-decoration:none">Full world stats →</a></p>';
     } catch (e) {
       box.innerHTML = '<div class="empty">The public mirror is not answering.<br>Your flying is saved on this device either way.</div>';
     }
@@ -630,10 +764,12 @@ const NET = {
         const dstar = honorOf(META.donated || 0) && honorOf(META.donated || 0).at >= 25000 && mine ? '<span style="color:var(--gold)">✦ </span>' : '';
         /* v4.10 medal pips: the deck's ledger says what this pilot earned today */
         const pips = medalPips(dj.md && dj.md[r.n]);
+        const rk = Number.isFinite(+r.rank) ? +r.rank : (i + 1);
         return '<div class="row' + (mine ? ' me' : '') + '">' +
-          '<span class="rk">' + pad2(i + 1) + '</span>' +
+          '<span class="rk">' + pad2(rk) + '</span>' +
           '<span class="nm">' + (pt ? '<i class="pdot" style="background:' + pt.hull + '"></i>' : '') + dstar +
-          esc(r.n) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+          '<a href="' + esc(pilotUrl(r.n)) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">' + esc(r.n) + '</a>' +
+          (h ? ' · ' + esc(h.name) : '') + '</span>' +
           '<span class="sc">' + padN(r.s, 7) + '</span>' +
           '<span class="wv">D' + pad2(r.w || 1) + pips + '</span></div>';
       }).join('');
@@ -825,7 +961,7 @@ function renderSkyLog() {
     return '<div class="row" style="grid-template-columns:1fr auto auto">' +
       '<span class="nm" style="color:' + kind[1] + '">' + kind[0] +
       ' <span style="color:var(--dimmer);font-size:.6rem">W' + pad2(e.w) + ' · ' +
-      ((DIFF[e.d] || DIFF[1]).name) + (e.m && e.m !== 'endless' ? ' · ' + e.m : '') + '</span></span>' +
+      ((DIFF[e.d] || DIFF[1]).name) + (e.m && e.m !== 'endless' ? ' · ' + esc(e.m) : '') + '</span></span>' +
       '<span class="wv">' + when(e.t) + '</span>' +
       '<span class="sc">' + (e.a ? '+' + fmt(e.a) : '—') + '</span></div>';   // school/pyre/fleet paid nothing — an honest dash
   }).join('');
