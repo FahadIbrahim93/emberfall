@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * stubguard — "never again a stub on main".
  *
@@ -33,6 +32,11 @@ const INCIDENT = `
 `;
 
 const s = fs.readFileSync('index.html', 'utf8');
+/* ADR 0003: the four data catalogs moved into js/catalog.js — the single-path
+   runtime the client loads as a classic script. The stub floors read the same
+   expressions from their new home; PAINTS/DONATIONS remain in the payload. */
+let catalog = null;
+try { catalog = fs.readFileSync('js/catalog.js', 'utf8'); } catch { catalog = null; }
 const lines = s.split('\n').length;
 const bad = [];
 
@@ -49,18 +53,24 @@ if (lines < 4000) bad.push(`payload is ${lines} lines — the game is ~7,900 (a 
 if (!/EMBERFALL v\d+\.\d+\.\d+/.test(s)) bad.push('no version stamp (EMBERFALL vX.Y.Z) anywhere in the payload');
 
 // 3) the load contract — classic scripts before the inline core.
-for (const mod of ['audio', 'sky', 'art', 'net', 'input']) {
+for (const mod of ['audio', 'sky', 'art', 'net', 'input', 'catalog']) {
   if (!s.includes(`js/${mod}.js`)) bad.push(`load contract broken: no reference to js/${mod}.js`);
 }
+if (catalog === null) bad.push('js/catalog.js unreadable — the single-path content catalog runtime is missing');
 
-// 4) the data catalogs — the game IS these tables; a stub has none.
+// 4) the data catalogs — the game IS these tables; a stub has none. Since the
+// ADR 0003 single-path migration the four combat/tour tables live in
+// js/catalog.js (block() reads them there); PAINTS/DONATIONS stay inline.
 // Row patterns are calibrated to each declaration's real format (FOES is an
 // object literal; WEAPONS tier rows have no id at all — read, don't guess).
 const block = (head, tail) => {
-  const a = s.indexOf(head);
+  const src = head.startsWith('const FOES') || head.startsWith('const WEAPONS') ||
+    head.startsWith('const BOSSES') || head.startsWith('const STAGES') ? catalog : s;
+  if (!src) return null;
+  const a = src.indexOf(head);
   if (a < 0) return null;
-  const b = s.indexOf(tail, a);
-  return b < 0 ? null : s.slice(a, b);
+  const b = src.indexOf(tail, a);
+  return b < 0 ? null : src.slice(a, b);
 };
 const blocks = {
   FOES: block('const FOES = {', '\n};'),

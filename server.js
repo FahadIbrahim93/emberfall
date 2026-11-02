@@ -828,6 +828,11 @@ const STATIC_OK = new Set([
   '/deck.json',   /* v4.26.1: the deck adoption record - public data, no secrets */
   '/js/art.js', '/js/input.js', '/js/audio.js', '/js/sky.js', '/js/net.js',
   '/js/hazards.js',   /* ADR 0003: single-path hazards runtime */
+  '/js/render-emit-bloom.js',   /* ADR 0003: single-path bloom runtime */
+  '/js/render-chroma.js',   /* ADR 0003: single-path chroma runtime */
+  '/js/math.js',            /* ADR 0003: single-path shared math */
+  '/js/rng.js',             /* ADR 0003: single-path deterministic RNG */
+  '/js/catalog.js',         /* ADR 0003: single-path content catalog */
   '/fonts/michroma-400.woff2', '/fonts/chakra-petch-400.woff2',
   '/fonts/chakra-petch-500.woff2', '/fonts/chakra-petch-600.woff2',
   '/fonts/chakra-petch-700.woff2'

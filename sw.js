@@ -2,8 +2,9 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v4.44';
+const CACHE = 'emberfall-v4.48';   /* precache the ADR 0003 single-path runtimes */
 const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js', './js/art.js', './js/input.js',
+  './js/hazards.js', './js/render-emit-bloom.js', './js/render-chroma.js', './js/math.js', './js/rng.js', './js/catalog.js',   /* ADR 0003 single-path runtimes — the client dies without them */
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png',
   './fonts/michroma-400.woff2', './fonts/chakra-petch-400.woff2', './fonts/chakra-petch-500.woff2',
   './fonts/chakra-petch-600.woff2', './fonts/chakra-petch-700.woff2'];
