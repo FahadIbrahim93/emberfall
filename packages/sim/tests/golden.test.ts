@@ -1,7 +1,8 @@
 /**
- * Golden parity — the live inline payload (index.html) is the source of
- * truth for every constant the sim package re-declares. These tests
- * EXTRACT from index.html the way tools/econsim.js does and compare
+ * Golden parity — the live payload is the source of truth for every
+ * constant the sim package re-declares. These tests EXTRACT from
+ * index.html — and, for adapted modules, from the single-path runtime
+ * files in js/ (ADR 0003) — the way tools/econsim.js does and compare
  * against the sim's copies, so any future edit that drifts one side
  * without the other fails CI with the exact divergent value.
  *
@@ -23,6 +24,11 @@ import type { World } from '../src/types.ts';
 
 const here = fileURLToPath(import.meta.url);   /* …/packages/sim/tests/golden.test.ts */
 const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
+/* single-path runtime files (ADR 0003): adapted modules live in js/ —
+   same extraction discipline, different payload */
+const rngJs = readFileSync(join(here, '..', '..', '..', '..', 'js', 'rng.js'), 'utf8');
+const mathJs = readFileSync(join(here, '..', '..', '..', '..', 'js', 'math.js'), 'utf8');
+const catalogJs = readFileSync(join(here, '..', '..', '..', '..', 'js', 'catalog.js'), 'utf8');
 
 /** one live constant — fails with the drifted source text if absent */
 const must = (re: RegExp, what: string): RegExpMatchArray => {
@@ -31,9 +37,17 @@ const must = (re: RegExp, what: string): RegExpMatchArray => {
   return m;
 };
 
-/** the live FOES table, as `id -> {hp,r,hit,sc,guns,cd?,armored?}` */
+/** one live constant in a js/ runtime file — fails with the drifted text */
+const mustIn = (src: string, re: RegExp, what: string): RegExpMatchArray => {
+  const m = src.match(re);
+  if (!m) throw new Error(`constant drifted out of the runtime file: ${what}`);
+  return m;
+};
+
+/** the live FOES table, as `id -> {hp,r,hit,sc,guns,cd?,armored?}` —
+    extracted from the single-path catalog runtime (ADR 0003) */
 function liveFoes(): Record<string, Record<string, number | boolean>> {
-  const m = must(/const FOES = \{([\s\S]*?)\n\};/, 'FOES table');
+  const m = mustIn(catalogJs, /const FOES = \{([\s\S]*?)\n\};/, 'FOES table');
   const out: Record<string, Record<string, number | boolean>> = {};
   for (const row of m[1].matchAll(/(\w+): \{ hp: ([\d.]+), r: ([\d.]+), hit: ([\d.]+), sc: ([\d.]+), guns: (\w+)(?:, cd: ([\d.]+))?(?:, armored: (\w+))? \}/g)) {
     out[row[1]] = {
@@ -47,7 +61,7 @@ function liveFoes(): Record<string, Record<string, number | boolean>> {
 
 /** the live WEAPONS ladder, as `tier -> {rate,dmg,lanes:[[dx,ang]]}` */
 function liveWeapons(): (Record<string, unknown> | null)[] {
-  const m = must(/const WEAPONS = \[([\s\S]*?)\n\];/, 'WEAPONS table');
+  const m = mustIn(catalogJs, /const WEAPONS = \[([\s\S]*?)\n\];/, 'WEAPONS table');
   const rows = m[1].split('\n').filter(l => l.includes('lanes:'));
   return [null, ...rows.map(line => {
     const rate = +line.match(/rate: ([\d.]+)/)![1];
@@ -60,7 +74,7 @@ function liveWeapons(): (Record<string, unknown> | null)[] {
 
 /** the live DIFF table rows (name bulletSpd fireRate hp spawn score grace) */
 function liveDiff(): Record<string, Record<string, number>> {
-  const m = must(/const DIFF = \[([\s\S]*?)\n\];/, 'DIFF table');
+  const m = mustIn(catalogJs, /const DIFF = \[([\s\S]*?)\n\];/, 'DIFF table');
   const out: Record<string, Record<string, number>> = {};
   for (const row of m[1].matchAll(/name: '(\w+)', bulletSpd: ([\d.]+), fireRate: ([\d.]+), hp: ([\d.]+), spawn: ([\d.]+), score: ([\d.]+), lives: (-?\d+), grace: ([\d.]+)/g)) {
     out[row[1]] = {
@@ -80,6 +94,17 @@ function mkWorld(weapon: number, over = 0): World {
 }
 
 describe('golden parity: catalogs match the live payload', () => {
+  it('the tables are single-path: the client loads the runtime and forwards them', () => {
+    must(/<script src="js\/catalog\.js"><\/script>/, 'client loads js/catalog.js');
+    must(/const FOES = CATALOG\.FOES;/, 'FOES forwarder');
+    must(/const WEAPONS = CATALOG\.WEAPONS;/, 'WEAPONS forwarder');
+    must(/const MAX_WEAPON = CATALOG\.MAX_WEAPON;/, 'MAX_WEAPON forwarder');
+    must(/const DIFF = CATALOG\.DIFF;/, 'DIFF forwarder');
+    must(/const HULLS = CATALOG\.HULLS;/, 'HULLS forwarder');
+    must(/const BOONS = CATALOG\.BOONS;/, 'BOONS forwarder');
+    must(/const BOSSES = CATALOG\.BOSSES;/, 'BOSSES forwarder');
+  });
+
   it('FOES — every id, hp, r, hit, sc, guns, cd, armored', () => {
     const live = liveFoes();
     expect(Object.keys(live).sort()).toEqual(Object.keys(FOES).sort());
@@ -148,6 +173,9 @@ describe('golden parity: combat math matches the live formulas', () => {
   });
 
   it('fire model: live constants (bolt 1020, over ×0.68/×1.15)', () => {
+    mustIn(catalogJs, /const OVER_RATE = \.68;/, 'overdrive rate mirror');
+    mustIn(catalogJs, /const OVER_DMG = 1\.15;/, 'overdrive dmg mirror');
+    mustIn(catalogJs, /const BOLT_SPEED = 1020;/, 'bolt speed mirror');
     must(/vx: Math\.sin\(ang\) \* 1020, vy: -Math\.cos\(ang\) \* 1020/, 'live bolt speed 1020');
     must(/P\.fireCd = w\.rate \* \(over \? \.68 : 1\) \* P\.rateMul/, 'live overdrive rate');
     must(/const dmg = w\.dmg \* P\.dmg \* \(over \? 1\.15 : 1\);/, 'live overdrive dmg');
@@ -182,8 +210,9 @@ describe('golden parity: combat math matches the live formulas', () => {
     expect(SHOT_SCALE).toBe(1.18);
   });
 
-  it('combo bands — sim matches the live ternary chain', () => {
-    must(/function multFor\(c\) \{ return c >= 40 \? 5 : c >= 24 \? 4 : c >= 13 \? 3 : c >= 5 \? 2 : 1; \}/, 'multFor');
+  it('combo bands — the live runtime keeps the 5-band ternary chain and the client wires it', () => {
+    mustIn(mathJs, /multFor\(c\) \{ return c >= 40 \? 5 : c >= 24 \? 4 : c >= 13 \? 3 : c >= 5 \? 2 : 1; \}/, 'combo bands');
+    must(/function multFor\(c\) \{ return MATHMOD\.multFor\(c\); \}/, 'multFor forwarder');
     for (const c of [0, 4, 5, 12, 13, 23, 24, 39, 40, 99]) {
       expect(multFor(c), `combo ${c}`).toBe(c >= 40 ? 5 : c >= 24 ? 4 : c >= 13 ? 3 : c >= 5 ? 2 : 1);
     }
@@ -191,17 +220,26 @@ describe('golden parity: combat math matches the live formulas', () => {
 });
 
 describe('golden parity: deterministic core', () => {
-  it('makeRng produces the identical sequence as the live makeRng', () => {
-    // eval the live function body verbatim — no transcription, no drift
-    const src = must(/function makeRng\(seed\) \{[\s\S]*?\n\}/, 'makeRng source')[0];
-    const liveMakeRng = new Function(`${src}; return makeRng;`)() as (s: number) => () => number;
-    const live = liveMakeRng(0xC0FFEE);
+  it('makeRng — single-path wiring and the live runtime bytes agree 1000 draws deep', () => {
+    // the client loads the runtime and forwards the hot paths verbatim
+    must(/<script src="js\/rng\.js"><\/script>/, 'client loads js/rng.js');
+    must(/function makeRng\(seed\) \{ return RNGMOD\.makeRng\(seed\); \}/, 'makeRng forwarder');
+    // the runtime file keeps the mulberry32 core verbatim
+    mustIn(rngJs, /a = \(a \+ 0x6D2B79F5\) >>> 0;/, 'mulberry32 adder');
+    mustIn(rngJs, /t = Math\.imul\(t \^ \(t >>> 15\), t \| 1\);/, 'mulberry32 mix 1');
+    mustIn(rngJs, /t \^= t \+ Math\.imul\(t \^ \(t >>> 7\), t \| 61\);/, 'mulberry32 mix 2');
+    mustIn(rngJs, /f\.range = \(lo, hi\) => lo \+ f\(\) \* \(hi - lo\);/, 'range');
+    mustIn(rngJs, /f\.reseed = seed => \{ a = seed >>> 0; \};/, 'reseed');
+    // the exact deterministic sequence is pinned in rng.test.ts (T-DET seed 12345);
+    // here the adapter and a FRESH eval of the runtime file must agree deep out:
+    const liveModule = new Function(`${rngJs}; return RNGMOD;`)();
+    const live = liveModule.makeRng(0xC0FFEE);
     const sim = makeRng(0xC0FFEE);
     for (let i = 0; i < 1000; i++) {
       expect(sim(), `draw ${i}`).toBe(live());
     }
     // helper methods ride the same stream
-    const live2 = liveMakeRng(42);
+    const live2 = liveModule.makeRng(42);
     const sim2 = makeRng(42);
     expect(sim2.range(3, 9)).toBe(live2.range(3, 9));
     expect(sim2.pick([1, 2, 3])).toBe(live2.pick([1, 2, 3]));
@@ -209,9 +247,10 @@ describe('golden parity: deterministic core', () => {
     expect(sim2.sign()).toBe(live2.sign());
   });
 
-  it('hashStr matches the live FNV-1a', () => {
-    const src = must(/function hashStr\(s\) \{[\s\S]*?\n\}/, 'hashStr source')[0];
-    const liveHash = new Function(`${src}; return hashStr;`)() as (s: string) => number;
+  it('hashStr — the live FNV-1a the adapter runs agrees with a fresh eval of the runtime', () => {
+    must(/function hashStr\(s\) \{ return RNGMOD\.hashStr\(s\); \}/, 'hashStr forwarder');
+    mustIn(rngJs, /h = Math\.imul\(h, 16777619\);/, 'FNV-1a prime');
+    const liveHash = new Function(`${rngJs}; return RNGMOD;`)().hashStr as (s: string) => number;
     for (const s of ['', 'a', 'daily-2026-09-21', 'emberfall', 'x'.repeat(5000)]) {
       expect(hashStr(s)).toBe(liveHash(s));
     }

@@ -82,6 +82,17 @@ const AU = {
     this.musicBus.gain.value = curve(CFG.music) * .85;
     this.sfxBus.gain.value = curve(CFG.sfx);
   },
+  /* Audio switch (PR-AU-1): settings-facade methods on the rich engine.
+     mute()/unmute() record the flag even before init() runs (applyVolumes
+     no-ops on !ready, and fresh init() applies the recorded flag when the
+     engine comes up) — so a saved audio=false survives any boot ordering.
+     While muted the MUSIC scheduler is stopped entirely (no interval, no
+     drift against a suspended clock); unmute restarts it — MUSIC.start's
+     own guards (ready, not already running, not muted) make that idempotent,
+     and start is only ever called on real gestures by the game itself. */
+  mute() { this.muted = true; this.applyVolumes(); MUSIC.stop(); },
+  unmute() { this.muted = false; this.applyVolumes(); if (this.ready) MUSIC.start(); },
+  onOff() { return this.muted ? 'off' : 'on'; },
   gate(key, ms) {
     const n = performance.now();
     if (this.lastAt[key] && n - this.lastAt[key] < ms) return true;
@@ -400,7 +411,7 @@ const MUSIC = {
 
   start() {
     AU.init();
-    if (!AU.ready || this.timer) return;
+    if (!AU.ready || this.timer || AU.muted) return;
     this.step = 0; this.bar = 0;
     this.nextAt = AU.ctx.currentTime + .12;
     this.timer = setInterval(() => this.tick(), 26);

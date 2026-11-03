@@ -1,4 +1,13 @@
-/** Mulberry32 PRNG — bit-identical to the inline makeRng in index.html. */
+/**
+ * Thin adapter (ADR 0003): the single-path deterministic RNG runtime lives in
+ * ../../../js/rng.js — the exact file the client loads as a classic script
+ * (mulberry32 + FNV-1a). This module owns NO state, NO tables. The
+ * side-effect import executes the live runtime, which self-registers as
+ * `window.RNGMOD` in the browser and `globalThis.RNGMOD` under Node test
+ * runners — so the determinism goldens run the literal bytes the player
+ * executes.
+ */
+import '../../../js/rng.js';
 
 export type Rng = (() => number) & {
   range(lo: number, hi: number): number;
@@ -9,32 +18,18 @@ export type Rng = (() => number) & {
   reseed(seed: number): void;
 };
 
-export function makeRng(seed: number): Rng {
-  let a = seed >>> 0;
-  const f = (() => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  }) as Rng;
-  f.range = (lo, hi) => lo + f() * (hi - lo);
-  f.int = (lo, hi) => Math.floor(f.range(lo, hi + 1));
-  f.pick = <T,>(arr: readonly T[]) => arr[Math.floor(f() * arr.length) % arr.length];
-  f.chance = (p) => f() < p;
-  f.sign = () => (f() < 0.5 ? -1 : 1);
-  f.reseed = (s) => {
-    a = s >>> 0;
-  };
-  return f;
+interface RNGModule {
+  makeRng(seed: number): Rng;
+  hashStr(s: string): number;
 }
 
-/** FNV-1a 32-bit string hash — matches index.html hashStr. */
+const RNGMOD = (globalThis as unknown as { RNGMOD?: RNGModule }).RNGMOD;
+if (!RNGMOD) throw new Error('single-path wiring broken: js/rng.js did not register RNGMOD');
+
+export function makeRng(seed: number): Rng {
+  return RNGMOD.makeRng(seed);
+}
+
 export function hashStr(s: string): number {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
+  return RNGMOD.hashStr(s);
 }
