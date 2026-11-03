@@ -58,6 +58,7 @@
   --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
   --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
   --ui:clamp(.82rem,.55rem + .7vw,1rem);
+  --tbtn:74px; --btn-opacity:1; --btn-scale:1; --btn-spacing:0px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:var(--void)}
@@ -1133,7 +1134,8 @@ const CFG = {
   audio: true, /* PR-AU-1 master mute switch — survives loadCfg merge like every other key */
   touchLeft: false, touchBig: false, ghost: true, outline: true,
   cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
-  sky: 1 /* sky traffic cadence — table in js/sky.js */
+  sky: 1, /* sky traffic cadence — table in js/sky.js */
+  btnOpacity: 100, btnSpacing: 0, btnScale: 100
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -1572,7 +1574,8 @@ const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
   skyLog: [],                // sky archive: every sighting {k, w, d, a, t, m}, newest kept
-  dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
+  dd: { wave: 0, falls: 0 }, // dynamic-assist streak: falls on one wave, career-wide
+  prestige: { rank: 0, level: 0, honor: 0 } // cosmetic prestige after collection complete
 };
 function loadMeta() {
   const s = DB.get('meta', null);
@@ -1616,6 +1619,11 @@ function loadMeta() {
   if (s.dd && typeof s.dd === 'object') {
     META.dd.wave = +s.dd.wave || 0;
     META.dd.falls = +s.dd.falls || 0;
+  }
+  if (s.prestige && typeof s.prestige === 'object') {
+    META.prestige.rank = +s.prestige.rank || 0;
+    META.prestige.level = +s.prestige.level || 0;
+    META.prestige.honor = +s.prestige.honor || 0;
   }
 }
 function saveMeta() { DB.set('meta', META); DB.set('meta.updated', Date.now()); }
@@ -2927,12 +2935,12 @@ function updatePlayer(dt, move) {
   if (P.dashT > 0) {
     P.dashT -= dt;
     const k = clamp(P.dashT / .26, 0, 1);
-    const sp = 1500 * k * P.speed;
+    const sp = 1650 * k * P.speed;
     P.vx = Math.cos(P.dashAng) * sp;
     P.vy = Math.sin(P.dashAng) * sp;
-    if (FX.chance(.85)) part({
-      x: P.x + rnd(-6, 6), y: P.y + rnd(-6, 6), vx: -P.vx * .06, vy: -P.vy * .06,
-      life: .26, size: 13, spr: SPR.tech, drag: 3
+    if (FX.chance(.9)) part({
+      x: P.x + rnd(-6, 6), y: P.y + rnd(-6, 6), vx: -P.vx * .08, vy: -P.vy * .08,
+      life: .22, size: 15, spr: SPR.tech, drag: 3
     });
   } else {
     let tvx, tvy;
@@ -2942,16 +2950,16 @@ function updatePlayer(dt, move) {
       tvx = clamp((INPUT.aimX - P.x) * 11, -baseSpeed * 1.8, baseSpeed * 1.8);
       tvy = clamp((INPUT.aimY - P.y) * 11, -baseSpeed * 1.8, baseSpeed * 1.8);
     }
-    P.vx = damp(P.vx, tvx, 12, dt);
-    P.vy = damp(P.vy, tvy, 12, dt);
+    P.vx = damp(P.vx, tvx, 16, dt);
+    P.vy = damp(P.vy, tvy, 16, dt);
   }
 
   const hzPull = hazards.pull(P.x, P.y);   /* gravity wells drag the hull */
   if (hzPull) { P.vx += hzPull.ax * dt; P.vy += hzPull.ay * dt; }
   P.x = clamp(P.x + P.vx * dt, 20, W - 20);
   P.y = clamp(P.y + P.vy * dt, 46, H - 26);
-  P.bank = damp(P.bank, clamp(P.vx / baseSpeed, -1, 1), 9, dt);
-  P.thrust = damp(P.thrust, .7 + Math.min(1, hyp(P.vx, P.vy) / baseSpeed) * .8, 8, dt);
+  P.bank = damp(P.bank, clamp(P.vx / baseSpeed, -1, 1), 12, dt);
+  P.thrust = damp(P.thrust, .7 + Math.min(1, hyp(P.vx, P.vy) / baseSpeed) * .8, 10, dt);
 
   if (P.inv > 0) P.inv -= dt;
   if (P.overT > 0) P.overT -= dt;
@@ -3059,8 +3067,9 @@ function hurtPlayer(src) {
     });
   });
   ring(P.x, P.y, { r: 10, vr: 640, life: .55, col: rgbOf(PAL.hull), w: 4 });
-  flash(.42); shake(22); chroma(1); buzz([30, 60, 40]);
-  GAME.slowT = .7; GAME.slowV = .3;
+  flash(.5); shake(28); chroma(1.2); buzz([30, 60, 80]);
+  GAME.slowT = .8; GAME.slowV = .25;
+  GAME.hitstop = Math.max(GAME.hitstop || 0, .06);
   $('hurt').classList.add('on');
   setTimeout(() => $('hurt').classList.remove('on'), 150);
   AU.playerDown();
@@ -3073,17 +3082,22 @@ function multFor(c) { return MATHMOD.multFor(c); }   /* single path (ADR 0003): 
 function addScore(n, x, y, big) {
   const sg = GAME.sigil;
   const marked = sg && sg.id === 'hawksight' && P.sightT > 0;
-  const v = Math.round(n * GAME.mult * P.scoreMul * D().score *
-    (1 + (.08 + (masteryLevel(P.art) >= 5 ? .07 : 0)) * (masteryLevel(P.art) >= 1 ? 1 : 0)) *
-    (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.25 : 1));
-  GAME.score += v;
-  if (x !== undefined && QUALITY.particles > .5) {
-    float(x, y, '+' + v, big ? PAL.gold : (GAME.mult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
+  const gMult = typeof GAME.mult === 'number' && !isNaN(GAME.mult) ? GAME.mult : 1;
+  const pMul = typeof P.scoreMul === 'number' && !isNaN(P.scoreMul) ? P.scoreMul : 1;
+  const dMul = (typeof D === 'function' && D() && typeof D().score === 'number') ? D().score : 1;
+  const masteryMul = (1 + (.08 + (masteryLevel(P.art) >= 5 ? .07 : 0)) * (masteryLevel(P.art) >= 1 ? 1 : 0));
+  const mutMul = (GAME.mutator && GAME.mutator.id === 'overkill') ? 1.25 : 1;
+  const v = Math.round((typeof n === 'number' ? n : 0) * gMult * pMul * dMul * masteryMul * mutMul);
+  if (!isNaN(v) && v > 0) {
+    GAME.score = (typeof GAME.score === 'number' && !isNaN(GAME.score)) ? GAME.score + v : v;
+  }
+  if (x !== undefined && QUALITY.particles > .5 && !isNaN(v) && v > 0) {
+    float(x, y, '+' + v, big ? PAL.gold : (gMult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
   }
   if (big) {
     // score punch: the readout physically reacts to a heavy hit
     const s = $('score');
-    s.classList.remove('punch'); void s.offsetWidth; s.classList.add('punch');
+    if (s) { s.classList.remove('punch'); void s.offsetWidth; s.classList.add('punch'); }
   }
   return v;
 }
@@ -3096,13 +3110,13 @@ function registerKill(e) {
   GAME.comboT = 3.2;
   if (GAME.combo % 8 === 0) AU.comboSting(GAME.combo);
   const m = multFor(GAME.combo);
-  if (m > GAME.mult) {
-    GAME.maxMult = Math.max(GAME.maxMult, m);
+  if (typeof m === 'number' && !isNaN(m) && m > (typeof GAME.mult === 'number' ? GAME.mult : 1)) {
+    GAME.maxMult = Math.max(GAME.maxMult || 1, m);
     float(P.x, P.y - 38, '×' + m, m >= 5 ? PAL.rare : PAL.gold, 21);
     AU.tierUp();
     if (m >= 5) chroma(.4);
   }
-  GAME.mult = m;
+  GAME.mult = (typeof m === 'number' && !isNaN(m)) ? m : (typeof GAME.mult === 'number' ? GAME.mult : 1);
 }
 
 /* ─────────────────────────── explosions ─────────────────────────── */
@@ -3518,6 +3532,8 @@ function killFoe(e) {
   if (e.elite && e.affixes && e.affixes.length)
     note((FOE_LABEL[e.type] || e.type) + ' · ' + e.affixes.map(a => AFFIXES[a].name).join(' + '), 'rare');
   addScore(e.sc, e.x, e.y);
+  if (e.elite) { shake(6); GAME.hitstop = Math.max(GAME.hitstop || 0, .04); }
+  else if (e.boss) { shake(12); GAME.hitstop = Math.max(GAME.hitstop || 0, .08); }
   die(e);
   rollDrop(e.x, e.y, false);
   if (e.elite && e.axExtra) rollDrop(e.x + rnd(-12, 12), e.y + rnd(-8, 8), false);
@@ -3587,6 +3603,7 @@ function collide() {
       GAME.comboT = Math.max(GAME.comboT, 1.4);
       AU.graze();
       part({ x: b.x, y: b.y, life: .22, size: 13, spr: SPR.tech });
+      if (GAME.combo % 5 === 0) GAME.hitstop = Math.max(GAME.hitstop || 0, .02);
     }
   }
   // mines
