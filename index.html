@@ -57,6 +57,7 @@
   --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
   --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
   --ui:clamp(.82rem,.55rem + .7vw,1rem);
+  --btn-scale:1; --btn-opacity:.92; --btn-spacing:1;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:var(--void)}
@@ -494,10 +495,12 @@ body.touchmode.flying #touch{display:block}
 #stick i{position:absolute;top:50%;left:50%;width:var(--tknob,44px);height:var(--tknob,44px);
   margin:calc(0px - var(--tknob,44px)/2) 0 0 calc(0px - var(--tknob,44px)/2);
   border-radius:50%;background:rgba(255,138,43,.28);border:1px solid var(--ember)}
-.tbtn{position:absolute;pointer-events:auto;width:var(--tbtn,74px);height:var(--tbtn,74px);border-radius:50%;
+.tbtn{position:absolute;pointer-events:auto;width:calc(var(--tbtn,74px)*var(--btn-scale));height:calc(var(--tbtn,74px)*var(--btn-scale));border-radius:50%;
   border:1px solid var(--line);background:rgba(8,13,26,.62);color:var(--aether);
   display:grid;place-items:center;font-size:.55rem;letter-spacing:.14em;
-  backdrop-filter:blur(4px);transition:transform .1s,background .1s}
+  backdrop-filter:blur(4px);transition:transform .1s,background .1s,opacity .12s ease;
+  opacity:var(--btn-opacity);
+}
 .tbtn:active{transform:scale(.9);background:rgba(53,224,255,.22)}
 .tbtn.cool{opacity:.5}
 .tbtn b{display:block;font-size:.9rem;font-family:Michroma,sans-serif;margin-bottom:2px}
@@ -839,6 +842,8 @@ body.needrotate #rotate{display:grid}
       <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
       <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
       <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
+      <div class="opt"><label id="lBtnScale">Button size</label><input type="range" id="rBtnScale" min="70" max="140" step="5" aria-labelledby="lBtnScale"></div>
+      <div class="opt"><label id="lBtnOp">Button opacity</label><input type="range" id="rBtnOp" min="40" max="100" step="2" aria-labelledby="lBtnOp"></div>
       <div class="opt line"><label id="lGhost">Daily ghost</label><button class="sw" id="swGhost" aria-labelledby="lGhost"><i></i></button></div>
       <div class="opt line"><label id="lOut">High-vis bullets</label><button class="sw" id="swOut" aria-labelledby="lOut"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
@@ -1116,7 +1121,8 @@ const CFG = {
   hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
   touchLeft: false, touchBig: false, ghost: true, outline: true,
   cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
-  sky: 1 /* sky traffic cadence — table in js/sky.js */
+  sky: 1, /* sky traffic cadence — table in js/sky.js */
+  btnScale: 1, btnOpacity: 92, btnSpacing: 1
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -1434,6 +1440,12 @@ let PAL = PALETTES[0];
 /* ───────────────── meta progression: hulls + refits ───────────────── */
 /* v4.1: re-derive the pilot-facing palette (paint change) without a run —
    the field derivation runs per wave; here we sync the same result now */
+function applyTouchBtnCfg(){
+  const root = document.documentElement;
+  root.style.setProperty('--btn-scale', String(CFG.btnScale || 1));
+  root.style.setProperty('--btn-opacity', ((CFG.btnOpacity || 92)/100).toFixed(2));
+  root.style.setProperty('--btn-spacing', String(CFG.btnSpacing || 1));
+}
 function applyPaint() {
   PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
   buildSprites();
@@ -7053,18 +7065,26 @@ $$('.tab').forEach(t => t.onclick = () => { AU.ui(); switchTab(t.dataset.tab); }
    BEFORE the bind* calls below — a const referenced by an earlier call is
    a TDZ crash that kills the whole inline core. */
 const SETTING_PAINTS = [];
-function bindRange(id, key) {
+function bindRange(id, key, onChange) {
   const el = $(id);
   if (!el) return;
-  const paint = () => { el.value = CFG[key]; };
+  const paint = () => { 
+    if(id === 'rBtnScale') el.value = Math.round((CFG.btnScale||1)*100);
+    else if(id === 'rBtnOp') el.value = CFG.btnOpacity||92;
+    else el.value = CFG[key]; 
+  };
   SETTING_PAINTS.push(paint);
   paint();
   el.addEventListener('input', () => {
+    if(id === 'rBtnScale'){ CFG[key]=+el.value/100; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
+    if(id === 'rBtnOp'){ CFG[key]=+el.value; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
     CFG[key] = +el.value;
     saveCfg(); AU.init(); AU.applyVolumes();
+    if (onChange) onChange(+el.value);
   });
 }
 bindRange('rMas', 'master'); bindRange('rMus', 'music'); bindRange('rSfx', 'sfx');
+  bindRange('rBtnScale', 'btnScale', v=>{CFG.btnScale=v/100; saveCfg(); applyTouchBtnCfg();}); bindRange('rBtnOp', 'btnOpacity', v=>{CFG.btnOpacity=+v; saveCfg(); applyTouchBtnCfg();});
 
 function bindSwitch(id, key, apply) {
   const el = $(id);
@@ -9003,6 +9023,7 @@ $('s-boot').addEventListener('click', finishBoot);
 
 function boot() {
   loadCfg();
+  applyTouchBtnCfg();
   SETTING_PAINTS.forEach(p => p());   // saved prefs repaint switches/segments
   loadMeta();
   armSkyTraffic();   // scale the sky schedulers' initial countdowns to the saved Sky traffic setting
