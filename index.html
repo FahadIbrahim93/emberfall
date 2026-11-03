@@ -3458,7 +3458,8 @@ function die(e) {
     });
   }
   if (tier >= 2) fxAt(.03, () => { ring(e.x, e.y, { r: 4, vr: 300 + 90 * tier, life: .34, col: rgbOf(e.axTint || PAL.foe), w: 2.4 }); });
-  if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  if (e.boss){ flash(.22); shake(10); GAME.hitstop = Math.max(GAME.hitstop, .08); }
+  else if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
   else if (tier === 2) { flash(.08); shake(4); GAME.hitstop = Math.max(GAME.hitstop, .025); }
   else if (tier === 1) { flash(.05); shake(2); GAME.hitstop = Math.max(GAME.hitstop, .015); }
   if (e.dying && e.boss) deathVolley(e);
