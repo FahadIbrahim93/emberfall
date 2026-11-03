@@ -1,0 +1,18 @@
+# The public game host ships the static shell only. Repo tooling, tests,
+# the sim package and database migrations stay off Vercel (GitHub already
+# publishes the source). deadscan.js pins this list in CI.
+
+check.sh
+deadscan.js
+package.json
+package-lock.json
+playwright.config.js
+vitest.config.ts
+tools
+tests
+packages
+supabase
+.github
+.freebuff
+goldens
+node_modules

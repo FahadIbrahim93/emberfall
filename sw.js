@@ -2,8 +2,8 @@
    Strategy: the app shell (index.html, ./) is NETWORK-FIRST with the cache
    as offline fallback, so updates ship immediately; everything else is
    cache-first with background refresh. */
-const CACHE = 'emberfall-v4.44';
-const CORE = ['./', './index.html', './js/audio.js', './js/sky.js', './js/net.js', './js/art.js', './js/input.js',
+const CACHE = 'emberfall-v4.55';
+const CORE = ['./', './index.html', './stats.html', './pilot.html', './js/audio.js', './js/sky.js', './js/mirror-public.js', './js/cloud.js', './js/net.js', './js/art.js', './js/input.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png',
   './fonts/michroma-400.woff2', './fonts/chakra-petch-400.woff2', './fonts/chakra-petch-500.woff2',
   './fonts/chakra-petch-600.woff2', './fonts/chakra-petch-700.woff2'];
@@ -25,9 +25,10 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
-  /* the API is live data — sessions, boards, profiles must never be cached */
-  if (url.pathname.startsWith('/api/')) return;
-  const isShell = url.pathname === '/' || url.pathname.endsWith('/index.html');
+  /* v4.29: scripts are network-first too — a cache-first module paired with a
+     fresh index.html showed returning visitors the old account UI (skew) */
+  const isShell = url.pathname === '/' || url.pathname.endsWith('.html') ||
+    (url.pathname.startsWith('/js/') && !url.pathname.startsWith('/js/vendor/'));
   e.respondWith(
     (isShell
       ? fetch(e.request).then(res => {

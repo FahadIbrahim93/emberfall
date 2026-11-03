@@ -1,21 +1,20 @@
 name: Playtest feedback
-description: You flew the game — tell the maker what it felt like. No bug required.
+description: You played the game. Tell us how it felt. No bug needed.
 labels: [playtest]
 body:
   - type: markdown
     attributes:
       value: |
-        **This is the feedback the recruiting page asks for** — the exact
-        four questions from [the press kit](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html),
-        in a form. Nothing here needs to be polished or complete; one
-        honest sentence per box is a real contribution. Found something
+        These are the four questions from
+        [the press kit](https://fahadibrahim93.github.io/emberfall/docs/press-kit.html).
+        One honest sentence per box is plenty. Found something
         broken? A [bug report](../../issues/new?template=bug_report.yml)
         is the better home for it.
   - type: input
     id: pilot
     attributes:
       label: Callsign (optional)
-      description: Your in-game name, if you made an account — lets the maker connect feedback to (anonymized) flight data.
+      description: Your in-game name, if you have an account. It helps match feedback to (anonymised) run data.
     validations:
       required: false
   - type: dropdown
@@ -69,7 +68,7 @@ body:
     id: another
     attributes:
       label: And honestly — would you?
-      description: Be brutal; a truthful 1 shapes the game more than a polite 5.
+      description: Be honest. A true 1 helps more than a polite 5.
       options:
         - "5 — Absolutely"
         - "4 — Probably"

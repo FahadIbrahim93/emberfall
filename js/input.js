@@ -84,6 +84,13 @@ function onKeyDown(e) {
   AU.init(); AU.resume();
 
   if (GAME.state === 'boot') { finishBoot(); return; }
+  /* the in-game confirm sits over the hangar; Escape must cancel it,
+     not walk back to the title, and Tab stays inside the dialog */
+  if ($('s-ask') && $('s-ask').classList.contains('on')) {
+    if (e.code === 'Escape') { e.preventDefault(); dismissAsk(); }
+    else if (e.code === 'Tab') trapTab(e, $('s-ask'));
+    return;
+  }
   if (e.code === 'KeyM') { AU.muted = !AU.muted; AU.applyVolumes(); note(AU.muted ? 'Audio muted' : 'Audio on'); }
   if (e.code === 'KeyF') toggleFullscreen();
   if (e.code === 'KeyP' || e.code === 'Escape') {
@@ -118,9 +125,6 @@ function onKeyDown(e) {
   }
   if (e.code === 'KeyB' && GAME.state === 'title' && !modalUp) startRun('rush');
   if (e.code === 'Enter' && !modalUp) {
-    /* v4.25 funnel: keyboard pilots arm here — same dedup as the buttons
-       (the deck bumps a salted per-boot device hash; doubles are free) */
-    if (GAME.state === 'title' && typeof NET !== 'undefined') NET.funnel('armed');
     if (GAME.state === 'title') startRun('endless');
     else if (GAME.state === 'over') {
       if (!$('entryRow').classList.contains('hidden')) saveCallsign();

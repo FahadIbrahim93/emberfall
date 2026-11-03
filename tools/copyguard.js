@@ -18,7 +18,7 @@ const ALLOW = [];   // extra allowed patterns only for HISTORICAL release notes
 
 const FILES = [
   'README.md', 'ARCHITECTURE.md', 'docs/economy-audit.md', 'docs/performance.md',
-  'index.html', 'server.js', 'sw.js', 'manifest.webmanifest',
+  'index.html', 'sw.js', 'manifest.webmanifest',
   'js/art.js', 'js/input.js', 'js/audio.js', 'js/sky.js', 'js/net.js'
 ];
 

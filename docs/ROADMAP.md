@@ -1,137 +1,32 @@
-# EMBERFALL — the next 90 days
+# Roadmap
 
-*Written 2026-09-25 by the machine that also ships the code, in the repo's
-own voice: every item names its proof. Priority order, not release order —
-each release takes whatever the top of the list offers.*
+Ordered by priority, not by release date. Every item ships the usual way: gated by CI and easy to roll back.
 
-## Now (this week)
+## Where things stand (2026-10-23)
 
-1. **Wardenfall Sunday, 2026-09-27** — the runbook exists
-   (`docs/runbooks/wardenfall-2026-09-27.md`); execute T-1 (done), fly the
-   day, sync the mirror after. Success = one line in the ledger per felled
-   pilot and zero incidents.
-2. **Hands-off mirror pipeline** — the hourly workflow refreshes the README
-   badge from the mirror and now ALARMS on drift (v4.26.1:
-   `tools/mirror-alarm.mjs` — unreachable / stale >24h / machine-pilot
-   contamination, keyless, born of the 2026-09-30 purge of 105 stale
-   battery rows the deck had already disowned). What still wants a home:
-   the mirror *feed* itself. Add a `SUPABASE_SERVICE_KEY` repository
-   secret and a push step (`tools/db-sync.mjs`) to the stats workflow —
-   or point the operator's existing cadence at `db-sync --verify`; the
-   deck never changes.
+- **Live:** player accounts with callsigns, and global and daily leaderboards on Supabase (#25), at https://emberfall-game-two.vercel.app. Guests play without an account; email accounts (with email confirmation) post to boards that list registered pilots only.
+- **Recently merged:** security hardening (#19, #22), repo hygiene (#20), the deadscan CI fix (#23), the upper-screen flash fix (#21) and the copy rewrite (#24).
+- **Planned:** Sign in with X (#26). It needs a rebase onto the current `main` before it can merge.
+- **Distribution:** submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are next.
 
-## Next (2–3 weeks)
+## Now
 
-3. **~~In-game link to the world page~~ DONE v4.21.0** — the deckless
-   Global tab reads the public mirror directly and links `stats.html`.
-4. **~~Leaderboard pagination~~ DONE v4.22.0** — `/api/scores?offset=`
-   pages distinct pilots with a `more` flag; seasons history on the
-   mirror remains open.
-5. **~~Rate-limit observability~~ DONE v4.23.0 + v4.24.0** — `/api/health` carries
-   per-bucket 429 telemetry (bucket, last60s, last1h, retryInMs — no
-   PII, ring of 24 per bucket, one-hour horizon); the limiters drill
-   proves refusals become visible and stay address-free. v4.24 gives it
-   a face: `/ops.html` is the deck operator's cockpit — census, the
-   live-ledger fence state, hot buckets, the Wardenfall honor total —
-   same-origin only, noindex, smoke-checked.
-6. **~~Score-replay drill~~ DONE v4.23.0** — `drill-replay.mjs` grew the
-   replay-ways matrix: cross-mode acceptance, per-mode windows,
-   perturbed-shape acceptance (the hash is an aggregate, not a curve),
-   per-hash window integrity, and cross-pilot non-interference.
+1. **Sign in with X** (#26): rebase onto `main`, finish review, enable the `x` provider on the project, merge.
+2. **Portal submissions:** itch.io and CrazyGames, using `npm run build:portal`.
 
-## Later (30–90 days)
+## Next
 
-7. **Deck hosting rollout** — the tooling now exists end to end
-   (`tools/deck-deploy.mjs`: plan / doctor / launch / deploy / verify —
-   one command from a clean tree to a LIVE, live-fenced, CORS-open deck;
-   v4.26.1 proved it down to the doctor's honest "not authenticated").
-   What remains is the human half: a Fly account, one `auth login` or
-   `FLY_API_TOKEN`, optionally the Google OAuth client id — and the
-   rollout gaps 11–13 below, which no dashboard removes.
-8. **Operator dashboard** — a single `admin.html` behind the session of a
-   designated pilot id: stats, latest backups, mirror freshness,
-   limiter state. Read-only by construction; every query it runs is
-   already parameterized somewhere.
-9. **Feats v2** — the feat registry is display-rich but static; seasonal
-   feats (perfected N distinct weeks, wardenfalls across seasons) turn
-   the ledger into a long game. Deck-authoritative as always.
-10. **A11y pass** — colorblind safety exists on paints; extend the same
-    CIE-Lab discipline to UI states (error/amber/ok), focus rings, and
-    screen-reader labels on the registry tabs.
+3. **Keyset pagination** for boards once they grow past what offset paging handles well (issue #16).
+4. **More browser coverage** for the stats page and the Global tab (issue #17).
+5. **Accessibility pass:** extend the colour-blind checks already used for paints to UI states, focus rings and screen-reader labels.
 
-## The container path — what's proven, and the gap to a real rollout
+## Not planned
 
-*The image has existed since v4.19.0 and CI proves it on every push
-(`docs/DEPLOYMENT.md` holds the mechanics). This section is the
-roadmap's honest ledger for it: what the docker path already
-guarantees, and what a stranger would still have to bolt on before
-hosting real pilots.*
+- **A self-hosted game server.** Supabase replaced it ([ADR 0004](adr/0004-supabase-source-of-truth.md), [ADR 0005](adr/0005-remove-self-hosted-deck.md)).
+- **Claiming authoritative anti-cheat.** Scores are bounds-checked and rate-limited, not replayed on a server, and the docs say so.
 
-**Proven on every push (the CI `deck image` job):**
+## Done recently
 
-- **Gates in the build** — the multi-stage Dockerfile runs the
-  no-browser battery in a gates stage and every runtime file is copied
-  out of it: no green gates, no runnable image.
-- **Named volume** — the ledger lives on `/data`
-  (`-v emberfall-data:/data`); CI registers a pilot, kills the
-  container, boots again on the same volume and logs the pilot back in
-  — persistence is a checked fact, not a flag.
-- **Non-root + health-checked** — uid 1001, `HEALTHCHECK` wired to
-  `/api/health`; a wedged deck goes `unhealthy` and gets restarted.
-- **The NODE_ENV contract** — the bare image answers plain HTTP so
-  orchestrator probes work; with `NODE_ENV=production` every real
-  endpoint 426s without TLS while `/api/health` stays answerable.
-  Production is structurally forced through a proxy, not merely
-  recommended.
-- **TRUST_PROXY** — behind one proxy hop, `TRUST_PROXY=1` keys rate
-  limits and `Secure` cookies on the real client (the gates job proves
-  the XFF path); the published port stays on `127.0.0.1`.
-
-**The three gaps between that and a real rollout:**
-
-11. **TLS termination** — Caddy or nginx in front, ACME renewal on,
-    HSTS on; the 426 contract already makes TLS structural, so this is
-    pure plumbing. Proof: a drill that boots image + proxy on a scratch
-    host and asserts the loop end-to-end — login sets `Secure`, a board
-    write lands, health still probes over HTTP.
-12. **Backups off-box** — `db-backup --verify` exists and the local
-    deck has a scheduled task, but container snapshots still default to
-    the host's own disk. A rollout needs three things: a scheduler
-    (host cron `docker exec deck node /app/tools/db-backup.js --verify`),
-    a destination on different hardware (object storage via
-    rclone/restic — snapshots are the user table: scrypt hashes and
-    session-token hashes), and a restore *rehearsal* — boot a scratch
-    deck from the off-box copy and log a pilot in. A backup on the
-    ledger's own disk is not a backup.
-13. **~~Log shipping~~ minimum DONE v4.26.1** — `fly.toml` now bounds
-    retention (`[log]` 10 MB, 5 files), so the default driver can no
-    longer rotate nothing. What remains of this item is the *real*
-    answer, unchanged: a shipper (promtail/vector) to a sink with a
-    bounded window (~30 days), carrying boot lines, limiter 429
-    telemetry (feeds item 5), and errors — PII-free by policy: no
-    callsigns, no token material, no hashes.
-
-Deliberately out of scope, per ADR 0001's posture: Kubernetes,
-multi-node HA, a managed database. The deck is one process and one
-SQLite file; the rollout story stays sized to that, not to a fleet.
-
-## Deliberately not planned
-
-- **Supabase as the gameplay store** — rejected in ADR 0001; the deck's
-  zero-dependency posture is the product.
-- **Accounts *stored* on the Pages build** — static hosting still cannot
-  hold session secrets. v4.26.1 completed the answer that replaced this
-  rejection: the page ADOPTS a deck (`deck.json` ladder — choice, local,
-  adopt, auto), so Pages pilots get real accounts, boards and duels from
-  the deck's CORS/bearer contract while the page itself stays a stateless
-  static file.
-- **Anti-cheat theater** — plausibility checking stays honest about being
-  detection; no "authoritative replay" claim until an actual re-sim
-  ships (and that would need the sim server-side, which ADR 0001's
-  consequences keep optional).
-
-## The standing rule
-
-Every item above ships the way the last 20 releases did: stamped by
-`release.mjs`, gated by the battery, tagged for one-command rollback, and
-published only when CI says the live site is byte-identical.
+- Supabase accounts and global and daily boards (#25)
+- Retired `tools/db-sync.mjs`, the hourly Mirror stats workflow and the old mirror project (#25)
+- Copy rewrite in a plainer voice (#24)

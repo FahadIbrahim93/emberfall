@@ -1,48 +1,37 @@
-# Contributing to EMBERFALL
+# Contributing
 
-Good news: the repo is the review process. The gate battery knows what
-"done" means; your job is to make it stay green.
+Thanks for helping. Bug reports, playtest notes and pull requests are all welcome.
 
 ## The one rule
 
-**Behavior changes need a proof in the battery.** If a drill, smoke check,
-selftest or spec would not have caught your bug, add the check that would
-have. This is how the repo got a session drill (a SIGKILL-survival claim
-was wrong until it was executable) and a vault drill (the prune was broken
-silently until it was executable).
+**If you change behaviour, add a check that proves it.** If no sim test, self-test or Playwright spec would have caught your bug, add one that would.
 
 ## Local loop
 
+You need Node 22 or newer.
+
 ```bash
-bash check.sh                 # syntax: every module + every inline payload
+npm ci
+bash check.sh                 # syntax of every module and inline script
 node deadscan.js --check      # dead code, load order, XSS sinks
-node tools/selftest-ci.js     # the in-game suite, headless (71 checks)
-npm run test:sim              # the TypeScript sim mirror + goldens
-npm run test:browser          # Playwright suite (boots its own deck)
-node tools/drill-port.mjs     # every drill boots what it needs; see tools/
+npm test                      # sim tests + Playwright + the in-game self-test (63 checks)
 ```
 
-`node tools/selftest-baseline.js` regenerates the suite contract — only
-when green, and commit it together with the suite change.
+The browser suite serves the static site itself with `tools/serve-static.mjs` (port 8123; set `E2E_PORT` to move it). After changing the self-test suite, regenerate its baseline with `node tools/selftest-baseline.js`, but only on a green run, and commit it with the change.
 
-## Discipline the battery enforces
+## House rules
 
-- **The client displays, the deck authorizes.** Anything the deck pays or
-  ranks must be derived server-side; a display-contract change belongs in
-  `tools/parity-daily.js` too.
-- **Modules are load-time pure.** `js/*.js` may only declare; the core
-  calls `initInput()` when the DOM exists. `deadscan` enforces it.
-- **Version stamps are one command.** `node tools/release.mjs audit`
-  verifies every site agrees; use `stamp` instead of hand-editing six
-  places. CI fails the audit on drift.
-- **One battery, one fresh deck.** Drills boot their own scratch deck on
-  a scratch data dir; never re-run a battery against a dirty deck.
+- **Supabase is the only write path for boards.** Live scores and callsigns go through the `submit_score` and `set_callsign` RPCs. Schema changes are new files in `supabase/migrations/`; never edit an applied one.
+- **Keep the daily economy honest.** If you change the daily medal or Wardenfall rules, keep `tools/wardenfall-check.mjs` and `tools/econsim.js` in step.
+- **Modules only declare at load time.** Files in `js/*.js` don't run code when loaded. The core calls `initInput()` once the DOM exists. `deadscan` enforces this.
+- **Version stamps are one command.** Use `node tools/release.mjs stamp`, not hand edits. `node tools/release.mjs audit` checks that every stamp agrees.
 
 ## Pull requests
 
-- Keep the CI contract: green gates, `selftest-baseline.json` in sync,
-  new drills wired into `.github/workflows/ci.yml`
-- Update the docs that own the behavior (`README.md` Command Deck section,
-  `docs/DATABASE.md` for the data layer, `ARCHITECTURE.md` for the load
-  contract)
-- Small PRs win: the battery is the reviewer, but a human still reads it
+- Keep CI green, keep `tools/selftest-baseline.json` in sync, and wire any new gate into `.github/workflows/ci.yml`.
+- Update the doc that owns the behaviour: the README, `docs/DATABASE.md` for data, `docs/DEPLOYMENT.md` for hosting, `ARCHITECTURE.md` for the load order.
+- Keep PRs small. CI checks a lot, but a person still reads every one.
+
+## Security
+
+Please don't open public issues for security problems. See [SECURITY.md](SECURITY.md).

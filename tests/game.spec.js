@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
 async function openTitle(page) {
-  await page.goto('http://127.0.0.1:8123/', { waitUntil: 'networkidle' });
+  await page.goto('/', { waitUntil: 'networkidle' });
   await page.keyboard.press('Space');
   await expect(page.locator('#s-title')).toHaveClass(/on/, { timeout: 7000 });
   /* The patch-notes dialog mounts a beat AFTER the title gains .on (and on a
@@ -18,7 +18,7 @@ async function openTitle(page) {
 test('boots locally without third-party network requests', async ({ page }) => {
   const blocked = [];
   page.on('request', request => {
-    if (new URL(request.url()).origin !== 'http://127.0.0.1:8123') blocked.push(request.url());
+    if (new URL(request.url()).origin !== new URL(test.info().project.use.baseURL).origin) blocked.push(request.url());
   });
   await openTitle(page);
   await expect(page.locator('#btnLaunch')).toBeVisible();
