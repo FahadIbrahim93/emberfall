@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#03050b">
 <meta name="description" content="EMBERFALL — an accessible, instant-play orbital intercept shooter. Hold the last corridor. Plays offline, on anything.">
 <meta name="mobile-web-app-capable" content="yes">
@@ -58,7 +58,7 @@
   --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
   --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
   --ui:clamp(.82rem,.55rem + .7vw,1rem);
-  --tbtn:74px; --btn-opacity:1; --btn-scale:1; --btn-spacing:0px;
+  --btn-scale:1; --btn-opacity:.92; --btn-spacing:1;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:var(--void)}
@@ -85,17 +85,13 @@ body.flying #stage{cursor:none}
 /* ─────────── post overlays ─────────── */
 #vig{position:fixed;inset:0;z-index:2;pointer-events:none;
   background:radial-gradient(ellipse 120% 100% at 50% 44%,transparent 46%,rgba(0,0,0,.62) 100%)}
-/* flash fix (audit 3.7/PR-A1): the old inset:-50% + translate-% keyframes let
-   the tile layer outrun the viewport — at fractional DPR its top edge could
-   expose an uncovered seam and flash. Pinned to inset:0; the animation now
-   shifts background-position so the layer edges can never move. */
-#grain{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.045;
+#grain{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.04;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
   background-size:120px 120px;
-  animation:grainShift 1.1s steps(6) infinite}
+  animation:grainShift 1.4s steps(4) infinite}
 @keyframes grainShift{
-  0%{background-position:0 0}16%{background-position:36px 24px}33%{background-position:-24px 36px}
-  50%{background-position:24px -12px}66%{background-position:-36px -24px}83%{background-position:12px 36px}}
+  0%{background-position:0 0}25%{background-position:-12px 8px}
+  50%{background-position:8px -10px}75%{background-position:-6px 4px}}
 #scan{position:fixed;inset:0;z-index:2;pointer-events:none;
   background:repeating-linear-gradient(0deg,rgba(180,210,255,.028) 0 1px,transparent 1px 3px)}
 #hurt{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .45s ease-out;
@@ -242,7 +238,7 @@ kbd{border:1px solid var(--line-soft);padding:2px 6px;font-size:.62rem;color:var
 /* title hero (v4.20): the hull you will fly, breathing on its pad behind the
    grid — the title shows the machine, not a void. The fun audit measured the
    old title at brightness 13/255 with 60% of the frame empty. */
-#s-title{position:relative;overflow:hidden}
+#s-title{position:relative;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .hero-canvas{position:absolute;top:46%;left:58%;transform:translate(-50%,-50%);
   width:min(72vmin,680px);height:auto;opacity:.58;pointer-events:none;z-index:0}
 .hero-tag{position:absolute;left:58%;top:76%;transform:translateX(-50%);z-index:1;
@@ -415,7 +411,9 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .up .buy.no{color:var(--dimmer)}
 
 /* modal-ish screens */
-#s-pause,#s-over,#s-set{place-items:center;padding:20px}
+#s-pause,#s-over,#s-set,#s-ask{place-items:center;padding:20px}
+/* native confirm() is a no-op inside framed arcade players */
+#s-ask{z-index:16;background:rgba(3,5,11,.72)}
 .card{width:min(520px,94vw);padding:clamp(22px,4vw,34px);max-height:calc(100vh - 40px);overflow-y:auto}
 .card.wide{max-height:calc(100dvh - 28px)}   /* small screens: dialog must fit with its Done button reachable */
 @media (max-height:900px){
@@ -470,8 +468,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--ambe
 .unlock{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid rgba(155,107,255,.35);
   background:rgba(155,107,255,.09);font-size:.64rem;letter-spacing:.12em}
 .unlock b{color:var(--violet);letter-spacing:.2em}
-.unlock .daily-medals b{color:var(--gold)}
-.unlock .daily-medals span{margin-left:auto;color:var(--dim);letter-spacing:.18em}
 
 /* boot */
 #s-boot{place-items:center;background:var(--void);z-index:12}
@@ -496,10 +492,12 @@ body.touchmode.flying #touch{display:block}
 #stick i{position:absolute;top:50%;left:50%;width:var(--tknob,44px);height:var(--tknob,44px);
   margin:calc(0px - var(--tknob,44px)/2) 0 0 calc(0px - var(--tknob,44px)/2);
   border-radius:50%;background:rgba(255,138,43,.28);border:1px solid var(--ember)}
-.tbtn{position:absolute;pointer-events:auto;width:var(--tbtn,74px);height:var(--tbtn,74px);border-radius:50%;
+.tbtn{position:absolute;pointer-events:auto;width:calc(var(--tbtn,74px)*var(--btn-scale));height:calc(var(--tbtn,74px)*var(--btn-scale));border-radius:50%;
   border:1px solid var(--line);background:rgba(8,13,26,.62);color:var(--aether);
   display:grid;place-items:center;font-size:.55rem;letter-spacing:.14em;
-  backdrop-filter:blur(4px);transition:transform .1s,background .1s}
+  backdrop-filter:blur(4px);transition:transform .1s,background .1s,opacity .12s ease;
+  opacity:var(--btn-opacity);
+}
 .tbtn:active{transform:scale(.9);background:rgba(53,224,255,.22)}
 .tbtn.cool{opacity:.5}
 .tbtn b{display:block;font-size:.9rem;font-family:Michroma,sans-serif;margin-bottom:2px}
@@ -547,7 +545,7 @@ body.needrotate #rotate{display:grid}
      guideline) and tighter tracking so 'Threats' clears the 48px cells that
      a 320px phone's 240px panel allows — measured, not guessed */
   .tab{padding:13px 2px;letter-spacing:.12em}
-  .title-grid{grid-template-columns:1fr;gap:26px;padding:calc(56px + var(--sat)) 18px calc(90px + var(--sab))}
+  .title-grid{grid-template-columns:minmax(0,1fr);gap:26px;padding:calc(56px + var(--sat)) 18px calc(90px + var(--sab))}
   #s-title{align-content:start}
   .side{max-height:none}
   .bay-cols{grid-template-columns:1fr}
@@ -575,6 +573,374 @@ body.needrotate #rotate{display:grid}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
   #grain{animation:none}
+}
+
+/* accounts v2 (docs/specs/accounts-v2.md): pilot chip, profile, board tabs, mobile */
+.pilot-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.pilot-chip{display:flex;align-items:center;gap:10px;min-height:52px;text-align:left}
+.pilot-chip canvas{width:28px;height:28px;flex:none}
+.pc-txt{display:flex;flex-direction:column;min-width:0}
+.pc-txt b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pilot-boards{min-height:52px}
+/* wide + short desktops: the sidebar account panel sits beside the menu already */
+@media (min-width:901px) and (max-height:780px){.pilot-strip{display:none}}
+#cloudBox .up,#cloudBox input,.btab{min-height:44px}
+#cloudBox input{font-size:16px}
+#cloudBox input{background:rgba(3,5,11,.55);border:1px solid var(--line-soft);color:var(--text,#e6f2ff);padding:0 12px;font-family:inherit;letter-spacing:.06em;border-radius:0}
+#cloudBox input:focus{outline:none;border-color:var(--amber)}  /* >=16px: iOS does not zoom the page on focus */
+#cloudPw summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--dim);font-size:.7rem;letter-spacing:.14em}
+.pf-head{display:flex;gap:12px;align-items:center}
+.pf-head canvas{width:44px;height:44px}
+.pf-head b{display:block;letter-spacing:.12em}
+.pf-stats{display:block;font-size:.62rem;color:var(--dim);letter-spacing:.08em;line-height:1.5}
+.av-pick{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.av-pick button{min-height:48px;background:transparent;border:1px solid var(--line-soft);cursor:pointer;padding:4px}
+.av-pick button.on{border-color:var(--amber);background:rgba(255,138,43,.1)}
+.av-pick canvas{width:36px;height:36px}
+.btabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px}
+.btab{background:transparent;border:1px solid var(--line-soft);color:var(--dim);font:inherit;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
+.btab.on{border-color:var(--amber);color:var(--amber)}
+#globalBody.b-all #dayBox,#globalBody.b-daily #globalBoard,#globalBody.b-daily #globalBoardNote,#globalBody.b-daily #myRank{display:none}
+#myRank{margin-top:6px;border-top:1px dashed var(--line-soft);padding-top:6px}
+.row .av{width:16px;height:16px;vertical-align:-3px;margin-right:5px}
+@media (max-width:900px){
+  .title-grid{padding-left:calc(16px + var(--sal));padding-right:calc(16px + var(--sar));max-width:100%}
+  .title-menu{width:100%}
+  .side{min-width:0}
+}
+@media (max-height:520px) and (orientation:landscape){
+  .title-grid{padding-left:calc(16px + var(--sal));padding-right:calc(16px + var(--sar))}
+}
+
+/* ═════════════ v4.29.0 menu polish — one system for every menu surface ═════════════
+   spacing 4/8/12/16/24/32 · type: display Michroma, UI Chakra Petch 12/14/16/20 ·
+   accent = ember (primary actions only), aether = links, crimson = destructive/errors.
+   Buttons: primary (.key), secondary (.btn), ghost (.ghost); every state styled;
+   focus rings are inset shadows because the clipped corners clip outlines. */
+:root{
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --t-xs:.6875rem;--t-sm:.8125rem;--t-md:.9375rem;--t-lg:1.25rem;
+  --surface:rgba(9,14,27,.92);--surface-2:rgba(255,255,255,.035);--hair:rgba(255,255,255,.08);
+  --txt-2:#a3adc4;--ring:0 0 0 2px var(--amber);
+  --ease:cubic-bezier(.2,.8,.2,1);--tap:44px;
+}
+/* buttons */
+.btn{min-height:var(--tap);padding:var(--s3) var(--s4);font-size:var(--t-xs);letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink);background:rgba(12,18,34,.78);border:1px solid rgba(255,138,43,.28);
+  transition:background-color .16s var(--ease),border-color .16s var(--ease),color .16s var(--ease),transform .08s var(--ease),box-shadow .16s var(--ease)}
+.btn::after{display:none}
+.btn:hover:not(:disabled){background:rgba(255,138,43,.1);border-color:rgba(255,138,43,.65);padding-left:var(--s4)}
+.btn:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.btn:active:not(:disabled){transform:translateY(1px);background:rgba(255,138,43,.16)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn .sub{font-size:var(--t-xs);letter-spacing:.04em;text-transform:none;color:var(--txt-2);margin-top:2px;font-weight:400}
+.btn.key{background:var(--ember);color:#160b02;border-color:var(--ember);font-weight:700}
+.btn.key .sub{color:rgba(22,11,2,.72)}
+.btn.key:hover:not(:disabled){background:var(--amber);border-color:var(--amber)}
+.btn.key:active:not(:disabled){background:#e9761c}
+.btn.key:focus-visible{box-shadow:inset 0 0 0 2px #160b02,inset 0 0 0 4px var(--amber)}
+.btn.ghost{background:transparent;border-color:var(--hair);color:var(--txt-2)}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2);border-color:rgba(255,255,255,.2);color:var(--ink)}
+.btn.warn,.btn.ghost.warn{color:#ff7a92;border-color:rgba(255,46,85,.3)}
+.btn.warn:hover:not(:disabled){background:rgba(255,46,85,.1);border-color:var(--crimson);color:#ff9aad}
+.btn.c{text-align:center}
+.btn.busy{color:transparent!important}
+.btn.busy::before{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+  border:2px solid rgba(255,255,255,.25);border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;color:var(--ink)}
+.btn.key.busy::before{border-color:rgba(22,11,2,.25);border-top-color:#160b02}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
+
+/* title menu */
+.menu.title-menu{gap:var(--s2)}
+.title-menu .btn{padding:var(--s3) var(--s4)}
+.title-menu .btn.key{min-height:60px;font-size:var(--t-sm);letter-spacing:.2em}
+.title-menu .pair.util .btn{min-height:var(--tap)}
+.eyebrow{letter-spacing:.3em}
+.oparthib{letter-spacing:.3em}
+.pilot-strip{gap:var(--s2)}
+.pilot-chip,.pilot-boards{min-height:56px}
+.pilot-chip{gap:var(--s3)}
+.pilot-chip canvas{width:32px;height:32px;background:var(--surface-2);border:1px solid var(--hair)}
+.pc-txt b{letter-spacing:.12em}
+.pilot-boards{text-align:center;padding-left:var(--s5)!important;padding-right:var(--s5)!important}
+kbd{border-color:var(--hair);color:var(--txt-2);background:var(--surface-2)}
+.creds{color:var(--dim)}
+
+/* side panels */
+.panel-copy{color:var(--txt-2);font-size:var(--t-sm);line-height:1.55;margin:0 0 var(--s3)}
+#acctPanel{margin-bottom:var(--s3)}
+.side-head h3{font-size:var(--t-xs)}
+.side-head span{font-size:var(--t-xs);letter-spacing:.12em;color:var(--dim)}
+
+/* modal sheet */
+.sheet{position:fixed;inset:0;z-index:13;display:grid;place-items:center;
+  padding:calc(var(--s5) + var(--sat)) calc(var(--s5) + var(--sar)) calc(var(--s5) + var(--sab)) calc(var(--s5) + var(--sal));
+  visibility:hidden;pointer-events:none}
+.sheet.on{visibility:visible;pointer-events:auto}
+.sheet-scrim{position:absolute;inset:0;background:rgba(2,4,9,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .22s var(--ease)}
+.sheet.on .sheet-scrim{opacity:1}
+.sheet-card{position:relative;width:min(480px,100%);max-height:min(760px,100%);display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid rgba(255,138,43,.22);box-shadow:0 24px 64px rgba(0,0,0,.55);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  opacity:0;transform:translateY(12px) scale(.985);transition:opacity .22s var(--ease),transform .22s var(--ease)}
+.sheet.v-boards .sheet-card{width:min(600px,100%)}
+.sheet.on .sheet-card{opacity:1;transform:none}
+.sheet-card:focus{outline:none}
+.sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
+  padding:var(--s5) var(--s5) var(--s4);border-bottom:1px solid var(--hair)}
+.sheet-eyebrow{font-size:var(--t-xs);letter-spacing:.28em;text-transform:uppercase;color:var(--ember);margin-bottom:var(--s2)}
+.sheet-head h2{margin:0;font-size:var(--t-lg);letter-spacing:.14em;line-height:1.2}
+.sheet-x{flex:none;width:var(--tap);height:var(--tap);display:grid;place-items:center;color:var(--txt-2);
+  border:1px solid var(--hair);margin:-6px -8px 0 0;transition:color .16s,border-color .16s,background-color .16s}
+.sheet-x:hover{color:var(--ink);border-color:rgba(255,255,255,.24);background:var(--surface-2)}
+.sheet-x:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:var(--s5);touch-action:pan-y;
+  -webkit-user-select:text;user-select:text}
+.sheet.v-acct #globalStatus,.sheet.v-acct #globalBody{display:none!important}
+.sheet.v-boards #cloudBox{display:none!important}
+.sheet #globalStatus{display:none}
+body.sheet-open #s-title{overflow:hidden}
+@media (max-width:599px){
+  .sheet{place-items:end stretch;padding:calc(var(--s6) + var(--sat)) 0 0}
+  .sheet-card,.sheet.v-boards .sheet-card{width:100%;max-height:100%;
+    clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px);transform:translateY(24px)}
+  .sheet-head{padding:var(--s4) calc(var(--s4) + var(--sar)) var(--s3) calc(var(--s4) + var(--sal))}
+  .sheet-body{padding:var(--s4) calc(var(--s4) + var(--sar)) calc(var(--s5) + var(--sab)) calc(var(--s4) + var(--sal))}
+}
+@media (max-height:520px) and (orientation:landscape){
+  .sheet{padding:calc(var(--s2) + var(--sat)) calc(var(--s4) + var(--sar)) calc(var(--s2) + var(--sab)) calc(var(--s4) + var(--sal))}
+  .sheet-card,.sheet.v-boards .sheet-card{width:min(640px,100%);max-height:100%}
+  .sheet-head{padding:var(--s3) var(--s4)}
+  .sheet-body{padding:var(--s3) var(--s4) var(--s4)}
+}
+
+/* forms */
+.form{display:grid;gap:var(--s3)}
+.sheet-lede{color:var(--txt-2);font-size:var(--t-sm);line-height:1.6;margin:0 0 var(--s4)}
+.fld{display:grid;gap:6px}
+.fld-l{font-size:var(--t-xs);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+#cloudBox input{min-height:48px;width:100%;font-size:16px;letter-spacing:.02em;padding:0 var(--s3);color:var(--ink);
+  background:rgba(2,4,10,.6);border:1px solid rgba(255,255,255,.14);border-radius:0;transition:border-color .16s,box-shadow .16s;
+  -webkit-user-select:text;user-select:text}
+#cloudBox input::placeholder{color:#5d6782}
+#cloudBox input:hover{border-color:rgba(255,255,255,.24)}
+#cloudBox input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+#cloudBox input:invalid:not(:placeholder-shown){border-color:rgba(255,46,85,.6)}
+#cloudCallsign{text-transform:uppercase;letter-spacing:.12em!important}
+.inline{display:grid;grid-template-columns:1fr auto;gap:var(--s2)}
+.inline .btn{min-height:48px;padding:0 var(--s5)}
+.disclose summary{list-style:none;cursor:pointer;min-height:var(--tap);display:flex;align-items:center;gap:var(--s2);
+  color:var(--txt-2);font-size:var(--t-sm);letter-spacing:.04em}
+.disclose summary::-webkit-details-marker{display:none}
+.disclose summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(-45deg);transition:transform .16s var(--ease);margin:0 4px 0 2px}
+.disclose[open] summary::before{transform:rotate(45deg)}
+.disclose summary:hover{color:var(--ink)}
+.disclose summary:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.disclose .form{padding-top:var(--s1)}
+.rule{display:flex;align-items:center;gap:var(--s3);color:var(--dimmer);font-size:var(--t-xs);letter-spacing:.2em;text-transform:uppercase}
+.rule::before,.rule::after{content:"";flex:1;height:1px;background:var(--hair)}
+.msg{min-height:0;margin:var(--s3) 0 0;font-size:var(--t-sm);line-height:1.5;color:var(--txt-2)}
+.msg:empty{display:none}
+.msg.ok{color:var(--mint)}
+.msg.err{color:#ff7a92}
+
+/* profile */
+.pf-head{gap:var(--s4);padding:var(--s3);background:var(--surface-2);border:1px solid var(--hair)}
+.pf-head canvas{width:56px;height:56px;flex:none;background:rgba(2,4,10,.5);border:1px solid var(--hair)}
+.pf-id{min-width:0}
+.pf-head b{font-family:Michroma,sans-serif;font-weight:400;font-size:var(--t-md);letter-spacing:.12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-mail{display:block;margin-top:var(--s1);font-size:var(--t-xs);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--hair);border:1px solid var(--hair);line-height:1.2}
+.pf-s{background:var(--surface);padding:var(--s3) var(--s2);text-align:center;min-width:0}
+.pf-s span{display:block;font-size:.625rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.pf-s b{display:block;margin-top:6px;font-size:var(--t-md);font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-s:first-child b{color:var(--amber)}
+.pf-stats.busy .pf-s b{color:transparent;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.12),rgba(255,255,255,.05));background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+@media (max-width:380px){.pf-stats{grid-template-columns:1fr 1fr}}
+.av-pick{gap:var(--s2)}
+.av-pick button{min-height:52px;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--hair);transition:border-color .16s,background-color .16s}
+.av-pick button:hover{border-color:rgba(255,255,255,.24)}
+.av-pick button.on{border-color:var(--amber);background:rgba(255,138,43,.12);box-shadow:inset 0 0 0 1px var(--amber)}
+.av-pick button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.av-pick canvas{width:36px;height:36px}
+
+/* boards */
+.btabs{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:0 0 var(--s4);padding:3px;background:rgba(2,4,10,.55);border:1px solid var(--hair)}
+.btab{min-height:40px;border:0;background:transparent;color:var(--dim);font-size:var(--t-xs);letter-spacing:.18em;font-weight:600;
+  transition:background-color .16s var(--ease),color .16s var(--ease)}
+.btab:hover{color:var(--ink)}
+.btab.on{background:rgba(255,138,43,.16);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,138,43,.5)}
+.btab:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+.sheet .btab{min-height:var(--tap)}
+.board-meta{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);margin:0 0 var(--s2);
+  font-size:var(--t-xs);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.board-meta span:first-child{color:var(--ink);font-weight:600}
+.bhead,.board .row,#myRank .row{display:grid;grid-template-columns:36px minmax(0,1fr) auto 44px;gap:var(--s3);align-items:center}
+.bhead{padding:0 var(--s3) var(--s2);border-bottom:1px solid var(--hair);font-size:.625rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer)}
+.bhead span:nth-child(3),.bhead span:nth-child(4){text-align:right}
+#globalBody.b-daily .bhead.gb{display:none}
+.board .row,#myRank .row{min-height:var(--tap);padding:0 var(--s3);border-bottom:1px solid rgba(255,255,255,.045);
+  font-size:var(--t-sm);font-variant-numeric:tabular-nums;transition:background-color .12s}
+.board .row:hover{background:var(--surface-2)}
+.board .row .rk,#myRank .row .rk{color:var(--dim);font-size:var(--t-sm);font-weight:600;text-align:left}
+.board .row.top .rk{color:var(--amber)}
+.board .row .nm,#myRank .row .nm{display:flex;align-items:center;gap:var(--s2);letter-spacing:.06em;min-width:0}
+.board .row .nm a{color:var(--ink);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board .row .nm a:hover{color:var(--amber)}
+.board .row .nm a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.board .row .hl,#myRank .row .hl{flex:none;font-size:var(--t-xs);color:var(--dim);letter-spacing:.06em}
+.board .row .av{width:20px;height:20px;margin:0;flex:none}
+.board .row .sc,#myRank .row .sc{text-align:right;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.board .row .wv,#myRank .row .wv{text-align:right;color:var(--dim);font-size:var(--t-sm)}
+.board .row.me,#myRank .row.me{background:rgba(255,138,43,.1);outline:0;box-shadow:inset 2px 0 0 var(--ember)}
+#myRank{margin-top:var(--s2);border-top:1px solid var(--hair);padding-top:var(--s2)}
+.board .empty{padding:var(--s6) var(--s4);text-align:center;color:var(--txt-2);font-size:var(--t-sm);line-height:1.6;letter-spacing:.02em}
+.board .empty b{display:block;color:var(--ink);font-weight:600;letter-spacing:.06em;margin-bottom:var(--s1)}
+.board .empty.err b{color:#ff7a92}
+.note-s{margin:var(--s3) 0 var(--s4);font-size:var(--t-xs);line-height:1.6;color:var(--dim);letter-spacing:.02em}
+.note-s a{color:var(--aether);text-decoration:none;border-bottom:1px solid rgba(53,224,255,.35)}
+.note-s a:hover{border-bottom-color:var(--aether)}
+.skel{display:grid;gap:1px;padding-top:var(--s1)}
+.skel i{display:block;height:var(--tap);background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.07),rgba(255,255,255,.03));
+  background-size:200% 100%;animation:shimmer 1.2s linear infinite}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (max-width:380px){
+  .bhead,.board .row,#myRank .row{grid-template-columns:28px minmax(0,1fr) auto 32px;gap:var(--s2)}
+  .board .row .hl{display:none}
+}
+@media (max-width:900px){.tab{min-height:var(--tap)}}
+@media (max-height:820px){
+  .title-menu .btn.key{min-height:52px}
+  .title-menu .pair.util .sub{display:none}
+}
+/* pinch-zoom is allowed (WCAG 1.4.4); menus/sheets block double-tap zoom only. The play
+   field keeps body{touch-action:none}. */
+.screen,.sheet-body,button{touch-action:manipulation}
+.sheet-body{touch-action:pan-y pinch-zoom}
+
+/* ═════════════ v4.30 phone title — one screen, thumb-first (docs/specs/mobile-ux-v2.md) ═════════════
+   Top bar: pilot chip left, icon buttons right (status/menus live up top).
+   Logo scales with min(vw, vh) so it can never force the column wider than
+   the phone. Modes sit in a 2-column grid; LAUNCH is the one dominant CTA,
+   bottom of the screen, in the natural thumb zone. Phones in portrait only:
+   landscape and desktop keep their layout. */
+.title-grid{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)}
+h1{max-width:100%}
+#cloudIn:has(#cloudCodeRow:not(.hidden)) #cloudHow,#cloudIn:has(#cloudCodeRow:not(.hidden)) #cloudOtp{display:none}
+.otp-sent{font-size:var(--t-sm);color:var(--txt-2);margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.otp-sent b{color:var(--ink);font-weight:600;word-break:break-all}
+.linkbtn{background:none;border:0;color:var(--aether);font:inherit;font-size:var(--t-xs);letter-spacing:.12em;text-transform:uppercase;
+  min-height:var(--tap);padding:0 var(--s2);cursor:pointer}
+.linkbtn:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--amber)}
+#cloudBox input.otp{font-size:24px;letter-spacing:.5em;text-align:center;font-variant-numeric:tabular-nums;min-height:56px;padding-left:.5em}
+#cloudHow{margin:calc(0px - var(--s1)) 0 0}
+@media (max-width:900px) and (orientation:portrait){
+  .title-grid{grid-template-columns:minmax(0,1fr);width:100%;max-width:560px;row-gap:var(--s6);
+    padding:calc(var(--s3) + var(--sat)) calc(var(--s4) + var(--sar)) calc(var(--s4) + var(--sab)) calc(var(--s4) + var(--sal))}
+  .title-main{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--s2);align-content:start;
+    min-height:calc(100dvh - var(--s3) - var(--s4) - var(--sat) - var(--sab));
+    grid-template-rows:auto auto auto auto auto minmax(var(--s4),1fr) auto auto auto auto auto auto}
+  .title-main>*{grid-column:1/-1;min-width:0}
+  .title-main .title-menu,.title-main .pilot-strip,.title-main .menu.title-menu .duo,.title-main .pair.util{display:contents}
+  .title-menu{width:100%}
+  /* row 1 — top bar */
+  #btnPilot{grid-row:1;grid-column:1/7;min-height:52px;padding:var(--s2) var(--s3)}
+  #btnBoards{grid-row:1;grid-column:7/9}
+  #btnNotes{grid-row:1;grid-column:9/11}
+  #btnSettings{grid-row:1;grid-column:11/13}
+  #btnBoards,#btnNotes,#btnSettings{font-size:0;letter-spacing:0;padding:0!important;min-height:52px;display:grid;place-items:center;text-align:center}
+  #btnBoards .sub,#btnNotes .sub,#btnSettings .sub{display:none}
+  #btnBoards::before,#btnNotes::before,#btnSettings::before{content:"";display:block;width:22px;height:22px;background:currentColor;
+    -webkit-mask:var(--ic) center/contain no-repeat;mask:var(--ic) center/contain no-repeat}
+  #btnBoards{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M7 4h10v5a5 5 0 0 1-10 0z'/%3E%3Cpath d='M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3M12 14v4M8 20h8'/%3E%3C/svg%3E");color:var(--amber)}
+  #btnNotes{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z'/%3E%3C/svg%3E")}
+  #btnSettings{--ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1'/%3E%3C/svg%3E")}
+  .pilot-chip canvas{width:30px;height:30px}
+  .pc-txt .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* rows 2-5 — brand */
+  .title-main .eyebrow{grid-row:2;margin:var(--s5) 0 0;font-size:.58rem;letter-spacing:.24em}
+  .title-main h1{grid-row:3;font-size:clamp(2.2rem,min(13.5vw,8.5vh),4.4rem);width:auto;margin:var(--s1) 0 0}
+  .title-main .oparthib{grid-row:4;margin:var(--s1) 0 0;font-size:.58rem;letter-spacing:.24em}
+  .title-main .lede{grid-row:5;margin:var(--s3) 0 0;font-size:.8rem;line-height:1.55;max-width:46ch;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  /* row 6 is the flexible gap: everything below hugs the thumb zone */
+  #btnDaily{grid-row:7;grid-column:1/-1}
+  #btnHangar{grid-row:8;grid-column:1/7}
+  #btnSchool{grid-row:8;grid-column:7/13}
+  #btnRush{grid-row:9;grid-column:1/7}
+  #btnTour{grid-row:9;grid-column:7/13}
+  #btnInstall{grid-row:10;grid-column:1/-1;min-height:var(--tap);padding:var(--s2) var(--s4)}
+  #btnInstall .sub{display:none}
+  #btnLaunch{grid-row:11;grid-column:1/-1;min-height:68px;font-size:var(--t-md);letter-spacing:.22em;padding:var(--s3) var(--s5);
+    box-shadow:0 8px 28px rgba(255,138,43,.28)}
+  .title-main .creds{grid-row:12;margin:var(--s1) 0 0;text-align:center;font-size:.6rem;line-height:1.8}
+  .title-menu .btn{min-height:60px;padding:var(--s3) var(--s4)}
+  .title-menu .btn .sub,.menu.title-menu .duo .sub{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hero-canvas{top:34%}
+}
+@media (max-width:900px) and (orientation:portrait) and (pointer:coarse){
+  .title-main .creds kbd,.title-main .creds br{display:none}
+  .title-main .creds{font-size:0}
+  .title-main .creds::after{content:"Drag anywhere to fly · touch fires for you";font-size:.62rem;letter-spacing:.1em}
+}
+@media (max-width:900px) and (orientation:portrait) and (max-height:740px){
+  .title-main .lede,.title-main .eyebrow{display:none}
+  .title-main h1{margin-top:var(--s4)}
+  .title-menu .btn{min-height:52px;padding:var(--s2) var(--s4)}
+  #btnLaunch{min-height:60px}
+}
+@media (max-width:900px) and (orientation:portrait) and (max-height:640px){
+  .title-menu .btn .sub,.menu.title-menu .duo .sub{display:none}
+  .title-main .oparthib{display:none}
+}
+
+/* ═════════════ v4.30 touch HUD — shmup conventions ═════════════
+   Status up top (hard-to-reach zone), actions in a bottom-right arc around
+   the resting thumb, ship lane (bottom centre) left clear. Dash = most used,
+   so it sits nearest the thumb; Pulse (rare, 2 per run) above-left of it.
+   Each button carries its own state: a cooldown ring and a count badge, so
+   the gauges below the hull are not needed on touch. */
+body.touchmode .tbtn{width:var(--tbtn);height:var(--tbtn);font-size:.5rem;letter-spacing:.16em;
+  background:radial-gradient(circle at 50% 40%,rgba(20,30,52,.78),rgba(6,10,20,.7));border:1px solid rgba(53,224,255,.35);
+  box-shadow:0 6px 18px rgba(0,0,0,.45);transition:transform .08s,box-shadow .12s,background-color .12s}
+body.touchmode .tbtn b{font-size:1.25rem;margin-bottom:1px}
+body.touchmode .tbtn::before{content:"";position:absolute;inset:-4px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(currentColor calc(var(--f,1) * 360deg),rgba(255,255,255,.08) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px))}
+body.touchmode #bBomb::before{background:conic-gradient(currentColor 360deg,transparent 0)}
+body.touchmode .tbtn::after{content:attr(data-n);position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;padding:0 6px;
+  border-radius:11px;display:grid;place-items:center;font:700 .72rem/1 system-ui,sans-serif;letter-spacing:0;
+  background:currentColor;box-shadow:0 0 0 2px rgba(3,5,11,.9)}
+body.touchmode .tbtn:not([data-n])::after{display:none}
+body.touchmode .tbtn:active{transform:scale(.92);box-shadow:0 0 0 6px rgba(53,224,255,.18),0 0 28px rgba(53,224,255,.45)}
+body.touchmode #bBomb:active{box-shadow:0 0 0 6px rgba(155,107,255,.2),0 0 28px rgba(155,107,255,.5)}
+body.touchmode .tbtn.cool{opacity:.45}
+body.touchmode #bDash{right:calc(20px + var(--sar));bottom:calc(28px + var(--sab));left:auto}
+body.touchmode #bBomb{width:calc(var(--tbtn) * .82);height:calc(var(--tbtn) * .82);
+  right:calc(28px + var(--tbtn) * .9 + var(--sar));bottom:calc(36px + var(--tbtn) * .9 + var(--sab));left:auto}
+body.touchmode.lefty #bDash{right:auto;left:calc(20px + var(--sal))}
+body.touchmode.lefty #bBomb{right:auto;left:calc(28px + var(--tbtn) * .9 + var(--sal))}
+/* the badge text must read on its own fill */
+body.touchmode .tbtn::after{color:#03050b;background:var(--aether)}
+body.touchmode #bBomb::after{background:var(--violet)}
+/* readouts the buttons now carry */
+body.touchmode .br .gauge:not(#heatG),body.touchmode .br>.lbl{display:none}
+body.touchmode .br{bottom:calc(64px + var(--sab))}
+body.touchmode #btnPause{width:48px;height:48px}
+@media (max-width:600px){
+  /* narrow phones: wave/boss line drops below the score row so it never
+     collides with Score or Best */
+  .tc{top:calc(64px + var(--sat));width:min(300px,64vw)}
+  #sector{display:none}
+  .best .lbl{display:none}
+  #best{margin-top:0;font-size:.8rem}
+  .tl{left:calc(16px + var(--sal))}
+  .tr{right:calc(12px + var(--sar))}
 }
 </style>
 </head>
@@ -657,7 +1023,7 @@ body.needrotate #rotate{display:grid}
   <canvas id="heroCanvas" class="hero-canvas" width="680" height="680" aria-hidden="true"></canvas>
   <div class="hero-tag" id="heroTag" aria-hidden="true"></div>
   <div class="title-grid">
-    <div>
+    <div class="title-main">
       <p class="eyebrow">Sol Defense Command · deep-range intercept</p>
       <h1><span class="a">EMBER</span><span class="b">FALL</span></h1>
       <p class="oparthib">অপার্থিব — the otherworldly tide</p>
@@ -665,6 +1031,10 @@ body.needrotate #rotate{display:grid}
         You are the only hull between it and the last orbital yard. Fly the corridor.
         Nothing gets past you.</p>
       <div class="menu title-menu">
+        <div class="pilot-strip" id="pilotStrip">
+          <button class="btn pilot-chip" id="btnPilot" type="button" aria-label="Pilot account"><canvas id="pilotAv" width="56" height="56" aria-hidden="true"></canvas><span class="pc-txt"><b id="pilotName">Guest</b><span class="sub" id="pilotSub">Sign in to post scores</span></span></button>
+          <button class="btn pilot-boards" id="btnBoards" type="button" aria-label="Boards">Boards<span class="sub">Daily · All-time</span></button>
+        </div>
         <button class="btn key" id="btnLaunch">Launch intercept<span class="sub" id="launchSub">Endless · escalating waves</span></button>
         <button class="btn" id="btnHangar">Hangar<span class="sub" id="hangarSub">Hulls and refits</span></button>
         <button class="btn" id="btnSchool">Flight school<span class="sub" id="schoolSub">Three drills · +120 alloy once</span></button>
@@ -674,8 +1044,10 @@ body.needrotate #rotate{display:grid}
         <button class="btn" id="btnTour">Solar Tour<span class="sub" id="tourSub">Eight worlds · one hull · checkpoints</span></button>
       </div>
         <button class="btn hidden" id="btnInstall">Install app<span class="sub" id="installSubTxt">Add EMBERFALL to your home screen</span></button>
-        <button class="btn ghost" id="btnNotes">What's new<span class="sub" id="notesSub">Changelog</span></button>
-        <button class="btn ghost" id="btnSettings">Settings</button>
+        <div class="pair util">
+          <button class="btn ghost" id="btnNotes" aria-label="What's new">What's new<span class="sub" id="notesSub">Changelog</span></button>
+          <button class="btn ghost" id="btnSettings" aria-label="Settings">Settings<span class="sub">Audio · display</span></button>
+        </div>
       </div>
       <p class="creds">
         <kbd>WASD</kbd> fly · <kbd>Space</kbd> fire · <kbd>Shift</kbd> dash · <kbd>E</kbd> pulse · <kbd>P</kbd> pause<br>
@@ -683,6 +1055,14 @@ body.needrotate #rotate{display:grid}
       </p>
     </div>
     <aside class="side">
+      <div class="panel" id="acctPanel">
+        <div class="side-head"><h3>Pilot account</h3><span id="acctMeta">Guest</span></div>
+        <p class="panel-copy" id="acctLine">Guest runs stay on this device. Sign in to post on the worldwide boards.</p>
+        <div class="pair" id="acctBtns">
+          <button class="btn key c" id="btnAcctSign" type="button">Sign in</button>
+          <button class="btn c" id="btnAcctGuest" type="button">Play as guest</button>
+        </div>
+      </div>
       <div class="panel">
         <div class="side-head"><h3>Registry</h3><span id="regMeta">Stored on this device</span></div>
       <div class="tabs">
@@ -697,55 +1077,83 @@ body.needrotate #rotate{display:grid}
         <div id="tab-roster" class="roster hidden"></div>
         <div id="tab-feats" class="hidden"></div>
         <div id="tab-sky" class="hidden"></div>
-        <div id="tab-global">
-          <div id="cloudBox" style="padding:6px 0 4px">
-            <p class="empty" id="cloudStatus" style="text-align:left;padding:4px 0">Worldwide account</p>
-            <div id="cloudIn" style="display:grid;gap:6px">
-              <button class="up hidden" id="cloudX" type="button">Sign in with X</button>
-              <button class="up" id="cloudAnon" type="button">Play as guest (no email)</button>
-              <input id="cloudEmail" type="email" autocomplete="email" placeholder="email for a sign-in link" aria-label="Email for a sign-in link" maxlength="254">
-              <button class="up" id="cloudSend" type="button">Email me a sign-in link</button>
-              <input id="cloudCode" inputmode="numeric" autocomplete="one-time-code" placeholder="or the code from the email" aria-label="Sign-in code" maxlength="10">
-              <button class="up" id="cloudVerify" type="button">Sign in with code</button>
+        <div id="tab-global" class="hidden">
+          <div id="cloudBox" class="hidden">
+            <p class="sheet-lede" id="cloudStatus">Worldwide account</p>
+            <div id="cloudIn" class="form">
+              <label class="fld"><span class="fld-l">Email</span>
+                <input id="cloudEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-label="Email" maxlength="254"></label>
+              <button class="btn key c" id="cloudOtp" type="button">Email me a sign-in code</button>
+              <p class="note-s" id="cloudHow">No password needed: we email you a 6-digit code.</p>
+              <div id="cloudCodeRow" class="form otp-row hidden">
+                <p class="otp-sent">Code sent to <b id="cloudSentTo"></b> <button class="linkbtn" id="cloudChange" type="button">Change</button></p>
+                <label class="fld"><span class="fld-l">6-digit code</span>
+                  <input id="cloudCode" class="otp" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" placeholder="••••••" aria-label="Sign-in code" maxlength="10"></label>
+                <button class="btn key c" id="cloudVerify" type="button">Verify &amp; sign in</button>
+                <button class="btn ghost c" id="cloudResend" type="button">Resend code</button>
+                <p class="note-s">No email after a minute? Check Spam and Promotions, or use a password below.</p>
+              </div>
+              <button class="btn c hidden" id="cloudGoogle" type="button">Continue with Google</button>
+              <details id="cloudPw" class="disclose"><summary>Use a password instead</summary>
+                <div class="form">
+                  <label class="fld"><span class="fld-l">Password</span>
+                    <input id="cloudPass" type="password" autocomplete="current-password" placeholder="8+ characters" aria-label="Password" maxlength="72"></label>
+                  <div class="pair">
+                    <button class="btn c" id="cloudSignIn" type="button">Sign in</button>
+                    <button class="btn ghost c" id="cloudSignUp" type="button">Create account</button>
+                  </div>
+                </div>
+              </details>
+              <div class="rule"><span>or</span></div>
+              <button class="btn ghost c" id="cloudGuest" type="button">Continue as guest</button>
             </div>
-            <div id="cloudMe" class="hidden" style="display:grid;gap:6px">
-              <input id="cloudCallsign" placeholder="callsign (3-16: A-Z 0-9 _ -)" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}">
-              <button class="up" id="cloudSave" type="button">Save callsign</button>
-              <button class="up" id="cloudOut" type="button">Sign out</button>
+            <div id="cloudMe" class="form hidden">
+              <div class="pf-head"><canvas id="pfAv" width="112" height="112" aria-hidden="true"></canvas><div class="pf-id"><b id="pfName">Pilot</b><span id="pfMail" class="pf-mail"></span></div></div>
+              <div id="pfStats" class="pf-stats" aria-live="polite">
+                <div class="pf-s"><span>All-time best</span><b>—</b></div><div class="pf-s"><span>World rank</span><b>—</b></div>
+                <div class="pf-s"><span>Today</span><b>—</b></div><div class="pf-s"><span>Runs posted</span><b>—</b></div>
+              </div>
+              <label class="fld"><span class="fld-l">Callsign</span>
+                <span class="inline"><input id="cloudCallsign" placeholder="3–16 · A–Z 0–9 _ -" aria-label="Callsign" maxlength="16" pattern="[A-Za-z0-9_-]{3,16}" autocapitalize="characters" autocomplete="nickname">
+                <button class="btn key c" id="cloudSave" type="button">Save</button></span></label>
+              <div class="fld"><span class="fld-l" id="avPickL">Ship icon</span>
+                <div class="av-pick" id="avPick" role="radiogroup" aria-labelledby="avPickL"></div></div>
+              <button class="btn ghost warn c" id="cloudOut" type="button">Sign out</button>
             </div>
-            <p class="empty" id="cloudMsg" style="text-align:left;padding:4px 0" role="status" aria-live="polite"></p>
+            <p class="msg" id="cloudMsg" role="status" aria-live="polite"></p>
           </div>
-          <div id="globalStatus" class="empty" style="padding:10px 0">Probing command deck…</div>
+          <div id="globalStatus" class="sheet-lede">Worldwide boards</div>
           <div id="globalBody" class="hidden">
-            <div id="seasonBox" class="hidden">
-              <div class="side-head"><h3>Weekly Gauntlet</h3><span id="seasonName"></span></div>
-              <p class="empty" id="seasonTimer" style="text-align:left;padding:2px 0 8px"></p>
-              <div id="seasonBoard"></div>
-              <div id="seasonYou" class="hidden"></div>
-              <p class="empty" style="text-align:left;padding:4px 0 10px">Best five plausibility-checked runs this week count.</p>
-            </div>
-            <div id="duelBox" class="hidden">
-              <div class="side-head"><h3>Duels</h3><span>today's run</span></div>
-              <div id="duelList" style="display:grid;gap:6px"></div>
-            </div>
+            <div class="btabs" role="tablist" aria-label="Board"><button class="btab on" data-board="daily" role="tab" type="button">Daily</button><button class="btab" data-board="all" role="tab" type="button">All-time</button></div>
             <div id="dayBox">
-              <div class="side-head"><h3>Daily Gauntlet</h3><span id="dailyStat">today</span></div>
-              <div id="dailyBoard"></div>
-              <div id="dailyYou" class="hidden"></div>
-              <p class="empty" id="dayBoardNote" style="text-align:left;padding:4px 0 10px">One seed, one day, every pilot worldwide — waves carry the D tag.</p>
+              <div class="board-meta"><span>Daily Gauntlet</span><span id="dailyStat">today</span></div>
+              <div class="bhead" aria-hidden="true"><span>#</span><span>Pilot</span><span>Score</span><span>Wave</span></div>
+              <div id="dailyBoard" class="board"></div>
+              <p class="note-s" id="dayBoardNote">One seed per UTC day. Every pilot flies the same waves.</p>
             </div>
-            <p class="empty" id="globalBoardNote" style="padding:8px 0 2px;text-align:left">Worldwide — plausibility-checked community runs</p>
-            <div id="globalBoard"></div>
-            <div id="globalYou" class="hidden"></div>
-            <p class="empty" id="globalSignin" style="padding:8px 0;text-align:left;line-height:1.9">
-              Sign in from Settings to post scores worldwide.</p>
+            <div class="board-meta" id="globalBoardNote"><span>All-time · Endless + Daily</span><span>plausibility-checked runs</span></div>
+            <div class="bhead gb" aria-hidden="true"><span>#</span><span>Pilot</span><span>Score</span><span>Wave</span></div>
+            <div id="globalBoard" class="board"></div>
+            <div id="myRank" class="hidden"></div>
           </div>
         </div>
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.27.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
+
+<!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
+<div id="acctSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" aria-hidden="true">
+  <div class="sheet-scrim" data-close></div>
+  <div class="sheet-card" role="document" tabindex="-1">
+    <header class="sheet-head">
+      <div><p class="sheet-eyebrow" id="sheetEyebrow">Pilot account</p><h2 id="sheetTitle">Sign in</h2></div>
+      <button class="sheet-x" id="sheetClose" type="button" aria-label="Close" data-close><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></button>
+    </header>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
 
 <!-- ════════ HANGAR ════════ -->
 <section id="s-hangar" class="screen">
@@ -852,13 +1260,14 @@ body.needrotate #rotate{display:grid}
       <div class="opt line"><label id="lShake">Screen shake</label><button class="sw" id="swShake" aria-labelledby="lShake"><i></i></button></div>
       <div class="opt line"><label id="lFlash">Flashes</label><button class="sw" id="swFlash" aria-labelledby="lFlash"><i></i></button></div>
       <div class="opt line"><label id="lScan">Scanlines</label><button class="sw" id="swScan" aria-labelledby="lScan"><i></i></button></div>
-      <div class="opt line"><label id="lAudio">Audio</label><button class="sw" id="swAudio" aria-labelledby="lAudio"><span id="aix" aria-hidden="true">ON</span></button></div>
       <div class="opt line"><label id="lGrain">Film grain</label><button class="sw" id="swGrain" aria-labelledby="lGrain"><i></i></button></div>
       <div class="opt line"><label id="lHit">Show hitbox</label><button class="sw" id="swHit" aria-labelledby="lHit"><i></i></button></div>
       <div class="opt line"><label id="lAuto">Auto-fire</label><button class="sw" id="swAuto" aria-labelledby="lAuto"><i></i></button></div>
       <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
       <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
       <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
+      <div class="opt"><label id="lBtnScale">Button size</label><input type="range" id="rBtnScale" min="70" max="140" step="5" aria-labelledby="lBtnScale"></div>
+      <div class="opt"><label id="lBtnOp">Button opacity</label><input type="range" id="rBtnOp" min="40" max="100" step="2" aria-labelledby="lBtnOp"></div>
       <div class="opt line"><label id="lGhost">Daily ghost</label><button class="sw" id="swGhost" aria-labelledby="lGhost"><i></i></button></div>
       <div class="opt line"><label id="lOut">High-vis bullets</label><button class="sw" id="swOut" aria-labelledby="lOut"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
@@ -872,75 +1281,6 @@ body.needrotate #rotate{display:grid}
           <button data-v="0">Sparse</button><button data-v="1" class="on">Standard</button>
           <button data-v="2">Busy</button><button data-v="3">Storm</button>
         </div></div>
-    </div>
-    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
-      <div class="opt full">
-        <label id="lAcct">Command deck <span id="acctStat" style="color:var(--dimmer);letter-spacing:.08em">local mode</span></label>
-
-        <div id="acctFields" style="display:grid;gap:8px">
-          <input id="acctName" maxlength="16" placeholder="CALLSIGN" spellcheck="false" autocomplete="username" autocapitalize="none" autocorrect="off"
-            style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;text-transform:uppercase;outline:none;color:var(--ink)">
-          <div style="position:relative">
-            <input id="acctPass" type="password" maxlength="128" placeholder="PASSWORD (6+ chars)" autocomplete="current-password"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 44px 10px 12px;outline:none;color:var(--ink)">
-            <button id="btnPassVis" type="button" aria-label="Show password" aria-pressed="false"
-              style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dimmer);font-size:.58rem;letter-spacing:.12em;padding:8px;cursor:pointer">show</button>
-          </div>
-          <div class="pair">
-            <button class="btn key" id="btnAcctGo">Sign in</button>
-            <button class="btn" id="btnAcctNew">Create account</button>
-          </div>
-          <div id="googleBox" class="hidden" style="display:grid;gap:6px">
-            <div id="gBtnHost" style="min-height:40px;display:grid;place-items:center"></div>
-            <p class="empty" id="gHint" style="padding:0;text-align:left;font-size:.62rem;line-height:1.7">Your Google account becomes your callsign — the deck never sees your password.</p>
-          </div>
-          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">One account, any device. Cloud-saves your
-            hangar and alloy, posts plausibility-checked community runs to this command deck. Stored only here.</p>
-        </div>
-        <div id="acctSigned" class="hidden">
-          <div class="pair">
-            <button class="btn warn" id="btnAcctOut">Sign out</button>
-            <button class="btn ghost" id="btnAcctMgmt">Account…</button>
-          </div>
-          <p class="empty" style="padding:6px 0 0;text-align:left">Progress syncs automatically while you fly.</p>
-          <div id="acctMgmt" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px;display:grid;gap:8px">
-            <p class="empty" style="padding:0;text-align:left;font-size:.66rem">Change your password, check where you are signed in, or leave the deck for good. Deletion removes every board entry, ledger row and cloud save — the callsign can never be reused.</p>
-            <p class="empty" id="mgmtSess" style="padding:0;text-align:left;font-size:.66rem;color:var(--dimmer)"></p>
-            <input id="mgmtPassCur" type="password" maxlength="128" placeholder="CURRENT PASSWORD" spellcheck="false"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <input id="mgmtPassNew" type="password" maxlength="128" placeholder="NEW PASSWORD (6+ chars)" spellcheck="false" autocomplete="new-password"
-              style="background:rgba(255,138,43,.05);border:1px solid var(--line);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <button class="btn ghost" id="btnAcctPass" style="width:100%">Change password</button>
-            <input id="mgmtDelPass" type="password" maxlength="128" placeholder="PASSWORD TO CONFIRM DELETION" spellcheck="false"
-              style="background:rgba(184,44,58,.08);border:1px solid var(--crimson);font-size:.8rem;letter-spacing:.14em;padding:10px 12px;outline:none;color:var(--ink)">
-            <button class="btn warn" id="btnAcctDel" style="width:100%">Delete account forever…</button>
-          </div>
-          <div id="vaultBox" class="hidden" style="border-top:1px solid var(--line-soft);margin-top:10px;padding-top:10px">
-            <button class="btn ghost" id="btnVault" style="width:100%">Save vault…</button>
-            <p class="empty" id="vaultNote" style="padding:6px 0 0;text-align:left;display:none"></p>
-            <div id="vaultList" style="display:grid;gap:6px;padding-top:6px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="setgrid" style="border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px">
-      <div class="opt full">
-        <label id="lLan">Play on the go <span id="lanStat" style="color:var(--dimmer);letter-spacing:.08em">this device only</span></label>
-        <div id="lanBox" class="hidden" style="display:grid;gap:8px">
-          <p class="empty" style="padding:2px 0;text-align:left;line-height:1.8">This command deck is reachable from any device on
-            the same Wi-Fi. Open one of these on your phone — progress, boards and duels follow your account.</p>
-          <div id="lanUrls" style="display:grid;gap:6px"></div>
-          <div class="pair">
-            <button class="btn" id="btnLanCopy">Copy first address</button>
-            <button class="btn ghost" id="btnLanHow">How it works</button>
-          </div>
-          <p class="empty hidden" id="lanHow" style="padding:2px 0;text-align:left;line-height:1.8">The deck binds all network
-            interfaces, so your phone and this machine just need the same Wi-Fi. Same account on both — start a run on the
-            couch, finish it in the garden. A proper public deployment removes the same-network requirement entirely.</p>
-        </div>
-        <p class="empty hidden" id="lanSolo" style="padding:2px 0;text-align:left;line-height:1.8">No command deck detected —
-          launch <b>node server.js</b> to open multiplayer-ready play across your devices.</p>
-      </div>
     </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
@@ -978,6 +1318,19 @@ body.needrotate #rotate{display:grid}
   </div>
 </section>
 
+<!-- ════════ IN-GAME CONFIRM — framed arcade players block window.confirm() ════════ -->
+<section id="s-ask" class="screen" role="dialog" aria-modal="true" aria-labelledby="askH" aria-describedby="askMsg">
+  <div class="panel card">
+    <p class="eyebrow" id="askEye">Confirm</p>
+    <h2 id="askH">Are you sure?</h2>
+    <p class="lede" id="askMsg"></p>
+    <div class="pair" style="margin-top:18px">
+      <button class="btn warn" id="btnAskYes" type="button">Confirm</button>
+      <button class="btn" id="btnAskNo" type="button">Cancel</button>
+    </div>
+  </div>
+</section>
+
 <!-- ════════ GAME OVER ════════ -->
 <section id="s-over" class="screen" role="dialog" aria-modal="true" aria-labelledby="overH">
   <div class="panel card wide">
@@ -1000,20 +1353,15 @@ body.needrotate #rotate{display:grid}
     <b>Sky watch</b><span id="ovSkyTxt"></span>
   </div>
   <div id="ovSchool" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)"></div>
+  <div id="ovCloud" class="unlock hidden" style="border-color:rgba(255,209,102,.4);background:rgba(255,209,102,.08)">
+    <b>Sign up to post this score</b><span>guest runs stay on this device · <button class="up" id="btnOvSignUp" type="button">Sign up</button></span>
+  </div>
   <div id="ovRank" class="unlock hidden" style="border-color:rgba(53,224,255,.4);background:rgba(53,224,255,.08)"></div>
     <div class="entry hidden" id="entryRow">
       <input id="pilot" maxlength="12" placeholder="CALLSIGN" spellcheck="false" autocomplete="off" aria-label="Pilot callsign">
       <button class="btn key" id="btnRegister">Save</button>
     </div>
     <div id="ovBoard" style="margin-bottom:20px"></div>
-    <div class="entry hidden" id="duelRow">
-      <input id="duelTo" maxlength="16" placeholder="CHALLENGE A PILOT" spellcheck="false" autocomplete="off" aria-label="Pilot to challenge">
-      <button class="btn" id="btnDuel" style="text-align:center">Send duel</button>
-    </div>
-    <div class="entry" id="fbRow" style="margin-bottom:14px">
-      <input id="fbText" maxlength="280" placeholder="One thing the maker should know (optional)" spellcheck="false" autocomplete="off" aria-label="Feedback for the maker - one line, sent with this flight's shape">
-      <button class="btn" id="btnSendFb" style="text-align:center">Send</button>
-    </div>
     <div class="pair">
       <button class="btn key" id="btnAgain">Fly again</button>
       <button class="btn" id="btnToHangar">Hangar</button>
@@ -1036,47 +1384,31 @@ body.needrotate #rotate{display:grid}
 <script src="js/net.js"></script>
 <script src="js/art.js"></script>
 <script src="js/input.js"></script>
-<script src="js/hazards.js"></script>
-<script src="js/render-emit-bloom.js"></script>   <!-- ADR 0003: single-path bloom runtime -->
-<script src="js/render-chroma.js"></script>   <!-- ADR 0003: single-path chroma runtime -->
-<script src="js/math.js"></script>            <!-- ADR 0003: single-path shared math -->
-<script src="js/rng.js"></script>             <!-- ADR 0003: single-path deterministic RNG -->
-<script src="js/catalog.js"></script>         <!-- ADR 0003: single-path content catalog -->
 <script>
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.27.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ─────────────────────────── math ─────────────────────────── */
-/* single path (ADR 0003): TAU/PI/clamp/lerp/angDiff live in js/math.js —
-   the file the client loads; packages/sim/src/math.ts adapts the same bytes */
-const TAU = MATHMOD.TAU;
-const PI = MATHMOD.PI;
-const clamp = (v, a, b) => MATHMOD.clamp(v, a, b);
-const lerp = (a, b, k) => MATHMOD.lerp(a, b, k);
+const TAU = Math.PI * 2;
+const PI = Math.PI;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, k) => a + (b - a) * k;
 const damp = (a, b, rate, dt) => lerp(a, b, 1 - Math.exp(-rate * dt));
 const pad2 = n => String(n).padStart(2, '0');
 const padN = (n, w) => String(Math.max(0, Math.round(n))).padStart(w, '0');
 const $ = id => document.getElementById(id);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const hyp = (x, y) => Math.sqrt(x * x + y * y);
-function angDiff(a, b) { return MATHMOD.angDiff(a, b); }
-/* v4.22: a pilot's name is a LINK on the global board — it opens the
-   deck's /pilot/<name> profile page. The deck address rides along:
-   NET.deck when the game flies a remote deck, otherwise this origin. */
+function angDiff(a, b) { let d = b - a; while (d > PI) d -= TAU; while (d < -PI) d += TAU; return d; }
+/* pilot links open the public profile page (reads the public views) */
 function pilotUrl(name) {
-  const enc = encodeURIComponent(String(name || ''));
-  const remote = (typeof NET !== 'undefined' && NET.deck && typeof deckUrlAllowed === 'function' && deckUrlAllowed(NET.deck))
-    ? NET.deck.replace(/\/$/, '') : '';
-  if (typeof NET !== 'undefined' && NET.on) {
-    return (remote || location.origin) + '/pilot/' + enc;
-  }
-  return 'pilot.html?callsign=' + enc;
+  return 'pilot.html?callsign=' + encodeURIComponent(String(name || ''));
 }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
@@ -1085,12 +1417,29 @@ function esc(s) {
 }
 function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
-/* ───────────────────── deterministic RNG (mulberry32) — single path (ADR 0003) ─────────────────────
-   makeRng / hashStr live in js/rng.js — the file the client loads.
-   packages/sim/src/rng.ts adapts the same bytes for tests and
-   determinism goldens. This block is only the wiring. */
-function makeRng(seed) { return RNGMOD.makeRng(seed); }
-function hashStr(s) { return RNGMOD.hashStr(s); }
+/* ───────────────────── deterministic RNG (mulberry32) ───────────────────── */
+function makeRng(seed) {
+  let a = seed >>> 0;
+  const f = () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  f.range = (lo, hi) => lo + f() * (hi - lo);
+  f.int = (lo, hi) => Math.floor(f.range(lo, hi + 1));
+  f.pick = arr => arr[Math.floor(f() * arr.length) % arr.length];
+  f.chance = p => f() < p;
+  f.sign = () => f() < .5 ? -1 : 1;
+  f.reseed = seed => { a = seed >>> 0; };
+  return f;
+}
+function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 /* `R` is the run RNG (seeded per run). `FX` is cosmetic-only and never
    affects gameplay, so daily runs stay identical across devices. */
 let R = makeRng((Math.random() * 4294967296) >>> 0);
@@ -1127,11 +1476,10 @@ const CFG = {
   diff: 0, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
   hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
-  audio: true, /* PR-AU-1 master mute switch — survives loadCfg merge like every other key */
   touchLeft: false, touchBig: false, ghost: true, outline: true,
   cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
   sky: 1, /* sky traffic cadence — table in js/sky.js */
-  btnOpacity: 100, btnSpacing: 0, btnScale: 100
+  btnScale: 1, btnOpacity: 92, btnSpacing: 1
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -1143,8 +1491,13 @@ function loadCfg() {
 function touchFpsDefault() { return isTouchDevice() ? 60 : 0; }
 function saveCfg() { DB.set('cfg', CFG); }
 
-const DIFF = CATALOG.DIFF;
-
+const DIFF = [
+  { name: 'Cozy', bulletSpd: .74, fireRate: 1.8, hp: .78, spawn: .72, score: .7, lives: 1, grace: 1.9, cozy: true },
+  { name: 'Cadet', bulletSpd: .82, fireRate: 1.35, hp: .82, spawn: .85, score: .8, lives: 1, grace: 1.5 },
+  { name: 'Pilot', bulletSpd: 1, fireRate: 1, hp: 1, spawn: 1, score: 1, lives: 0, grace: 1 },
+  { name: 'Ace', bulletSpd: 1.14, fireRate: .8, hp: 1.22, spawn: 1.18, score: 1.35, lives: 0, grace: .8 },
+  { name: 'Nightmare', bulletSpd: 1.3, fireRate: .64, hp: 1.5, spawn: 1.4, score: 1.9, lives: -1, grace: .62 }
+];
 const D = () => DIFF[clamp(CFG.diff, 0, 4)];
 const isCozy = () => !!(D().cozy || CFG.cozy);
 
@@ -1444,13 +1797,45 @@ let PAL = PALETTES[0];
 /* ───────────────── meta progression: hulls + refits ───────────────── */
 /* v4.1: re-derive the pilot-facing palette (paint change) without a run —
    the field derivation runs per wave; here we sync the same result now */
+function applyTouchBtnCfg(){
+  const root = document.documentElement;
+  root.style.setProperty('--btn-scale', String(CFG.btnScale || 1));
+  root.style.setProperty('--btn-opacity', ((CFG.btnOpacity || 92)/100).toFixed(2));
+  root.style.setProperty('--btn-spacing', String(CFG.btnSpacing || 1));
+}
 function applyPaint() {
   PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
   buildSprites();
 }
 
-const HULLS = CATALOG.HULLS;
-
+const HULLS = [
+  {
+    id: 'vesper', name: 'VESPER-01', cls: 'Interceptor', cost: 0,
+    desc: 'The standard yard hull. Honest speed, honest guns, room to make mistakes.',
+    lives: 3, speed: 1, hitbox: 1, dmg: 1, dash: 2, bombs: 2, grazeMul: 1, scoreMul: 1
+  },
+  {
+    id: 'halcyon', name: 'HALCYON', cls: 'Lance', cost: 1400,
+    desc: 'Stripped to the spars for thrust. Hits harder and turns faster, but there is less of it to hit with.',
+    lives: 2, speed: 1.2, hitbox: .82, dmg: 1.3, dash: 3, bombs: 1, grazeMul: 1.4, scoreMul: 1.15
+  },
+  {
+    id: 'atlas', name: 'ATLAS', cls: 'Bulwark', cost: 2600,
+    desc: 'Yard tug plating welded over a gun platform. Slow, wide, and extremely hard to kill.',
+    lives: 5, speed: .86, hitbox: 1.25, dmg: .92, dash: 1, bombs: 3, grazeMul: .8, scoreMul: .92,
+    startShield: true
+  },
+  {
+    id: 'wraith', name: 'WRAITH', cls: 'অপার্থিব', cost: 5200,
+    desc: 'Recovered from the gate, not built. One hull point, a hitbox you can barely see, and it pays for nerve.',
+    lives: 1, speed: 1.14, hitbox: .55, dmg: 1.1, dash: 4, bombs: 1, grazeMul: 3, scoreMul: 1.6
+  },
+  {
+    id: 'seraph', name: 'SERAPH', cls: 'Prism', cost: 7600,
+    desc: 'Yard testbed with a prism lance — one continuous cutting beam instead of guns. It pierces everything in line, but the heat sink vents while you are not firing. Burst discipline is the whole ship.',
+    lives: 2, speed: 1.06, hitbox: .88, dmg: 1, dash: 3, bombs: 2, grazeMul: 1.2, scoreMul: 1.2, beam: true
+  }
+];
 const REFITS = [
   { id: 'plating', name: 'Hull plating', max: 5, cost: l => 220 + l * 210, desc: 'Extra hull at launch. Third and fifth refits each add a spare.' },
   { id: 'ordnance', name: 'Ordnance rack', max: 5, cost: l => 260 + l * 240, desc: 'Start with more gun lanes and hit measurably harder.' },
@@ -1570,8 +1955,7 @@ const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   school: false,             // flight school completed — the +120 pays once
   codex: {},                 // hostiles met at least once — first-sight cards shown
   skyLog: [],                // sky archive: every sighting {k, w, d, a, t, m}, newest kept
-  dd: { wave: 0, falls: 0 }, // dynamic-assist streak: falls on one wave, career-wide
-  prestige: { rank: 0, level: 0, honor: 0 } // cosmetic prestige after collection complete
+  dd: { wave: 0, falls: 0 }   // dynamic-assist streak: falls on one wave, career-wide
 };
 function loadMeta() {
   const s = DB.get('meta', null);
@@ -1616,19 +2000,23 @@ function loadMeta() {
     META.dd.wave = +s.dd.wave || 0;
     META.dd.falls = +s.dd.falls || 0;
   }
-  if (s.prestige && typeof s.prestige === 'object') {
-    META.prestige.rank = +s.prestige.rank || 0;
-    META.prestige.level = +s.prestige.level || 0;
-    META.prestige.honor = +s.prestige.honor || 0;
-  }
 }
 function saveMeta() { DB.set('meta', META); DB.set('meta.updated', Date.now()); }
 const refit = id => META.refits[id] || 0;
 const hull = () => HULLS.find(h => h.id === META.ship) || HULLS[0];
 
 /* ═══════════════════════════ boons: in-run draft ═══════════════════════ */
-const BOONS = CATALOG.BOONS;
-
+const BOONS = [
+  { id: 'coils', name: 'Overcharged coils', desc: 'Fire 18% faster for the rest of the run.', apply() { P.rateMul *= .82; } },
+  { id: 'plating', name: 'Nano plating', desc: 'One more hull, right now.', apply() { GAME.lives = Math.min(8, GAME.lives + 1); } },
+  { id: 'phase', name: 'Phase engine', desc: 'Dash charges rebuild 30% faster.', apply() { P.dashMul *= 1.3; } },
+  { id: 'salvage', name: 'Salvage rig', desc: '+30% alloy from everything this run.', apply() { P.alloyMul *= 1.3; } },
+  { id: 'volatile', name: 'Volatile rounds', desc: 'All guns hit 25% harder.', apply() { P.dmg *= 1.25; } },
+  { id: 'aegis', name: 'Aegis cache', desc: 'A shield now — and it rebuilds itself if lost.', apply() { P.shieldMax = Math.max(P.shieldMax, 1); P.shield = P.shieldMax; P.shieldRegenOn = true; AU.shieldOn(); } },
+  { id: 'magnetics', name: 'Magnetics', desc: 'Salvage reaches you from much further out.', apply() { P.magMul *= 1.6; } },
+  { id: 'cache', name: 'Ember cache', desc: 'Two nova pulses, immediately.', apply() { P.bombs = Math.min(5, P.bombs + 2); } },
+  { id: 'graze', name: 'Kill instinct', desc: 'Grazes score three times as much.', apply() { P.grazeMul *= 3; } }
+];
 function offerBoons() {
   if (GAME.state !== 'playing' || GAME.lives <= 0) return;
   const pool = BOONS.filter(b => !P.boons.some(g => g.id === b.id) || b.id === 'volatile' || b.id === 'coils');
@@ -1895,21 +2283,13 @@ function applyDailyResult(res) {
    bloom. Dropping the buffer is the first thing quality auto-tuning does.
    ══════════════════════════════════════════════════════════════════════ */
 const cv = $('game');
-/* Keep the full-frame renderer on the browser's synced compositor path.
+/* Keep the full-frame renderer on the browser's synchronized compositor path.
    The desynchronized low-latency hint can tear or flash partial frames on some
-   browser/GPU combinations while this canvas is repainted every animation
-   tick. Latency loss is imperceptible for a 2D shooter — visual integrity
-   wins (PR-A1). */
+   browser/GPU combinations while this canvas is repainted every animation tick. */
 const ctx = cv.getContext('2d', { alpha: false });
 const bloomCv = document.createElement('canvas');
 const bctx = bloomCv.getContext('2d');
 const CAN_FILTER = typeof bctx.filter === 'string';
-// offscreen buffer for the chroma aberration pass — drawing the main canvas
-// onto itself with a filter + lighter composite is unreliable across browsers
-// (Chrome in particular can drop or smear frames when src == dst). One extra
-// blit per flash frame, zero cost when there is no chroma active.
-const chromaCv = document.createElement('canvas');
-const chromaCtx = chromaCv.getContext('2d');
 
 let W = 1, H = 1, DPR = 1, RSCALE = 1;
 const QUALITY = { bloom: true, particles: 1, maxParticles: 900, streaks: true, scale: 1, debris: true };
@@ -1939,9 +2319,6 @@ function resize() {
   ctx.imageSmoothingEnabled = true;
   bloomCv.width = Math.max(1, Math.round(W / BLOOM_DIV));
   bloomCv.height = Math.max(1, Math.round(H / BLOOM_DIV));
-  if (chromaCv.width !== W || chromaCv.height !== H) {
-    chromaCv.width = W; chromaCv.height = H;
-  }
   buildBackdrop();
   seedStars();
   document.body.classList.toggle('needrotate', H < 300 && W < 480);
@@ -1980,7 +2357,7 @@ const SHOT_SCALE = 1.18;
 const TOUCH = {
   stick: Math.round(118 * SHIP_SCALE),
   knob: Math.round(44 * SHIP_SCALE),
-  btn: Math.round(74 * SHIP_SCALE),
+  btn: 76,   /* v4.30: 64-80 dp is the mobile-game norm; 96 px covered the lane */
   apply() {
     const s = document.documentElement.style;
     s.setProperty('--tstick', this.stick + 'px');
@@ -2007,26 +2384,62 @@ function buildSprites() {
   };
 }
 
-/* ─────────── emissive drawing — single path (ADR 0003) ───────────
-   The runtime lives in js/render-emit-bloom.js — the file the client loads
-   here. packages/sim/src/render-emit-bloom.ts adapts the same bytes for
-   tests, so goldens guard the live path. This block is only the wiring. */
-const EBMOD = EB.make({
-  ctx: () => ctx, bctx: () => bctx, bloomCv: () => bloomCv,
-  W: () => W, H: () => H,
-  QUALITY: () => QUALITY, BLOOM_DIV: () => BLOOM_DIV, CAN_FILTER: () => CAN_FILTER,
-  makeCanvas: () => document.createElement('canvas')
-});
-function emit(spr, x, y, size, alpha) { EBMOD.emit(spr, x, y, size, alpha); }
-function bloomBegin() { EBMOD.bloomBegin(); }
-function bloomComposite() { EBMOD.bloomComposite(); }
-
-const CHMOD = CH.make({
-  ctx: () => ctx, cv: () => cv, chromaCv: () => chromaCv, chromaCtx: () => chromaCtx,
-  W: () => W, H: () => H,
-  enabled: () => CFG.flash && CAM.chromaRamp > .02 && CAN_FILTER && QUALITY.scale > .8,
-  ramp: () => CAM.chromaRamp
-});
+/* ─────────── emissive drawing ─────────── */
+let bloomDirty = false;
+function emit(spr, x, y, size, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(spr, x - size / 2, y - size / 2, size, size);
+  ctx.globalAlpha = 1;
+  if (QUALITY.bloom) {
+    const k = 1 / BLOOM_DIV;
+    bctx.globalAlpha = alpha * .85;
+    bctx.drawImage(spr, (x - size / 2) * k, (y - size / 2) * k, size * k, size * k);
+    bctx.globalAlpha = 1;
+    bloomDirty = true;
+  }
+}
+function bloomBegin() {
+  if (!QUALITY.bloom) return;
+  bctx.setTransform(1, 0, 0, 1, 0, 0);
+  bctx.clearRect(0, 0, bloomCv.width, bloomCv.height);
+  bctx.globalCompositeOperation = 'lighter';
+  bloomDirty = false;
+}
+/* glow canvas — half the bloom buffer, for the tight second stage */
+const bloomCv2 = document.createElement('canvas');
+const bctx2 = bloomCv2.getContext('2d');
+function bloomComposite() {
+  if (!QUALITY.bloom || !bloomDirty) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  if (CAN_FILTER) {
+    // two-stage bloom: tight core from the quarter buffer, wide halo from a
+    // blurred half-size copy. One blur pass alone reads as haze, not glow.
+    const w2 = Math.max(1, bloomCv.width >> 1), h2 = Math.max(1, bloomCv.height >> 1);
+    if (bloomCv2.width !== w2 || bloomCv2.height !== h2) { bloomCv2.width = w2; bloomCv2.height = h2; }
+    bctx2.setTransform(1, 0, 0, 1, 0, 0);
+    bctx2.clearRect(0, 0, w2, h2);
+    bctx2.filter = 'blur(2px)';
+    bctx2.drawImage(bloomCv, 0, 0, w2, h2);
+    bctx2.filter = 'none';
+    /* restrained two-stage bloom: tight core at low alpha, whisper of halo.
+       Glow should rim bright things, not replace them. */
+    ctx.filter = 'blur(' + (3.5 / BLOOM_DIV * 3).toFixed(1) + 'px)';
+    ctx.globalAlpha = .5;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+    ctx.filter = 'blur(' + (14 / BLOOM_DIV * 3).toFixed(1) + 'px)';
+    ctx.globalAlpha = .28;
+    ctx.drawImage(bloomCv2, 0, 0, W, H);
+    ctx.filter = 'none';
+  } else {
+    ctx.globalAlpha = .55;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+    ctx.globalAlpha = .28;
+    ctx.drawImage(bloomCv, 0, 0, W, H);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
 
 /* ═══════════════════ backdrop: nebula, planet, debris ═══════════════════ */
 let nebA, nebB, planet, moon, dust = [], derelicts = [];
@@ -2072,12 +2485,23 @@ function makeDerelict() {
    budgets stay in the director's hands; a stage shapes the SKY, not the
    balance. Tour mode walks stages in order; endless spins a seeded
    rotation (daily shares the day seed, so everyone flies the same sky). */
-const STAGES = CATALOG.STAGES;
-
+const STAGES = [
+  { id: 'mercury',  name: 'Mercury',     tagline: 'Sun-scoured clutter belt',       tint: .5,  crater: 1.9, ring: 0,   storm: .12, lights: 0,   hue: 38,  sat: 1.12, bri: 1.06, waves: 4, haz: 'flare',     hazK: 1 },
+  { id: 'venus',    name: 'Venus',       tagline: 'Crushing shroud, amber static',  tint: .34, crater: .25, ring: .35, storm: .75, lights: .2,  hue: 14,  sat: 1.1,  bri: 1.04, waves: 5, haz: 'cloudbank', hazK: 1 },
+  { id: 'earth',    name: 'Earth',       tagline: 'Home lights behind you',         tint: 0,   crater: .3,  ring: 0,   storm: .4,  lights: 1,   hue: 0,   sat: 1,    bri: 1,    waves: 5 },
+  { id: 'mars',     name: 'Mars',        tagline: 'Rust storms, thin air',          tint: .2,  crater: 1.5, ring: 0,   storm: .95, lights: .35, hue: 16,  sat: 1.06, bri: 1.02, waves: 6, haz: 'storm',     hazK: 1 },
+  { id: 'jupiter',  name: 'Jupiter',     tagline: 'The magnetosphere answers back', tint: .3,  crater: .2,  ring: .6,  storm: 1,   lights: 0,   hue: 26,  sat: 1.12, bri: 1.02, waves: 6, haz: 'gravity',   hazK: 1 },
+  { id: 'saturn',   name: 'Saturn',      tagline: 'Carriers breed in the rings',    tint: .3,  crater: .2,  ring: 1.4, storm: .55, lights: 0,   hue: 40,  sat: 1.04, bri: 1,    waves: 7, haz: 'haze',      hazK: .45 },
+  { id: 'neptune',  name: 'Neptune',     tagline: 'Cold velocity, dim instruments', tint: .55, crater: .3,  ring: .3,  storm: .3,  lights: .15, hue: -22, sat: 1.05, bri: .98,  waves: 7, haz: 'frost',     hazK: 1 },
+  { id: 'gate',     name: 'Kuiper Gate', tagline: 'The thing the tide came through',tint: .7,  crater: .8,  ring: .2,  storm: .8,  lights: 0,   hue: -14, sat: 1.05, bri: .96,  waves: 8, haz: 'gravity',   hazK: 1.5 }
+];
 let STAGE = null;   /* active stage descriptor, or null = unmodded sky */
-const TOUR_CUM = CATALOG.TOUR_CUM;
-const TOUR_FINALE = CATALOG.TOUR_FINALE;
-const tourWorldsDone = CATALOG.tourWorldsDone;
+/* cumulative wave counts per world: [4,9,14,20,26,33,40,48] — world i spans
+   waves (TOUR_CUM[i-1], TOUR_CUM[i]]; the finale boss rides the last one */
+const TOUR_CUM = STAGES.reduce((a, s) => (a.push((a[a.length - 1] || 0) + s.waves), a), []);
+const TOUR_FINALE = TOUR_CUM[TOUR_CUM.length - 1];
+/* worlds fully cleared when wave n starts (0 while inside world 1) */
+const tourWorldsDone = n => TOUR_CUM.filter(c => c < n).length;
 
 /* a stage's palette: hostile channels pulled toward `rare`, everything else
    untouched — opposition stays opposition on every accessibility palette.
@@ -2152,20 +2576,162 @@ function endRunTour() {
    cryofields dull the dash capacitor, ring dust breaks lock-ons. They
    tick only while a run is flying; school and rush stay clean; the
    codex teaches each hazard on first encounter. */
-/* ════════════════ WORLD HAZARDS — single path (ADR 0003) ═══════════
-   The runtime lives in js/hazards.js — the file the client loads here.
-   packages/sim/src/render-hazards.ts adapts the same bytes for tests,
-   so goldens guard the live path. This block is only the wiring. */
-const HZMOD = HZ.make({
-  W: () => W, H: () => H, STAGE: () => STAGE, REDUCE: () => REDUCE, ctx: () => ctx,
-  PAL_tech: () => PAL.tech, now: () => GAME.t, rnd: (a, b) => FX.range(a, b),
-  mode: () => GAME.mode, school: () => GAME.school, state: () => GAME.state,
-  canHit: () => GAME.state === 'playing' && P.alive && P.inv <= 0,
-  pX: () => P.x, pY: () => P.y,
-  showCodex: (k, n, t) => CODEX.show(k, n, t), hurtPlayer
-});
-const HAZARDS = HZ.defs;
-const hazards = HZMOD;
+const HAZARDS = {
+  gravity: {
+    name: 'Gravity well',
+    tip: 'A mass below pulls everything — shots curve, ships drift. Lead your shots; dash against the pull.',
+    wells: st => [{ x: W / 2, y: H + 140, k: 52000 * st.hazK }],
+    dashMul: () => 1
+  },
+  storm: {
+    name: 'Ion storm',
+    tip: 'Charge builds in columns, then strikes. The shimmering lane is your warning — leave it.',
+    strikeEvery: st => 2.7 / st.hazK,
+    dashMul: () => 1.18
+  },
+  frost: {
+    name: 'Cryofield',
+    tip: 'Deep cold dulls your capacitor — dash charges rebuild far slower. Spend them like alloy.',
+    dashMul: () => 1.9
+  },
+  haze: {
+    name: 'Ring haze',
+    tip: 'Ring dust scatters guidance — seeker rounds and sniper sights track at a fraction. Drift with the slow tide.',
+    seekMul: st => st.hazK,
+    dashMul: () => 1.12
+  },
+  flare: {
+    name: 'Solar flare',
+    tip: 'The sun exhales. Rising heat tides scorch the low field — read the glow climbing under you.',
+    dashMul: () => 1.15
+  },
+  cloudbank: {
+    name: 'Sulfur cloudbank',
+    tip: 'Dense cloud shrouds hostiles until they commit. Watch the leading edge of the bank.',
+    dashMul: () => 1.1
+  }
+};
+const hazards = {
+  active: null, k: 0, wl: null, t: 0, strikeT: 0, strikeFlash: 0, strikeX: 0, nextStrike: 3,
+  flares: [], clouds: [],
+  begin() {
+    const st = STAGE;
+    const on = st && st.haz && GAME.mode !== 'rush' && !GAME.school;
+    this.active = on ? HAZARDS[st.haz] : null;
+    this.k = on ? (st.hazK || 1) : 0;
+    this.wl = on && this.active.wells ? this.active.wells(st) : null;
+    this.t = 0; this.nextStrike = 2.4; this.strikeT = 0; this.strikeFlash = 0;
+    this.flares.length = 0; this.clouds.length = 0;
+    if (!this.active) return;
+    if (st.haz === 'flare') for (let i = 0; i < 2; i++) this.flares.push(this.mkFlare(i * 4.2));
+    if (st.haz === 'cloudbank') for (let i = 0; i < 3; i++)
+      this.clouds.push({ x: rnd(0, W), y: rnd(-30, 70), vx: rnd(60, 120) * (i % 2 ? 1 : -1), w: rnd(170, 340), a: rnd(.16, .28) });
+    CODEX.show('haz_' + st.haz, this.active.name, this.active.tip);
+  },
+  mkFlare(off) { return { x: rnd(W * .1, W * .9), t: -off, life: 2.6, warn: 1.05, w: rnd(46, 92), y: H + 40 }; },
+  stop() {
+    this.active = null; this.k = 0; this.wl = null;
+    this.flares.length = 0; this.clouds.length = 0; this.strikeT = 0; this.strikeFlash = 0;
+  },
+  update(dt) {
+    if (!this.active) return;
+    this.t += dt;
+    if (this.active.strikeEvery) {
+      this.nextStrike -= dt;
+      if (this.nextStrike <= 0 && this.strikeT <= 0) {
+        this.nextStrike = this.active.strikeEvery(STAGE) * rnd(.8, 1.25);
+        this.strikeX = rnd(60, W - 60);
+        this.strikeT = .8;                       /* telegraph, then bite */
+      }
+    }
+    if (this.strikeT > 0) {
+      this.strikeT -= dt;
+      if (this.strikeT <= 0) {
+        this.strikeFlash = .14;
+        if (GAME.state === 'playing' && P.alive && P.inv <= 0 && Math.abs(P.x - this.strikeX) < 46)
+          hurtPlayer({ x: this.strikeX, y: P.y, r: 8 });
+      }
+    }
+    if (this.strikeFlash > 0) this.strikeFlash -= dt;
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const f = this.flares[i];
+      f.t += dt;
+      f.y = H + 30 - (H + 160) * clamp(f.t / f.life, 0, 1);   /* bottom → past top */
+      if (f.t > f.warn && f.t < f.life - .4 && GAME.state === 'playing' && P.alive &&
+          P.inv <= 0 && Math.abs(P.y - f.y) < 26)
+        hurtPlayer({ x: P.x, y: P.y, r: 6 });
+      if (f.t > f.life) this.flares[i] = this.mkFlare(rnd(1.6, 4.4));
+    }
+    for (const c of this.clouds) {            /* REDUCE: banks hold their posts */
+      if (!REDUCE) c.x += c.vx * dt;
+      if (c.x > W + c.w) c.x = -c.w;
+      if (c.x < -c.w) c.x = W + c.w;
+    }
+  },
+  /* inverse-falloff pull — inverse-SQUARE is far too violent at screen scale.
+     Writes into `out` (one shared scratch) so per-bullet calls never allocate. */
+  pull(x, y, out) {
+    if (!this.wl) return null;
+    const o = out || { ax: 0, ay: 0 };
+    o.ax = 0; o.ay = 0;
+    for (const w of this.wl) {
+      const dx = w.x - x, dy = w.y - y;
+      const d = Math.max(90, Math.sqrt(dx * dx + dy * dy));
+      const f = w.k / d;
+      o.ax += dx / d * f; o.ay += dy / d * f;
+    }
+    return o;
+  },
+  seekMul() { return this.active && this.active.seekMul ? this.active.seekMul(STAGE) : 1; },
+  dashMul() { return this.active ? this.active.dashMul() : 1; },
+  drawBack() {
+    if (!this.active) return;
+    const t = GAME.t;
+    if (this.strikeT > 0) {
+      ctx.save();
+      ctx.globalAlpha = REDUCE ? .22 : .15 + .1 * Math.sin(t * 30);
+      ctx.strokeStyle = PAL.tech;
+      ctx.setLineDash([4, 10]);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(this.strikeX, 0); ctx.lineTo(this.strikeX, H); ctx.stroke();
+      ctx.restore();
+    }
+    for (const c of this.clouds) {
+      ctx.save();
+      ctx.globalAlpha = c.a;
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.w);
+      g.addColorStop(0, '#c8a34a'); g.addColorStop(1, 'rgba(200,163,74,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(c.x - c.w, c.y - c.w * .5, c.w * 2, c.w);
+      ctx.restore();
+    }
+  },
+  drawFront() {
+    if (!this.active) return;
+    if (this.strikeFlash > 0) {                    /* the bite: a jagged bolt */
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.strikeFlash * 7);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.moveTo(this.strikeX, 0);
+      let y = 0, x = this.strikeX;
+      while (y < H) { y += 34; x += rnd(-13, 13); ctx.lineTo(x, y); }
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const f of this.flares) {
+      if (f.t <= 0 || f.t > f.life) continue;
+      const a = .2 * (f.t < f.warn ? f.t / f.warn : clamp(1 - (f.t - f.life * .55) / (f.life * .45), .25, 1));
+      const g = ctx.createLinearGradient(0, f.y - 26, 0, f.y + 26);
+      g.addColorStop(0, 'rgba(255,150,60,0)');
+      g.addColorStop(.5, 'rgba(255,150,60,' + a.toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,150,60,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, f.y - 26, W, 52);
+    }
+  }
+};
+
 const HZPULL = { ax: 0, ay: 0 };   /* shared pull scratch — zero alloc per bullet */
 
 function buildBackdrop() {
@@ -2552,7 +3118,7 @@ function drawBackdrop(t) {
   const moonMaps = (g, mode) => {
     g.save();
     g.globalCompositeOperation = mode;
-    g.translate(mx, my + ms / 2);   // moon surface centre, not its top-left
+    g.translate(mx, my);
     g.rotate(termRot);
     g.drawImage(mode === 'multiply' ? moon.shade : moon.glow, -ms / 2, -ms / 2, ms, ms);
     g.restore();
@@ -2767,8 +3333,16 @@ function configurePlayer() {
 const pickupRadius = () => 92 * (1 + refit('magnet') * .28) * P.magMul;
 
 /* ─────────────────────────── weapons ─────────────────────────── */
-const WEAPONS = CATALOG.WEAPONS;
-const MAX_WEAPON = CATALOG.MAX_WEAPON;
+const WEAPONS = [
+  null,
+  { lanes: [[0, 0]], rate: .155, dmg: 1 },
+  { lanes: [[-7, 0], [7, 0]], rate: .15, dmg: 1 },
+  { lanes: [[0, 0], [-10, -.07], [10, .07]], rate: .145, dmg: 1 },
+  { lanes: [[-5, 0], [5, 0], [-13, -.13], [13, .13]], rate: .135, dmg: 1.05 },
+  { lanes: [[0, 0], [-7, -.05], [7, .05], [-15, -.17], [15, .17]], rate: .128, dmg: 1.1 },
+  { lanes: [[0, 0], [-6, -.03], [6, .03], [-13, -.13], [13, .13], [-20, -.26], [20, .26]], rate: .12, dmg: 1.15 }
+];
+const MAX_WEAPON = WEAPONS.length - 1;
 
 /* ───────────── PRISM LANCE — the beam hull's weapon ─────────────
    Not a projectile: a continuous ray from the nose that damages every
@@ -2931,12 +3505,12 @@ function updatePlayer(dt, move) {
   if (P.dashT > 0) {
     P.dashT -= dt;
     const k = clamp(P.dashT / .26, 0, 1);
-    const sp = 1650 * k * P.speed;
+    const sp = 1500 * k * P.speed;
     P.vx = Math.cos(P.dashAng) * sp;
     P.vy = Math.sin(P.dashAng) * sp;
-    if (FX.chance(.9)) part({
-      x: P.x + rnd(-6, 6), y: P.y + rnd(-6, 6), vx: -P.vx * .08, vy: -P.vy * .08,
-      life: .22, size: 15, spr: SPR.tech, drag: 3
+    if (FX.chance(.85)) part({
+      x: P.x + rnd(-6, 6), y: P.y + rnd(-6, 6), vx: -P.vx * .06, vy: -P.vy * .06,
+      life: .26, size: 13, spr: SPR.tech, drag: 3
     });
   } else {
     let tvx, tvy;
@@ -2946,16 +3520,16 @@ function updatePlayer(dt, move) {
       tvx = clamp((INPUT.aimX - P.x) * 11, -baseSpeed * 1.8, baseSpeed * 1.8);
       tvy = clamp((INPUT.aimY - P.y) * 11, -baseSpeed * 1.8, baseSpeed * 1.8);
     }
-    P.vx = damp(P.vx, tvx, 16, dt);
-    P.vy = damp(P.vy, tvy, 16, dt);
+    P.vx = damp(P.vx, tvx, 12, dt);
+    P.vy = damp(P.vy, tvy, 12, dt);
   }
 
   const hzPull = hazards.pull(P.x, P.y);   /* gravity wells drag the hull */
   if (hzPull) { P.vx += hzPull.ax * dt; P.vy += hzPull.ay * dt; }
   P.x = clamp(P.x + P.vx * dt, 20, W - 20);
   P.y = clamp(P.y + P.vy * dt, 46, H - 26);
-  P.bank = damp(P.bank, clamp(P.vx / baseSpeed, -1, 1), 12, dt);
-  P.thrust = damp(P.thrust, .7 + Math.min(1, hyp(P.vx, P.vy) / baseSpeed) * .8, 10, dt);
+  P.bank = damp(P.bank, clamp(P.vx / baseSpeed, -1, 1), 9, dt);
+  P.thrust = damp(P.thrust, .7 + Math.min(1, hyp(P.vx, P.vy) / baseSpeed) * .8, 8, dt);
 
   if (P.inv > 0) P.inv -= dt;
   if (P.overT > 0) P.overT -= dt;
@@ -3063,9 +3637,8 @@ function hurtPlayer(src) {
     });
   });
   ring(P.x, P.y, { r: 10, vr: 640, life: .55, col: rgbOf(PAL.hull), w: 4 });
-  flash(.5); shake(28); chroma(1.2); buzz([30, 60, 80]);
-  GAME.slowT = .8; GAME.slowV = .25;
-  GAME.hitstop = Math.max(GAME.hitstop || 0, .06);
+  flash(.42); shake(22); chroma(1); buzz([30, 60, 40]);
+  GAME.slowT = .7; GAME.slowV = .3;
   $('hurt').classList.add('on');
   setTimeout(() => $('hurt').classList.remove('on'), 150);
   AU.playerDown();
@@ -3074,45 +3647,39 @@ function hurtPlayer(src) {
 }
 
 /* ─────────────────────────── scoring ─────────────────────────── */
-function multFor(c) { return MATHMOD.multFor(c); }   /* single path (ADR 0003): js/math.js */
+function multFor(c) { return c >= 40 ? 5 : c >= 24 ? 4 : c >= 13 ? 3 : c >= 5 ? 2 : 1; }
 function addScore(n, x, y, big) {
   const sg = GAME.sigil;
   const marked = sg && sg.id === 'hawksight' && P.sightT > 0;
-  const gMult = typeof GAME.mult === 'number' && !isNaN(GAME.mult) ? GAME.mult : 1;
-  const pMul = typeof P.scoreMul === 'number' && !isNaN(P.scoreMul) ? P.scoreMul : 1;
-  const dMul = (typeof D === 'function' && D() && typeof D().score === 'number') ? D().score : 1;
-  const masteryMul = (1 + (.08 + (masteryLevel(P.art) >= 5 ? .07 : 0)) * (masteryLevel(P.art) >= 1 ? 1 : 0));
-  const mutMul = (GAME.mutator && GAME.mutator.id === 'overkill') ? 1.25 : 1;
-  const v = Math.round((typeof n === 'number' ? n : 0) * gMult * pMul * dMul * masteryMul * mutMul);
-  if (!isNaN(v) && v > 0) {
-    GAME.score = (typeof GAME.score === 'number' && !isNaN(GAME.score)) ? GAME.score + v : v;
-  }
-  if (x !== undefined && QUALITY.particles > .5 && !isNaN(v) && v > 0) {
-    float(x, y, '+' + v, big ? PAL.gold : (gMult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
+  const v = Math.round(n * GAME.mult * P.scoreMul * D().score *
+    (1 + (.08 + (masteryLevel(P.art) >= 5 ? .07 : 0)) * (masteryLevel(P.art) >= 1 ? 1 : 0)) *
+    (GAME.mutator && GAME.mutator.id === 'overkill' ? 1.25 : 1));
+  GAME.score += v;
+  if (x !== undefined && QUALITY.particles > .5) {
+    float(x, y, '+' + v, big ? PAL.gold : (GAME.mult >= 3 ? PAL.gold : PAL.ally), big ? 18 : 13);
   }
   if (big) {
     // score punch: the readout physically reacts to a heavy hit
     const s = $('score');
-    if (s) { s.classList.remove('punch'); void s.offsetWidth; s.classList.add('punch'); }
+    s.classList.remove('punch'); void s.offsetWidth; s.classList.add('punch');
   }
   return v;
 }
 function registerKill(e) {
   GAME.kills++;
   /* v4.25 funnel: first kill ever this boot — the "it clicked" stage */
-  if (GAME.kills === 1 && typeof NET !== 'undefined') NET.funnel('k1');
   if (P.beam) GAME.hits++;   // beam kills are also beam hits — accuracy stays meaningful
   GAME.combo++;
   GAME.comboT = 3.2;
   if (GAME.combo % 8 === 0) AU.comboSting(GAME.combo);
   const m = multFor(GAME.combo);
-  if (typeof m === 'number' && !isNaN(m) && m > (typeof GAME.mult === 'number' ? GAME.mult : 1)) {
-    GAME.maxMult = Math.max(GAME.maxMult || 1, m);
+  if (m > GAME.mult) {
+    GAME.maxMult = Math.max(GAME.maxMult, m);
     float(P.x, P.y - 38, '×' + m, m >= 5 ? PAL.rare : PAL.gold, 21);
     AU.tierUp();
     if (m >= 5) chroma(.4);
   }
-  GAME.mult = (typeof m === 'number' && !isNaN(m)) ? m : (typeof GAME.mult === 'number' ? GAME.mult : 1);
+  GAME.mult = m;
 }
 
 /* ─────────────────────────── explosions ─────────────────────────── */
@@ -3378,7 +3945,10 @@ function die(e) {
     });
   }
   if (tier >= 2) fxAt(.03, () => { ring(e.x, e.y, { r: 4, vr: 300 + 90 * tier, life: .34, col: rgbOf(e.axTint || PAL.foe), w: 2.4 }); });
-  if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  if (e.boss){ flash(.22); shake(10); GAME.hitstop = Math.max(GAME.hitstop, .08); }
+  else if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  else if (tier === 2) { flash(.08); shake(4); GAME.hitstop = Math.max(GAME.hitstop, .025); }
+  else if (tier === 1) { flash(.05); shake(2); GAME.hitstop = Math.max(GAME.hitstop, .015); }
   if (e.dying && e.boss) deathVolley(e);
   const beat = DEATHS[e.type];
   if (beat) beat(e);
@@ -3528,8 +4098,6 @@ function killFoe(e) {
   if (e.elite && e.affixes && e.affixes.length)
     note((FOE_LABEL[e.type] || e.type) + ' · ' + e.affixes.map(a => AFFIXES[a].name).join(' + '), 'rare');
   addScore(e.sc, e.x, e.y);
-  if (e.elite) { shake(6); GAME.hitstop = Math.max(GAME.hitstop || 0, .04); }
-  else if (e.boss) { shake(12); GAME.hitstop = Math.max(GAME.hitstop || 0, .08); }
   die(e);
   rollDrop(e.x, e.y, false);
   if (e.elite && e.axExtra) rollDrop(e.x + rnd(-12, 12), e.y + rnd(-8, 8), false);
@@ -3599,7 +4167,6 @@ function collide() {
       GAME.comboT = Math.max(GAME.comboT, 1.4);
       AU.graze();
       part({ x: b.x, y: b.y, life: .22, size: 13, spr: SPR.tech });
-      if (GAME.combo % 5 === 0) GAME.hitstop = Math.max(GAME.hitstop || 0, .02);
     }
   }
   // mines
@@ -3644,8 +4211,33 @@ function pointNearSegment(px, py, x1, y1, x2, y2) {
    Every type is a small state machine. Anything that can hurt you telegraphs
    first — muzzle glow, charge ring, or a beam warning line.
    ══════════════════════════════════════════════════════════════════════ */
-const FOES = CATALOG.FOES;
-
+const FOES = {
+  drone: { hp: 2, r: 13, hit: 11, sc: 50, guns: false },
+  mini: { hp: 1, r: 9, hit: 8, sc: 30, guns: false },
+  striker: { hp: 3, r: 14, hit: 12, sc: 110, guns: true, cd: 1.9 },
+  weaver: { hp: 4, r: 14, hit: 12, sc: 140, guns: true, cd: 2.1 },
+  splitter: { hp: 5, r: 15, hit: 13, sc: 120, guns: false },
+  cruiser: { hp: 15, r: 24, hit: 21, sc: 360, guns: true, cd: 2.4, armored: true },
+  lancer: { hp: 8, r: 18, hit: 15, sc: 280, guns: true, cd: 3.4 },
+  orbiter: { hp: 4, r: 12, hit: 11, sc: 200, guns: true, cd: .9 },
+  warden: { hp: 10, r: 16, hit: 14, sc: 320, guns: true, cd: 2.8, armored: true },
+  minelayer: { hp: 7, r: 15, hit: 13, sc: 240, guns: true, cd: 2.2 },
+  carrier: { hp: 20, r: 26, hit: 23, sc: 520, guns: true, cd: 3.2, armored: true },
+  ram: { hp: 9, r: 16, hit: 13, sc: 230, guns: false },
+  sniper: { hp: 5, r: 15, hit: 12, sc: 300, guns: true, cd: 3.6 },
+  shieldbreaker: { hp: 8, r: 17, hit: 14, sc: 340, guns: true, cd: 3.2, armored: true },
+  /* v4.0 — the second generation. Each one adds a verb to the fight, not a stat line. */
+  hound: { hp: 4, r: 13, hit: 11, sc: 170, guns: false },
+  weeper: { hp: 5, r: 15, hit: 13, sc: 260, guns: true, cd: 3.0 },
+  tender: { hp: 6, r: 14, hit: 12, sc: 380, guns: true, cd: 2.6 },
+  ravager: { hp: 12, r: 19, hit: 17, sc: 420, guns: true, cd: 2.2, armored: true },
+  arbalest: { hp: 7, r: 17, hit: 15, sc: 350, guns: true, cd: 3.8 },
+  mimic: { hp: 8, r: 16, hit: 14, sc: 400, guns: true, cd: 2.0 },
+  /* v4.20 wisp: a tiny flanker with the quickest small-foe gun in the game
+     (cd 1.15 — potshots, not volleys). The threat is its crossing angle and
+     the surprise of rapid small shots, not hull mass. Wave 16+. */
+  wisp: { hp: 3, r: 10, hit: 8, sc: 190, guns: true, cd: 1.15 }
+};
 const FOE_LABEL = {
   drone: 'Drone', mini: 'Shard', striker: 'Striker', weaver: 'Weaver', splitter: 'Splitter',
   cruiser: 'Cruiser', lancer: 'Lancer', orbiter: 'Orbiter', warden: 'Warden',
@@ -4123,8 +4715,248 @@ function updateFoe(e, dt) {
    Three fights, each with three phases and a distinct read. They rotate
    with depth, gaining an elite escort and tighter timings each cycle.
    ══════════════════════════════════════════════════════════════════════ */
-const BOSSES = CATALOG.BOSSES;
-
+const BOSSES = [
+  {
+    id: 'dreadnought', name: 'Dreadnought', art: 'dreadnought',
+    hp: 165, r: 56, hitR: 52, sc: 3000,
+    nodes: [{ ox: -64, oy: 4, r: 15, hp: 70 }, { ox: 64, oy: 4, r: 15, hp: 70 }],
+    enter(b) { b.ty = 150; },
+    move(b, dt) {
+      b.x = W / 2 + Math.sin(b.t * .95) * (W * .5 - 150) * .62;
+      b.y = b.ty + Math.sin(b.t * 1.8) * 13;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      if (b.cycle % 4 === 0) {
+        // spiral curtain from the spine
+        const n = ph >= 3 ? 24 : ph === 2 ? 20 : 15;
+        ringShot(b, n, b.spin, (ph >= 2 ? 285 : 250) * D().bulletSpd, { rad: b.r * .7 });
+        b.spin = (b.spin + .42) % TAU;
+        return ph >= 2 ? 1.55 : 2.0;
+      }
+      if (b.cycle % 4 === 2 && ph >= 2) {
+        // both turrets sweep a cross
+        b.nodes.forEach(n => {
+          if (n.hp <= 0) return;
+          makeBeam(b, aimAt({ x: b.x + n.ox, y: b.y + n.oy }), {
+            ox: n.ox, oy: n.oy, w: 13, charge: .9, fire: .6, sweep: n.ox < 0 ? .55 : -.55
+          });
+        });
+        return 2.4;
+      }
+      const n = ph >= 3 ? 9 : ph === 2 ? 7 : 5;
+      fan(b, aimAt(b), n, .68, (ph >= 2 ? 320 : 290) * D().bulletSpd, { rad: b.r * .7, r: 5 });
+      return (ph >= 2 ? 1.2 : 1.65) * rnd(.9, 1.1);
+    },
+    onPhase(b, ph) {
+      if (ph === 2) squadron({ type: 'striker', count: 4, form: 'vee' });
+      if (ph === 3) squadron({ type: 'drone', count: 6, form: 'sweep', side: -1 });
+    }
+  },
+  {
+    id: 'matriarch', name: 'Hive Matriarch', art: 'matriarch',
+    hp: 210, r: 74, hitR: 46, sc: 4200,
+    nodes: null,
+    enter(b) { b.ty = H * .3; },
+    move(b, dt) {
+      b.x = W / 2 + Math.sin(b.t * .62) * (W * .5 - 130) * .55;
+      b.y = b.ty + Math.cos(b.t * .9) * 30;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 3;
+      if (mod === 0) {
+        // a wall with one gap you have to find and hold
+        const n = ph >= 3 ? 30 : 24;
+        const gap = R.int(0, n - 1);
+        const gapW = ph >= 3 ? 2 : 3;
+        for (let i = 0; i < n; i++) {
+          if (Math.abs(i - gap) < gapW || Math.abs(i - gap) > n - gapW) continue;
+          foeShot(b, i / n * TAU + b.spin, 215 * D().bulletSpd, { rad: 40, r: 5 });
+        }
+        b.spin += .3;
+        return ph >= 2 ? 1.7 : 2.1;
+      }
+      if (mod === 1) {
+        // seeker pods that curve, then commit
+        const n = ph >= 3 ? 5 : 3;
+        for (let i = 0; i < n; i++) {
+          foeShot(b, aimAt(b) + (i - (n - 1) / 2) * .4, 165 * D().bulletSpd,
+            { kind: 'seek', r: 6, col: PAL.rare, rad: 40 });
+        }
+        return 1.9;
+      }
+      squadron({ type: ph >= 2 ? 'striker' : 'drone', count: ph >= 3 ? 6 : 4, form: 'sweep', side: R.sign() });
+      fan(b, aimAt(b), 7, .9, 250 * D().bulletSpd, { rad: 40 });
+      return 2.5;
+    },
+    onPhase(b, ph) {
+      squadron({ type: 'splitter', count: 3, form: 'arc' });
+      if (ph === 3) squadron({ type: 'warden', count: 1, form: 'anchor' });
+    }
+  },
+  {
+    id: 'tyrant', name: 'Solar Tyrant', art: 'tyrant',
+    hp: 260, r: 104, hitR: 42, sc: 5600,
+    nodes: null,
+    enter(b) { b.ty = H * .3; },
+    move(b, dt) {
+      b.spin += dt * (b.phase >= 2 ? .85 : .5);
+      if (b.charging) {
+        // game-time timer, not setTimeout — pause and slow-mo have to hold
+        // the charge consistently
+        b.chargeT -= dt;
+        if (b.chargeT <= 0) b.charging = false;
+        b.x = damp(b.x, b.chargeX, 5, dt);
+        b.y = damp(b.y, H * .18, 3, dt);
+      } else {
+        b.x = W / 2 + Math.sin(b.t * .5) * (W * .5 - 150) * .5;
+        b.y = b.ty + Math.sin(b.t * 1.1) * 20;
+      }
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 4;
+      if (mod === 0) {
+        // four spokes fire and sweep together
+        for (let i = 0; i < 4; i++) {
+          makeBeam(b, b.spin + i / 4 * TAU, {
+            w: 14, charge: .85, fire: ph >= 2 ? .9 : .7,
+            sweep: (ph >= 2 ? .75 : .5) * (b.cycle % 8 === 0 ? 1 : -1)
+          });
+        }
+        return 2.8;
+      }
+      if (mod === 2) {
+        // converging walls from both sides
+        const rows = ph >= 3 ? 9 : 7;
+        for (let i = 0; i < rows; i++) {
+          const y = H * .18 + i * (H * .55 / rows);
+          fb.push({ x: -20, y, vx: 210 * D().bulletSpd, vy: 0, r: 5, kind: 'orb', t: 0, col: PAL.foe, life: 9, grazed: false });
+          fb.push({ x: W + 20, y: y + 24, vx: -210 * D().bulletSpd, vy: 0, r: 5, kind: 'orb', t: 0, col: PAL.foe, life: 9, grazed: false });
+        }
+        return 2.2;
+      }
+      if (mod === 3 && ph >= 2 && !b.charging) {
+        b.charging = true;
+        b.chargeT = 1.6;
+        b.chargeX = clamp(P.x, 120, W - 120);
+        AU.charge(.7);
+        ringShot(b, 18, b.spin, 240 * D().bulletSpd, { rad: 44 });
+        return 2.4;
+      }
+      ringShot(b, ph >= 3 ? 26 : 20, b.spin * 1.7, 265 * D().bulletSpd, { rad: 44, r: 4.6 });
+      return ph >= 2 ? 1.5 : 1.9;
+    },
+    onPhase(b, ph) {
+      squadron({ type: 'orbiter', count: ph >= 3 ? 4 : 2, form: 'orbit' });
+      if (ph === 3) squadron({ type: 'lancer', count: 2, form: 'anchor' });
+    }
+  },
+  {
+    /* ═══ THE GATE WARDEN ═══ — cycle 4+. Rotating shield arcs: shots between
+       arcs are absorbed; you fight the rotation, and the arcs themselves. */
+    id: 'gatewarden', name: 'Gate Warden', art: 'gatewarden',
+    hp: 340, r: 80, hitR: 50, sc: 7600,
+    nodes: null,
+    enter(b) { b.ty = H * .26; b.shieldAng = 0; b.absorbT = 0; },
+    move(b, dt) {
+      b.shieldAng += dt * (b.phase >= 3 ? 1.05 : b.phase >= 2 ? .72 : .5);
+      if (b.absorbT > 0) b.absorbT -= dt;
+      b.x = W / 2 + Math.sin(b.t * .5) * (W * .5 - 160) * .5;
+      b.y = b.ty + Math.sin(b.t * .95) * 24;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 4;
+      if (mod === 1) {
+        // radial spike: a pulse flung outward through every gap at once
+        ringShot(b, ph >= 3 ? 22 : 16, b.shieldAng, (250 + ph * 18) * D().bulletSpd, { rad: 84, r: 5 });
+        b.absorbT = .22;
+        return 1.7;
+      }
+      if (mod === 2) {
+        // spiral ladder: tight double stream, one from each flank
+        for (let i = 0; i < 5; i++) {
+          const a = b.shieldAng * 2 + i * .3;
+          foeShot(b, a, 230 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI, 230 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+        }
+        return 1.9;
+      }
+      if (mod === 3 && ph >= 2) {
+        // gate surge: a beam from the core, guarded by a slowing fan
+        makeBeam(b, aimAt(b), { w: 16, charge: 1.05, fire: .85, sweep: (b.cycle % 8 === 0 ? 1 : -1) * .62 });
+        fan(b, aimAt(b) + PI, 5, .8, 220 * D().bulletSpd, { rad: 70 });
+        return 2.6;
+      }
+      // hunter volley: two aimed bursts from behind the arcs
+      fan(b, aimAt(b), ph >= 3 ? 7 : 5, .6, 300 * D().bulletSpd, { rad: 70, r: 5 });
+      b.absorbT = .18;
+      return 1.45;
+    },
+    onPhase(b, ph) {
+      squadron({ type: ph >= 2 ? 'shieldbreaker' : 'striker', count: 2, form: 'arc' });
+      if (ph === 3) squadron({ type: 'sniper', count: 2, form: 'orbit' });
+    }
+  },
+  /* v4.11 Wardenfall: the warden's corrupted sibling leads the daily rare
+     encounter. Deeper, faster arcs, a harder spike cadence, twin beams in
+     the surge, and phase pressure the warden never brings. It only ever
+     spawns in the rare Sunday slot — never in the ordinary rotation. */
+  {
+    id: 'wardenfall', name: 'Wardenfall', art: 'wardenfall',
+    hp: 430, r: 80, hitR: 50, sc: 11000,
+    nodes: null,
+    enter(b) { b.ty = H * .24; b.shieldAng = 0; b.absorbT = 0; },
+    move(b, dt) {
+      b.shieldAng += dt * (b.phase >= 3 ? 1.3 : b.phase >= 2 ? .92 : .66);
+      if (b.absorbT > 0) b.absorbT -= dt;
+      b.x = W / 2 + Math.sin(b.t * .5) * (W * .5 - 160) * .5;
+      b.y = b.ty + Math.sin(b.t * .95) * 24;
+    },
+    attack(b) {
+      b.cycle++;
+      const ph = b.phase;
+      const mod = b.cycle % 4;
+      if (mod === 1) {
+        // denser radial spike, spun harder than the warden ever spins
+        ringShot(b, ph >= 3 ? 26 : 20, b.shieldAng, (260 + ph * 18) * D().bulletSpd, { rad: 84, r: 5 });
+        b.absorbT = .22;
+        return 1.45;
+      }
+      if (mod === 2) {
+        // triple ladder: a third stream threading the two flanks
+        for (let i = 0; i < 5; i++) {
+          const a = b.shieldAng * 2 + i * .3;
+          foeShot(b, a, 245 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI, 245 * D().bulletSpd, { rad: 70, r: 4.4, col: PAL.rare });
+          foeShot(b, a + PI / 2, 235 * D().bulletSpd, { rad: 70, r: 4, col: PAL.gold });
+        }
+        return 1.75;
+      }
+      if (mod === 3 && ph >= 2) {
+        // gate surge, but two beams — a pincer the warden never flies
+        makeBeam(b, aimAt(b), { w: 16, charge: 1.05, fire: .85, sweep: (b.cycle % 8 === 0 ? 1 : -1) * .62 });
+        makeBeam(b, aimAt(b), { w: 12, charge: 1.2, fire: .8, sweep: (b.cycle % 8 === 0 ? -.7 : .7) });
+        fan(b, aimAt(b) + PI, 6, .8, 230 * D().bulletSpd, { rad: 70 });
+        return 2.6;
+      }
+      // hunter volley: wider, faster, from behind the arcs
+      fan(b, aimAt(b), ph >= 3 ? 8 : 6, .6, 315 * D().bulletSpd, { rad: 70, r: 5 });
+      b.absorbT = .18;
+      return 1.35;
+    },
+    onPhase(b, ph) {
+      squadron({ type: ph >= 2 ? 'shieldbreaker' : 'striker', count: 2, form: 'arc' });
+      if (ph === 3) squadron({ type: 'sniper', count: 2, form: 'orbit' });
+    }
+  }
+];
 
 function spawnBoss(index, cycle) {
   /* v4.11: the rare Sunday capital is not a rotation pick — it is drawn
@@ -4449,7 +5281,6 @@ function updateRushDirector(dt) {
 function startWave(n) {
   DIRECTOR.wave = n; GAME.wave = n;
   /* v4.25 funnel: wave 5 is the depth marker — the game held them this long */
-  if (n === 5 && typeof NET !== 'undefined') NET.funnel('w5');
   DIRECTOR.t = 0; DIRECTOR.phase = 'combat';
   if (GAME.mode === 'rush') { return; }
   DIRECTOR.queue = buildWave(n);
@@ -5377,7 +6208,28 @@ function render() {
   }
   ctx.restore();
 
-  CHMOD.apply();   /* chroma aberration — single path (ADR 0003): runtime in js/render-chroma.js */
+  if (CFG.flash && CAM.chromaRamp > .02 && CAN_FILTER && QUALITY.scale > .8) {
+    /* Never read the live backbuffer into itself — that path flashes/tears on
+       some GPU compositors (esp. the top of the frame). Snapshot first. */
+    const k = CAM.chromaRamp * 2.2;
+    if (!window._chromaSnap) window._chromaSnap = document.createElement('canvas');
+    const snap = window._chromaSnap;
+    if (snap.width !== cv.width || snap.height !== cv.height) {
+      snap.width = cv.width; snap.height = cv.height;
+    }
+    const sctx = snap.getContext('2d');
+    sctx.setTransform(1, 0, 0, 1, 0, 0);
+    sctx.drawImage(cv, 0, 0);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.min(.5, k * .4);
+    ctx.filter = 'sepia(1) saturate(6) hue-rotate(-25deg)';
+    ctx.drawImage(snap, -k, 0, W, H);
+    ctx.filter = 'sepia(1) saturate(6) hue-rotate(140deg)';
+    ctx.drawImage(snap, k, 0, W, H);
+    ctx.filter = 'none';
+    ctx.restore();
+  }
 
   bloomComposite();
 
@@ -5560,8 +6412,16 @@ function syncHUD(dt) {
   $('dashFill').style.transform = 'scaleX(' + frac + ')';
   setText('bombN', String(P.bombs));
   const bd = $('bDash'), bb = $('bBomb');
-  if (bd) bd.classList.toggle('cool', P.charges < 1);
-  if (bb) bb.classList.toggle('cool', P.bombs < 1);
+  if (bd) {
+    bd.classList.toggle('cool', P.charges < 1);
+    const f = Math.round(frac * 40) / 40;   /* cooldown ring + charge badge (touch) */
+    if (bd._f !== f) { bd._f = f; bd.style.setProperty('--f', f); }
+    if (bd.dataset.n !== String(P.charges)) bd.dataset.n = P.charges;
+  }
+  if (bb) {
+    bb.classList.toggle('cool', P.bombs < 1);
+    if (bb.dataset.n !== String(P.bombs)) bb.dataset.n = P.bombs;
+  }
 
   if (boss && !boss.dying) {
     const pct = clamp(boss.hp / boss.maxHp, 0, 1);
@@ -5921,10 +6781,6 @@ function endRun() {
   const q = qualifiesIn(loadBoard(mode), GAME.score, 8);
   $('entryRow').classList.toggle('hidden', !q);
   if (q) $('pilot').value = DB.get('callsign', '');
-  /* duels are only for the daily — same seed everywhere makes it fair */
-  const dg = DB.get('ghost.daily', null);
-  $('duelRow').classList.toggle('hidden',
-    !(GAME.mode === 'daily' && dg && dg.score && NET.on && NET.user && NET.user.name));
   renderBoard($('ovBoard'), mode, null, null, META.paint);
   /* school runs are practice: a clean summary, nothing more — no rank,
      no post, no outbox. The +120 is the whole contract. */
@@ -5936,78 +6792,14 @@ function endRun() {
     $('ovSchool').innerHTML = '<b>School report</b><span>' +
       (SCHOOL.payBand ? esc(SCHOOL.payBand) : 'Drills logged. The corridor awaits.') + '</span>';
   }
-  /* Plausibility-checked community posting. Posted now when possible; otherwise
-     the run lands in the OUTBOX and drains automatically once reachable. */
   if (!isSchool) {
-  TELE.sample();
-  const tele = { runT: GAME.runT, kills: GAME.kills, cps: TELE.cps.slice() };
-  /* A duel completion is only sent with the finished daily run. The deck
-     checks its score and telemetry before recording the win. */
-  if (GAME.rivalBeat && GHOST.rival && GHOST.rival.duelId) {
-    NET.beatDuel(GHOST.rival.duelId, {
-      score: GAME.score, wave: Math.max(1, GAME.wave), diff: CFG.diff,
-      runT: tele.runT, kills: tele.kills, cps: tele.cps
-    }).then(r => {
-      if (!r || !r.beaten) return;
-      const rv = DB.get('ghost.rival', null);
-      if (rv) { rv.beaten = true; DB.set('ghost.rival', rv); }
-      note('Duel win accepted by the deck', 'good');
-    });
-  }
-  const ovRankEl = $('ovRank');
-  const paintQueued = () => {
-    if (!ovRankEl) return;
-    ovRankEl.classList.remove('hidden');
-    ovRankEl.innerHTML = '<b style="color:var(--dim)">Queued</b><span>will post when the deck is reachable</span>';
-  };
   /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
+  if (typeof CLOUD !== 'undefined') CLOUD.overPrompt(!GAME.school && GAME.score >= 1);
   if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
     CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
       .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
       .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
   }
-  NET.submitScore(mode, GAME.score, Math.max(1, GAME.wave), META.ship, CFG.diff, tele,
-    { paint: META.paint, mastery: masteryLevel(META.ship) }).then(r => {
-    const el = $('ovRank');
-    if (!el) return;
-    if (r) {
-      el.classList.remove('hidden');
-      const seasonLine = (r.seasonMe && r.seasonMe.runs > 0)
-        ? ' · gauntlet #' + esc(r.seasonMe.rank)
-        : '';
-      el.innerHTML = r.verdict === 'rejected'
-        ? '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>'
-        : r.verdict === 'review'
-        ? '<b style="color:var(--amber)">Community run</b><span>needs review · it does not rank</span>'
-        : '<b style="color:var(--aether)">Worldwide</b><span>plausibility-checked · global rank #' + esc(r.rank) + seasonLine + '</span>';
-      if (mode === 'daily' && r.verdict === 'accepted' && r.daily) {
-        const medals = applyDailyResult(r);
-        if (medals.length) {
-          const st = META.daily || {};
-          el.innerHTML += '<div class="daily-medals"><b style="color:var(--gold)">' + medals.map(esc).join(' · ') +
-            '</b><span>day streak ' + esc(st.streak || 1) + (st.best > (st.streak || 1) ? ' · best ' + esc(st.best) : '') + '</span></div>';
-        }
-      }
-    } else {
-      if (NET.user) { OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
-        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
-        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps }); paintQueued(); }
-      else el.classList.add('hidden');
-    }
-  }).catch(err => {
-    // queue on transient failures (offline, 5xx, throttling); a definitive
-    // 422 rejection is shown honestly and NOT queued — retrying it would
-    // just burn the same verdict
-    if (NET.user && !(err && err.status === 422)) {
-      OUTBOX.queue({ mode, score: GAME.score, wave: Math.max(1, GAME.wave),        paint: META.paint,
-        sigil: GAME.sigil ? GAME.sigil.id : null, mastery: masteryLevel(META.ship),
-        ship: META.ship, diff: CFG.diff, runT: tele.runT, kills: tele.kills, cps: tele.cps });
-      paintQueued();
-    } else if (err && err.status === 422 && ovRankEl) {
-      ovRankEl.classList.remove('hidden');
-      ovRankEl.innerHTML = '<b style="color:var(--crimson)">Not accepted</b><span>this run failed plausibility checks — it does not rank</span>';
-    }
-  });
   }
   showScreen('s-over', true);
   if (q && matchMedia('(pointer:fine)').matches) $('pilot').focus();
@@ -6092,7 +6884,7 @@ function drawDock() {
   if (hon) {
     g.font = '600 13px system-ui, sans-serif';
     g.fillStyle = rgba(PAL.gold, hon.at >= 25000 ? .95 : .55);
-    g.fillText((hon.at >= 25000 ? '✦ ' : '') + (NET.user ? NET.user.name.toUpperCase() : (DB.get('callsign', '') || 'PILOT').toUpperCase()) +
+    g.fillText((hon.at >= 25000 ? '✦ ' : '') + (DB.get('callsign', '') || 'PILOT').toUpperCase() +
       ' · ' + hon.name.toUpperCase() + ' OF THE YARD', w / 2, h * .855);
   }
 /* season-end honor — v4.11: the deck has counted a week with no gap */
@@ -6170,8 +6962,7 @@ function refreshTitleMeta() {
   else if (META.tourBest) $('tourSub').textContent = 'Furthest: ' + STAGES[Math.min(7, META.tourBest - 1)].name + ' · ' + META.tourBest + ' of 8 worlds';
   $('regMeta').textContent = (META.runs
     ? META.runs + ' runs · ' + fmt(META.totalKills) + ' kills · best wave ' + Math.max(1, META.bestWave)
-    : 'Stored on this device')
-    + (NET.user ? ' · ' + NET.user.name : '');
+    : 'Stored on this device');
 }
 function pauseRun() {
   if (GAME.state !== 'playing' || GAME.paused) return;
@@ -6206,106 +6997,21 @@ function saveCallsign() {
   AU.pickup();
 }
 
-/* ── the save vault: inspect and restore deck-side profile snapshots ──
-   Restore REPLACES (not max-merges) local progress with the snapshot —
-   that is the point. Last-good recovery for a wiped or clobbered save. */
-function sanitizeSnapMeta(s) {
-  if (!s || typeof s !== 'object') return null;
-  /* ownership validates against the SNAPSHOT's own records, not the local
-     META — this runs exactly when the local save is the broken thing
-     (wiped, clobbered, probe-wrecked). Restore from its own claim. */
-  const owned = Array.isArray(s.owned) ? s.owned.filter(id => HULLS.some(h => h.id === id)) : ['vesper'];
-  if (!owned.length) owned.push('vesper');
-  const paints = Array.isArray(s.paints) && s.paints.length ? s.paints.filter(id => PAINTS.some(p => p.id === id)) : ['yard'];
-  if (!paints.length) paints.push('yard');
-  const sigils = Array.isArray(s.sigils) && s.sigils.length ? s.sigils.filter(x => x === '' || SIGILS.some(g => g.id === x)) : [''];
-  if (!sigils.length) sigils.push('');
-  const o = {};
-  o.alloy = Math.max(0, Math.min(1e9, Math.floor(+s.alloy || 0)));
-  /* the daily-payout watermark MUST survive a snapshot round-trip: the deck
-     pays "full − paidBefore", so losing this field re-banks old medals */
-  o.dailyPaid = Math.max(0, Math.min(1e9, Math.floor(+s.dailyPaid || 0)));
-  o.daily = (s.daily && typeof s.daily === 'object')
-    ? { streak: Math.max(0, Math.floor(+s.daily.streak || 0)),
-        best: Math.max(0, Math.floor(+s.daily.best || 0)),
-        lastDay: typeof s.daily.lastDay === 'string' ? s.daily.lastDay.slice(0, 10) : null }
-    : null;
-  o.ship = owned.includes(s.ship) ? s.ship : 'vesper';
-  o.owned = owned;
-  const r = {};
-  for (const ref of REFITS) r[ref.id] = clamp(+((s.refits || {})[ref.id]) || 0, 0, ref.max);
-  o.refits = r;
-  o.runs = Math.max(0, Math.floor(+s.runs || 0));
-  o.totalKills = Math.max(0, Math.floor(+s.totalKills || 0));
-  o.bestWave = Math.max(0, Math.floor(+s.bestWave || 0));
-  o.tourBest = Math.max(0, Math.floor(+s.tourBest || 0));
-  o.tourCleared = !!s.tourCleared;
-  o.paint = paints.includes(s.paint) ? s.paint : 'yard';
-  o.paints = paints;
-  o.sigil = sigils.includes(s.sigil) ? s.sigil : null;
-  o.sigils = sigils;
-  o.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : null;
-  o.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
-  o.donated = Math.max(0, Math.min(1e9, Math.floor(+s.donated || 0)));
-  o.sky = (s.sky && typeof s.sky === 'object') ? s.sky : {};
-  o.codex = (s.codex && typeof s.codex === 'object') ? s.codex : {};
-  o.skyLog = Array.isArray(s.skyLog) ? s.skyLog.slice(0, 60) : [];
-  o.school = !!s.school;
-  o.dd = (s.dd && typeof s.dd === 'object') ? s.dd : { wave: 0, falls: 0 };
-  return o;
-}
-let vaultOpen = false;
-function paintVault() {
-  const box = $('vaultBox'), list = $('vaultList'), nt = $('vaultNote');
-  box.classList.toggle('hidden', !NET.on || !NET.user);
-  if (!NET.on || !NET.user) { vaultOpen = false; list.innerHTML = ''; nt.style.display = 'none'; return; }
-  if (!vaultOpen) { list.innerHTML = ''; nt.style.display = 'none'; return; }
-  nt.style.display = 'block';
-  nt.textContent = 'Reading the vault…';
-  NET.listSnaps().then(snaps => {
-    if (!snaps.length) { nt.textContent = 'The vault is empty — snapshots appear as you fly.'; return; }
-    nt.textContent = 'Restoring replaces this device\u2019s progress with the snapshot. Earned items are never lost from the account.';
-    list.innerHTML = '';
-    snaps.slice(0, 6).forEach(s => {
-      const b = document.createElement('button');
-      b.className = 'btn ghost';
-      b.style.cssText = 'text-align:left;font-size:.64rem;letter-spacing:.06em';
-      const when = new Date(s.taken).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      b.textContent = when + ' · ' + s.bytes + ' bytes';
-      b.onclick = async () => {
-        b.disabled = true;
-        const snap = await NET.readSnap(s.taken).catch(() => null);
-        if (!snap || !snap.meta) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
-        const clean = sanitizeSnapMeta(snap.meta);
-        if (!clean) { note('That snapshot could not be read', 'bad'); b.disabled = false; return; }
-        await NET.applySnapshot(clean);
-        note('Vault restored — hangar rebuilt from ' + when, 'good');
-        b.disabled = false;
-      };
-      list.appendChild(b);
-    });
-  }).catch(() => { nt.textContent = 'The vault could not be reached — deck offline?'; });
-}
 
 /* settings screen state */
 let setReturn = 'title';
 function openSettings(from) {
   setReturn = from;
-  paintAccount();
-  NET.probe().then(paintAccount);
+  applyPortalChrome();
   showScreen('s-set', true);
   $('btnSetClose').focus();
 }
-/* Portal chrome: no deck field, no account/Google/LAN row, no feedback or
-   duel send, no external or social anchors. Local boards stay. */
+/* Portal chrome: no worldwide account, no install prompt, no external or
+   social anchors. Local boards stay. */
 function applyPortalChrome() {
   if (typeof emberfallPortal !== 'function' || !emberfallPortal()) return;
   const hide = id => { const el = $(id); if (el) el.classList.add('hidden'); };
-  ['acctFields', 'googleBox', 'acctSigned', 'lanBox', 'lanSolo', 'fbRow', 'duelRow', 'globalSignin', 'btnInstall', 'swRegister'].forEach(hide);
-  const acct = $('lAcct');
-  if (acct && acct.parentElement) acct.parentElement.classList.add('hidden');
-  const lan = $('lLan');
-  if (lan && lan.parentElement) lan.parentElement.classList.add('hidden');
+  ['btnInstall', 'swRegister'].forEach(hide);
   const dayNote = $('dayBoardNote');
   if (dayNote) dayNote.textContent = 'One seed, one day — your best on this device. Waves carry the D tag.';
   const gNote = $('globalBoardNote');
@@ -6331,100 +7037,6 @@ function applyPortalChrome() {
     }
   });
 }
-/* ── command deck account panel (settings) ── */
-function paintAccount() {
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
-  const on = NET.on, u = NET.user;
-  $('acctStat').textContent = on ? (u ? 'signed in · ' + u.name : 'deck linked — sign in') : 'local mode · no deck found';
-  $('acctFields').classList.toggle('hidden', !on || !!u);
-  $('acctSigned').classList.toggle('hidden', !on || !u);
-  paintVault();
-  paintLan();
-  /* v4.26: the Google row arms only while the settings screen is ACTUALLY
-     open and the deck says Google is configured (EF_GOOGLE_CLIENT_ID).
-     The boot path must never fetch Google — the game boots with zero
-     third-party network requests (pinned by game.spec.js); opening
-     Settings is the deliberate act that may fetch the button library. */
-  const setOn = $('s-set') && $('s-set').classList.contains('on');
-  if (on && !u && setOn) NET.probe().then(() => paintGoogle());
-  else if ($('googleBox')) $('googleBox').classList.add('hidden');
-  /* destructive account actions are real clicks; a framing page must not
-     be able to position them under the player's cursor */
-  if (typeof crossOriginFramed === 'function' && crossOriginFramed()) {
-    for (const id of ['btnAcctDel', 'btnAcctPass', 'mgmtPassCur', 'mgmtPassNew', 'mgmtDelPass']) {
-      const el = $(id);
-      if (el) el.disabled = true;
-    }
-  }
-}
-
-function bindPassToggle() {
-  const inp = $('acctPass'), btn = $('btnPassVis');
-  if (!inp || !btn) return;
-  btn.onclick = () => {
-    AU.ui();
-    const show = inp.type === 'password';
-    inp.type = show ? 'text' : 'password';
-    btn.textContent = show ? 'hide' : 'show';
-    btn.setAttribute('aria-pressed', String(show));
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    inp.focus();
-  };
-}
-/* LAN play — the on-the-go story before a public deployment: the deck
-   answers on every interface, so any device on the same Wi-Fi can open
-   the game with full account/boards/duels. Addresses come from the deck
-   itself (/api/lan), the phone just needs the URL. */
-let lanCache = null;
-async function paintLan() {
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { applyPortalChrome(); return; }
-  const on = NET.on;
-  $('lanBox').classList.toggle('hidden', !on);
-  $('lanSolo').classList.toggle('hidden', on);
-  if (!on) { $('lanStat').textContent = 'this device only'; return; }
-  $('lanStat').textContent = 'deck open to your Wi-Fi';
-  try {
-    if (!lanCache) lanCache = await (await fetch('/api/lan')).json();
-    const box = $('lanUrls');
-    box.innerHTML = '';
-    (lanCache.addresses || []).slice(0, 3).forEach(a => {
-      const b = document.createElement('button');
-      b.className = 'btn ghost';
-      b.style.textAlign = 'left';
-      b.style.fontSize = '.66rem';
-      b.style.letterSpacing = '.08em';
-      b.textContent = 'http://' + a + ':8123';
-      b.onclick = () => {
-        navigator.clipboard.writeText(b.textContent)
-          .then(() => note('Copied — open it on your phone', 'good'))
-          .catch(() => note(b.textContent, '', ''));
-      };
-      box.appendChild(b);
-    });
-    if (!(lanCache.addresses || []).length) {
-      box.innerHTML = '<p class="empty" style="padding:2px 0;text-align:left">No LAN address found — connect this machine to a Wi-Fi network.</p>';
-    }
-  } catch (e) { /* non-fatal */ }
-}
-async function acctGo(isNew) {
-  const name = $('acctName').value.trim();
-  const pass = $('acctPass').value;
-  if (!NET.on) { note('No command deck reachable', 'bad'); return; }
-  if (!name || !pass) { note('Callsign and password, pilot', 'bad'); return; }
-  const btn = isNew ? $('btnAcctNew') : $('btnAcctGo');
-  btn.disabled = true;
-  try {
-    if (isNew) await NET.register(name, pass); else await NET.login(name, pass);
-    $('acctPass').value = '';
-    note('Linked · welcome, ' + NET.user.name, 'good');
-    paintAccount();
-    NET.pushProfile();   // lift local progress to the deck right away
-    AU.pickup();
-  } catch (e) {
-    note(String((e && e.message) || e).slice(0, 60), 'bad');
-  }
-  btn.disabled = false;
-}
 function closeSettings() {
   showScreen('s-set', false);
   if (setReturn === 'pause') $('btnResume').focus();
@@ -6434,84 +7046,53 @@ function closeSettings() {
    UI WIRING
    ══════════════════════════════════════════════════════════════════════ */
 function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
+/* Framed arcade players (window.self !== window.top) block confirm() and
+   prompt(), so the click looks dead. One in-game step covers both places. */
+let askYes = null;
+let askReturn = null;
+function askConfirm(message, yesLabel, onYes) {
+  askYes = onYes || null;
+  askReturn = document.activeElement;
+  $('askH').textContent = yesLabel || 'Confirm';
+  $('askMsg').textContent = message;
+  $('btnAskYes').textContent = yesLabel || 'Confirm';
+  showScreen('s-ask', true);
+  $('btnAskNo').focus();
+}
+function dismissAsk() {
+  askYes = null;
+  const back = askReturn;
+  askReturn = null;
+  showScreen('s-ask', false);
+  if (back && back.isConnected && back.focus && $('s-hangar') && $('s-hangar').classList.contains('on')) {
+    back.focus({ preventScroll: true });
+  }
+}
+function settleAsk(ok) {
+  const fn = ok ? askYes : null;
+  dismissAsk();
+  if (fn) fn();
+}
+bindClick('btnAskYes', () => { AU.ui(); settleAsk(true); });
+bindClick('btnAskNo', () => { AU.ui(); settleAsk(false); });
 bindClick('btnLaunch', () => startRun('endless'));
 bindClick('btnTour', () => startRun('tour'));
 bindClick('btnDaily', () => startRun('daily'));
 bindClick('btnSchool', () => SCHOOL.begin());
 bindClick('btnRush', () => startRun('rush'));
-/* v4.25 funnel: armed — the first launch intent this boot, any mode */
-NET.funnel('armed');
 bindClick('btnHangar', () => toHangar());
 bindClick('btnSettings', () => { AU.ui(); openSettings('title'); });
-bindPassToggle();
-/* ── v4.26 Google sign-in ───────────────────────────────────────────────
-   One button in the account panel, shown only when the DECK says Google
-   is configured (EF_GOOGLE_CLIENT_ID rides /api/health). The library
-   loads lazily — a deck without Google never fetches it. The ID token
-   goes to /api/auth/google, which verifies it against Google's own keys
-   and mints the deck's OWN session; everything downstream (boards, vault,
-   duels) is identical to a password login. Every failure path is silent:
-   the password fields remain the guaranteed way in. */
-let gsiLoaded = false;
-function paintGoogle() {
-  const box = $('googleBox');
-  if (!box) return;
-  if (typeof emberfallPortal === 'function' && emberfallPortal()) { box.classList.add('hidden'); return; }
-  const show = NET.on && !NET.user && NET.googleClientId;
-  box.classList.toggle('hidden', !show);
-  if (!show) return;
-  if (typeof crossOriginFramed === 'function' && crossOriginFramed() && $('gHint')) {
-    $('gHint').textContent = 'Embedded page: Google sign-in often will not open here. A password still reaches only the official deck. For Google, open the game in its own tab.';
-  }
-  if (!gsiLoaded) {
-    gsiLoaded = true;
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.async = true; s.defer = true;
-    s.onload = armGoogle;
-    s.onerror = () => { $('gHint').textContent = ''; };   // library blocked? the password path stands
-    document.head.appendChild(s);
-  }
-  armGoogle();
-}
-function armGoogle() {
-  try {
-    if (!(window.google && google.accounts && google.accounts.id)) return;   // not here yet
-    const host = $('gBtnHost');
-    if (!host || host.dataset.armed) return;
-    google.accounts.id.initialize({
-      client_id: NET.googleClientId,
-      callback: async (resp) => {
-        if (!resp || !resp.credential) return;
-        try {
-          await NET.googleSignIn(resp.credential);
-          $('acctPass').value = '';
-          note('Linked · welcome, ' + NET.user.name, 'good');
-          paintAccount();
-          NET.pushProfile();   // lift local progress right away, same as password sign-in
-          AU.pickup();
-        } catch (e) {
-          note(String((e && e.message) || e).slice(0, 60), 'bad');
-        }
-      }
-    });
-    google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', width: 260 });
-    host.dataset.armed = '1';
-  } catch (e) { /* silent — the panel must never break over Google */ }
-}
-
 bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
 bindClick('btnWipe', () => {
-  /* Hidden in arcade frames, guarded here too in case a host triggers it. */
-  if (emberfallIsFramed()) return;
-  if (!confirm('Erase all alloy, hulls, refits, feats and scores on this device?')) return;
-  DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
-  META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
-  META.runs = 0; META.totalKills = 0; META.bestWave = 0;
-  for (const r of REFITS) META.refits[r.id] = 0;
-  saveMeta(); renderHangar(); note('Progress reset');
+  askConfirm('Erase all alloy, hulls, refits, feats and scores on this device?', 'Reset progress', () => {
+    DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
+    META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
+    META.runs = 0; META.totalKills = 0; META.bestWave = 0;
+    for (const r of REFITS) META.refits[r.id] = 0;
+    saveMeta(); renderHangar(); note('Progress reset');
+  });
 });
 bindClick('btnPause', () => pauseRun());
 
@@ -6615,113 +7196,14 @@ addEventListener('load', () => {
   if (b) b.onclick = () => AU.ui();
   if (b) b.classList.remove('hidden');
 });
-bindClick('btnAcctGo', () => acctGo(false));
-bindClick('btnAcctNew', () => acctGo(true));
-/* ── account management: change password · sessions · delete account ──
-   Server endpoints carry the authority; this panel is the honest surface.
-   Deletion asks twice and states the consequences in plain words — a
-   one-keystroke catastrophe is not a feature. */
-let acctMgmtOpen = false;
-async function paintAcctMgmt() {
-  const box = $('acctMgmt');
-  if (!acctMgmtOpen) { box.classList.add('hidden'); return; }
-  box.classList.remove('hidden');
-  try {
-    const r = await NET.req('GET', '/api/account/sessions');
-    $('mgmtSess').textContent = r && r.ok && r.sessions
-      ? r.sessions.length + ' active session' + (r.sessions.length === 1 ? '' : 's') + ' on the deck'
-      : 'session list unavailable';
-  } catch (e) { $('mgmtSess').textContent = 'session list unavailable'; }
-}
-bindClick('btnAcctMgmt', () => { acctMgmtOpen = !acctMgmtOpen; paintAcctMgmt(); AU.ui(); });
-bindClick('btnAcctPass', async () => {
-  const cur = $('mgmtPassCur').value, next = $('mgmtPassNew').value;
-  if (next.length < 6) { note('New password: 6+ characters', 'bad'); AU.ui(); return; }
-  try {
-    const r = await NET.req('POST', '/api/account/password', { current: cur, next });
-    if (r && r.ok) {
-      $('mgmtPassCur').value = ''; $('mgmtPassNew').value = '';
-      note('Password changed — other sessions keep working until they expire', 'good');
-    } else note((r && r.error) || 'Password change failed', 'bad');
-  } catch (e) { note('Password change failed', 'bad'); }
-  AU.ui();
-});
-bindClick('btnAcctDel', async () => {
-  const pw = $('mgmtDelPass').value;
-  const who = NET.user ? NET.user.name : 'this pilot';
-  const first = confirm('Delete the account "' + who + '"?\n\nEvery record leaves the boards — scores, duels, daily ledger, cloud saves, the vault. This cannot be undone.');
-  if (!first) return;
-  const second = prompt('Type ' + who + ' to confirm permanent deletion:');
-  if (!second || second.trim().toUpperCase() !== who.toUpperCase()) return;
-  try {
-    const r = await NET.req('POST', '/api/account/delete', { password: pw });
-    if (r && r.ok && r.deleted) {
-      acctMgmtOpen = false;
-      $('mgmtDelPass').value = '';
-      NET.user = null;
-      try { localStorage.removeItem('ef.remember'); } catch (e) { }
-      paintAccount();
-      note('Account deleted. This device keeps its local save; the callsign is retired.', 'good');
-    } else note((r && r.error) || 'Deletion failed', 'bad');
-  } catch (e) { note('Deletion failed', 'bad'); }
-  AU.ui();
-});
-bindClick('btnAcctOut', async () => { await NET.logout(); paintAccount(); note('Signed out — progress stays on this device', 'good'); AU.ui(); });
-bindClick('btnVault', () => { vaultOpen = !vaultOpen; paintVault(); AU.ui(); });
-bindClick('btnLanCopy', () => {
-  const first = document.querySelector('#lanUrls .btn');
-  if (!first) return;
-  navigator.clipboard.writeText(first.textContent)
-    .then(() => note('Copied — open it on your phone', 'good'))
-    .catch(() => note(first.textContent, '', ''));
-  AU.ui();
-});
-bindClick('btnLanHow', () => { $('lanHow').classList.toggle('hidden'); AU.ui(); });
 bindClick('btnResume', () => resumeRun());
 bindClick('btnPauseSet', () => { AU.ui(); openSettings('pause'); });
 bindClick('btnRestart', () => { showScreen('s-pause', false); startRun(GAME.mode); });
 bindClick('btnAbort', () => { GAME.paused = false; if (RANGE.active) { RANGE.stop(); return; } toTitle(); });
 bindClick('btnAbandonTour', () => { GAME.paused = false; endRunTour(); toTitle(); });
 bindClick('btnAgain', () => startRun(GAME.mode));
-/* v4.25 — the listening deck. One line per death, anon-friendly, offline-
-   queued (max 5) and flushed on the next boot. Never blocks the flow: the
-   button answers in place and Fly again stays one key away. */
-function fbQueue() { try { return JSON.parse(localStorage.getItem('emberfall2.fb') || '[]'); } catch (e) { return []; } }
-async function sendFeedback() {
-  const el = $('fbText'), btn = $('btnSendFb');
-  const text = el.value.trim();
-  if (text.length < 2) { el.focus(); return; }
-  const flight = { ship: META.ship, wave: Math.max(1, GAME.wave), mode: GAME.mode };
-  btn.disabled = true;
-  const ok = await NET.sendFeedback(text, flight);
-  btn.textContent = ok ? 'Sent ✓' : 'Kept for later';
-  el.value = '';
-  if (!ok) {
-    try { const q = fbQueue(); q.push({ text, flight }); localStorage.setItem('emberfall2.fb', JSON.stringify(q.slice(-5))); } catch (e) { }
-  }
-  setTimeout(() => { btn.textContent = 'Send'; btn.disabled = false; }, 2600);
-}
-async function flushFeedback() {
-  const q = fbQueue(); if (!q.length) return;
-  const rest = [];
-  for (const item of q) { const ok = await NET.sendFeedback(item.text, item.flight); if (!ok) rest.push(item); }
-  try { localStorage.setItem('emberfall2.fb', JSON.stringify(rest)); } catch (e) { }
-}
-bindClick('btnSendFb', sendFeedback);
-$('fbText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.stopPropagation(); sendFeedback(); } });
 bindClick('btnToHangar', () => toHangar());
 bindClick('btnRegister', () => saveCallsign());
-bindClick('btnDuel', async () => {
-  const dg = DB.get('ghost.daily', null);
-  const to = ($('duelTo').value || '').trim();
-  if (!dg || !to) { note('Callsign to challenge, pilot', 'bad'); return; }
-  const btn = $('btnDuel'); btn.disabled = true;
-  const r = await NET.sendDuel(to, dg);
-  btn.disabled = false;
-  if (r && r.error) note(r.error.slice(0, 52), 'bad');
-  else if (r && r.ok) { note('Duel sent to ' + to, 'good'); $('duelTo').value = ''; AU.pickup(); }
-  else note('Command deck unreachable', 'bad');
-});
 bindClick('btnSetClose', () => { AU.ui(); closeSettings(); });
 bindClick('btnFull', () => toggleFullscreen());
 bindClick('stClose', () => { $('st').classList.add('hidden'); });
@@ -6731,15 +7213,7 @@ bindClick('swRegister', () => {
   if (okReg) $('swRegister').classList.add('hidden');
   AU.ui();
 });
-function switchTab(name) {
-  $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
-  ['scores', 'roster', 'feats', 'sky', 'global'].forEach(t => {
-    const el = $('tab-' + t);
-    if (el) el.classList.toggle('hidden', t !== name);
-  });
-}
 $$('.tab').forEach(t => t.onclick = () => { AU.ui(); switchTab(t.dataset.tab); });
-switchTab('scores');
 
 /* settings controls paint once at eval (pre-boot, from CFG defaults), then
    again at boot — loadCfg() must never leave the UI showing defaults while
@@ -6747,18 +7221,26 @@ switchTab('scores');
    BEFORE the bind* calls below — a const referenced by an earlier call is
    a TDZ crash that kills the whole inline core. */
 const SETTING_PAINTS = [];
-function bindRange(id, key) {
+function bindRange(id, key, onChange) {
   const el = $(id);
   if (!el) return;
-  const paint = () => { el.value = CFG[key]; };
+  const paint = () => { 
+    if(id === 'rBtnScale') el.value = Math.round((CFG.btnScale||1)*100);
+    else if(id === 'rBtnOp') el.value = CFG.btnOpacity||92;
+    else el.value = CFG[key]; 
+  };
   SETTING_PAINTS.push(paint);
   paint();
   el.addEventListener('input', () => {
+    if(id === 'rBtnScale'){ CFG[key]=+el.value/100; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
+    if(id === 'rBtnOp'){ CFG[key]=+el.value; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
     CFG[key] = +el.value;
     saveCfg(); AU.init(); AU.applyVolumes();
+    if (onChange) onChange(+el.value);
   });
 }
 bindRange('rMas', 'master'); bindRange('rMus', 'music'); bindRange('rSfx', 'sfx');
+  bindRange('rBtnScale', 'btnScale', v=>{CFG.btnScale=v/100; saveCfg(); applyTouchBtnCfg();}); bindRange('rBtnOp', 'btnOpacity', v=>{CFG.btnOpacity=+v; saveCfg(); applyTouchBtnCfg();});
 
 function bindSwitch(id, key, apply) {
   const el = $(id);
@@ -6775,20 +7257,6 @@ function bindSwitch(id, key, apply) {
 }
 bindSwitch('swShake', 'shake');
 bindSwitch('swFlash', 'flash');
-bindSwitch('swAudio', 'audio', v => {
-  const on = !!v;
-  if (on) AU.unmute(); else AU.mute();
-  const aix = $('aix');
-  if (aix) aix.textContent = on ? 'ON' : 'OFF';
-  CFG.audio = on;
-});
-// PR-AU-1: read-only facade seeds the panel label at seed time (audio row)
-(function seedAudioRow() {
-  const aix = $('aix');
-  if (!aix) return;
-  aix.textContent = AU.onOff() === 'on' ? 'ON' : 'OFF';
-})();
-// PR-AU: one-arm switch — no second arm; the apply callback owns the toggle + readback.
 bindSwitch('swScan', 'scan', v => document.body.classList.toggle('noscan', !v));
 bindSwitch('swGrain', 'grain', v => document.body.classList.toggle('nograin', !v));
 bindSwitch('swHit', 'hitbox');
@@ -6839,6 +7307,18 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.0',
+    items: [
+      'Sign in with a one-tap email code (or Google, once enabled), pick a ship-icon avatar, see your stats and rank, and switch the boards between Daily and All-time, now reachable from the title on every phone.'
+    ]
+  },
+  {
+    v: '4.28.0',
+    items: [
+      'Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.'
+    ]
+  },
   {
     v: '4.27.0',
     items: [
@@ -7291,18 +7771,6 @@ function runSelfTests() {
     const k = todaySeedKey();
     eq(hashStr('emberfall-' + k), hashStr('emberfall-' + k));
     ok(/^\d{4}-\d{2}-\d{2}$/.test(k), 'key shape');
-  });
-  T('outbox freshness filter', () => {
-    const now = Date.now(), k = todaySeedKey();
-    const q = [
-      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE + 6e4 },      // fresh
-      { mode: 'main', day: null, at: now - OUTBOX.MAX_AGE - 6e4 },      // too old
-      { mode: 'daily', day: k, at: now - 6e4 },                          // today's daily
-      { mode: 'daily', day: '2001-01-01', at: now - 6e4 }                // rotated-out daily
-    ];
-    const f = OUTBOX.fresh(q);
-    eq(f.length, 2, 'kept');
-    eq(f[0].at, q[0].at); eq(f[1].day, k);
   });
   T('combo tiers', () => {
     [0, 1, 4].forEach(c => eq(multFor(c), 1));
@@ -7823,6 +8291,51 @@ function runSelfTests() {
     ok(earned < DONATIONS[0].at, 'one run cannot out-earn a donation — the sink is real');
     META.donated = sv.d; META.alloy = sv.a;
   });
+  T('arcade confirm: hangar reset and yard donate ask in-game', () => {
+    /* Bounty Board frames the game and blocks window.confirm(), which made
+       these two buttons look dead. The step has to open, cancel cleanly,
+       and never touch the native dialog. */
+    ok(document.getElementById('s-ask'), 'confirm step is in the page');
+    const native = window.confirm;
+    let calls = 0;
+    window.confirm = () => { calls++; return false; };
+    const sv = { d: META.donated, a: META.alloy, state: GAME.state, ship: META.ship };
+    const hangWas = $('s-hangar').classList.contains('on');
+    try {
+      $('btnWipe').click();
+      ok($('s-ask').classList.contains('on'), 'reset opens the in-game step');
+      ok($('askMsg').textContent.indexOf('Erase all alloy') === 0, 'reset states what it erases');
+      eq($('btnAskYes').textContent, 'Reset progress');
+      $('btnAskNo').click();
+      ok(!$('s-ask').classList.contains('on'), 'cancel closes reset');
+      eq(META.alloy, sv.a, 'cancel does not wipe alloy');
+
+      META.alloy = DONATIONS[0].at; META.donated = 0;
+      renderDonations();
+      $('donateBox').querySelector('button').click();
+      ok($('s-ask').classList.contains('on'), 'donate opens the in-game step');
+      ok($('askMsg').textContent.indexOf('Donate ') === 0, 'donate names the alloy');
+      eq(META.alloy, DONATIONS[0].at, 'alloy stays until the pilot confirms');
+      eq(META.donated, 0, 'honor stays until the pilot confirms');
+      $('btnAskNo').click();
+      eq(META.donated, 0, 'cancel does not donate');
+
+      GAME.state = 'hangar';
+      showScreen('s-hangar', true);
+      let ran = false;
+      askConfirm('Leave the bay?', 'Reset progress', () => { ran = true; });
+      onKeyDown({ code: 'Escape', repeat: false, target: document.body, preventDefault() {} });
+      ok(!ran && !$('s-ask').classList.contains('on'), 'escape cancels and does not confirm');
+      ok($('s-hangar').classList.contains('on'), 'escape does not leave the hangar');
+      eq(calls, 0, 'window.confirm is never called');
+    } finally {
+      window.confirm = native;
+      dismissAsk();
+      META.donated = sv.d; META.alloy = sv.a; META.ship = sv.ship; GAME.state = sv.state;
+      if (!hangWas) showScreen('s-hangar', false);
+      onKeyUp({ code: 'Escape' });
+    }
+  });
   T('v4.4 feats: every claim in the registry is checkable and progressible', () => {
     const sv = { k: META.hullKills, m: META.mastery, p: META.paints.length };
     /* registry hygiene: unique ids, each new feat carries a prog line */
@@ -7930,76 +8443,8 @@ function runSelfTests() {
     GAME.lives = savedLives; GAME.state = savedState;
     R = savedR;
   });
-  T('save vault: sanitizer clamps, validates and defaults a hostile snapshot', () => {
-    const clean = sanitizeSnapMeta({
-      alloy: -50, ship: 'atlas', owned: ['atlas', 'ghost-hull', 42],
-      refits: { plating: 99, ordnance: -3 }, runs: 12.9, totalKills: '140',
-      paint: 'crimson', paints: ['crimson', 'nope'], sigil: 'rampart',
-      sigils: ['rampart', 'bogus'], donated: 1e12, skyLog: new Array(200).fill({ k: 'x' }),
-      dd: null, mastery: 'nope'
-    });
-    eq(clean.alloy, 0);                                    // negative clamps to 0
-    eq(clean.owned.join(','), 'atlas');                    // unknown hulls dropped
-    eq(clean.ship, 'atlas');                               // owned ship survives
-    eq(clean.refits.plating, 5);                           // clamped to the refit max (plating caps at 5)
-    eq(clean.refits.ordnance, 0);
-    eq(clean.runs, 12);                                    // fractional floors
-    eq(clean.totalKills, 140);                             // numeric strings coerce
-    eq(clean.paint, 'crimson');                            // owned paint survives
-    eq(clean.paints.join(','), 'crimson');                 // unknown paints dropped
-    eq(clean.sigil, 'rampart');                            // owned sigil survives
-    eq(clean.sigils.join(','), 'rampart');                 // unknown sigils dropped
-    eq(clean.donated, 1e9);                                // absurd values clamp
-    eq(clean.skyLog.length, 60);                           // log capped at 60
-    eq(clean.mastery, null);
-    eq(clean.dd.wave, 0);
-    eq(sanitizeSnapMeta(null), null);                      // garbage in, nothing out
-    const ghost = sanitizeSnapMeta({ ship: 'wraith' });    // unowned ship falls back
-    eq(ghost.ship, 'vesper');
-    eq(ghost.owned.join(','), 'vesper');
-  });
 
-  T('save vault: boot offer only for strictly richer snapshots', () => {
-    const rich = sanitizeSnapMeta({ owned: ['vesper', 'atlas'], totalKills: 5000, alloy: 8000 });
-    eq(vaultOfferWorthy(rich, { owned: ['vesper'], totalKills: 10 }), true, 'richer vault deserves the offer');
-    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 9000 }), false, 'equal-or-lesser stays quiet');
-    eq(vaultOfferWorthy(rich, { owned: ['vesper', 'atlas'], totalKills: 5000 }), false, 'equal record stays quiet');
-    eq(vaultOfferWorthy(null, { owned: [] }), false, 'garbage never offers');
-  });
 
-  T('daily gauntlet: weekly recap line covers every branch of the horizon', () => {
-    eq(weekRecapLine(null, 0), '', 'nothing flown: silence');
-    eq(weekRecapLine({ streak: 1 }, 0), 'streak 1 · 7 for the next laurel', 'day one: the horizon shows immediately');
-    eq(weekRecapLine({ streak: 0 }, 2), '2 days this week · 7 for the next laurel', 'a flown week with a broken streak still counts — and is shown the road');
-    eq(weekRecapLine({ streak: 3 }, 3), 'streak 3 · 3 days this week · 7 for the next laurel', 'the full horizon reads in one line');
-    eq(weekRecapLine({ streak: 14 }, 5), 'streak 14 · 5 days this week · 30 for the next laurel', 'the next laurel skips past reached milestones');
-    eq(weekRecapLine({ streak: 30 }, 4), 'streak 30 · 4 days this week', 'a maxed streak drops the horizon clause');
-    eq(weekRecapLine({ streak: 7 }, 1), 'streak 7 · 1 day this week · 14 for the next laurel', 'singular day reads correctly');
-  });
-  T('daily gauntlet: medal pips render the deck ledger compactly', () => {
-    eq(medalPips(undefined), '', 'no ledger entry: no pips');
-    eq(medalPips([]), '', 'empty ledger entry: no pips');
-    eq(medalPips(['Crest']), ' <span style="color:var(--gold)">Crest</span>', 'one medal renders as one gold name');
-    eq(medalPips(['Crest', 'Crown', 'Eclipse']).includes('Crest·Crown·Eclipse'), true, 'multiple medals join with interpuncts');
-    /* hostile ledger entry must not inject — the ledger is server-owned but
-       the renderer stays defensive because it interpolates into innerHTML */
-    const evil = medalPips(['<img src=x onerror=alert(1)>']);
-    ok(!evil.includes('<img'), 'ledger names are escaped before interpolation');
-  });
-  T('daily gauntlet day board shows the streak beside your row', () => {
-    /* mirror of the renderer's exact expression (js/net.js renderDayBoard) */
-    const streakLine = me => (me && me.streak > 1) ? ' · streak ' + me.streak : '';
-    eq(streakLine({ streak: 1 }), '', 'a single day shows no streak tag');
-    eq(streakLine({ streak: 4 }), ' · streak 4', 'a running streak is advertised');
-    eq(streakLine(null), '', 'no daily block: no streak tag');
-    const you = { rank: 2, name: 'PILOT', s: 12345 };
-    NET.meDaily = { streak: 4 };
-    const html = '<div class="row me"><span class="rk">#' + you.rank + '</span>' +
-      '<span class="nm">' + esc(you.name) + '</span>' +
-      '<span class="sc">' + padN(you.s, 7) + '</span><span class="wv">you · today' + streakLine(NET.meDaily) + '</span></div>';
-    ok(html.includes(' · streak 4</span>'), 'streak renders inside the you-row');
-    NET.meDaily = null;
-  });
   T('daily gauntlet day board: seed-key contract, row shape, mutator binding', () => {
     /* the day string IS the seed key — one regex pins the contract for both
        sides (client derives the run seed from it, server windows the board) */
@@ -8037,54 +8482,13 @@ function runSelfTests() {
     ok(['glass', 'swarm', 'overkill'].includes(todayMutator().id), 'mutator comes from the registry');
   });
 
-  T('cloud profile merge converges and rejects stale', () => {
-    const snap = JSON.stringify(META), savedT = DB.get('meta.updated', 0);
-    META.alloy = 100; META.owned = ['vesper']; META.ship = 'vesper';
-    META.refits = { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 };
-    META.feats = {}; META.sky = { comets: 0, golden: 0, fleets: 0 };
-    DB.set('meta.updated', 1000);
-    NET.mergeProfile({ updated: 500, data: { meta: { alloy: 9999 } } });
-    eq(META.alloy, 100, 'stale server profile is ignored');
-    NET.mergeProfile({ updated: 2000, data: { meta: {
-      alloy: 555, owned: ['vesper', 'halcyon'], refits: { plating: 2 },
-      feats: { tfx: 1 }, ship: 'halcyon',
-      sky: { comets: 7, golden: 2, fleets: 3 }
-    } } });
-    eq(META.alloy, 555, 'alloy raised to cloud value');
-    ok(META.owned.includes('halcyon'), 'cloud hull unlocked');
-    eq(META.refits.plating, 2, 'cloud refit merged');
-    ok(META.feats.tfx, 'cloud feat merged');
-    eq(META.sky.comets, 7, 'cloud sky comets merged');
-    eq(META.sky.golden, 2, 'cloud sky golden merged');
-    eq(META.ship, 'halcyon', 'ship follows cloud');
-    Object.assign(META, JSON.parse(snap)); DB.set('meta.updated', savedT); saveMeta();
-  });
   T('quality presets degrade in order', () => {
     const a = qualityFor(0), b = qualityFor(1), c = qualityFor(2);
     ok(a.maxParticles < b.maxParticles && b.maxParticles < c.maxParticles, 'particle budget climbs');
     ok(a.scale <= b.scale && b.scale <= c.scale, 'resolution climbs');
   });
-  T('persistence: skyLog merge union dedupes and interleaves', () => {
-    const snap = JSON.stringify(META.skyLog);
-    META.skyLog = [
-      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },
-      { k: 'fleet', w: 4, d: 1, a: 0, t: 2000, m: 'endless' }
-    ];
-    NET.mergeProfile({ updated: 9e12, data: { meta: { skyLog: [
-      { k: 'comet', w: 3, d: 1, a: 21, t: 1000, m: 'endless' },        // duplicate — must be dropped
-      { k: 'golden', w: 5, d: 2, a: 250, t: 1500, m: 'daily' },        // interleave by time
-      { k: 'pyre', w: 6, d: 1, a: 0, t: 3000, m: 'endless' }
-    ] } } });
-    eq(META.skyLog.length, 4, 'union keeps 4 unique entries');
-    eq(META.skyLog.map(e => e.t).join(','), '1000,1500,2000,3000', 'sorted chronologically');
-    META.skyLog = JSON.parse(snap);
-  });
-  T('persistence: streak fields merge max-style and migrate from old saves', () => {
+  T('persistence: streak fields migrate from old saves', () => {
     const s0 = META.sky.streakCur, b0 = META.sky.streakBest, c0 = META.sky.comets;
-    NET.mergeProfile({ updated: 9e12, data: { meta: { sky: { comets: 9999, golden: 1, fleets: 1, pyres: 1, streakCur: 990, streakBest: 999 } } } });
-    eq(META.sky.streakCur, 990, 'current streak takes the cloud max (live device may be ahead)');
-    eq(META.sky.streakBest, 999, 'best streak takes the cloud max');
-    eq(META.sky.comets, 9999, 'comets max-merged alongside');
     // legacy save without streak fields must load to zeros, not NaN
     loadMeta();
     ok(Number.isFinite(META.sky.streakCur) && Number.isFinite(META.sky.streakBest), 'legacy save migrates to finite zeros');
@@ -8138,96 +8542,9 @@ function runSelfTests() {
     const part = profStats(r, 2);   // half-filled ring reads only the filled prefix
     ok(part.max === 16 && part.p50 === 16 && Math.abs(part.mean - 12) < 1e-9, 'partial fill respected');
   });
-  T('v4.22 pilot links: pilotUrl encodes names and rides the deck address', () => {
-    const savedDeck = NET.deck, savedOn = NET.on;
-    NET.deck = '';
-    NET.on = true;
-    eq(pilotUrl('Ace'), location.origin + '/pilot/Ace', 'default deck is this origin');
-    eq(pilotUrl('ACE ONE'), location.origin + '/pilot/ACE%20ONE', 'names URL-encoded');
-    NET.deck = 'https://deck.example.com';
-    eq(pilotUrl('Ace'), 'https://deck.example.com/pilot/Ace', 'remote deck address rides along');
-    NET.on = false;
-    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'deckless mirror profile page');
-    NET.deck = savedDeck;
-    NET.on = savedOn;
-  });
-  T('v4.26.1 adopted deck: the ladder is choice, local, adopt, auto', async () => {
-    const savedDeck = NET.deck, savedAdopted = NET.DECK_ADOPTED, savedOn = NET.on;
-    const savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    const savedLocal = NET._localDeckAlive, savedProbed = NET.probed;
-    try {
-      ok(typeof NET.DECK_ADOPTED === 'string', 'the adoption record loaded (deck.json rides the page)');
-      NET.DECK_ADOPTED = 'https://adopt.example.com';
-      const begin = () => { NET.deck = ''; NET.probed = false; NET.probeP = null; NET.on = false; };
-      const freeze = p => { NET.probed = true; NET.probeP = null; return p.catch(() => false); };   /* take the ladder's decision, never the network */
-      /* 1. a local deck on THIS origin outranks adoption (the v3.2 story) */
-      begin();
-      NET._localDeckAlive = async () => 'ok';
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'local deck alive → stay on this origin (never hijacked to the world deck)');
-      /* 1b. an INCONCLUSIVE local check never adopts — a slow machine
-         must not steal a self-hosted pilot's boot onto the world deck */
-      begin();
-      NET._localDeckAlive = async () => 'unknown';
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'inconclusive local check → honest auto, no adoption');
-      /* 2. a definitive 404 → the adopted deck is dialed */
-      begin();
-      NET._localDeckAlive = async () => 'no';
-      await freeze(NET.probe());
-      eq(NET.deck, 'https://adopt.example.com', 'no local deck → the adopted world deck is dialed');
-      /* 3. adoption latches: a pilot who clears the field gets honest auto */
-      begin();
-      await freeze(NET.probe());
-      eq(NET.deck, '', 'cleared field after adoption → stays empty (no re-adopt this boot)');
-      /* 4. a stored choice outranks everything */
-      localStorage.setItem('emberfall2.deck', 'https://mine.example.com');
-      NET.deck = 'https://mine.example.com';
-      await freeze(NET.probe());
-      eq(NET.deck, 'https://mine.example.com', 'stored choice outranks adoption');
-    } finally {
-      NET.DECK_ADOPTED = savedAdopted; NET.deck = savedDeck; NET.probed = savedProbed; NET.probeP = null;
-      NET.on = savedOn; NET.token = savedTok; NET._localDeckAlive = savedLocal;
-      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-    }
-  });
-  T('v4.22 setDeck: trims the address, clears the bearer, restores clean', () => {
-    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    try { localStorage.setItem('emberfall2.token', 'tok-abc'); } catch (e) { }
-    NET.token = 'tok-abc';
-    NET.setDeck('  https://deck.example.com/  ');
-    eq(NET.deck, 'https://deck.example.com', 'address trimmed, trailing slash gone');
-    ok(!NET.token, 'switching decks drops the old bearer');
-    ok(!localStorage.getItem('emberfall2.token'), 'bearer removed from the store');
-    NET.setDeck(savedDeck);
-    NET.token = savedTok;
-    try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-  });
-  T('deck address: embeds and hostile URLs cannot retarget credentials', () => {
-    ok(deckUrlAllowed('https://emberfall-deck.fly.dev'), 'https deck');
-    ok(deckUrlAllowed('http://127.0.0.1:8165'), 'loopback drill deck');
-    ok(!deckUrlAllowed('javascript:alert(1)'), 'javascript scheme refused');
-    ok(!deckUrlAllowed('https://user:pass@evil.example'), 'userinfo refused');
-    ok(!deckUrlAllowed('https://evil.example/?q="><img>'), 'markup refused');
-    ok(!deckUrlAllowed(''), 'blank is not an address');
-    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', true), '', 'cross-origin embed ignores the query and the stored override');
-    eq(chooseDeckAddress('https://evil.example', 'https://mine.example', false), 'https://evil.example', 'top-level ?deck= still wins');
-    eq(chooseDeckAddress(null, 'https://mine.example', false), 'https://mine.example', 'stored choice stands when no query');
-    eq(chooseDeckAddress('', 'https://mine.example', false), '', 'empty ?deck= clears back to auto');
-    eq(chooseDeckAddress('"><img>', 'https://mine.example', false), 'https://mine.example', 'hostile query falls through to the stored deck');
-    eq(chooseDeckAddress(null, 'javascript:alert(1)', false), '', 'poisoned storage is dropped');
-    const savedDeck = NET.deck, savedTok = NET.token, savedLs = localStorage.getItem('emberfall2.deck');
-    try {
-      NET.deck = 'https://keep.example';
-      NET.token = 'keep-tok';
-      NET.setDeck('javascript:alert(1)');
-      eq(NET.deck, 'https://keep.example', 'setDeck refuses a non-http address');
-      eq(NET.token, 'keep-tok', 'a refused address does not drop the session');
-    } finally {
-      NET.deck = savedDeck;
-      NET.token = savedTok;
-      try { savedLs === null ? localStorage.removeItem('emberfall2.deck') : localStorage.setItem('emberfall2.deck', savedLs); } catch (e) { }
-    }
+  T('pilot links: pilotUrl encodes names for the public profile page', () => {
+    eq(pilotUrl('Ace'), 'pilot.html?callsign=Ace', 'public profile page');
+    eq(pilotUrl('ACE ONE'), 'pilot.html?callsign=ACE%20ONE', 'names URL-encoded');
   });
   T('battery default: touch devices cap at 60, desktop uncapped', () => {
     eq(touchFpsDefault(), isTouchDevice() ? 60 : 0, 'coarse default');
@@ -8582,13 +8899,6 @@ function runSelfTests() {
     eq(META.feats.wardenfall, first, 'the feat never re-mints');
     applyDailyResult({ daily: { streak: 4, paid: 0, total: 0, wardenfall: 1, wardenfalls: 3 } });
     eq(META.daily.wardenfalls, 3, 'the deck\'s lifetime count reconciles a second fall instantly');
-    /* whoami adoption path: NET.adoptLedger carries the lifetime count */
-    META.daily = { streak: 1 }; delete META.feats.wardenfall;
-    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 3 });
-    eq(META.daily.wardenfalls, 3, 'a fresh device learns its falls from /api/me');
-    ok(META.feats.wardenfall, 'the honor mints on adoption — mid-history devices wear it too');
-    NET.adoptLedger({ daily: { total: 0 }, wardenfalls: 1 });
-    eq(META.daily.wardenfalls, 3, 'adoption never lowers');
     META.daily = preD; if (preF) META.feats.wardenfall = preF; else delete META.feats.wardenfall; saveMeta();
   });
   T('daily gauntlet: streak feats predict, gift, and stay mode-honest', () => {
@@ -8625,57 +8935,9 @@ function runSelfTests() {
       eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');
     } finally { META.alloy = pre.alloy; META.daily = pre.daily; saveMeta(); }
   });
-  T('two-device ledger adoption — fresh device raises, never lowers, never double-banks', () => {
-    /* the live-fire drill's contract, pinned: whoami()/login() adopt the
-       deck's lifetime view — watermark and flawless count rise to the
-       ledger, the feat rings once, and no alloy coin is minted client-side */
-    const pre = { paid: META.dailyPaid || 0, seasons: (META.daily && META.daily.perfectSeasons) || 0, feat: !!META.feats.perfectseason, alloy: META.alloy };
-    try {
-      NET.adoptLedger({ daily: { total: 4290 }, perfectSeasons: 0 });
-      eq(META.dailyPaid, 4290, 'watermark rises to the deck total');
-      eq(META.alloy, pre.alloy, 'adoption mints nothing — the payout was banked elsewhere');
-      ok(!META.feats.perfectseason, 'no seasons, no feat');
-      NET.adoptLedger({ daily: { total: 5120 }, perfectSeasons: 1 });
-      eq(META.dailyPaid, 5120, 'watermark tracks the ledger upward');
-      eq(META.daily && META.daily.perfectSeasons, 1, 'a fresh device learns its flawless season');
-      ok(META.feats.perfectseason, 'the feat returns with the pilot');
-      NET.adoptLedger({ daily: { total: 100 }, perfectSeasons: 0 });
-      eq(META.dailyPaid, 5120, 'a smaller or stale total never lowers the watermark');
-      eq(META.daily && META.daily.perfectSeasons, 1, 'the count never falls');
-      eq(NET.req ? typeof NET.adoptLedger : 'missing', 'function', 'the seam is real');
-    } finally {
-      META.dailyPaid = pre.paid; if (META.daily) META.daily.perfectSeasons = pre.seasons;
-      if (!pre.feat) delete META.feats.perfectseason; META.alloy = pre.alloy; saveMeta();
-    }
-  });
-  T('listening deck: client contracts, no server needed', () => {
-    ok(typeof NET.sendFeedback === 'function', 'sendFeedback exists on NET');
-    ok(typeof NET.funnel === 'function', 'funnel emitter exists on NET');
-    const btn = $('btnSendFb'), input = $('fbText');
-    ok(!!btn && !!input, 'the game-over widget exists in the markup');
-    eq(btn.tagName, 'BUTTON', 'send is a real button (AT-clickable)');
-    ok(input.getAttribute('aria-label') && input.getAttribute('aria-label').length > 12, 'the note input is labeled for screen readers');
-    const fbQueueSrc = fbQueue.toString();
-    ok(fbQueueSrc.includes('emberfall2.fb'), 'the offline queue has its own storage key');
-    ok(typeof flushFeedback === 'function' && flushFeedback.toString().includes('for (const item of q)'), 'flush drains the whole queue, not just one');
-    const probeSrc = NET.probe.toString();
-    ok(probeSrc.includes('probeP'), 'probe joins its own in-flight handshake (the stale-false race is fenced)');
-    ok(NET.funnel.toString().includes('catch'), 'funnel fails silent — signal never disturbs play');
-  });
-  T('google sign-in: client contracts, no server needed', () => {
-    ok(typeof NET.googleSignIn === 'function', 'googleSignIn exists on NET');
-    ok(NET.googleSignIn.toString().includes('/api/auth/google'), 'it posts the credential to the deck\'s own verifier route');
-    const armSrc = typeof armGoogle === 'function' ? armGoogle.toString() : '';
-    ok(armSrc.includes('google.accounts.id'), 'the GSI library is initialized — never the page credential flow');
-    ok(armSrc.includes('catch'), 'armGoogle fails silent — the panel must never break over Google');
-    ok(NET.probe.toString().includes('googleClientId'), 'the probe reads the deck\'s announced client id');
-    const box = $('googleBox'), host = $('gBtnHost');
-    ok(!!box && !!host, 'the Google row exists in the account panel markup');
-    ok(box.classList.contains('hidden'), 'unarmed state stays hidden — an unconfigured deck shows no Google');
-  });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.27.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -8736,10 +8998,6 @@ function finishBoot() {
   AU.init(); AU.resume(); MUSIC.start(); AU.uiBig(); AU.unlockiOS();
   showScreen('s-boot', false);
   keepAwake(true);
-  /* v4.25 funnel: boot — the deck dedupes per device per day (salted hash);
-     any feedback queued offline on the last flight rides along now */
-  NET.funnel('boot');
-  flushFeedback();
   toTitle();
 }
 $('s-boot').addEventListener('pointerdown', finishBoot);
@@ -8748,6 +9006,7 @@ $('s-boot').addEventListener('click', finishBoot);
 function boot() {
   applyPortalChrome();
   loadCfg();
+  applyTouchBtnCfg();
   SETTING_PAINTS.forEach(p => p());   // saved prefs repaint switches/segments
   loadMeta();
   armSkyTraffic();   // scale the sky schedulers' initial countdowns to the saved Sky traffic setting
@@ -8768,11 +9027,6 @@ function boot() {
   GAME.best = (loadBoard('main')[0] || { s: 0 }).s;
   renderBoard($('tab-scores'), 'main', null);
   refreshTitleMeta();
-  NET.probe().then(() => { paintAccount(); refreshTitleMeta(); });
-  // on-the-go resilience: drain the outbox when connectivity returns,
-  // and retry gently every 2 min in case the deck came back unattended
-  addEventListener('online', kickOutbox);
-  setInterval(() => { if (OUTBOX.load().length) kickOutbox(); }, 120000);
   P.x = W / 2; P.y = H * .82;
   INPUT.aimX = P.x; INPUT.aimY = P.y;
   ATTRACT.x = W / 2; ATTRACT.y = H * .68;
