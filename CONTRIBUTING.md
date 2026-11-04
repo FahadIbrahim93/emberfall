@@ -34,4 +34,14 @@ The browser suite serves the static site itself with `tools/serve-static.mjs` (p
 
 ## Security
 
+### Updating GitHub Actions
+
+Workflow actions use full commit SHAs. Dependabot proposes updates and keeps
+the release tag in the adjacent comment. When updating manually, resolve the
+official action repository's release tag, dereference an annotated tag to its
+commit, review that revision's release notes and `action.yml`, then replace
+the SHA and tag comment together. Run `node tools/check-actions.mjs` and the
+normal CI checks before merging; branch names, short SHAs, and mutable tags
+are rejected, including references in reusable workflows and YAML aliases.
+
 Please don't open public issues for security problems. See [SECURITY.md](SECURITY.md).
