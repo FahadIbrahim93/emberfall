@@ -2,6 +2,9 @@
   "name": "emberfall",
   "private": true,
   "scripts": {
+    "build:site": "node tools/site-payload.mjs build",
+    "test:release": "node --test tools/check-actions.test.mjs tools/site-payload.test.mjs tools/release-source.test.mjs",
+    "verify:site": "node tools/site-payload.mjs verify",
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
     "test:sim": "vitest run",
