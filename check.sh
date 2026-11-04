@@ -6,6 +6,8 @@ set -e
 # stubguard first (2026-09-21 incident): fail in seconds with the restore
 # recipe if index.html ever stops being the game, instead of dying mid-battery.
 node tools/stubguard.js
+node tools/check-actions.mjs
+node --test tools/check-actions.test.mjs
 for f in js/*.js; do node --check "$f"; done
 node -e '
 const fs = require("fs"), vm = require("vm");
