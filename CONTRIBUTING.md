@@ -45,4 +45,9 @@ the SHA and tag comment together. Run `node tools/check-actions.mjs` and the
 normal CI checks before merging; branch names, short SHAs, and mutable tags
 are rejected, including references in reusable workflows and YAML aliases.
 
+Release credentials are step-scoped environment variables. Install the pinned
+CLI before exposing them, never put tokens in command arguments, and run
+`npm run test:release` after workflow changes. The release policy gate rejects
+job-wide credentials and package execution with a release token available.
+
 Please don't open public issues for security problems. See [SECURITY.md](SECURITY.md).

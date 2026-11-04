@@ -7,6 +7,7 @@ set -e
 # recipe if index.html ever stops being the game, instead of dying mid-battery.
 node tools/stubguard.js
 node tools/check-actions.mjs
+node tools/release-policy.mjs
 node --test tools/check-actions.test.mjs
 for f in js/*.js; do node --check "$f"; done
 node -e '

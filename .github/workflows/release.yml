@@ -54,10 +54,10 @@ jobs:
     environment: vercel-production
     env:
       RELEASE_SHA: ${{ inputs.commit }}
+      RELEASE_RUN_ID: ${{ inputs.run_id }}
       VERCEL_ORG_ID: team_dQhygReHfUO67Sajlaz6X4gJ
       # This project owns the public emberfall-game-two.vercel.app alias.
       VERCEL_PROJECT_ID: prj_8qgnVQhyDTxSea2j53tGAVYwvOy0
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -73,13 +73,16 @@ jobs:
           run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
       - name: Prepare exact tested bytes for Vercel
-        run: |
-          test -n "$VERCEL_TOKEN" || { echo 'Configure VERCEL_TOKEN in the vercel-production environment'; exit 1; }
-          node tools/site-payload.mjs vercel --commit "$RELEASE_SHA"
+        run: node tools/site-payload.mjs vercel --commit "$RELEASE_SHA"
+      - name: Install pinned CLI without release credentials
+        run: npm install --global --ignore-scripts vercel@65.11.0
       - name: Stage in production environment without assigning domains
         id: stage
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          deployment=$(npm exec --yes --package=vercel@65.11.0 -- vercel deploy --cwd dist/site --prebuilt --prod --skip-domain --yes --token "$VERCEL_TOKEN")
+          test -n "$VERCEL_TOKEN" || { echo 'Configure VERCEL_TOKEN in the vercel-production environment'; exit 1; }
+          deployment=$(vercel deploy --cwd dist/site --prebuilt --prod --skip-domain --yes --meta releaseCommit="$RELEASE_SHA" --meta releaseRun="$RELEASE_RUN_ID")
           DEPLOYMENT_URL="$deployment" node -e 'const u=new URL(process.env.DEPLOYMENT_URL); if(u.protocol!=="https:" || !u.hostname.endsWith(".vercel.app") || u.pathname!=="/") process.exit(1)'
           echo "url=$deployment" >> "$GITHUB_OUTPUT"
       - name: Verify staged manifest, sign-in library and every asset
@@ -91,7 +94,8 @@ jobs:
         if: inputs.promote
         env:
           DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
-        run: npm exec --yes --package=vercel@65.11.0 -- vercel promote "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel promote "$DEPLOYMENT_URL"
       - name: Verify public domain routing and release identity
         if: inputs.promote
         run: |
