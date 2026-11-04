@@ -31,14 +31,20 @@ async function waitForServer(url, ms) {
 }
 
 (async () => {
+  const { buildSite, currentCommit, verifySite } = await import('./site-payload.mjs');
+  const path = require('node:path');
+  const source = path.resolve(__dirname, '..');
+  const root = path.resolve(source, process.env.EMBERFALL_SITE_ROOT || 'dist/site');
+  if (!process.env.EMBERFALL_SITE_ROOT) buildSite(source);
+  const expected = verifySite(root, currentCommit(source));
   /* If something already serves the game on the port, attach to it instead
      of spawning a second static server (that would just EADDRINUSE). */
   let server = null;
   let up = false;
   try { const r = await fetch(`http://127.0.0.1:${PORT}/index.html`); up = r.ok; } catch (e) { /* none */ }
   if (!up) {
-    server = spawn(process.execPath, ['tools/serve-static.mjs', '--port', String(PORT)], {
-      env: { ...process.env, PORT: String(PORT) },
+    server = spawn(process.execPath, ['tools/serve-static.mjs', '--release', '--port', String(PORT)], {
+      env: { ...process.env, PORT: String(PORT), EMBERFALL_SITE_ROOT: root },
       stdio: ['ignore', 'pipe', 'pipe']
     });
   }
@@ -50,6 +56,11 @@ async function waitForServer(url, ms) {
 
   try {
     await waitForServer(`http://127.0.0.1:${PORT}/index.html`, 20000);
+
+    const served = await fetch(`http://127.0.0.1:${PORT}/release-manifest.json`);
+    if (!served.ok || JSON.stringify(await served.json()) !== JSON.stringify(expected)) {
+      throw new Error('selftest server is not serving the tested release payload');
+    }
 
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
