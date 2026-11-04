@@ -41,7 +41,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 ## How it works
 
 - The game is one `index.html` plus a handful of plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
-- It's hosted as static files on Vercel. Every push to `main` deploys there automatically (a copy also goes to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/)).
+- It's hosted as static files on Vercel. Production promotion is explicit; green `main` CI publishes its tested artifact to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/). See the [deployment procedure](docs/DEPLOYMENT.md).
 - Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
 - Scores aren't replayed on a server, so a determined cheater could still post a fake score within bounds. Boss Rush, offline play and portal builds keep scores on the device.
 

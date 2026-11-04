@@ -11,7 +11,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 
 (async () => {
-  const server = spawn(process.execPath, ['tools/serve-static.mjs', '--port', String(PORT)], { stdio: 'ignore' });
+  const server = spawn(process.execPath, ['tools/serve-static.mjs', '--release', '--build', '--port', String(PORT)], { stdio: 'ignore' });
   await new Promise(r => setTimeout(r, 1500));
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
