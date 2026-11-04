@@ -8,6 +8,7 @@ set -e
 node tools/stubguard.js
 node tools/stubguard-output.test.js
 node tools/check-actions.mjs
+node tools/release-policy.mjs
 node --test tools/check-actions.test.mjs
 for f in js/*.js; do node --check "$f"; done
 node -e '
