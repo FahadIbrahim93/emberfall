@@ -1,0 +1,58 @@
+# Emberfall implementation backlog
+
+**Accepted direction:** repair foundations, earn polish, then expand. This is the sole implementation backlog. Earlier expansion phases and PR #59 assumptions are superseded where they conflict below. One issue per branch/PR; humans review and merge. Complete each gate before dependent work. Status requires evidence, not a promised review score.
+
+## Locked scope
+
+Free browser arcade; free tiers first, paid upgrades need an owner decision. Preserve WRAITH, art direction, survival Daily waves/medals/Wardenfall, keyboard/touch/gamepad, offline and `file://`. Polish before content. Signed-in careers synchronize; guests keep local careers. Extract typed classic JavaScript modules shared by gameplay/tests and remove duplicate simulation. Ranked Daily ignores career power. Cloud saves protect consistency, not legitimate earnings.
+
+## Gate 0 — trustworthy releases (active)
+
+| Work | Issue / evidence | Status |
+|---|---|---|
+| Immutable Actions and structural validation | [#49](https://github.com/FahadIbrahim93/emberfall/issues/49), [PR #65](https://github.com/FahadIbrahim93/emberfall/pull/65) | Merged into main as `5895d50`; main verification passed |
+| Main protection: current-revision checks, PRs, resolved conversations, administrators enforced, no force push/deletion | GitHub protection read back 2026-11-04; required gates and portal checks | Configured; humans merge |
+| Read-only verification, measurement artifacts, one hashed/tested payload reused by hosts, separate portal validation | [#66](https://github.com/FahadIbrahim93/emberfall/issues/66), [PR #68](https://github.com/FahadIbrahim93/emberfall/pull/68) | Implemented and tested; #67 merged only into `issue-49`; corrective #68 targets main and needs human merge |
+| Stage before explicit production promotion | Auto-assign domains disabled on both projects; `vercel-production` restricted to main with owner review; public alias still serves `dpl_BVJTJXN7iWE1vu1puEYXTapDCDik` | Configured 2026-11-04; artifact workflow awaits merge and owner environment secrets |
+| Reconcile duplicate projects without moving origins | Public `emberfall-game-two.vercel.app` belongs to **emberfall-game**; retain both projects/aliases | Mapping recorded; no deletion |
+| Reconcile stale work | #41 closed as superseded by shipped in-game confirmation; #44 still open for diagnostic hardening; #49 reopened; #15–17 rewritten for current Supabase contracts | Reconciled; #44 needs human review/merge |
+| Rehearse release and restore | [Deployment procedure](../DEPLOYMENT.md); record both manifests and promotion/restore workflow URLs here | Pending manifest-bearing main releases and owner promotion |
+
+**Exit:** damaged payload rejected before publication; both hosts serve the tested release; previous release restoration rehearsed. Local negative tests alone do not complete production exit. No dependent gameplay work has started.
+
+## Gates 1–7 (pending Gate 0 exit)
+
+| Gate | Scope | Exit evidence |
+|---|---|---|
+| 1: player defects | Daily gameplay seed for world/hazards; bind day at launch; reconnect streak/medal/payout/flawless/Wardenfall adoption without threshold changes; idempotent completion; persisted guest/account posting mode; persist actual run before signup and remove only after acknowledgement; independent portal Boards/local rankings without sign-in; focus restoration; correct Daily labels and obsolete claims | Reproduce every audited production failure, then pass regressions for midnight, repeated callbacks, improved scores, reward boundaries and retries |
+| 2: persistence/accounts | Additive SELECT-only security-invoker view grants and role tests; serialize per-user quota; deduplicate before charging; exact bigint API/display/order/rank; source mode, competition ranks `1,1,3`; indexed cursor boards with fixed watermark; supported views; SMTP/redirect/recovery/session/provider tests; recent-auth export/deletion and session revocation | Grants/ownership/concurrent quota/idempotency/pagination/deletion tests plus owner email/recovery verification |
+| 2: cloud careers | Owned versioned snapshots; local-first saves after runs/debounced hangar edits; revision/save ID/CAS; retain conflicts and offer title-screen choice; explicit guest import with both summaries; bounded recovery history and validated export/import; never sum currency automatically | Two devices, offline changes, concurrent purchases, interrupted uploads and account switching cannot silently lose/duplicate progress |
+| 3: shipped simulation | Catalog/configuration, simulation, presentation/audio, inputs, persistence/UI boundaries; create/tick/events/serialize/restore/result interface; no DOM/audio/network/storage/wall clocks/cosmetic RNG inside sim; sim clocks for delays/hazards/rewards; remove duplicate sim; repair types and enforce strict JSDoc/JS/test checks; structural checks | Captured behavior preserved; production/headless use the same modules; balance changes separate and versioned |
+| 4: deterministic Daily | Immutable day/seed/stage/modifier/hull/loadout/rules/content/policy package; one of five existing hulls available to all; Pilot; no refits/mastery score bonuses/sigils/assistance; 540×960 arena, equal input speed; preserve pickups/boons; separate encounter/drop/hazard/boon RNG; 120 Hz normalized tape; integer/fixed-point scored state and checked-in lookup data | Complete-state replay matches Node/Chromium/Firefox/WebKit across viewport/quality/cosmetic randomness; incompatible historical rankings separate |
+| 5: server verification | Vercel Node start/chunk/finalize with private Supabase records; account/package binding; server checkpoints only; ≤60-sim-second chunks; actual bytes plus digest; atomic checkpoint/ack, idempotent retries, reject conflicts/gaps/overlaps; simulated authoritative outcome; registered ranked intake; local guest/offline/outage play; explicit legacy labels | Score/seed/version/tape/checkpoint/quota attacks rejected; worst-case p95 CPU ≤500 ms, hard budget; remain disabled if benchmarks fail |
+| 6: finished experience | Threats/telegraphs/hit/death/HUD; immediate retry/cause/one improvement; remapping/touch sensitivity/left-handed/cooldowns/consistent activation; menu zoom and gameplay-only gesture suppression; focus/modals/contrast/non-color cues/motion/flash/screen reader; observed pacing/progression; visuals never change income; cosmetic prestige; exact-package sharing and truthful cards with copy/download fallback | Device, accessibility, performance and human gates below |
+| 7: Heliox slice | Correct schema required fields/references/IDs/version rules; heat survival, convoy protection, boss/extraction via shared interfaces; distinct decisions/safe introductions/readable failures/score opportunities; measured procedural art/audio; existing hulls first | Human comprehension/fairness/retry, replay/accessibility/performance evidence before more systems or six new planes; one sidegrade at a time |
+
+### Corrected public contracts
+
+- `submit_run_v2`: run ID, source mode, bound package/day, rules/content versions, exact score, validated stats. Acknowledgement includes verification state and idempotent Daily reward/streak result. Old score RPC remains client-reported compatibility.
+- `load_career`, `save_career(expectedRevision, saveId, snapshot)`: ownership, revision CAS, idempotency. Conflict returns current revision/comparison summary without overwrite.
+- Replay v1: **120 Hz**, six bytes/tick: signed int16 LE movement x/y, action bits, boon-choice byte. Chunk includes run ID, sequence, tick range, SHA-256 **and actual bytes**. Reject reserved bits, invalid choices, gaps/overlaps and mismatched versions.
+- Pages calls canonical API using bearer account auth/exact origin allowlist. Finalize verified terminal outcomes only. Replay consistency is not proof of human/unassisted play. Historical scores are never grandfathered into verified boards.
+- Verification: 300 accepted chunks/account/UTC day (five simulation hours), completion within 24 h after package day, compatible verifiers retained through grace; tapes seven days, best evidence thirty days. Alert at 80%; reserve active-run capacity and stop intake before exhaustion. Local play continues.
+
+### Reuse from expansion work
+
+Retain EXP-001/006 ID/schema validation, EXP-007/008 classic-script seams/timelines, EXP-010–013 Heliox readability/three stages, EXP-017 sharing after prerequisites. EXP-003/015/018 use the corrected Daily/replay contracts. EXP-004 uses privacy rules below. EXP-005/019/020 require observed human/device evidence. Defer EXP-009/014 six-plane work until the existing-hull slice passes. No mandatory three-mission deck or six-plane dependency.
+
+## Cross-cutting acceptance and operations
+
+- No unexplained type errors or unresolved critical/high defect. Preserve coverage while moving onto production code. Malicious callsigns/URLs/imports/replays/oversized data fail safely. Deliberately break critical invariants in disposable runs and observe failure.
+- Economy asserts tolerance (±10% repair anchor drift); reviewed replacement baseline for balance changes. FPS measures real frame intervals independently of clamped sim time. Replay fixtures cover hulls/bosses/hazards/pauses/boons/long survival.
+- Chromium/Firefox/WebKit plus physical older iPhone, low-end Android, current desktop. Target 60 fps desktop/current phones and ≥30 fps supported low-end using frame-time distributions. Twenty-minute thermal/high-wave sessions; fresh/offline/interrupted updates, multiple tabs, old clients, `file://`, Pages subpaths and framed portal.
+- Pin PWA sessions to complete releases, update between runs, delete only Emberfall caches, never substitute HTML for missing scripts. Current service worker has not earned this guarantee.
+- Human study: six experienced + six casual desktop, four Android, two iOS, two additional low-end users. Targets: 18/20 start unaided within 30 s; 17/20 explain graze/combo/Daily; 16/20 explain observed deaths; 14/20 voluntarily retry; no recurring segment blocker. Fresh participants validate revisions. Project targets, not industry/retention benchmarks; measure returns separately with consent.
+- Owner supplies verified sender domain/SMTP (Resend free default), reviews migrations/configuration/PRs and recruits testers. Use local Supabase/captured email; activate saves/Daily/verification separately. No agent live migrations.
+- Encrypted off-site backups: seven daily/four weekly, isolated restore monthly. Monitor release/errors/assets/auth/submission/queue/verification cost/backup/resource health. Configure free-tier budgets; no unlimited-free or paid-reliability claims.
+- Opt-in first-party versioned funnel events, closed fields, thirty-day raw retention; no email/account joins, raw IP/full referrer/free-form gameplay payloads. Failure never blocks play.
+- Final reassessment repeats original scoring categories with evidence. Declare achievement only after repair, shared sim, saves, verification, device, operational and human gates pass.

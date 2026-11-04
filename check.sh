@@ -7,6 +7,8 @@ set -e
 # recovery guidance if index.html ever stops being the game.
 node tools/stubguard.js
 node tools/stubguard-output.test.js
+node tools/check-actions.mjs
+node --test tools/check-actions.test.mjs
 for f in js/*.js; do node --check "$f"; done
 node -e '
 const fs = require("fs"), vm = require("vm");

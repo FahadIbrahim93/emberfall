@@ -14,10 +14,11 @@ You need Node 22 or newer.
 npm ci
 bash check.sh                 # syntax of every module and inline script
 node deadscan.js --check      # dead code, load order, XSS sinks
-npm test                      # sim tests + Playwright + the in-game self-test (63 checks)
+npm run test:release          # payload, provenance and workflow-action regressions
+npm test                      # sim tests + Playwright + the in-game self-test
 ```
 
-The browser suite serves the static site itself with `tools/serve-static.mjs` (port 8123; set `E2E_PORT` to move it). After changing the self-test suite, regenerate its baseline with `node tools/selftest-baseline.js`, but only on a green run, and commit it with the change.
+The browser suite builds and serves the release artifact with `tools/serve-static.mjs` (port 8123; set `E2E_PORT` to move it). CI builds once and sets `EMBERFALL_SITE_ROOT=dist/site` to reuse that exact payload. After changing the self-test suite, regenerate its baseline with `node tools/selftest-baseline.js`, but only on a green run, and commit it with the change. CI measurements are artifacts; historical fun-curve updates go through reviewed PRs.
 
 ## House rules
 
@@ -33,5 +34,15 @@ The browser suite serves the static site itself with `tools/serve-static.mjs` (p
 - Keep PRs small. CI checks a lot, but a person still reads every one.
 
 ## Security
+
+### Updating GitHub Actions
+
+Workflow actions use full commit SHAs. Dependabot proposes updates and keeps
+the release tag in the adjacent comment. When updating manually, resolve the
+official action repository's release tag, dereference an annotated tag to its
+commit, review that revision's release notes and `action.yml`, then replace
+the SHA and tag comment together. Run `node tools/check-actions.mjs` and the
+normal CI checks before merging; branch names, short SHAs, and mutable tags
+are rejected, including references in reusable workflows and YAML aliases.
 
 Please don't open public issues for security problems. See [SECURITY.md](SECURITY.md).

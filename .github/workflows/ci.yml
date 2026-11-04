@@ -1,9 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: ['**']
   pull_request:
+  push:
+    branches: ['main']
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -11,26 +11,39 @@ concurrency:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   verify:
     name: gates (syntax · dead-code · tests · economy)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # the fun-curve recorder may commit + push a newly-measured version's point
-    permissions:
-      contents: write
+    env:
+      EMBERFALL_SITE_ROOT: dist/site
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          node-version: 22
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
+
+      - name: Release safety regressions
+        run: npm run test:release
+
+      - name: Build the release once
+        run: npm run build:site
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -53,34 +66,39 @@ jobs:
       - name: Rare-Sunday verdict math (wardenfall-check, pure)
         run: node tools/wardenfall-check.mjs
 
-      - name: Browser suite (static server, tools/serve-static.mjs)
+      - name: Browser suite (exact packaged release)
         run: npm run test:browser
-
-      # The bot's own flight record is the fun curve: when the browser suite
-      # just flew a NEW version for the first time on main, distill its
-      # audited artifacts into the committed snapshot + README trend table
-      # and commit (no loop: pushes made with GITHUB_TOKEN don't retrigger).
-      # Runs only after the suite passed — a failed or flaked flight never
-      # records a number.
-      - name: Record the fun-curve point when the browser suite flew a new version (main)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          node tools/fun-scoreboard.mjs
-          if [ -n "$(git status --porcelain docs/audit/fun-curve.json README.md docs/press-kit.html)" ]; then
-            git config user.name "emberfall-funbot"
-            git config user.email "noreply@github.com"
-            git add docs/audit/fun-curve.json README.md docs/press-kit.html
-            git commit -m "fun-curve: record v$(grep -o '<span>EMBERFALL v[0-9.]*' index.html | grep -o '[0-9.]*') from the browser suite's audited play"
-            git push
-          else
-            echo "fun-curve: no change — this version's point is already recorded"
-          fi
 
       - name: Fun-curve scoreboard gate (snapshot sanity + README table agreement)
         run: node tools/fun-scoreboard.mjs --check
 
       - name: In-game self-test suite (?selftest, headless)
         run: node tools/selftest-ci.js
+
+      - name: Verify the payload stayed unchanged during tests
+        run: npm run verify:site
+
+      - name: Retain tested release
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: emberfall-site-${{ github.sha }}
+          path: dist/site/
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish measurements for review
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: measurements-${{ github.sha }}
+          overwrite: true
+          path: |
+            docs/audit/timeline.json
+            docs/audit/fun-loop.json
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
 
 
   deploy:
@@ -89,32 +107,39 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    concurrency:
+      group: emberfall-pages-publication
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     outputs:
       url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Assemble static site
-        run: |
-          mkdir -p _site/js _site/icons _site/fonts _site/docs/press
-          cp index.html stats.html pilot.html sw.js manifest.webmanifest _site/
-          cp js/*.js _site/js/
-          cp icons/*.png _site/icons/
-          cp fonts/*.woff2 _site/fonts/
-          cp docs/press-kit.html _site/docs/
-          cp docs/press/hero.png docs/press/emberfall-wave1.gif _site/docs/press/
-
-      - uses: actions/configure-pages@v6
-
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: _site
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: emberfall-site-${{ github.sha }}
+          path: dist/site
+
+      - name: Verify the tested artifact before publishing
+        run: node tools/site-payload.mjs verify
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: dist/site
 
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
 
   smoke-live:
     name: live smoke (published Pages payload)
@@ -122,39 +147,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: emberfall-site-${{ github.sha }}
+          path: dist/site
 
       - name: Verify published payload
         env:
           URL: ${{ needs.deploy.outputs.url }}
         run: |
           set -e
-          up=0
+          # CDN propagation can briefly serve the previous release. Compare
+          # every byte and MIME type to the retained artifact on each attempt.
           for i in $(seq 1 15); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL" || true)
-            if [ "$code" = "200" ]; then up=1; break; fi
+            if node tools/site-payload.mjs live "$URL"; then exit 0; fi
             sleep 3
           done
-          [ "$up" = "1" ] || { echo "Pages URL never answered 200 (last: $code)"; exit 1; }
-          echo "live: $URL"
-          live=$(curl -fsS "$URL" | sha256sum | cut -d' ' -f1)
-          want=$(git show HEAD:index.html | sha256sum | cut -d' ' -f1)
-          echo "live sha $live · HEAD sha $want"
-          [ "$live" = "$want" ] || { echo "DEPLOY MISMATCH: served index.html is not byte-identical to HEAD"; exit 1; }
-          for f in sw.js manifest.webmanifest js/audio.js js/sky.js js/net.js js/art.js js/input.js icons/icon-192.png icons/icon-512.png fonts/michroma-400.woff2 fonts/chakra-petch-400.woff2 fonts/chakra-petch-500.woff2 fonts/chakra-petch-600.woff2 fonts/chakra-petch-700.woff2 docs/press-kit.html docs/press/hero.png docs/press/emberfall-wave1.gif; do
-            c=$(curl -s -o /dev/null -w '%{http_code}' "$URL$f")
-            [ "$c" = "200" ] || { echo "MISSING $f -> $c"; exit 1; }
-          done
-          curl -fsS "$URL/sw.js" | grep -q 'emberfall-v' || { echo "sw.js missing cache marker"; exit 1; }
-          curl -fsS "$URL/js/art.js" | grep -q 'ART v3' || { echo "js/art.js wrong payload"; exit 1; }
-          echo "live smoke: byte-identical index · 17/17 shell+press assets · payload markers OK"
+          echo 'Published Pages payload never matched the tested artifact'
+          exit 1
 
   portal:
     name: portal build (size · hosts · zip root)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install zip
         run: sudo apt-get update && sudo apt-get install -y zip unzip
