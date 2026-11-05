@@ -137,7 +137,7 @@ if [ ! -f "$ZIP" ]; then
 fi
 
 # index.html at the archive root, not under a directory prefix.
-if ! unzip -Z1 "$ZIP" | grep -qx 'index.html'; then
+if ! unzip -Z1 "$ZIP" | grep -x 'index.html' > /dev/null; then
   echo "build-portal: index.html is not at the zip root" >&2
   exit 1
 fi

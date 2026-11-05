@@ -201,7 +201,7 @@ jobs:
           echo "dist-portal.zip bytes: $size"
           test "$size" -lt 20971520
           # names only; index.html must be a root entry, not nested
-          unzip -Z1 dist-portal.zip | grep -qx 'index.html'
+          unzip -Z1 dist-portal.zip | grep -x 'index.html' > /dev/null
 
       - name: Payload has no Supabase, fly.dev, or GitHub hosts
         run: |

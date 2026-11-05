@@ -33,3 +33,7 @@ test('rejects ambiguous or malformed YAML', () => {
   assert.ok(checkReleasePolicy('jobs: {}\njobs: {}').length);
   assert.ok(checkReleasePolicy('jobs: [').length);
 });
+test('rejects rollback metadata drift and the CLI promotion path with a user lookup', () => {
+  assert.ok(changed(w => { const s=w.jobs.vercel.steps.find(s=>s.id==='stage'); s.run=s.run.replace('--meta githubCommitSha="$RELEASE_SHA"',''); }).some(p=>p.includes('Git identity')));
+  assert.ok(changed(w => { w.jobs.vercel.steps.find(s=>s.name==='Promote the verified production deployment').run='vercel promote "$DEPLOYMENT_URL"'; }).some(p=>p.includes('promotion adapter')));
+});

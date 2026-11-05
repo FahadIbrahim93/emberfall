@@ -20,13 +20,15 @@ export function checkReleasePolicy(source) {
     for (const step of job.steps || []) {
       const where = `${name}/${step.id || step.name || 'step'}`;
       const run = String(step.run || '');
-      const authenticates = /\bvercel\s+(?:deploy|promote)\b/.test(run);
+      const authenticates = /\bvercel\s+(?:deploy|promote)\b/.test(run) || /^node tools\/promote-release\.mjs\s*$/.test(run);
       const hasToken = usesToken(step.env);
       if (/--token(?:[=\s]|$)/.test(run)) problems.push(`${where}: command-line tokens are forbidden`);
       if (/\$\{\{\s*secrets\b/.test(run)) problems.push(`${where}: secrets must be passed through step environment`);
       if (hasToken && (!authenticates || step.uses)) problems.push(`${where}: credentials belong only to authenticated CLI steps`);
       if (hasToken && /\b(?:npm|npx|pnpm|yarn)\b/.test(run)) problems.push(`${where}: install or execute packages before exposing credentials`);
       if (authenticates && !step.env?.VERCEL_TOKEN) problems.push(`${where}: authenticated CLI requires a step-scoped VERCEL_TOKEN`);
+      if (/\bvercel\s+deploy\b/.test(run) && !run.includes('--meta githubCommitSha="$RELEASE_SHA"')) problems.push(`${where}: deployment Git identity must match the approved artifact`);
+      if (/\bvercel\s+promote\b/.test(run)) problems.push(`${where}: use the scoped identity-checking promotion adapter`);
     }
   }
   return problems;

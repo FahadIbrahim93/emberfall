@@ -96,7 +96,7 @@ function main() {
   isSunday ? good('the day IS a Sunday (dow gate passes)') : say('       not a Sunday — the dow gate stays shut (informational, not a failure)');
   say(`       FNV-1a('warden-${day}') = 0x${hashStr('warden-' + day).toString(16)} → %7 = ${hashStr('warden-' + day) % 7}`);
   const rare = wardenfallSunday(day);
-  gate === rare ? good(`the FNV gate ${gate ? 'OPENS' : 'stays shut'} — verdict: ${rare ? 'WARDENFALL IS UP' : 'an ordinary Sunday'}`)
+  (isSunday && gate) === rare ? good(`the FNV gate ${gate ? 'OPENS' : 'stays shut'} — verdict: ${rare ? 'WARDENFALL IS UP' : 'not a rare Sunday'}`)
                 : bad('gate and verdict disagree — the recipe is broken');
   if (!rare && day === '2026-09-27') bad('2026-09-27 was rehearsed as rare (drill-rare-sunday) but the math says no');
 
