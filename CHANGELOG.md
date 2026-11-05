@@ -4,6 +4,11 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Portal Boards — v4.29.3
+- Wire Boards, shared sheet navigation and keyboard focus independently of accounts, so the packaged portal works without `cloud.js`.
+- Hide unavailable account/sign-in/install controls in standalone, query and framed portal modes. Local All-time reads its main board even after Daily or Rush; saved Daily runs have an explicit local label.
+- Keep hosted account navigation on the same sheet, with inline navigation as a compatibility fallback for an older cached controller. Cache generation `emberfall-v4.58`.
+
 ### Guest posting choice — v4.29.2
 - Respect the saved guest choice even when a registered account remains signed in. Run posting and guest-best transfer stay paused through reloads, auth refreshes and changes from other tabs.
 - Profile exposes an explicit "Use account for future runs" action; opening accounts or boards never resumes posting. Runs launched as guests stay local after resumption.

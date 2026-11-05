@@ -354,41 +354,22 @@ const CLOUD = {
     const btn = document.getElementById('btnOvSignUp');
     if (btn) btn.textContent = paused ? 'Use account' : 'Sign up';
   },
-  /* account + boards open in one modal sheet (bottom sheet on phones). The
-     Global tab's content is moved into it while open and returned on close,
-     so the sidebar tab and the sheet share one DOM and one set of ids. */
-  sheetView: 'acct',
+  /* Shared sheet navigation lives in NET so portal builds need no Auth. */
   sheetHead() {
     const t = document.getElementById('sheetTitle'), e = document.getElementById('sheetEyebrow');
     if (!t || !e) return;
-    if (this.sheetView === 'boards') { e.textContent = 'Worldwide'; t.textContent = 'Leaderboards'; return; }
+    if (NET.sheetView === 'boards') { NET.sheetHead(); return; }
     e.textContent = 'Pilot account';
     t.textContent = !this.user ? 'Sign in' : this.profile ? 'Profile' : 'Choose a callsign';
   },
   openSheet(view) {
-    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
-    if (!sh || !body || !tab) return false;
-    if (typeof toTitle === 'function' && !document.getElementById('s-title').classList.contains('on')) toTitle();
-    this.sheetView = view;
-    sh.classList.toggle('v-boards', view === 'boards');
-    sh.classList.toggle('v-acct', view !== 'boards');
-    if (!sh.classList.contains('on')) {
-      this._ret = document.activeElement;
-      while (tab.firstChild) body.appendChild(tab.firstChild);
-      sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('sheet-open');
-    }
-    body.scrollTop = 0;
-    this.sheetHead();
-    return true;
+    if (typeof NET.openSheet === 'function') return NET.openSheet(view);
+    // An older cached NET still supports its inline Global tab.
+    if (typeof switchTab === 'function') switchTab('global');
+    return false;
   },
   closeSheet() {
-    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
-    if (!sh || !sh.classList.contains('on')) return;
-    sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('sheet-open');
-    while (body.firstChild) tab.appendChild(body.firstChild);
-    try { if (this._ret && this._ret.focus) this._ret.focus(); } catch (e) { }
+    if (typeof NET.closeSheet === 'function') NET.closeSheet();
   },
   showAccount() {
     this.openSheet('acct');
@@ -398,9 +379,10 @@ const CLOUD = {
     try { if (em && fine) em.focus({ preventScroll: true }); else document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
   },
   showBoards() {
+    if (typeof NET.showBoards === 'function') return NET.showBoards();
     this.openSheet('boards');
     if (typeof NET !== 'undefined') NET.renderGlobal();
-    try { document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
+    try { document.querySelector('.btab').focus({ preventScroll: true }); } catch (e) { }
   },
   say(msg, bad) {
     const el = document.getElementById('cloudMsg');
@@ -463,22 +445,8 @@ const CLOUD = {
     on('cloudVerify', run(async () => { await this.verifyOtp(val('cloudCode')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudGoogle', run(async () => { await this.signInGoogle(); }));
     on('btnPilot', () => this.showAccount());
-    on('btnBoards', () => this.showBoards());
-    const sh = document.getElementById('acctSheet');
-    if (sh) {
-      sh.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) this.closeSheet(); });
-      document.addEventListener('keydown', e => {
-        if (!sh.classList.contains('on')) return;
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeSheet(); return; }
-        if (e.key === 'Tab') { /* keep focus inside the dialog */
-          const f = [...sh.querySelectorAll('button,input,summary,a[href],[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null && !x.disabled);
-          if (!f.length) return;
-          const a = f[0], z = f[f.length - 1];
-          if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
-          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
-        }
-      }, true);
-    }
+    if (typeof NET.wireBoards === 'function') NET.wireBoards();
+    else on('btnBoards', () => this.showBoards());
     /* Enter submits the field's primary action */
     const enter = (inp, btn) => { const i = document.getElementById(inp); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = document.getElementById(btn); if (b) b.click(); } }); };
     enter('cloudEmail', 'cloudOtp'); enter('cloudCode', 'cloudVerify'); enter('cloudPass', 'cloudSignIn'); enter('cloudCallsign', 'cloudSave');

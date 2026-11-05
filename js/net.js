@@ -15,12 +15,77 @@ function emberfallPortal() {
   return false;
 }
 const NET = {
+  /* The sheet belongs to navigation, including distributions without Auth.
+     One DOM moves between the sidebar and dialog; closing returns it. */
+  sheetView: 'acct',
+  sheetHead() {
+    if (this.sheetView !== 'boards') {
+      if (typeof CLOUD !== 'undefined') CLOUD.sheetHead();
+      return;
+    }
+    $('sheetEyebrow').textContent = emberfallPortal() ? 'This device' : 'Worldwide';
+    $('sheetTitle').textContent = emberfallPortal() ? 'Local leaderboards' : 'Leaderboards';
+  },
+  openSheet(view) {
+    const sh = $('acctSheet'), body = $('sheetBody'), tab = $('tab-global');
+    if (!sh || !body || !tab) return false;
+    if (typeof toTitle === 'function' && !$('s-title').classList.contains('on')) toTitle();
+    this.sheetView = view;
+    // Older cached account clients still paint the header from their own view.
+    if (typeof CLOUD !== 'undefined' && typeof CLOUD.sheetView === 'string') CLOUD.sheetView = view;
+    sh.classList.toggle('v-boards', view === 'boards');
+    sh.classList.toggle('v-acct', view !== 'boards');
+    if (!sh.classList.contains('on')) {
+      this._sheetReturn = document.activeElement;
+      while (tab.firstChild) body.appendChild(tab.firstChild);
+      sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('sheet-open');
+    }
+    body.scrollTop = 0;
+    this.sheetHead();
+    return true;
+  },
+  closeSheet() {
+    const sh = $('acctSheet'), body = $('sheetBody'), tab = $('tab-global');
+    if (!sh || !sh.classList.contains('on')) return;
+    sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sheet-open');
+    while (body.firstChild) tab.appendChild(body.firstChild);
+    const target = this._sheetReturn || (typeof CLOUD !== 'undefined' && CLOUD._ret);
+    this._sheetReturn = null;
+    try { if (target && target.focus) target.focus(); } catch (e) { }
+  },
+  showBoards() {
+    if (!this.openSheet('boards')) return;
+    this.renderGlobal();
+    try { document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
+  },
+  wireBoards() {
+    if (this._sheetWired) return;
+    const sh = $('acctSheet'), button = $('btnBoards');
+    if (!sh || !button) return;
+    this._sheetWired = true;
+    button.addEventListener('click', () => this.showBoards());
+    sh.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) this.closeSheet(); });
+    document.addEventListener('keydown', e => {
+      if (!sh.classList.contains('on')) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeSheet(); return; }
+      if (e.key !== 'Tab') return;
+      const f = [...sh.querySelectorAll('button,input,summary,a[href],[tabindex]:not([tabindex="-1"])')]
+        .filter(x => x.offsetParent !== null && !x.disabled);
+      if (!f.length) { e.preventDefault(); return; }
+      const active = document.activeElement;
+      if (!f.includes(active) || (e.shiftKey ? active === f[0] : active === f[f.length - 1])) {
+        e.preventDefault(); (e.shiftKey ? f[f.length - 1] : f[0]).focus();
+      }
+    }, true);
+  },
   /* the Global tab: worldwide boards read from the public Supabase views
      (js/mirror-public.js). Accounts and score posting live in js/cloud.js. */
   async renderGlobal() {
     const status = $('globalStatus');
     if (!status) return;
-    if (typeof CLOUD !== 'undefined') CLOUD.open().catch(() => {});
+    if (!emberfallPortal() && typeof CLOUD !== 'undefined') CLOUD.open().catch(() => {});
     status.textContent = emberfallPortal() ? 'Scores stay on this device.' : 'Worldwide boards';
     this.renderMirrorBoards();
   },
@@ -33,11 +98,10 @@ const NET = {
     NET.boardTab(NET.board || 'daily');
     if (emberfallPortal()) {
       const stat = $('dailyStat');
-      if (stat && typeof todaySeedKey === 'function') stat.textContent = 'this device · ' + todaySeedKey();
+      if (stat) stat.textContent = 'This device · saved Daily runs';
       if (typeof renderBoard === 'function') {
-        const mode = typeof boardMode === 'function' ? boardMode() : 'main';
         const box = $('globalBoard');
-        if (box) renderBoard(box, mode, null);
+        if (box) renderBoard(box, 'main', null);
         const day = $('dailyBoard');
         if (day) renderBoard(day, 'daily', null);
       }
@@ -288,7 +352,7 @@ function renderSkyLog() {
 }
 function switchTab(name) {
   /* the Global tab's content lives in the account sheet while it is open */
-  if (name === 'global' && typeof CLOUD !== 'undefined' && CLOUD.closeSheet) CLOUD.closeSheet();
+  if (name === 'global' && typeof NET.closeSheet === 'function') NET.closeSheet();
   $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
   ['scores', 'roster', 'feats', 'sky', 'global'].forEach(n => $('tab-' + n).classList.toggle('hidden', n !== name));
   if (name === 'roster') renderRoster();
