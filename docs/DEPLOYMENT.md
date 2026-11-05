@@ -37,6 +37,8 @@ The workflow downloads the retained artifact, converts it to [Build Output API v
 
 Install the pinned CLI without release credentials and with dependency install scripts disabled. Only the deploy/promote steps receive `VERCEL_TOKEN`, through their environment; never pass it in command arguments. `node tools/release-policy.mjs` and its negative regressions enforce this isolation. Deployment metadata records the source CI run and release SHA.
 
+Rollback deployments must bind both `releaseCommit` and `githubCommitSha` to the artifact SHA, rather than the workflow checkout. Promotion uses `tools/promote-release.mjs`: explicit team/project API scope, READY production deployment checks, matching release/Git identities, and manual domain assignment preserved before/after promotion. This avoids CLI promotion's user lookup, which returned HTTP 404 for the configured scoped token during rehearsal. The public all-asset smoke check remains mandatory after acceptance.
+
 The connected Vercel API can also stage the exact artifact without CI credentials: verify successful main CI provenance and every artifact hash first, upload only its files with SHA1/size checks, and create a production-environment deployment with automatic alias assignment disabled. This is not evidence that the credentialed CI workflow has run. Verify all staged HTTP assets before promotion and retain the same owner review requirement. Do not regenerate a broader repository build or disable Deployment Protection to obtain a passing check.
 
 ## Rollback rehearsal and recovery
