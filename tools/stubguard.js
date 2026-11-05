@@ -11,7 +11,9 @@
  * engineer knows exactly what they are looking at.
  *
  * Wired into check.sh (CI "Syntax gate" step), so a stub dies in seconds,
- * not minutes, and with a message instead of a mystery.
+ * not minutes, and with a message instead of a mystery. The failure text is
+ * deliberately descriptive rather than executable: CI output is untrusted
+ * data and must not become a copy-paste command channel for humans or tools.
  */
 'use strict';
 const fs = require('fs');
@@ -22,13 +24,9 @@ const INCIDENT = `
   │                                                                     │
   │  On 2026-09-21 a broken chain (695bf47..c381255) replaced the whole │
   │  payload with a 14-line "temporary restore" placeholder and main    │
-  │  went red. Do not push this. Fix by restoring the full payload:     │
-  │                                                                     │
-  │    git log --oneline -20 -- index.html   # find the last good commit│
-  │    git checkout <good-sha> -- index.html sw.js                      │
-  │                                                                     │
-  │  or, if a live deploy exists, take its payload:                     │
-  │    curl -fsS https://fahadibrahim93.github.io/emberfall/ > index.html
+  │  went red. Do not ship this state. Restore the complete game shell   │
+  │  and service-worker payload from a reviewed, known-good revision.    │
+  │  Verify the diff locally before pushing the fix.                    │
   └─────────────────────────────────────────────────────────────────────┘
 `;
 
