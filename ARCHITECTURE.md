@@ -25,8 +25,9 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   from a module to a core declaration, plus lazy-arrow object values are
   recognized as call-time (`PICK_COL` idiom). It also verifies the script tags
   appear in index.html in module order, before the inline core tag.
-- The core calls `initInput()` (js/input.js) from `boot()` once the DOM exists —
-  that is the one place a module binds listeners.
+- The core calls `initInput()` (js/input.js) and `NET.wireBoards()` (js/net.js)
+  from `boot()` once the DOM exists. Shared sheet navigation is independent of
+  Auth; its wiring is idempotent, including the account client's compatibility call.
 
 ## Module map
 
@@ -34,7 +35,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 |---|---|---|
 | `js/audio.js` | synthesised voices, adaptive score (`AU`, `MUSIC`) | touch game state |
 | `js/sky.js` | sky-event schedulers + `SKY_EVENTS` registry (the single owner of what each event *is*: names, colors, counters) | render or touch META directly (it exposes tick/draw) |
-| `js/net.js` | the Global tab's worldwide boards (`NET`, reads the public views), board/roster/hangar rendering, screen flow | game rules, accounts (`js/cloud.js`) |
+| `js/net.js` | shared account/board sheet navigation and focus; worldwide or portal-local boards; board/roster/hangar rendering, screen flow | game rules, account identity/writes (`js/cloud.js`) |
 | `js/cloud.js` | Supabase accounts and worldwide boards | game rules |
 | `js/mirror-public.js` | public board reads for `stats.html` and `pilot.html` | write anything |
 | `js/art.js` | materials, hull/hostile/capital/pickup renderers (`HULL_ART`, `FOE_ART`, `BOSS_ART`) | game state; palette-reacts via functions called at draw time |
