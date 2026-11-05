@@ -24,7 +24,9 @@ Free browser arcade; free tiers first, paid upgrades need an owner decision. Pre
 
 ## Gates 1–7
 
-Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) repairs Daily world selection, launch-day encounter rules and ghost day identity. Three audited failures were reproduced against unchanged shipped code; six browser cases cover cosmetic RNG, rare/ordinary Sunday midnight, atomic launch-day capture, ghost replacement and main-mode compatibility. Client v4.29.1/cache v4.56 passes 44 browser, 61 simulation, 64 in-game and 33 release tests, plus required static/economy/portal checks; human review/merge is pending. Server-side posting-day attribution, reward acknowledgement/idempotency and account queues remain separate pending repairs; no server contract or balance change is claimed here.
+Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) / [PR #74](https://github.com/FahadIbrahim93/emberfall/pull/74) repaired Daily world selection, launch-day encounter rules and ghost day identity; merged as `21babec`, with [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41959479545) passing. Three failures were reproduced before repair; six regression cases cover its boundaries.
+
+[#75](https://github.com/FahadIbrahim93/emberfall/issues/75) repairs persisted guest posting choice independently of Auth. Three production failures were reproduced; ten cases cover game-over posting, transfer refusal, reload/auth events, explicit resumption, old accounts, blocked storage, anonymous/no-profile refusal, tabs, active guest runs and stale-controller compatibility. Final v4.29.2/cache v4.57 passes 54 browser, 61 simulation, 64 in-game and 33 release tests, plus required static/economy/portal checks; human review/merge is pending. Server-side posting-day attribution, reward acknowledgement/idempotency and pending-run delivery remain separate pending repairs; no server contract or balance change is claimed here.
 
 | Gate | Scope | Exit evidence |
 |---|---|---|

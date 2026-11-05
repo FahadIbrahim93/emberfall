@@ -22,6 +22,13 @@ Free tiers only: Supabase Auth (free plan, built-in email), Google OAuth (free),
 - **Guest play** needs no session. On the first callsign save after sign-up, the device's
   local Endless best is offered once to the board via `submit_score` (stats tag
   `src:'guest'`); the server bounds and rate limits apply as for any run.
+- **Posting choice (v4.29.2):** the existing `ef.guest` choice is independent of Auth.
+  Guest mode blocks run posting and guest-best transfer across reloads, token refreshes
+  and tabs. Profile and Boards never change that choice. Signed-in guests explicitly
+  choose "Use account for future runs" in Profile; signing in alone leaves a saved
+  guest choice intact. A run launched in guest mode stays local after resuming.
+  If browser storage is blocked, choices last for the current page and a new page
+  defaults to local-only posting. This does not fix pending-run transfer/retry delivery.
 - Anonymous Supabase sessions stay refused by the RPCs and hidden from the views.
 
 ## Profile
