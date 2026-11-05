@@ -16,3 +16,13 @@
    migrations to the live project yourself.
 8. The plane name stays **WRAITH**. Keep the game's art style (existing panels, buttons,
    fonts and palette).
+9. **Merge conflicts:** never resolve with "take theirs" / "take ours" on whole files.
+   Rebase your branch on the latest `main` and keep main's newer work. Old branches are
+   rebased, never merged over `main` (this wiped accounts on 2026-11-04).
+10. **Never remove** the Supabase account code (`js/cloud.js`), the account UI, or the
+    leaderboard tabs. **No** command deck, `server.js`, Fly or Docker. Free hosting only.
+11. **Never deploy or promote to production, and never change Vercel, Supabase or GitHub
+    settings.** Releases are promoted only after Fahad approves.
+12. Don't touch player data or scores. Free tools only. No new accounts or keys.
+13. Claim work before starting (see `docs/agents/PLAYBOOK.md`) so two agents never take
+    the same issue. If unsure, stop and comment on the issue instead of guessing.
