@@ -16,7 +16,7 @@
 
 1. Softer states do **not** get harder labels. A bounds-checked score may never display as "verified", "authentic", "validated" or equivalent (bible Pillar D; REALITIES §4). "Confirmed" is also forbidden unless the server state was `replay-verified` or `tournament-reviewed`.
 2. Verification happens only server-side, re-simulating from `seed + inputs`. The client never chooses the authoritative score; it may submit *evidence*.
-3. Existing endless/school/daily boards remain `bounds-checked` and labeled that way in UI and API responses, until their per-tier migration (behind the M4 work) actually ships.
+3. Existing endless/school/daily boards remain `bounds-checked` in server state; their player-facing labels are not yet consistent (§5), and aligning them is required work before any harder tier ships.
 
 Unlabeled boards are a **bug**: every new board/UI surface must carry at least the least-honest applicable label ("bounds-checked") before it goes live.
 
@@ -40,16 +40,33 @@ Every score claim binds these fields:
 The game records a fixed-step stream: for each sim step where *anything* changed, a record
 
 ```jsonc
-{ "step": 412, "move": [48, 255], "keys": ["F", "P"] }
+{ "step": 412, "move": [48, 255], "keys": ["F", "B"] }
 ```
 
-- `move`: quantized 0–255 each of dx / dy (closed when unchanged since prior record — a sparse stream, no per-step padding).
-- `keys`: press events only, from a closed allowlist `F` (fire), `D` (dash), `B` (pulse), `A` (plane ability), `R` (bank/carry switch); the allowlist is itself part of the format version.
-- The client-side recorder runs behind a feature flag (M4), never writes to disk silently, and caps total recorded size (config-driven; MAX ~250KB → ~50k change records, enough for a 10-minute run).
+- `move`: quantized 0–255 each of dx / dy. A record is emitted only on a change (sparse stream, no per-step padding).
+- `keys`: press events only, from a closed allowlist serialized as a bitmask: `F` fire `0x0001`, `D` dash `0x0002`, `B` pulse `0x0004`, `A` plane ability `0x0008`, `R` bank/carry switch `0x0010`. All other bits must be zero; pause is UI input and is never recorded.
+- The client-side recorder runs behind a feature flag (M4), never writes to disk silently, and caps the serialized stream at 262,144 bytes (≈32,767 change records, enough for a 10-minute run).
 
 ### 3.2 Digest
 
-Input digest = SHA-256 hex, lowercase, over the canonical serialized form of the input stream (records joined by `\n`, big-endian quantized bytes, no whitespace). The digest is announced to the rounds API to detect truncated uploads; the verifier recomputes it from the full payload.
+Input digest = lowercase hex SHA-256 over the byte-exact stream below. JSON is only the API envelope; it is never hashed.
+
+Stream layout (all integers little-endian):
+
+| Offset | Field | Bytes | Value |
+|---|---|---|---|
+| 0 | magic | 8 | ASCII `EMBRPLY1` |
+| 8 | records | 8 × `count` | records in strictly increasing `step` order |
+
+Record (8 bytes): `step:u32` · `dx:u8` · `dy:u8` · `keys:u16`.
+
+- `step` is the fixed-step index (0 … run length); steps are unique and strictly increasing.
+- `dx`/`dy` are the quantized movement values in that order; values hold until the next record.
+- `keys` is the bitmask above; a reserved bit makes the record invalid.
+- `bytes` is the total stream size: `8 + 8 × count`.
+- The digest covers the whole stream, including the magic header.
+
+Test vector: `step=412, dx=48, dy=255, keys=F|B` serializes to `454d4252504c59319c01000030ff0500` (16 bytes); SHA-256 = `3fccf6899af921c9d13bdf79a13de08a7dbd3a6a7e6c7597236707f85dab69ac`.
 
 ### 3.3 Replay payload
 
@@ -59,16 +76,23 @@ Input digest = SHA-256 hex, lowercase, over the canonical serialized form of the
   "rulesetVersion": 2,
   "contentVersion": 3,
   "inputFormatVersion": 1,
-  "fixedStep": 0.016667,
+  "fixedStep": 0.016666666666666666,
   "stageId": "hf-01-solar-intake",
   "planeId": "kestrel",
   "dailyId": "2026-11-03",        // optional: daily package rounds
-  "input": { "digest": "a3f…", "count": 18322, "bytes": 217530 },
+  "input": {
+    "digest": "a3f…",
+    "count": 18322,
+    "bytes": 146584,
+    "records": "RU1CUlBMWTE…"     // base64 of the exact §3.2 stream
+  },
   "claimedScore": 1484320
 }
 ```
 
-Transport: submitted with the rounds through a `submit_daily_replay` RPC (M4 prototype; writes stay RPC-only and rate-limited like score posts; **payload size cap enforced** — oversized or garbage submissions take 413/rejection code `INVALID_PAYLOAD`).
+Transport: submitted through a `submit_daily_replay` RPC (M4 prototype; writes stay RPC-only and rate-limited like score posts). The verifier receives the stream **inside** `input.records` — base64 of the exact §3.2 bytes — decodes it, checks `bytes`/`count`, recomputes the digest, and rejects before simulation. A digest without records is never accepted. The request cap is 350 KB (262,144 raw bytes plus base64 overhead); oversized or garbage submissions take 413 / `INVALID_PAYLOAD`.
+
+When `dailyId` is present, the published package is authoritative for `seed`, `rulesetVersion`, `contentVersion`, `stageId`, `planeId` and `fixedStep`; client values must equal the package pins and are rejected before simulation otherwise (§4).
 
 ## 4. Verification / rejection rules (server-side, M4)
 
@@ -77,8 +101,9 @@ The verifier re-runs the shipped sim ruleset for `stageId` on `seed` under the r
 | Rejection | Code | Trigger |
 |---|---|---|
 | Mismatched seed | `RESEED_MISMATCH` | re-sim result state differs beyond a documented numerical envelope for the recorded run (checkpoint narration, item bullet) |
+| Daily not bound to its package | `PACKAGE_SEED_MISMATCH` | `dailyId` present and `seed`, `rulesetVersion`, `contentVersion`, `stageId`, `planeId` or `fixedStep` differs from the published package pins; rejected before simulation |
 | Impossible content | `CONTENT_MISMATCH` | `contentVersion` not published, or retired/unknown IDs referenced (per `content-vocabulary.md` deprecation policy) |
-| Wrong ruleset | `RULESET_MISMATCH` | `rulesetVersion` newer than the server's deployed ruleset binary |
+| Wrong ruleset | `RULESET_MISMATCH` | `rulesetVersion` differs from the exact version the verifier runs — older and newer both rejected; an older version is accepted only when a retained verifier for that exact version exists (§4.1) |
 | Corrupted stream | `DIGEST_MISMATCH` | recomputed digest ≠ stated digest; or malformed record / unknown key |
 | Contradictory inputs | `IMPOSSIBLE_STATE` | any invariant broken: hostile state below bounds; score ∉ plausible min/max for the recorded seed; heat state outside ruleset envelope (e.g. heat > stage max with no pulse source alive); plane resources outside their budget |
 | Oversized/truncated | `INVALID_PAYLOAD` | byte cap exceeded; digest length wrong; count mismatch |
@@ -93,7 +118,7 @@ The verifier re-runs the shipped sim ruleset for `stageId` on `seed` under the r
 
 ## 5. Interim honesty (what the game says today)
 
-Until EXP-018 ships re-simulation, **all posted scores are bounds-checked, labeled as such everywhere a score is shown** (boards, share cards, stats pages). Implementation notes for UI copy:
+Until EXP-018 ships re-simulation, **all posted scores are bounds-checked in server state, but today's player-facing labels are not yet consistent**: the global board labels its rows “plausibility-checked runs”, and the profile/stats score rows carry no verification label. That is a known gap and required work, not a claim that the UI is already correct. Implementation notes for UI copy:
 
 - A score line reads "bounds-checked (not replayed)" in a tooltip/sublabel on hover/info affordance and can be shortened to just "bounds-checked" when space is tight; "verified" is reserved for §1's harder states and may not appear.
 - Share cards expose the `verificationPolicy` of their board context and may NOT carry a verified badge they didn't earn.
@@ -101,9 +126,10 @@ Until EXP-018 ships re-simulation, **all posted scores are bounds-checked, label
 
 ## 6. Acceptance checklist for EXP-018 (the implementation)
 
-- [ ] Server output is generated from seed + input stream, never client score.
-- [ ] All §4 rejection codes fire in an integration test; digest output is byte-for-byte reproducible.
+- [ ] Server output is generated from seed + input stream, never client score; the request carries `records`, and a digest-only request is rejected.
+- [ ] Daily submissions are bound to the published package's seed/version/stage/plane pins; a self-consistent different-seed replay is rejected with `PACKAGE_SEED_MISMATCH`.
+- [ ] All §4 rejection codes fire in an integration test, including older and newer ruleset versions; the §3.2 test vector and digest are byte-for-byte reproducible.
 - [ ] Verification record immutable + auditable (`private` schema, SECURITY DEFINER same as today's write path).
 - [ ] Board writes remain RPC-only and rate-limited; replay payload size cap enforced.
-- [ ] Existing boards still labeled `bounds-checked` during the whole migration.
+- [ ] Existing boards carry an honest `bounds-checked` label (fixing today's unlabeled gaps) throughout the migration.
 - [ ] UI copy meets §1/§5 rules; a copyguard check refuses "verified" vocabulary on the current board paths.
