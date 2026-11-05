@@ -6,7 +6,7 @@
 
 Free browser arcade; free tiers first, paid upgrades need an owner decision. Preserve WRAITH, art direction, survival Daily waves/medals/Wardenfall, keyboard/touch/gamepad, offline and `file://`. Polish before content. Signed-in careers synchronize; guests keep local careers. Extract typed classic JavaScript modules shared by gameplay/tests and remove duplicate simulation. Ranked Daily ignores career power. Cloud saves protect consistency, not legitimate earnings.
 
-## Gate 0 — trustworthy releases (active)
+## Gate 0 — trustworthy releases (operational exit verified; #44 merge pending)
 
 | Work | Issue / evidence | Status |
 |---|---|---|
@@ -17,10 +17,10 @@ Free browser arcade; free tiers first, paid upgrades need an owner decision. Pre
 | Isolate release credentials | [#69](https://github.com/FahadIbrahim93/emberfall/issues/69), [PR #70](https://github.com/FahadIbrahim93/emberfall/pull/70) | Merged into main as `e89c799`; 25 release safety tests pass; installer runs without credentials and authenticated CLI steps use environment tokens only |
 | Reconcile duplicate projects without moving origins | Public `emberfall-game-two.vercel.app` belongs to **emberfall-game**; retain both projects/aliases | Mapping recorded; no deletion |
 | Reconcile stale work | #41 closed as superseded; #44 refreshed against main, conflicts resolved, actual diagnostic tested under LF/CRLF and unsafe mutation; #49 closed by merged #65; #15–17 use current Supabase contracts | #44's old Windows failure reproduced and repaired; fresh CI and human merge pending |
-| Rehearse release and restore | [Staging success](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188), [rollback attempt](https://github.com/FahadIbrahim93/emberfall/actions/runs/41952121300), [safe current-release restoration](https://github.com/FahadIbrahim93/emberfall/actions/runs/41952667802) | Both hosts verified at `e89c799` after recovery. Rollback A passed HTTP checks but CLI promotion failed with user 404; automatic review rejected conflicting Git/artifact metadata. Gate 0 exit remains incomplete |
-| Repair rehearsal findings | [#71](https://github.com/FahadIbrahim93/emberfall/issues/71), [PR #72](https://github.com/FahadIbrahim93/emberfall/pull/72) | Merged as `059bac9`; scoped promotion adapter, matching artifact/Git identity and 33 release tests. Corrected rehearsal must pass before Gate 1 |
+| Rehearse release and restore | [Staging success](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188), [successful rollback (attempt 2)](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955101962), [successful return to current](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955669235) | Both hosts restored `28805b3` then returned to `e89c799`; every staged/public manifest, hash and MIME check passed. Independent 28-asset checks confirmed both versions on both hosts. First retry followed a demonstrated transient staged 404; checks were unchanged |
+| Repair rehearsal findings | [#71](https://github.com/FahadIbrahim93/emberfall/issues/71), [PR #72](https://github.com/FahadIbrahim93/emberfall/pull/72), [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41954668924) | Merged as `059bac9`; scoped promotion adapter, matching artifact/Git identity and 33 release tests. Live rollback/promotion now passed; manual domain assignment retained. Earlier CLI/user-404 and identity rejection remain recorded in failed run 41952121300 |
 
-**Exit:** damaged payload rejected before publication; both hosts serve the tested release; previous release restoration rehearsed. Local negative tests alone do not complete production exit. No dependent gameplay work has started.
+**Exit evidence (2026-11-05):** production-path regressions reject altered/omitted assets and mismatched deployment identity before publication; both hosts serve the same tested `e89c799` release; previous-release restore/re-promotion passed the corrected credentialed workflow. User approved the exact A/B rehearsal and required environment reviews were recorded. Finish human review/merge of #44 before dependent gameplay work; no such work has started.
 
 ## Gates 1–7 (pending Gate 0 exit)
 
