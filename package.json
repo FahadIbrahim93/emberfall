@@ -2,6 +2,9 @@
   "name": "emberfall",
   "private": true,
   "scripts": {
+    "build:site": "node tools/site-payload.mjs build",
+    "test:release": "node --test tools/check-actions.test.mjs tools/site-payload.test.mjs tools/release-source.test.mjs tools/release-policy.test.mjs tools/promote-release.test.mjs tools/wardenfall-check.test.mjs",
+    "verify:site": "node tools/site-payload.mjs verify",
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
     "test:sim": "vitest run",
@@ -10,8 +13,9 @@
     "replay:record": "node tools/replay-record.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.57.0",
+    "@playwright/test": "1.64.1",
     "typescript": "^7.0.2",
-    "vitest": "^3.0.5"
+    "vitest": "^5.0.5",
+    "yaml": "2.9.1"
   }
 }

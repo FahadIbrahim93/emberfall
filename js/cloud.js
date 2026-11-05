@@ -12,6 +12,29 @@
 const CLOUD = {
   sb: null, user: null, profile: null, loading: null,
   STORE: 'sb-rgmbexmodebegllahotc-auth-token',
+  _postingMode: null,
+
+  /* Posting consent is independent of Auth. Keep the old guest flag so a
+     previously chosen local-only session stays local after upgrading. */
+  postingMode() {
+    if (this._postingMode) return this._postingMode;
+    try { return localStorage.getItem('ef.guest') === '1' ? 'guest' : 'account'; }
+    catch (e) { return 'guest'; }
+  },
+  setPostingMode(mode) {
+    if (mode !== 'guest' && mode !== 'account') return;
+    this._postingMode = mode;
+    try { localStorage.setItem('ef.guest', mode === 'guest' ? '1' : '0'); this._postingMode = null; } catch (e) { }
+    this.paint();
+  },
+  canPost() {
+    return this.available() && this.postingMode() === 'account' && !!this.sb &&
+      !!this.user && !this.user.is_anonymous && !!this.profile;
+  },
+  useAccount() {
+    if (!this.user || this.user.is_anonymous) return;
+    this.setPostingMode('account');
+  },
 
   available() {
     if (typeof emberfallPortal === 'function' && emberfallPortal()) return false;
@@ -64,7 +87,7 @@ const CLOUD = {
      (personal best). The database also refuses anonymous sessions, so the
      worldwide boards only ever hold signed-up pilots. */
   playGuest() {
-    try { localStorage.setItem('ef.guest', '1'); } catch (e) { }
+    this.setPostingMode('guest');
   },
   /* passwordless: one email carries a magic link AND a 6-digit code (the code
      works in installed apps where the link opens another browser) */
@@ -173,7 +196,7 @@ const CLOUD = {
   },
   /* guest -> account: offer this device's Endless best to the board once */
   async carryGuestBest() {
-    if (!this.profile) return null;
+    if (!this.canPost()) return null;
     let key = 'ef.carried.' + this.user.id;
     try { if (localStorage.getItem(key)) return null; } catch (e) { return null; }
     const best = (typeof loadBoard === 'function' ? loadBoard('main') : [])
@@ -226,7 +249,7 @@ const CLOUD = {
   /* best-effort: the run is already saved locally before this is called */
   async submit(gameMode, score, stats) {
     const mode = MIRROR_MODE[gameMode];
-    if (!mode || !this.sb || !this.user || this.user.is_anonymous || !this.profile) return null;
+    if (!mode || !this.canPost()) return null;
     const { data, error } = await this.sb.rpc('submit_score', { p_mode: mode, p_score: Math.trunc(score), p_stats: stats || {} });
     if (error) throw error;
     return data;
@@ -244,6 +267,8 @@ const CLOUD = {
     const signed = !!this.user;
     document.getElementById('cloudIn').classList.toggle('hidden', signed);
     document.getElementById('cloudMe').classList.toggle('hidden', !signed);
+    const resume = document.getElementById('cloudAccount');
+    if (resume) resume.classList.toggle('hidden', !signed || this.postingMode() !== 'guest');
     this.paintTitle();
     this.paintProfile();
     this.sheetHead();
@@ -251,7 +276,9 @@ const CLOUD = {
     const who = (this.user.email || '');
     const cs = document.getElementById('cloudCallsign');
     const pm = document.getElementById('pfMail'); if (pm) pm.textContent = who;
-    st.textContent = this.profile
+    st.textContent = this.postingMode() === 'guest'
+      ? 'Playing as guest. Runs stay on this device. Use account to post future runs.'
+      : this.profile
       ? 'Your Endless and Daily runs post to the worldwide boards.'
       : 'Signed in. Next, pick a callsign to start posting runs.';
     if (!this.profile && cs && !cs.value) { try { cs.focus(); } catch (e) { } }
@@ -303,60 +330,46 @@ const CLOUD = {
   paintTitle() {
     const meta = document.getElementById('acctMeta'), line = document.getElementById('acctLine');
     if (!meta || !line) return;
-    const signed = !!this.user;
+    const signed = !!this.user && this.postingMode() === 'account';
     meta.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
     line.textContent = !signed
-      ? 'Guest runs stay on this device. Sign in to post on the worldwide boards.'
+      ? this.user ? 'Guest runs stay on this device. Open Profile to resume account posting.'
+        : 'Guest runs stay on this device. Sign in to post on the worldwide boards.'
       : this.profile ? 'Your Endless and Daily runs post to the worldwide boards.'
       : 'Signed in. Choose a callsign to start posting.';
     const pn = document.getElementById('pilotName'), ps = document.getElementById('pilotSub');
     if (pn) pn.textContent = signed ? (this.profile ? this.profile.callsign : 'Signed in') : 'Guest';
-    if (ps) ps.textContent = signed ? (this.profile ? 'View profile' : 'Choose a callsign') : 'Sign in to post scores';
-    this.drawAv(document.getElementById('pilotAv'), (this.profile && this.profile.avatar) || 'vesper');
+    if (ps) ps.textContent = signed ? (this.profile ? 'View profile' : 'Choose a callsign') : this.user ? 'Account posting paused' : 'Sign in to post scores';
+    this.drawAv(document.getElementById('pilotAv'), (signed && this.profile && this.profile.avatar) || 'vesper');
     const sb = document.getElementById('btnAcctSign');
-    if (sb) sb.textContent = signed ? 'Profile' : 'Sign in';
+    if (sb) sb.textContent = this.user ? 'Profile' : 'Sign in';
   },
   /* game over: guests (or no callsign yet) get "Sign up to post this score" */
   overPrompt(eligible) {
     const el = document.getElementById('ovCloud');
     if (!el) return;
-    el.classList.toggle('hidden', !(eligible && this.available() && !this.profile));
+    const paused = !!this.user && this.postingMode() === 'guest';
+    el.classList.toggle('hidden', !(eligible && this.available() && (!this.profile || paused)));
+    el.querySelector('b').textContent = paused ? 'Guest run saved on this device' : 'Sign up to post this score';
+    const btn = document.getElementById('btnOvSignUp');
+    if (btn) btn.textContent = paused ? 'Use account' : 'Sign up';
   },
-  /* account + boards open in one modal sheet (bottom sheet on phones). The
-     Global tab's content is moved into it while open and returned on close,
-     so the sidebar tab and the sheet share one DOM and one set of ids. */
-  sheetView: 'acct',
+  /* Shared sheet navigation lives in NET so portal builds need no Auth. */
   sheetHead() {
     const t = document.getElementById('sheetTitle'), e = document.getElementById('sheetEyebrow');
     if (!t || !e) return;
-    if (this.sheetView === 'boards') { e.textContent = 'Worldwide'; t.textContent = 'Leaderboards'; return; }
+    if (NET.sheetView === 'boards') { NET.sheetHead(); return; }
     e.textContent = 'Pilot account';
     t.textContent = !this.user ? 'Sign in' : this.profile ? 'Profile' : 'Choose a callsign';
   },
   openSheet(view) {
-    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
-    if (!sh || !body || !tab) return false;
-    if (typeof toTitle === 'function' && !document.getElementById('s-title').classList.contains('on')) toTitle();
-    this.sheetView = view;
-    sh.classList.toggle('v-boards', view === 'boards');
-    sh.classList.toggle('v-acct', view !== 'boards');
-    if (!sh.classList.contains('on')) {
-      this._ret = document.activeElement;
-      while (tab.firstChild) body.appendChild(tab.firstChild);
-      sh.classList.add('on'); sh.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('sheet-open');
-    }
-    body.scrollTop = 0;
-    this.sheetHead();
-    return true;
+    if (typeof NET.openSheet === 'function') return NET.openSheet(view);
+    // An older cached NET still supports its inline Global tab.
+    if (typeof switchTab === 'function') switchTab('global');
+    return false;
   },
   closeSheet() {
-    const sh = document.getElementById('acctSheet'), body = document.getElementById('sheetBody'), tab = document.getElementById('tab-global');
-    if (!sh || !sh.classList.contains('on')) return;
-    sh.classList.remove('on'); sh.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('sheet-open');
-    while (body.firstChild) tab.appendChild(body.firstChild);
-    try { if (this._ret && this._ret.focus) this._ret.focus(); } catch (e) { }
+    if (typeof NET.closeSheet === 'function') NET.closeSheet();
   },
   showAccount() {
     this.openSheet('acct');
@@ -366,9 +379,10 @@ const CLOUD = {
     try { if (em && fine) em.focus({ preventScroll: true }); else document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
   },
   showBoards() {
+    if (typeof NET.showBoards === 'function') return NET.showBoards();
     this.openSheet('boards');
     if (typeof NET !== 'undefined') NET.renderGlobal();
-    try { document.querySelector('#acctSheet .sheet-card').focus({ preventScroll: true }); } catch (e) { }
+    try { document.querySelector('.btab').focus({ preventScroll: true }); } catch (e) { }
   },
   say(msg, bad) {
     const el = document.getElementById('cloudMsg');
@@ -431,22 +445,8 @@ const CLOUD = {
     on('cloudVerify', run(async () => { await this.verifyOtp(val('cloudCode')); this.say(this.profile ? 'Signed in.' : 'Signed in. Pick your callsign to post runs.'); }));
     on('cloudGoogle', run(async () => { await this.signInGoogle(); }));
     on('btnPilot', () => this.showAccount());
-    on('btnBoards', () => this.showBoards());
-    const sh = document.getElementById('acctSheet');
-    if (sh) {
-      sh.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) this.closeSheet(); });
-      document.addEventListener('keydown', e => {
-        if (!sh.classList.contains('on')) return;
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.closeSheet(); return; }
-        if (e.key === 'Tab') { /* keep focus inside the dialog */
-          const f = [...sh.querySelectorAll('button,input,summary,a[href],[tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent !== null && !x.disabled);
-          if (!f.length) return;
-          const a = f[0], z = f[f.length - 1];
-          if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); }
-          else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); }
-        }
-      }, true);
-    }
+    if (typeof NET.wireBoards === 'function') NET.wireBoards();
+    else on('btnBoards', () => this.showBoards());
     /* Enter submits the field's primary action */
     const enter = (inp, btn) => { const i = document.getElementById(inp); if (i) i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const b = document.getElementById(btn); if (b) b.click(); } }); };
     enter('cloudEmail', 'cloudOtp'); enter('cloudCode', 'cloudVerify'); enter('cloudPass', 'cloudSignIn'); enter('cloudCallsign', 'cloudSave');
@@ -459,6 +459,12 @@ const CLOUD = {
       if (a && a.closest && a.closest('#cloudBox')) try { a.scrollIntoView({ block: 'center' }); } catch (e) { }
     });
     on('cloudGuest', () => { this.playGuest(); this.say('Playing as guest: scores stay on this device.'); });
+    on('cloudAccount', () => {
+      this.useAccount();
+      this.say(this.profile ? 'Account posting resumed for future runs.' : 'Choose a callsign to post future runs.');
+      const target = document.getElementById(this.profile ? 'cloudOut' : 'cloudCallsign');
+      if (target) target.focus();
+    });
     on('btnAcctGuest', () => { this.playGuest(); if (typeof startRun === 'function') startRun('endless'); });
     on('btnAcctSign', () => this.showAccount());
     on('btnOvSignUp', () => this.showAccount());
@@ -481,6 +487,7 @@ const CLOUD = {
   boot() {
     if (!this.available()) return;
     this.wire();
+    window.addEventListener('storage', e => { if (e.key === 'ef.guest' || e.key === null) this.paint(); });
     this.paint();
     if (this.pending()) this.refresh().then(() => this.paint()).catch(() => {});
   }

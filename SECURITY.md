@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only `main` is supported. It deploys to https://emberfall-game-two.vercel.app/, and every push runs the full CI suite first.
+Only reviewed releases from `main` are supported. Main CI tests one release artifact before Pages publication. Vercel production promotion is explicit and requires staged artifact verification; see [Deployment](docs/DEPLOYMENT.md).
 
 ## Reporting a vulnerability
 

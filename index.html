@@ -58,6 +58,7 @@
   --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
   --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
   --ui:clamp(.82rem,.55rem + .7vw,1rem);
+  --btn-scale:1; --btn-opacity:.92; --btn-spacing:1;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:var(--void)}
@@ -491,10 +492,12 @@ body.touchmode.flying #touch{display:block}
 #stick i{position:absolute;top:50%;left:50%;width:var(--tknob,44px);height:var(--tknob,44px);
   margin:calc(0px - var(--tknob,44px)/2) 0 0 calc(0px - var(--tknob,44px)/2);
   border-radius:50%;background:rgba(255,138,43,.28);border:1px solid var(--ember)}
-.tbtn{position:absolute;pointer-events:auto;width:var(--tbtn,74px);height:var(--tbtn,74px);border-radius:50%;
+.tbtn{position:absolute;pointer-events:auto;width:calc(var(--tbtn,74px)*var(--btn-scale));height:calc(var(--tbtn,74px)*var(--btn-scale));border-radius:50%;
   border:1px solid var(--line);background:rgba(8,13,26,.62);color:var(--aether);
   display:grid;place-items:center;font-size:.55rem;letter-spacing:.14em;
-  backdrop-filter:blur(4px);transition:transform .1s,background .1s}
+  backdrop-filter:blur(4px);transition:transform .1s,background .1s,opacity .12s ease;
+  opacity:var(--btn-opacity);
+}
 .tbtn:active{transform:scale(.9);background:rgba(53,224,255,.22)}
 .tbtn.cool{opacity:.5}
 .tbtn b{display:block;font-size:.9rem;font-family:Michroma,sans-serif;margin-bottom:2px}
@@ -1115,6 +1118,7 @@ body.touchmode #btnPause{width:48px;height:48px}
                 <button class="btn key c" id="cloudSave" type="button">Save</button></span></label>
               <div class="fld"><span class="fld-l" id="avPickL">Ship icon</span>
                 <div class="av-pick" id="avPick" role="radiogroup" aria-labelledby="avPickL"></div></div>
+              <button class="btn key c hidden" id="cloudAccount" type="button">Use account for future runs</button>
               <button class="btn ghost warn c" id="cloudOut" type="button">Sign out</button>
             </div>
             <p class="msg" id="cloudMsg" role="status" aria-live="polite"></p>
@@ -1128,7 +1132,7 @@ body.touchmode #btnPause{width:48px;height:48px}
               <div id="dailyBoard" class="board"></div>
               <p class="note-s" id="dayBoardNote">One seed per UTC day. Every pilot flies the same waves.</p>
             </div>
-            <div class="board-meta" id="globalBoardNote"><span>All-time · Endless</span><span>plausibility-checked runs</span></div>
+            <div class="board-meta" id="globalBoardNote"><span>All-time · Endless + Daily</span><span>plausibility-checked runs</span></div>
             <div class="bhead gb" aria-hidden="true"><span>#</span><span>Pilot</span><span>Score</span><span>Wave</span></div>
             <div id="globalBoard" class="board"></div>
             <div id="myRank" class="hidden"></div>
@@ -1137,7 +1141,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.3</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1263,6 +1267,8 @@ body.touchmode #btnPause{width:48px;height:48px}
       <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
       <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
       <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
+      <div class="opt"><label id="lBtnScale">Button size</label><input type="range" id="rBtnScale" min="70" max="140" step="5" aria-labelledby="lBtnScale"></div>
+      <div class="opt"><label id="lBtnOp">Button opacity</label><input type="range" id="rBtnOp" min="40" max="100" step="2" aria-labelledby="lBtnOp"></div>
       <div class="opt line"><label id="lGhost">Daily ghost</label><button class="sw" id="swGhost" aria-labelledby="lGhost"><i></i></button></div>
       <div class="opt line"><label id="lOut">High-vis bullets</label><button class="sw" id="swOut" aria-labelledby="lOut"><i></i></button></div>
       <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
@@ -1383,7 +1389,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.3 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1473,7 +1479,8 @@ const CFG = {
   hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
   touchLeft: false, touchBig: false, ghost: true, outline: true,
   cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
-  sky: 1 /* sky traffic cadence — table in js/sky.js */
+  sky: 1, /* sky traffic cadence — table in js/sky.js */
+  btnScale: 1, btnOpacity: 92, btnSpacing: 1
 };
 function loadCfg() {
   const s = DB.get('cfg', null);
@@ -1791,6 +1798,12 @@ let PAL = PALETTES[0];
 /* ───────────────── meta progression: hulls + refits ───────────────── */
 /* v4.1: re-derive the pilot-facing palette (paint change) without a run —
    the field derivation runs per wave; here we sync the same result now */
+function applyTouchBtnCfg(){
+  const root = document.documentElement;
+  root.style.setProperty('--btn-scale', String(CFG.btnScale || 1));
+  root.style.setProperty('--btn-opacity', ((CFG.btnOpacity || 92)/100).toFixed(2));
+  root.style.setProperty('--btn-spacing', String(CFG.btnSpacing || 1));
+}
 function applyPaint() {
   PAL = tintPal(PALETTES[clamp(CFG.pal, 0, PALETTES.length - 1)], STAGE);
   buildSprites();
@@ -2123,14 +2136,16 @@ function todaySeedKey() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
 }
+/* Run rules use the launch day; title/board previews still ask for today. */
+function dailyRunDay() { return GAME.mode === 'daily' && GAME.seedLabel ? GAME.seedLabel : todaySeedKey(); }
 /* ═══════════ daily mutators — one seeded twist per day ═══════════ */
 const MUTATORS = [
   { id: 'glass', name: 'Glass Cannon', desc: 'One less hull, all guns +50%' },
   { id: 'swarm', name: 'Swarm Protocol', desc: 'Every wave runs one ship heavier' },
   { id: 'overkill', name: 'Overkill', desc: 'Hostile rounds +15% fast · score +25%' }
 ];
-function todayMutator() {
-  return MUTATORS[hashStr('mut-' + todaySeedKey()) % MUTATORS.length];
+function todayMutator(day = todaySeedKey()) {
+  return MUTATORS[hashStr('mut-' + day) % MUTATORS.length];
 }
 
 /* ════════ the Daily Gauntlet — weekly tempo, medals, streaks ════════
@@ -3933,7 +3948,10 @@ function die(e) {
     });
   }
   if (tier >= 2) fxAt(.03, () => { ring(e.x, e.y, { r: 4, vr: 300 + 90 * tier, life: .34, col: rgbOf(e.axTint || PAL.foe), w: 2.4 }); });
-  if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  if (e.boss){ flash(.22); shake(10); GAME.hitstop = Math.max(GAME.hitstop, .08); }
+  else if (tier >= 3) { flash(.14); shake(6); GAME.hitstop = Math.max(GAME.hitstop, .04); }
+  else if (tier === 2) { flash(.08); shake(4); GAME.hitstop = Math.max(GAME.hitstop, .025); }
+  else if (tier === 1) { flash(.05); shake(2); GAME.hitstop = Math.max(GAME.hitstop, .015); }
   if (e.dying && e.boss) deathVolley(e);
   const beat = DEATHS[e.type];
   if (beat) beat(e);
@@ -4306,9 +4324,8 @@ function dailyGuideText(dayKey) {
   ];
   return parts.join(' ');
 }
-const DAILY_GUIDE = dailyGuideText(todaySeedKey());
 function dailyGuideCard() {
-  CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
+  CODEX.show('daily_guide', 'The Daily Gauntlet', dailyGuideText(dailyRunDay()));
 }
 
 const CODEX = {
@@ -5116,12 +5133,12 @@ function buildWave(n) {
     at(.6, 'drone', 4, 'sweep', { side: 1 });
     /* v4.11 rare Sunday: Wardenfall replaces the rotation capital in the
        daily's wave-5 slot (never tour — its waves are scripted worlds). */
-    const rare = GAME.mode === 'daily' && wardenfallSunday(todaySeedKey());
+    const rare = GAME.mode === 'daily' && wardenfallSunday(dailyRunDay());
     if (!rare) at(2.4, '@boss', 1, 'boss');
     if (rare) {
       at(1.1, 'drone', 6, 'vee', { elite: true });
       at(5.1, 'sniper', 1, 'pincer', { side: 1, elite: true });
-    } else if (GAME.mode === 'daily' && dayDow(todaySeedKey()) === 6) {
+    } else if (GAME.mode === 'daily' && dayDow(dailyRunDay()) === 6) {
       at(1.2, 'tender', 1, 'pincer', { side: 1, elite: true });
       at(4.8, 'sniper', 2, 'pincer', { side: -1, elite: true });
     }
@@ -5166,7 +5183,7 @@ function buildWave(n) {
       at(t, type, Math.max(1, count), form, { side: i % 2 ? 1 : -1, elite });
       /* the Daily Gauntlet's weekly tempo: the shared seed is only half the
          contract — the corridor itself tightens toward the weekend */
-      t += Math.max(3.1, 6.4 - n * .11) * (GAME.mode === 'daily' ? dayTempo(todaySeedKey()).tempo : 1);
+      t += Math.max(3.1, 6.4 - n * .11) * (GAME.mode === 'daily' ? dayTempo(dailyRunDay()).tempo : 1);
     }
     if (n >= 7) at(t + 1.2, 'cruiser', Math.min(3, 1 + Math.floor((n - 7) / 4)), 'anchor', {});
   }
@@ -6472,16 +6489,21 @@ const GHOST = {
     if (this.rec.length < 20000) this.rec.push(Math.round(P.x) + ',' + Math.round(P.y));
   },
   loadBest(mode) {
-    return DB.get(mode === 'daily' ? 'ghost.daily' : 'ghost.main', null);
+    const best = DB.get(mode === 'daily' ? 'ghost.daily' : 'ghost.main', null);
+    // Unbound legacy Daily tapes are preserved in storage until replaced, but
+    // cannot represent a known challenge. Main-mode tapes retain their contract.
+    return mode === 'daily' && best && best.day !== dailyRunDay() ? null : best;
   },
   saveIfBest(mode, score) {
     if (!this.rec || score <= 0) return;
     const key = mode === 'daily' ? 'ghost.daily' : 'ghost.main';
-    const cur = DB.get(key, null);
+    const cur = this.loadBest(mode);
     if (!cur || score > (cur.score || 0)) {
       // thin the recording: every other frame is plenty at 60fps
       const thin = this.rec.filter((v, i) => i % 2 === 0);
-      DB.set(key, { score, ship: META.ship, frames: thin, paint: META.paint });
+      const tape = { score, ship: META.ship, frames: thin, paint: META.paint };
+      if (mode === 'daily') tape.day = dailyRunDay();
+      DB.set(key, tape);
     }
     this.rec = null;
   },
@@ -6503,9 +6525,17 @@ const GHOST = {
 };
 
 function startRun(mode) {
+  const day = mode === 'daily' ? todaySeedKey() : '';
   AU.init(); AU.resume(); AU.applyVolumes(); MUSIC.start();
   GAME.mode = mode || 'endless';
-  GAME.stageSeed = 1 + ((rnd(0, 1e9) | 0) % 7);
+  // A returning PWA may still have an older account script. Keep that run
+  // local until its controller supports the posting-choice contract.
+  GAME.guestRun = typeof CLOUD !== 'undefined' &&
+    (typeof CLOUD.postingMode !== 'function' || CLOUD.postingMode() === 'guest');
+  GAME.seedLabel = day;
+  const gameplaySeed = day ? hashStr('emberfall-' + day) : null;
+  // Do not consume an encounter RNG draw just to choose the Daily world.
+  GAME.stageSeed = day ? 1 + (gameplaySeed % 7) : 1 + ((rnd(0, 1e9) | 0) % 7);
   GAME.tourWorld = 0;
   GAME.tourVictory = false;
   GAME.hazWaves = 0;
@@ -6519,15 +6549,13 @@ function startRun(mode) {
   GHOST.rival = null; GHOST.rivalFrame = 0;
   if (GAME.mode === 'daily') {
     const rv = DB.get('ghost.rival', null);
-    if (rv && CFG.ghost && !rv.beaten && rv.day === todaySeedKey() &&
+    if (rv && CFG.ghost && !rv.beaten && rv.day === day &&
       Array.isArray(rv.frames) && rv.frames.length) {
       GHOST.rival = { frames: rv.frames, ship: rv.ship, paint: rv.paint || 'yard', duelId: rv.duelId || null };
     }
   }
   if (GAME.mode === 'daily') {
-    const key = todaySeedKey();
-    R = makeRng(hashStr('emberfall-' + key));
-    GAME.seedLabel = key;
+    R = makeRng(gameplaySeed);
   } else {
     R = makeRng((Math.random() * 4294967296) >>> 0);
     GAME.seedLabel = '';
@@ -6550,7 +6578,7 @@ function startRun(mode) {
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
   DDA.arm();
-  GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
+  GAME.mutator = GAME.mode === 'daily' ? todayMutator(day) : null;
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : GAME.mode === 'rush' ? 'rush' : 'main')[0] || { s: 0 }).s;
   GAME.ghostBeat = false;
   GAME.rivalBeat = false;
@@ -6780,7 +6808,8 @@ function endRun() {
   if (!isSchool) {
   /* worldwide boards (Supabase, ADR 0003): best-effort; the local save already happened */
   if (typeof CLOUD !== 'undefined') CLOUD.overPrompt(!GAME.school && GAME.score >= 1);
-  if (typeof CLOUD !== 'undefined' && !GAME.school && CLOUD.profile && GAME.score >= 1) {
+  if (typeof CLOUD !== 'undefined' && !GAME.school && !GAME.guestRun &&
+      typeof CLOUD.canPost === 'function' && CLOUD.canPost() && GAME.score >= 1) {
     CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
       .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
       .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
@@ -6996,11 +7025,11 @@ function openSettings(from) {
 function applyPortalChrome() {
   if (typeof emberfallPortal !== 'function' || !emberfallPortal()) return;
   const hide = id => { const el = $(id); if (el) el.classList.add('hidden'); };
-  ['btnInstall', 'swRegister'].forEach(hide);
+  ['btnInstall', 'swRegister', 'btnPilot', 'btnAcctSign', 'btnAcctGuest', 'acctPanel', 'ovCloud', 'cloudBox'].forEach(hide);
   const dayNote = $('dayBoardNote');
-  if (dayNote) dayNote.textContent = 'One seed, one day — your best on this device. Waves carry the D tag.';
+  if (dayNote) dayNote.textContent = 'Daily Gauntlet runs saved on this device.';
   const gNote = $('globalBoardNote');
-  if (gNote) gNote.textContent = 'This device — runs saved in local storage.';
+  if (gNote) gNote.textContent = 'All-time runs saved on this device.';
   const status = $('globalStatus');
   if (status && !status.dataset.portal) {
     status.dataset.portal = '1';
@@ -7206,18 +7235,26 @@ $$('.tab').forEach(t => t.onclick = () => { AU.ui(); switchTab(t.dataset.tab); }
    BEFORE the bind* calls below — a const referenced by an earlier call is
    a TDZ crash that kills the whole inline core. */
 const SETTING_PAINTS = [];
-function bindRange(id, key) {
+function bindRange(id, key, onChange) {
   const el = $(id);
   if (!el) return;
-  const paint = () => { el.value = CFG[key]; };
+  const paint = () => { 
+    if(id === 'rBtnScale') el.value = Math.round((CFG.btnScale||1)*100);
+    else if(id === 'rBtnOp') el.value = CFG.btnOpacity||92;
+    else el.value = CFG[key]; 
+  };
   SETTING_PAINTS.push(paint);
   paint();
   el.addEventListener('input', () => {
+    if(id === 'rBtnScale'){ CFG[key]=+el.value/100; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
+    if(id === 'rBtnOp'){ CFG[key]=+el.value; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
     CFG[key] = +el.value;
     saveCfg(); AU.init(); AU.applyVolumes();
+    if (onChange) onChange(+el.value);
   });
 }
 bindRange('rMas', 'master'); bindRange('rMus', 'music'); bindRange('rSfx', 'sfx');
+  bindRange('rBtnScale', 'btnScale', v=>{CFG.btnScale=v/100; saveCfg(); applyTouchBtnCfg();}); bindRange('rBtnOp', 'btnOpacity', v=>{CFG.btnOpacity=+v; saveCfg(); applyTouchBtnCfg();});
 
 function bindSwitch(id, key, apply) {
   const el = $(id);
@@ -7284,6 +7321,24 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.3',
+    items: [
+      'Portal Boards now opens saved local rankings without accounts, with working touch and keyboard navigation.'
+    ]
+  },
+  {
+    v: '4.29.2',
+    items: [
+      'Play as guest keeps runs on this device, even with a signed-in account; resume posting explicitly from Profile.'
+    ]
+  },
+  {
+    v: '4.29.1',
+    items: [
+      'Daily worlds now follow the gameplay seed, encounter rules keep the launch day across UTC midnight, and Daily ghosts race only their recorded day.'
+    ]
+  },
   {
     v: '4.29.0',
     items: [
@@ -8914,7 +8969,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.3', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
@@ -8982,7 +9037,9 @@ $('s-boot').addEventListener('click', finishBoot);
 
 function boot() {
   applyPortalChrome();
+  if (typeof NET.wireBoards === 'function') NET.wireBoards();
   loadCfg();
+  applyTouchBtnCfg();
   SETTING_PAINTS.forEach(p => p());   // saved prefs repaint switches/segments
   loadMeta();
   armSkyTraffic();   // scale the sky schedulers' initial countdowns to the saved Sky traffic setting

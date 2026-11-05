@@ -1,393 +1,68 @@
-# Emberfall Expansion Implementation Backlog
+# Emberfall implementation backlog
 
-**Status:** Planning only. Do not begin gameplay implementation until the Phase 0 exit criteria are approved.  
-**Priority:** P0 blocks the vertical slice; P1 is required for the slice; P2 follows slice validation.
+**Accepted direction:** repair foundations, earn polish, then expand. This is the sole implementation backlog. Earlier expansion phases and PR #59 assumptions are superseded where they conflict below. One issue per branch/PR; humans review and merge. Complete each gate before dependent work. Status requires evidence, not a promised review score.
 
-## 1. Phase 0 — design and measurement lock
+## Locked scope
 
-### EXP-001 — Freeze expansion content vocabulary
+Free browser arcade; free tiers first, paid upgrades need an owner decision. Preserve WRAITH, art direction, survival Daily waves/medals/Wardenfall, keyboard/touch/gamepad, offline and `file://`. Polish before content. Signed-in careers synchronize; guests keep local careers. Extract typed classic JavaScript modules shared by gameplay/tests and remove duplicate simulation. Ranked Daily ignores career power. Cloud saves protect consistency, not legitimate earnings.
 
-**Priority:** P0  
-**Owner:** Design + engineering  
-**Depends on:** none
+## Gate 0 — trustworthy releases (exit verified)
 
-Define the canonical names and IDs for systems, planets, stages, hazards, enemy sets, objectives, planes, missions, modifiers, and bosses.
+| Work | Issue / evidence | Status |
+|---|---|---|
+| Immutable Actions and structural validation | [#49](https://github.com/FahadIbrahim93/emberfall/issues/49), [PR #65](https://github.com/FahadIbrahim93/emberfall/pull/65) | Merged into main as `5895d50`; main verification passed |
+| Main protection: current-revision checks, PRs, resolved conversations, administrators enforced, no force push/deletion | GitHub protection read back 2026-11-04; required gates and portal checks | Configured; humans merge |
+| Read-only verification, measurement artifacts, one hashed/tested payload reused by hosts, separate portal validation | [#66](https://github.com/FahadIbrahim93/emberfall/issues/66), [PR #68](https://github.com/FahadIbrahim93/emberfall/pull/68), [current main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925203035) | Main `e89c799` passed CI, Pages publication and all-asset live smoke; both `28805b3` and `e89c799` have retained 28-asset releases |
+| Stage before explicit production promotion | Auto-assign domains disabled on both projects; `vercel-production` restricted to main with owner review | [Staging-only run](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188) passed all 28 HTTP checks; approved `e89c799` promotion succeeded and both hosts were verified; both CI secrets configured |
+| Isolate release credentials | [#69](https://github.com/FahadIbrahim93/emberfall/issues/69), [PR #70](https://github.com/FahadIbrahim93/emberfall/pull/70) | Merged into main as `e89c799`; 25 release safety tests pass; installer runs without credentials and authenticated CLI steps use environment tokens only |
+| Reconcile duplicate projects without moving origins | Public `emberfall-game-two.vercel.app` belongs to **emberfall-game**; retain both projects/aliases | Mapping recorded; no deletion |
+| Reconcile stale work | #41 closed as superseded; #44 merged as `b7894fc`, diagnostic tested under LF/CRLF and unsafe mutation; #49 closed by #65; #15–17 use current Supabase contracts | [Main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41957184480) passed after the human merge |
+| Rehearse release and restore | [Staging success](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188), [successful rollback (attempt 2)](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955101962), [successful return to current](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955669235) | Both hosts restored `28805b3` then returned to `e89c799`; every staged/public manifest, hash and MIME check passed. Independent 28-asset checks confirmed both versions on both hosts. First retry followed a demonstrated transient staged 404; checks were unchanged |
+| Repair rehearsal findings | [#71](https://github.com/FahadIbrahim93/emberfall/issues/71), [PR #72](https://github.com/FahadIbrahim93/emberfall/pull/72), [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41954668924) | Merged as `059bac9`; scoped promotion adapter, matching artifact/Git identity and 33 release tests. Live rollback/promotion now passed; manual domain assignment retained. Earlier CLI/user-404 and identity rejection remain recorded in failed run 41952121300 |
 
-**Acceptance criteria**
+**Exit evidence (2026-11-05):** production-path regressions reject altered/omitted assets and mismatched deployment identity before publication; both hosts were independently verified on the same tested `e89c799` release after previous-release restoration/re-promotion. User approved the exact A/B rehearsal and environment reviews were recorded. #44 is human-merged and main CI passed. Subsequent main commits follow the reviewed artifact/promotion procedure; this evidence does not claim every newer commit is already promoted on Vercel.
 
-- All planned content uses lower-kebab-case stable IDs.
-- No display label is used as a persistence or leaderboard key.
-- Deprecated IDs have a migration policy.
-- IDs and version semantics are documented in `content-schema.json`.
+**Public release snapshot (2026-11-05):** manifest reads show canonical Vercel on v4.29.0 / `e89c799` and Pages on v4.29.2 / `9d1765e`. Promotion of the merged client repairs to Vercel remains pending; merged, tested and publicly promoted are separate states.
 
-### EXP-002 — Approve Heliox Forge design brief
+## Gates 1–7
 
-**Priority:** P0  
-**Owner:** Game design  
-**Depends on:** EXP-001
+Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) / [PR #74](https://github.com/FahadIbrahim93/emberfall/pull/74) repaired Daily world selection, launch-day encounter rules and ghost day identity; merged as `21babec`, with [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41959479545) passing. Three failures were reproduced before repair; six regression cases cover its boundaries.
 
-Lock the system verb, stage arcs, heat rules, hazard telegraphs, mini-boss, Furnace Regent, and victory/failure states.
+[#75](https://github.com/FahadIbrahim93/emberfall/issues/75) / [PR #76](https://github.com/FahadIbrahim93/emberfall/pull/76) repaired persisted guest posting choice independently of Auth; merged as `9d1765e`, with [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41964218615) passing. Three production failures were reproduced; ten cases cover game-over posting, transfer refusal, reload/auth events, explicit resumption, old accounts, blocked storage, anonymous/no-profile refusal, tabs, active guest runs and stale-controller compatibility. v4.29.2/cache v4.57 passed 54 browser, 61 simulation, 64 in-game and 33 release tests, plus required static/economy/portal checks.
 
-**Acceptance criteria**
+[#77](https://github.com/FahadIbrahim93/emberfall/issues/77) restores portal Boards independently of Auth and corrects local All-time data selection. Four cases failed on unchanged production code before repair. Twelve cases cover the actual generated portal, keyboard/touch, framing, query mode, file play, hosted accounts and both cached-controller contracts. v4.29.3/cache v4.58 passes 66 browser, 61 simulation, 64 in-game and 33 release tests, plus required static/economy/portal checks; human review/merge is pending. Server-side posting-day attribution, reward acknowledgement/idempotency, pending-run delivery, donation/reset focus, Daily profile labels and remaining obsolete claims are still pending; no server contract or balance change is claimed here.
 
-- Each of HF-01, HF-02, and HF-03 has a distinct primary decision.
-- Each mechanic has a safe introduction before escalation.
-- Each stage has an authored score opportunity and a readable failure explanation.
-- No stage depends on unreleased systems or unbounded procedural generation.
+| Gate | Scope | Exit evidence |
+|---|---|---|
+| 1: player defects | Daily gameplay seed for world/hazards; bind day at launch; reconnect streak/medal/payout/flawless/Wardenfall adoption without threshold changes; idempotent completion; persisted guest/account posting mode; persist actual run before signup and remove only after acknowledgement; independent portal Boards/local rankings without sign-in; focus restoration; correct Daily labels and obsolete claims | Reproduce every audited production failure, then pass regressions for midnight, repeated callbacks, improved scores, reward boundaries and retries |
+| 2: persistence/accounts | Additive SELECT-only security-invoker view grants and role tests; serialize per-user quota; deduplicate before charging; exact bigint API/display/order/rank; source mode, competition ranks `1,1,3`; indexed cursor boards with fixed watermark; supported views; SMTP/redirect/recovery/session/provider tests; recent-auth export/deletion and session revocation | Grants/ownership/concurrent quota/idempotency/pagination/deletion tests plus owner email/recovery verification |
+| 2: cloud careers | Owned versioned snapshots; local-first saves after runs/debounced hangar edits; revision/save ID/CAS; retain conflicts and offer title-screen choice; explicit guest import with both summaries; bounded recovery history and validated export/import; never sum currency automatically | Two devices, offline changes, concurrent purchases, interrupted uploads and account switching cannot silently lose/duplicate progress |
+| 3: shipped simulation | Catalog/configuration, simulation, presentation/audio, inputs, persistence/UI boundaries; create/tick/events/serialize/restore/result interface; no DOM/audio/network/storage/wall clocks/cosmetic RNG inside sim; sim clocks for delays/hazards/rewards; remove duplicate sim; repair types and enforce strict JSDoc/JS/test checks; structural checks | Captured behavior preserved; production/headless use the same modules; balance changes separate and versioned |
+| 4: deterministic Daily | Immutable day/seed/stage/modifier/hull/loadout/rules/content/policy package; one of five existing hulls available to all; Pilot; no refits/mastery score bonuses/sigils/assistance; 540×960 arena, equal input speed; preserve pickups/boons; separate encounter/drop/hazard/boon RNG; 120 Hz normalized tape; integer/fixed-point scored state and checked-in lookup data | Complete-state replay matches Node/Chromium/Firefox/WebKit across viewport/quality/cosmetic randomness; incompatible historical rankings separate |
+| 5: server verification | Vercel Node start/chunk/finalize with private Supabase records; account/package binding; server checkpoints only; ≤60-sim-second chunks; actual bytes plus digest; atomic checkpoint/ack, idempotent retries, reject conflicts/gaps/overlaps; simulated authoritative outcome; registered ranked intake; local guest/offline/outage play; explicit legacy labels | Score/seed/version/tape/checkpoint/quota attacks rejected; worst-case p95 CPU ≤500 ms, hard budget; remain disabled if benchmarks fail |
+| 6: finished experience | Threats/telegraphs/hit/death/HUD; immediate retry/cause/one improvement; remapping/touch sensitivity/left-handed/cooldowns/consistent activation; menu zoom and gameplay-only gesture suppression; focus/modals/contrast/non-color cues/motion/flash/screen reader; observed pacing/progression; visuals never change income; cosmetic prestige; exact-package sharing and truthful cards with copy/download fallback | Device, accessibility, performance and human gates below |
+| 7: Heliox slice | Correct schema required fields/references/IDs/version rules; heat survival, convoy protection, boss/extraction via shared interfaces; distinct decisions/safe introductions/readable failures/score opportunities; measured procedural art/audio; existing hulls first | Human comprehension/fairness/retry, replay/accessibility/performance evidence before more systems or six new planes; one sidegrade at a time |
 
-### EXP-003 — Define deterministic replay and verification contract
+### Corrected public contracts
 
-**Priority:** P0  
-**Owner:** Engineering + backend  
-**Depends on:** EXP-001
+- `submit_run_v2`: run ID, source mode, bound package/day, rules/content versions, exact score, validated stats. Acknowledgement includes verification state and idempotent Daily reward/streak result. Old score RPC remains client-reported compatibility.
+- `load_career`, `save_career(expectedRevision, saveId, snapshot)`: ownership, revision CAS, idempotency. Conflict returns current revision/comparison summary without overwrite.
+- Replay v1: **120 Hz**, six bytes/tick: signed int16 LE movement x/y, action bits, boon-choice byte. Chunk includes run ID, sequence, tick range, SHA-256 **and actual bytes**. Reject reserved bits, invalid choices, gaps/overlaps and mismatched versions.
+- Pages calls canonical API using bearer account auth/exact origin allowlist. Finalize verified terminal outcomes only. Replay consistency is not proof of human/unassisted play. Historical scores are never grandfathered into verified boards.
+- Verification: 300 accepted chunks/account/UTC day (five simulation hours), completion within 24 h after package day, compatible verifiers retained through grace; tapes seven days, best evidence thirty days. Alert at 80%; reserve active-run capacity and stop intake before exhaustion. Local play continues.
 
-Specify seed, ruleset version, content version, input format, fixed-step behavior, digest, replay payload, verification states, retention, and rejection reasons.
+### Reuse from expansion work
 
-**Acceptance criteria**
+Retain EXP-001/006 ID/schema validation, EXP-007/008 classic-script seams/timelines, EXP-010–013 Heliox readability/three stages, EXP-017 sharing after prerequisites. EXP-003/015/018 use the corrected Daily/replay contracts. EXP-004 uses privacy rules below. EXP-005/019/020 require observed human/device evidence. Defer EXP-009/014 six-plane work until the existing-hull slice passes. No mandatory three-mission deck or six-plane dependency.
 
-- The contract distinguishes `local`, `bounds-checked`, `replay-verified`, and `tournament-reviewed`.
-- The UI never calls a bounds-checked score verified.
-- A replay can be rejected for mismatched seed, content, ruleset, input digest, or impossible state.
-- The current no-server behavior remains accurately documented until re-simulation ships.
+## Cross-cutting acceptance and operations
 
-### EXP-004 — Define telemetry and privacy contract
-
-**Priority:** P0  
-**Owner:** Product analytics + engineering  
-**Depends on:** none
-
-Define versioned events for boot, launch, first action, death, retry, stage completion, Daily entry, share, account, score post, and return visit.
-
-**Acceptance criteria**
-
-- No email, raw IP, or free-form user content is collected by gameplay events.
-- Analytics failure is non-blocking.
-- Events include game version, ruleset version, device class, and referrer category where privacy-safe.
-- Retention and deletion policy is documented before collection begins.
-
-### EXP-005 — Establish human playtest protocol
-
-**Priority:** P0  
-**Owner:** Research + design  
-**Depends on:** EXP-002
-
-Prepare moderated and unmoderated tests across desktop, Android touch, iOS touch, and low-end hardware.
-
-**Acceptance criteria**
-
-- At least 20 participants are recruited for the vertical slice gate.
-- Tests measure comprehension, replay intent, perceived fairness, and share intent.
-- Participants are segmented by prior arcade-game experience.
-- Findings are written with observed evidence, not only opinions.
-
-## 2. Phase 1 — content framework, no player-facing expansion yet
-
-### EXP-006 — Implement data validation harness
-
-**Priority:** P0  
-**Owner:** Engineering  
-**Depends on:** EXP-001
-
-Add a validation-only tool for content JSON. This is not gameplay implementation; it validates IDs, references, durations, mission constraints, and version fields.
-
-**Acceptance criteria**
-
-- Invalid references fail with a path-specific error.
-- Duplicate IDs fail.
-- Stage durations and encounter times are validated.
-- Daily missions reject non-deterministic or account-required definitions.
-- The tool runs in CI without a runtime dependency in the game.
-
-### EXP-007 — Add content registry seam without changing current behavior
-
-**Priority:** P0  
-**Owner:** Engineering  
-**Depends on:** EXP-006
-
-Create a data seam compatible with the current classic-script and `file://` load contract. Existing Emberfall Prime behavior must remain unchanged.
-
-**Acceptance criteria**
-
-- `file://` play still boots.
-- Script load order remains `audio → sky → net → art → input → inline core`.
-- `deadscan --check` passes.
-- Existing simulation goldens remain byte/behavior stable.
-- No runtime npm dependency is introduced.
-
-### EXP-008 — Define stage event timeline representation
-
-**Priority:** P0  
-**Owner:** Engineering + design  
-**Depends on:** EXP-006
-
-Represent encounter sequences as validated data rather than scattered magic values.
-
-**Acceptance criteria**
-
-- Encounter ordering is deterministic.
-- Every hazard and enemy set resolves to a known registry entry.
-- Telegraph time is validated and exposed to tests.
-- A stage can be inspected in a human-readable debug output.
-
-### EXP-009 — Define plane stat and ability budget
-
-**Priority:** P0  
-**Owner:** Combat design  
-**Depends on:** EXP-002
-
-Establish the numeric budget and sidegrade rules for Aegis Warden, Vesper, Helix, Arclight, Nullwing, and Pioneer.
-
-**Acceptance criteria**
-
-- Every plane has one strength, one weakness, and one explicit mastery loop.
-- No plane is more than the approved power budget outside its intended mode.
-- Ability cooldown, resource, telegraph, and reduced-motion fallback are specified.
-- Plane selection cannot silently alter score verification policy.
-
-## 3. Phase 2 — Heliox Forge vertical slice
-
-### EXP-010 — Build Heliox visual language prototype
-
-**Priority:** P1  
-**Owner:** Art + rendering  
-**Depends on:** EXP-002, EXP-007
-
-Create the Heliox palette, materials, heat vents, industrial silhouettes, and boss readability prototype.
-
-**Acceptance criteria**
-
-- Bullets, player, enemies, objectives, and hazards remain distinguishable at mobile resolution.
-- Reduced-motion mode removes or simplifies motion without removing essential state.
-- The signature star-flare moment does not obscure active threats.
-- Renderer cost is measured using the existing performance method.
-
-### EXP-011 — Build HF-01 Solar Intake
-
-**Priority:** P1  
-**Owner:** Gameplay engineering  
-**Depends on:** EXP-008, EXP-010
-
-Implement the first Heliox survival stage.
-
-**Acceptance criteria**
-
-- Heat is introduced safely, then escalates predictably.
-- Heat reward and damage are visible before the player commits.
-- Stage is deterministic under fixed seed and fixed inputs.
-- Simulation tests cover heat gain, heat damage, vent cadence, and scoring.
-
-### EXP-012 — Build HF-02 Foundry Convoy
-
-**Priority:** P1  
-**Owner:** Gameplay engineering  
-**Depends on:** EXP-011
-
-Implement convoy modules, damage states, repair decisions, and objective-integrity scoring.
-
-**Acceptance criteria**
-
-- Partial convoy failure is recoverable and clearly communicated.
-- Objective integrity affects result scoring in documented ways.
-- All convoy state is deterministic and replay-representable.
-- Accessibility labels and post-run explanation exist for objective status.
-
-### EXP-013 — Build HF-03 Core Breach and Furnace Regent
-
-**Priority:** P1  
-**Owner:** Gameplay engineering + boss design  
-**Depends on:** EXP-011, EXP-012
-
-Implement extraction escalation, rotating extraction lanes, mini-boss gate, and three-phase boss.
-
-**Acceptance criteria**
-
-- Each boss phase has a distinct telegraph and counterplay.
-- All six plane archetypes can defeat the boss in principle; no single plane is mandatory.
-- Extraction banking versus multiplier risk is explicit.
-- Boss state is deterministic and covered by golden tests.
-
-### EXP-014 — Implement six plane prototypes
-
-**Priority:** P1  
-**Owner:** Combat engineering  
-**Depends on:** EXP-009, EXP-011
-
-Implement the six planes one at a time, beginning with Aegis Warden and Vesper.
-
-**Acceptance criteria**
-
-- Every plane passes the shared movement, firing, damage, ability, and score contracts.
-- Plane ability has a keyboard, touch, assistive, and reduced-motion path.
-- No ability double-fires under pointer, keyboard, or assistive activation.
-- Plane balance report includes stage win rate, score distribution, and failure reasons.
-
-## 4. Phase 3 — Daily mission and competition beta
-
-### EXP-015 — Generate versioned Daily packages
-
-**Priority:** P1  
-**Owner:** Backend/content systems  
-**Depends on:** EXP-003, EXP-006, EXP-008
-
-Define a Daily package with date, seed, ruleset, content version, stage, modifier, three missions, allowed planes, and verification policy.
-
-**Acceptance criteria**
-
-- Same package produces same encounter rules for all clients.
-- A package is immutable once published, or has an explicit superseding version.
-- Time-zone behavior is documented.
-- A future Daily can be previewed without making it live.
-
-### EXP-016 — Implement mission tracking and result explanation
-
-**Priority:** P1  
-**Owner:** Gameplay UI  
-**Depends on:** EXP-015
-
-Track mission progress and explain completion, failure, and reward state.
-
-**Acceptance criteria**
-
-- Mission progress is visible during play or in the immediate result.
-- Guest players can play and complete missions locally.
-- Posting a score is the only account-gated action.
-- Mission rewards cannot grant ranked combat power.
-
-### EXP-017 — Add challenge links and share cards
-
-**Priority:** P1  
-**Owner:** Product + web UI  
-**Depends on:** EXP-015
-
-Create a mobile-friendly result card and “Beat this run” challenge route.
-
-**Acceptance criteria**
-
-- A recipient can start the challenge without account creation.
-- Share card includes seed/challenge ID, plane, score, wave/time, graze, combo, and verification state.
-- Clipboard and native share paths both work where supported.
-- The challenge route survives direct navigation and refresh.
-
-### EXP-018 — Implement replay verification prototype
-
-**Priority:** P1  
-**Owner:** Backend + simulation engineering  
-**Depends on:** EXP-003, EXP-011
-
-Build a server or trusted worker re-simulation path for Daily scores.
-
-**Acceptance criteria**
-
-- Server output is generated from seed plus input stream, not client score.
-- Ruleset/content mismatch is rejected.
-- Verification result is immutable and auditable.
-- Existing bounds-checked boards remain clearly labelled during migration.
-
-## 5. Phase 4 — measurement and release gate
-
-### EXP-019 — Run Heliox balance and readability pass
-
-**Priority:** P1  
-**Owner:** Design + QA  
-**Depends on:** EXP-011, EXP-012, EXP-013, EXP-014
-
-Use playtest data and simulation distributions to tune heat, convoy integrity, boss windows, plane budgets, and score multipliers.
-
-**Acceptance criteria**
-
-- No stage has a dominant single strategy unless intentionally labelled.
-- New players understand the primary rule after one stage.
-- Expert players identify at least one high-risk/high-reward route.
-- No mobile device class falls outside the performance budget.
-
-### EXP-020 — Vertical slice human validation
-
-**Priority:** P0 release gate  
-**Owner:** Product  
-**Depends on:** EXP-005, EXP-019
-
-Run the agreed 20-player study and decide whether Heliox proceeds to full production.
-
-**Acceptance criteria**
-
-- At least 20 players complete the test protocol.
-- Results include first-action, first-stage completion, second-run intent, comprehension, fairness, and share intent.
-- Findings are segmented by device and experience.
-- Product decision is recorded: proceed, revise, or stop.
-
-## 6. Technical and QA acceptance checklist
-
-### Determinism and simulation
-
-- [ ] New scored math uses the run-seeded RNG only.
-- [ ] Cosmetic FX use the separate non-scoring stream.
-- [ ] Same seed + same inputs produces the same score and result state.
-- [ ] Fixed-step accumulator ceiling remains intact.
-- [ ] New hazards, objectives, abilities, and bosses have invariant tests.
-- [ ] Golden replay fixtures cover normal, edge, and failure paths.
-- [ ] Practice/rush rules do not leak into verified Daily rules.
-
-### Content integrity
-
-- [ ] Every ID validates against `content-schema.json`.
-- [ ] Duplicate IDs and missing references fail before runtime.
-- [ ] Every encounter has a telegraph and a readable counterplay.
-- [ ] Every stage has a clear objective and result state.
-- [ ] Daily packages are immutable/versioned.
-- [ ] Mission text exactly matches tracking behavior.
-
-### Load and architecture
-
-- [ ] `file://` play boots.
-- [ ] Classic-script order is unchanged.
-- [ ] Modules remain load-time pure.
-- [ ] `deadscan.js --check` passes.
-- [ ] No runtime npm dependency is introduced.
-- [ ] Service-worker cache generation is bumped for payload changes.
-- [ ] Portal build and static deployment payload remain valid.
-
-### Input and accessibility
-
-- [ ] Keyboard activation fires abilities exactly once.
-- [ ] Pointer/touch activation fires abilities exactly once.
-- [ ] Assistive activation works without pointerdown.
-- [ ] Touch controls remain at least 44px.
-- [ ] Focus order is logical in stage, mission, result, and share surfaces.
-- [ ] Reduced-motion mode preserves gameplay state communication.
-- [ ] High-contrast and color-blind palettes preserve threat/objective distinction.
-- [ ] Screen-reader labels expose canvas purpose, stage state, mission state, and result state.
-
-### Performance
-
-- [ ] Desktop target is 60fps.
-- [ ] Supported mobile minimum is agreed and measured, with 30fps as the hard floor for the slice.
-- [ ] Entity and particle counts remain within system budgets.
-- [ ] Backdrop bake is keyed and never repeated unnecessarily.
-- [ ] DPR clamp and auto-quality remain active.
-- [ ] Heat, convoy, and boss effects do not create uncontrolled fill or particle growth.
-- [ ] Real-device thermal test is completed on at least one Android and one iOS device.
-
-### Competition and security
-
-- [ ] Client never chooses the authoritative score.
-- [ ] Verification status is explicit in API, UI, and share cards.
-- [ ] Challenge URLs validate allowed IDs and versions.
-- [ ] Board writes remain RPC-only and rate-limited.
-- [ ] Callsign and share metadata are escaped and allowlisted.
-- [ ] Replay payload limits prevent oversized or abusive submissions.
-- [ ] Top tournament scores receive manual review or replay verification.
-- [ ] No secret/service-role key ships to the client.
-
-### Product and release
-
-- [ ] Human playtest results are recorded.
-- [ ] Funnel events are versioned and privacy-reviewed.
-- [ ] Daily participation, retry, share, and challenge conversion are measurable.
-- [ ] The result screen explains why the run ended and what to try next.
-- [ ] A rollback path exists for a bad Daily package or content version.
-- [ ] Press/creator assets are generated from the actual released build.
-- [ ] Release notes state whether scores are bounds-checked or verified.
-
-## 7. Definition of done for gameplay coding start
-
-Gameplay coding may begin only after EXP-001 through EXP-005 are approved, the schema is reviewed, the Heliox three-stage brief is signed off, the replay/verification status language is accepted, and the QA checklist has named owners. The first code milestone must be a framework seam and validation harness—not a large batch of enemies or art.
+- No unexplained type errors or unresolved critical/high defect. Preserve coverage while moving onto production code. Malicious callsigns/URLs/imports/replays/oversized data fail safely. Deliberately break critical invariants in disposable runs and observe failure.
+- Economy asserts tolerance (±10% repair anchor drift); reviewed replacement baseline for balance changes. FPS measures real frame intervals independently of clamped sim time. Replay fixtures cover hulls/bosses/hazards/pauses/boons/long survival.
+- Chromium/Firefox/WebKit plus physical older iPhone, low-end Android, current desktop. Target 60 fps desktop/current phones and ≥30 fps supported low-end using frame-time distributions. Twenty-minute thermal/high-wave sessions; fresh/offline/interrupted updates, multiple tabs, old clients, `file://`, Pages subpaths and framed portal.
+- Pin PWA sessions to complete releases, update between runs, delete only Emberfall caches, never substitute HTML for missing scripts. Current service worker has not earned this guarantee.
+- Human study: six experienced + six casual desktop, four Android, two iOS, two additional low-end users. Targets: 18/20 start unaided within 30 s; 17/20 explain graze/combo/Daily; 16/20 explain observed deaths; 14/20 voluntarily retry; no recurring segment blocker. Fresh participants validate revisions. Project targets, not industry/retention benchmarks; measure returns separately with consent.
+- Owner supplies verified sender domain/SMTP (Resend free default), reviews migrations/configuration/PRs and recruits testers. Use local Supabase/captured email; activate saves/Daily/verification separately. No agent live migrations.
+- Encrypted off-site backups: seven daily/four weekly, isolated restore monthly. Monitor release/errors/assets/auth/submission/queue/verification cost/backup/resource health. Configure free-tier budgets; no unlimited-free or paid-reliability claims.
+- Opt-in first-party versioned funnel events, closed fields, thirty-day raw retention; no email/account joins, raw IP/full referrer/free-form gameplay payloads. Failure never blocks play.
+- Final reassessment repeats original scoring categories with evidence. Declare achievement only after repair, shared sim, saves, verification, device, operational and human gates pass.

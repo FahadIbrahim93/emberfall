@@ -1,47 +1,56 @@
 # Deployment
 
-EMBERFALL is a static game plus a Supabase project. The static files run anywhere. Accounts and the global and daily boards come from Supabase project `rgmbexmodebegllahotc`, which the browser talks to directly with the publishable key. There is no game server to run.
+The game is static; Supabase project `rgmbexmodebegllahotc` supplies accounts and boards. No replay-verification server is deployed yet.
 
-## Where it lives today
-
-| | URL | Notes |
+| Host | Public URL | Release path |
 |---|---|---|
-| Vercel | https://emberfall-game-two.vercel.app/ | Main public link (the repo homepage). Deploys automatically on every push to `main`. `vercel.json` sets the security headers and allows framing by bountyboard.gg. |
-| GitHub Pages | https://fahadibrahim93.github.io/emberfall/ | Published by CI after every green push to `main`. |
-| Supabase | `https://rgmbexmodebegllahotc.supabase.co` | Accounts, callsigns and the global and daily boards (live since #25). Schema in `supabase/migrations/`. |
+| Vercel | https://emberfall-game-two.vercel.app/ | Explicit promotion of a tested production-environment deployment |
+| Pages | https://fahadibrahim93.github.io/emberfall/ | The retained artifact from successful main CI |
 
-Saves and sign-ins are per origin, so a player on Vercel and the same player on Pages have separate local saves.
+The Vercel public alias belongs to project **emberfall-game** (`prj_8qgnVQhyDTxSea2j53tGAVYwvOy0`), despite its name. The other linked project, **emberfall-game-two**, is retained. Automatic production domain assignment is disabled on both projects. Git integration builds may still run, but do not promote. Do not delete either project or move existing public origins: careers and sign-ins are stored per origin.
 
-## GitHub Pages
-
-- The `deploy` job runs only after the full `verify` job passes on `main`. It then re-fetches the live site and checks that `index.html` matches the commit byte for byte.
-- Every release is an annotated tag (`git tag -l 'v4.*'`). To roll back, re-run the deploy for an older tag in Actions.
-- The service worker is network-first, and its cache name (`emberfall-v4.NN`) changes every release, so installed copies update.
-
-## Supabase
-
-- **Schema changes:** add a file under `supabase/migrations/` and apply it to the project (Supabase CLI `supabase db push`, or the SQL editor). Applied migrations are never edited.
-- **Auth:** email and password sign-up is on, with email confirmation. Guests never create an auth user, so anonymous sign-in can stay off. Sign in with X (provider `x`) is planned in #26.
-- **Redirect URLs:** the Vercel and Pages origins must be in the project's allowed redirect URLs so confirmation links come back to the game.
-- **Monitoring:** `node tools/mirror-alarm.mjs` checks that the project answers and `deck_stats` agrees with `profiles`.
-- **Keys:** only the publishable key ships in `js/cloud.js`. The service role key is never committed or used by the game.
-
-## Portal build
+## Build and test one payload
 
 ```bash
-npm run build:portal
+npm ci --ignore-scripts
+npm run test:release
+npm run build:site
+# Set EMBERFALL_SITE_ROOT=dist/site for CI-equivalent checks.
+npm run test:browser
+node tools/selftest-ci.js
+npm run verify:site
 ```
 
-`tools/build-portal.sh` copies the playable files into `dist-portal/`, injects `window.EMBERFALL_PORTAL=true`, strips off-site hosts and writes `dist-portal.zip` with `index.html` at the root (20 MB limit). It uses `zip`, falls back to python3 and exits with an error if no zip is created. `?portal=1` turns on the same mode in any copy. In portal mode, scores stay on the device.
+CI sets `EMBERFALL_SITE_ROOT=dist/site` so browser and self-tests use the single prebuilt payload without rebuilding. Local harnesses build it first without that variable. Tests never serve the broader repository. Preview with `node tools/serve-static.mjs --release --port 8080`.
 
-## Local preview
+`dist/site/release-manifest.json` contains commit SHA, game version, sorted paths, MIME types, sizes and SHA-256 hashes, plus the deployment configuration hash. Packaging includes nested `js/vendor/supabase.js`, its license, fonts, icons and press assets. Missing references, modified assets, extra files and provenance mismatches fail verification. Tooling, dependencies and migrations are excluded. Missing scripts never fall back to HTML.
 
-```bash
-node tools/serve-static.mjs --port 8080
-```
+Successful CI retains `emberfall-site-<full SHA>` for 30 days. Pages downloads and verifies that artifact, then checks every published asset against it. Measurements are separate 14-day CI artifacts. Verification has read-only repository access and never commits measurement updates. Historical fun-curve updates use captured CI measurements in a reviewed PR.
 
-This serves only the public payload (the same files Vercel publishes after `.vercelignore`) with the headers from `vercel.json`. It has no API; the local page talks to the same Supabase project as the live site. The browser suite and `tools/selftest-ci.js` start it on port 8123 for you.
+## Vercel staging and promotion
 
-## What Vercel publishes
+After human merge and successful **main-push CI**, dispatch **Release or restore a tested payload** from `main`. Supply the CI run ID and full commit SHA. PR artifacts, foreign repositories, failed/incomplete runs and mismatched commits are rejected.
 
-`.vercelignore` keeps repo tooling (`tools/`, `tests/`, `packages/`, `supabase/`, `package.json` and the gate scripts) off the public host. `node deadscan.js --check` fails CI if one of those paths stops being ignored or a game file starts being ignored.
+The `vercel-production` GitHub environment is restricted to `main` and requires owner review (configured 2026-11-04). Add `VERCEL_TOKEN` scoped to the existing team/project there. Protected staging also needs `VERCEL_AUTOMATION_BYPASS_SECRET`; never make previews public. Neither secret is currently configured. No paid service is required.
+
+The workflow downloads the retained artifact, converts it to [Build Output API v3](https://vercel.com/docs/build-output-api/configuration) without rebuilding, and uses pinned CLI `vercel@65.11.0` with `--prebuilt --prod --skip-domain`. It checks the staged manifest, every asset's bytes/MIME and the sign-in library. Leave **promote** false for rehearsal. Selecting **promote** promotes only after those checks, then verifies the public alias against the same manifest. Using a production-environment deployment avoids preview/production environment changes during promotion. See [staging domains](https://vercel.com/docs/cli/deploy#skip-domain) and [promotion](https://vercel.com/docs/cli/promote).
+
+Install the pinned CLI without release credentials and with dependency install scripts disabled. Only the deploy/promote steps receive `VERCEL_TOKEN`, through their environment; never pass it in command arguments. `node tools/release-policy.mjs` and its negative regressions enforce this isolation. Deployment metadata records the source CI run and release SHA.
+
+Rollback deployments must bind both `releaseCommit` and `githubCommitSha` to the artifact SHA, rather than the workflow checkout. Promotion uses `tools/promote-release.mjs`: explicit team/project API scope, READY production deployment checks, matching release/Git identities, and manual domain assignment preserved before/after promotion. This avoids CLI promotion's user lookup, which returned HTTP 404 for the configured scoped token during rehearsal. The public all-asset smoke check remains mandatory after acceptance.
+
+The connected Vercel API can also stage the exact artifact without CI credentials: verify successful main CI provenance and every artifact hash first, upload only its files with SHA1/size checks, and create a production-environment deployment with automatic alias assignment disabled. This is not evidence that the credentialed CI workflow has run. Verify all staged HTTP assets before promotion and retain the same owner review requirement. Do not regenerate a broader repository build or disable Deployment Protection to obtain a passing check.
+
+## Rollback rehearsal and recovery
+
+Retain the previous successful main CI run ID/SHA before promotion. Restore it using the same workflow with that run ID/SHA, **promote=true** and **restore_pages=true**. Both hosts receive its retained bytes; no rebuild, main rewrite, origin migration or database change occurs. Each host has its own smoke check; investigate and restore the other host if one fails.
+
+Before declaring Gate 0 complete: stage a release, damage a disposable artifact and observe rejection, promote, restore the previous retained release on both hosts, then restore the current release. Record successful workflow URLs in the canonical backlog. The first manifest-bearing main release must exist before production rehearsal. Pre-manifest deployments cannot pass the new contract. Automated rollback requires an unexpired CI artifact; download required older artifacts before 30-day expiry.
+
+## Supabase and portals
+
+Add migrations under `supabase/migrations/`; never edit applied migrations or apply them live as an agent. Owner review/deployment are separate. Email redirect URLs must include the preserved Vercel and Pages origins. Only the publishable key in `js/mirror-public.js` ships. SMTP, account recovery and cloud careers remain pending Gate 2.
+
+`npm run build:portal` produces `dist-portal.zip` with `index.html` at its root. CI separately checks the 20 MB limit and absence of Supabase, fly.dev and GitHub hosts. Portal scores stay local. This artifact is separate from the account-enabled web release.
+
+Service-worker release isolation and update behavior remain pending distribution repairs in the backlog. The deployment pipeline does not establish those guarantees.
