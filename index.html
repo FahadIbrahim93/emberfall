@@ -1141,7 +1141,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.3</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.4</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1389,7 +1389,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.3 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.4 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7064,28 +7064,52 @@ function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
    prompt(), so the click looks dead. One in-game step covers both places. */
 let askYes = null;
 let askReturn = null;
+let askReturnKey = null;
 function askConfirm(message, yesLabel, onYes) {
   askYes = onYes || null;
   askReturn = document.activeElement;
+  /* A confirmed action may rebuild its own trigger (the yard donation runs
+     renderHangar). Remember a stable hook so focus can find the replacement. */
+  askReturnKey = askReturn && askReturn.dataset ? askReturn.dataset.askReturn || null : null;
   $('askH').textContent = yesLabel || 'Confirm';
   $('askMsg').textContent = message;
   $('btnAskYes').textContent = yesLabel || 'Confirm';
   showScreen('s-ask', true);
   $('btnAskNo').focus();
 }
-function dismissAsk() {
+/* Close the step and hand back where focus belongs. The action runs between
+   close and restore, so a rerendered trigger is resolved after it exists. */
+function takeAskReturn() {
   askYes = null;
-  const back = askReturn;
+  const back = askReturn, key = askReturnKey;
   askReturn = null;
+  askReturnKey = null;
   showScreen('s-ask', false);
-  if (back && back.isConnected && back.focus && $('s-hangar') && $('s-hangar').classList.contains('on')) {
-    back.focus({ preventScroll: true });
+  return (back || key) ? { back, key } : null;
+}
+/* Resolve after the action: a rerender may have replaced the trigger. */
+function askReturnTarget(handle) {
+  if (!handle) return null;
+  if (!($('s-hangar') && $('s-hangar').classList.contains('on'))) return null;
+  if (handle.back && handle.back.isConnected && handle.back.focus) return handle.back;
+  if (handle.key) {
+    try {
+      const replacement = document.querySelector('[data-ask-return="' + handle.key + '"]');
+      if (replacement && replacement.focus) return replacement;
+    } catch (e) { /* a bad hook falls through to the hangar control */ }
   }
+  return $('btnBayLaunch');
+}
+function restoreAskFocus(el) {
+  if (el && el.isConnected && el.focus) el.focus({ preventScroll: true });
+}
+function dismissAsk() {
+  restoreAskFocus(askReturnTarget(takeAskReturn()));
 }
 function settleAsk(ok) {
   const fn = ok ? askYes : null;
-  dismissAsk();
-  if (fn) fn();
+  const handle = takeAskReturn();
+  try { if (fn) fn(); } finally { restoreAskFocus(askReturnTarget(handle)); }
 }
 bindClick('btnAskYes', () => { AU.ui(); settleAsk(true); });
 bindClick('btnAskNo', () => { AU.ui(); settleAsk(false); });
@@ -7321,6 +7345,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.4',
+    items: [
+      'Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.'
+    ]
+  },
   {
     v: '4.29.3',
     items: [
@@ -8969,7 +8999,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.3', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.4', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -1,4 +1,4 @@
-# EMBERFALL v4.29.3 — Orbital Intercept
+# EMBERFALL v4.29.4 — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -118,6 +118,9 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 <!-- fun-curve:end -->
 
+## What's new in v4.29.4 — "Confirm Focus"
+
+- Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.
 ## What's new in v4.29.3 — "Local Boards"
 
 - Portal Boards now opens saved local rankings without accounts, with working touch and keyboard navigation.
