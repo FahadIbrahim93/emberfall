@@ -82,7 +82,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           test -n "$VERCEL_TOKEN" || { echo 'Configure VERCEL_TOKEN in the vercel-production environment'; exit 1; }
-          deployment=$(vercel deploy --cwd dist/site --prebuilt --prod --skip-domain --yes --meta releaseCommit="$RELEASE_SHA" --meta releaseRun="$RELEASE_RUN_ID")
+          deployment=$(vercel deploy --cwd dist/site --prebuilt --prod --skip-domain --yes --meta releaseCommit="$RELEASE_SHA" --meta releaseRun="$RELEASE_RUN_ID" --meta githubCommitSha="$RELEASE_SHA" --meta githubCommitRef=main --meta githubCommitMessage="Tested release $RELEASE_SHA from CI $RELEASE_RUN_ID")
           DEPLOYMENT_URL="$deployment" node -e 'const u=new URL(process.env.DEPLOYMENT_URL); if(u.protocol!=="https:" || !u.hostname.endsWith(".vercel.app") || u.pathname!=="/") process.exit(1)'
           echo "url=$deployment" >> "$GITHUB_OUTPUT"
       - name: Verify staged manifest, sign-in library and every asset
@@ -95,7 +95,7 @@ jobs:
         env:
           DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel promote "$DEPLOYMENT_URL"
+        run: node tools/promote-release.mjs
       - name: Verify public domain routing and release identity
         if: inputs.promote
         run: |
