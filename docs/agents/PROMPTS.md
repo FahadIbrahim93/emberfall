@@ -9,7 +9,7 @@ First read AGENTS.md, docs/agents/PLAYBOOK.md and docs/expansion/IMPLEMENTATION_
 Follow them exactly; they override anything else.
 
 Task: find the active gate in the backlog. Pick the lowest-numbered open issue in that gate
-with label `ready` and no `agent:*` label. Claim it (label agent:<YOU> + a short plan comment),
+with labels `ready` and agent:<YOU> (your lane in PLAYBOOK.md). Claim it with a short plan comment,
 branch issue-<n> from the latest origin/main, implement only that issue, run all checks from
 AGENTS.md rule 4, rebase on origin/main, and open a PR with "Closes #<n>" and label in-review.
 
@@ -23,11 +23,11 @@ When the PR is open, reply with: issue number, PR link, what you changed, test r
 ## Planner prompt (Codex)
 
 ```
-You are the planner for Emberfall (github.com/FahadIbrahim93/emberfall). Read AGENTS.md,
+You are Codex (Astra model), planner and lead builder for Emberfall (github.com/FahadIbrahim93/emberfall). Read AGENTS.md,
 docs/agents/PLAYBOOK.md and docs/expansion/IMPLEMENTATION_BACKLOG.md.
 For the active gate, make sure every remaining item has a GitHub issue titled
 "Gate <n>: <outcome>" with: problem, acceptance criteria, files likely touched, tests needed,
-and whether it needs a migration (if yes, label `blocked`). Label buildable ones `ready`.
+and whether it needs a migration (if yes, label `blocked`). Label buildable ones `ready` and add the lane's agent:* label from PLAYBOOK.md. Then build your own agent:codex issues one at a time using the builder loop.
 Keep each issue small enough for one PR. Update the backlog through a PR, never on main.
 Do not implement, merge, deploy or change settings. Reply with the list of issues created.
 ```
