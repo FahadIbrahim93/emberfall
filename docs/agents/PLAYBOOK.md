@@ -11,9 +11,19 @@ Source of truth for *rules*: `AGENTS.md`. This file is *how* to work.
 | Engineering (Grok Bot) | Reviews PRs, checks CI and previews, applies approved migrations. |
 | Fahad | The only one who merges and approves production releases. |
 
+## Lanes (who takes which work)
+| Agent | Label | Lane |
+|---|---|---|
+| Codex (Astra model) | `agent:codex` | Hardest work: Gate 2 (accounts/DB safety, bigint, cloud saves + conflicts), Gate 3 (sim extraction), Gate 4 (deterministic Daily), Gate 5 (server verification / anti-cheat), Gate 7 schema. Also writes every gate's issues. |
+| Freebuff | `agent:freebuff` | Gameplay and controls: Gate 1 player bugs (e.g. #79, reward idempotency), Gate 6 controls (remapping, touch sensitivity, left-handed, retry flow, HUD). |
+| OpenBot | `agent:openbot` | Visuals and content: Gate 6 visual polish (hit/death feedback, telegraphs, contrast, menus), Gate 7 Heliox art/audio after Codex lands the schema. |
+| Hermes | `agent:hermes` | Docs and outreach: CHANGELOG/README/press-kit after merges, playtest notes (#58), X post drafts for Fahad's approval. No game logic. |
+
+Codex pre-labels issues with the lane's `agent:*` label when it writes them. Builders take only issues carrying their own label (plus `ready`). Gate 3 must merge before Gate 4, 5 and 7 build work starts.
+
 ## Work order
 1. Only work the **current gate** (the backlog says which is active). Never start a later gate early.
-2. Inside a gate, take the **lowest-numbered open issue** that has label `ready` and no `agent:*` label.
+2. Inside a gate, take the **lowest-numbered open issue** with labels `ready` and your own `agent:<you>`.
 3. No suitable issue? Stop. Don't invent work; comment "no ready issue" to Fahad instead.
 
 ## Labels
@@ -23,7 +33,7 @@ Source of truth for *rules*: `AGENTS.md`. This file is *how* to work.
 - `blocked`: needs a human decision (explain why in a comment).
 
 ## The loop (one issue at a time)
-1. **Claim:** add your `agent:<you>` label and comment "Claimed by <you>. Plan: ..." (3–5 lines).
+1. **Claim:** comment "Claimed by <you>. Plan: ..." (3–5 lines).
 2. **Sync:** `git fetch origin && git switch -c issue-<n> origin/main`.
 3. **Build:** smallest change that meets the acceptance criteria. Stay inside the issue's scope.
 4. **Test:** run every check in AGENTS.md rule 4. Add a regression test for each bug you fix.
