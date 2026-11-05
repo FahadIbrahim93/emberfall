@@ -1140,7 +1140,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.1</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1388,7 +1388,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.1 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -2135,14 +2135,16 @@ function todaySeedKey() {
   const d = new Date();
   return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
 }
+/* Run rules use the launch day; title/board previews still ask for today. */
+function dailyRunDay() { return GAME.mode === 'daily' && GAME.seedLabel ? GAME.seedLabel : todaySeedKey(); }
 /* ═══════════ daily mutators — one seeded twist per day ═══════════ */
 const MUTATORS = [
   { id: 'glass', name: 'Glass Cannon', desc: 'One less hull, all guns +50%' },
   { id: 'swarm', name: 'Swarm Protocol', desc: 'Every wave runs one ship heavier' },
   { id: 'overkill', name: 'Overkill', desc: 'Hostile rounds +15% fast · score +25%' }
 ];
-function todayMutator() {
-  return MUTATORS[hashStr('mut-' + todaySeedKey()) % MUTATORS.length];
+function todayMutator(day = todaySeedKey()) {
+  return MUTATORS[hashStr('mut-' + day) % MUTATORS.length];
 }
 
 /* ════════ the Daily Gauntlet — weekly tempo, medals, streaks ════════
@@ -4321,9 +4323,8 @@ function dailyGuideText(dayKey) {
   ];
   return parts.join(' ');
 }
-const DAILY_GUIDE = dailyGuideText(todaySeedKey());
 function dailyGuideCard() {
-  CODEX.show('daily_guide', 'The Daily Gauntlet', DAILY_GUIDE);
+  CODEX.show('daily_guide', 'The Daily Gauntlet', dailyGuideText(dailyRunDay()));
 }
 
 const CODEX = {
@@ -5131,12 +5132,12 @@ function buildWave(n) {
     at(.6, 'drone', 4, 'sweep', { side: 1 });
     /* v4.11 rare Sunday: Wardenfall replaces the rotation capital in the
        daily's wave-5 slot (never tour — its waves are scripted worlds). */
-    const rare = GAME.mode === 'daily' && wardenfallSunday(todaySeedKey());
+    const rare = GAME.mode === 'daily' && wardenfallSunday(dailyRunDay());
     if (!rare) at(2.4, '@boss', 1, 'boss');
     if (rare) {
       at(1.1, 'drone', 6, 'vee', { elite: true });
       at(5.1, 'sniper', 1, 'pincer', { side: 1, elite: true });
-    } else if (GAME.mode === 'daily' && dayDow(todaySeedKey()) === 6) {
+    } else if (GAME.mode === 'daily' && dayDow(dailyRunDay()) === 6) {
       at(1.2, 'tender', 1, 'pincer', { side: 1, elite: true });
       at(4.8, 'sniper', 2, 'pincer', { side: -1, elite: true });
     }
@@ -5181,7 +5182,7 @@ function buildWave(n) {
       at(t, type, Math.max(1, count), form, { side: i % 2 ? 1 : -1, elite });
       /* the Daily Gauntlet's weekly tempo: the shared seed is only half the
          contract — the corridor itself tightens toward the weekend */
-      t += Math.max(3.1, 6.4 - n * .11) * (GAME.mode === 'daily' ? dayTempo(todaySeedKey()).tempo : 1);
+      t += Math.max(3.1, 6.4 - n * .11) * (GAME.mode === 'daily' ? dayTempo(dailyRunDay()).tempo : 1);
     }
     if (n >= 7) at(t + 1.2, 'cruiser', Math.min(3, 1 + Math.floor((n - 7) / 4)), 'anchor', {});
   }
@@ -6487,16 +6488,21 @@ const GHOST = {
     if (this.rec.length < 20000) this.rec.push(Math.round(P.x) + ',' + Math.round(P.y));
   },
   loadBest(mode) {
-    return DB.get(mode === 'daily' ? 'ghost.daily' : 'ghost.main', null);
+    const best = DB.get(mode === 'daily' ? 'ghost.daily' : 'ghost.main', null);
+    // Unbound legacy Daily tapes are preserved in storage until replaced, but
+    // cannot represent a known challenge. Main-mode tapes retain their contract.
+    return mode === 'daily' && best && best.day !== dailyRunDay() ? null : best;
   },
   saveIfBest(mode, score) {
     if (!this.rec || score <= 0) return;
     const key = mode === 'daily' ? 'ghost.daily' : 'ghost.main';
-    const cur = DB.get(key, null);
+    const cur = this.loadBest(mode);
     if (!cur || score > (cur.score || 0)) {
       // thin the recording: every other frame is plenty at 60fps
       const thin = this.rec.filter((v, i) => i % 2 === 0);
-      DB.set(key, { score, ship: META.ship, frames: thin, paint: META.paint });
+      const tape = { score, ship: META.ship, frames: thin, paint: META.paint };
+      if (mode === 'daily') tape.day = dailyRunDay();
+      DB.set(key, tape);
     }
     this.rec = null;
   },
@@ -6518,9 +6524,13 @@ const GHOST = {
 };
 
 function startRun(mode) {
+  const day = mode === 'daily' ? todaySeedKey() : '';
   AU.init(); AU.resume(); AU.applyVolumes(); MUSIC.start();
   GAME.mode = mode || 'endless';
-  GAME.stageSeed = 1 + ((rnd(0, 1e9) | 0) % 7);
+  GAME.seedLabel = day;
+  const gameplaySeed = day ? hashStr('emberfall-' + day) : null;
+  // Do not consume an encounter RNG draw just to choose the Daily world.
+  GAME.stageSeed = day ? 1 + (gameplaySeed % 7) : 1 + ((rnd(0, 1e9) | 0) % 7);
   GAME.tourWorld = 0;
   GAME.tourVictory = false;
   GAME.hazWaves = 0;
@@ -6534,15 +6544,13 @@ function startRun(mode) {
   GHOST.rival = null; GHOST.rivalFrame = 0;
   if (GAME.mode === 'daily') {
     const rv = DB.get('ghost.rival', null);
-    if (rv && CFG.ghost && !rv.beaten && rv.day === todaySeedKey() &&
+    if (rv && CFG.ghost && !rv.beaten && rv.day === day &&
       Array.isArray(rv.frames) && rv.frames.length) {
       GHOST.rival = { frames: rv.frames, ship: rv.ship, paint: rv.paint || 'yard', duelId: rv.duelId || null };
     }
   }
   if (GAME.mode === 'daily') {
-    const key = todaySeedKey();
-    R = makeRng(hashStr('emberfall-' + key));
-    GAME.seedLabel = key;
+    R = makeRng(gameplaySeed);
   } else {
     R = makeRng((Math.random() * 4294967296) >>> 0);
     GAME.seedLabel = '';
@@ -6565,7 +6573,7 @@ function startRun(mode) {
     ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
   });
   DDA.arm();
-  GAME.mutator = GAME.mode === 'daily' ? todayMutator() : null;
+  GAME.mutator = GAME.mode === 'daily' ? todayMutator(day) : null;
   GAME.best = (loadBoard(GAME.mode === 'daily' ? 'daily' : GAME.mode === 'rush' ? 'rush' : 'main')[0] || { s: 0 }).s;
   GAME.ghostBeat = false;
   GAME.rivalBeat = false;
@@ -7307,6 +7315,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.1',
+    items: [
+      'Daily worlds now follow the gameplay seed, encounter rules keep the launch day across UTC midnight, and Daily ghosts race only their recorded day.'
+    ]
+  },
   {
     v: '4.29.0',
     items: [
@@ -8937,7 +8951,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.1', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

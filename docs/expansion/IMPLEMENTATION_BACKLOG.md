@@ -6,7 +6,7 @@
 
 Free browser arcade; free tiers first, paid upgrades need an owner decision. Preserve WRAITH, art direction, survival Daily waves/medals/Wardenfall, keyboard/touch/gamepad, offline and `file://`. Polish before content. Signed-in careers synchronize; guests keep local careers. Extract typed classic JavaScript modules shared by gameplay/tests and remove duplicate simulation. Ranked Daily ignores career power. Cloud saves protect consistency, not legitimate earnings.
 
-## Gate 0 — trustworthy releases (operational exit verified; #44 merge pending)
+## Gate 0 — trustworthy releases (exit verified)
 
 | Work | Issue / evidence | Status |
 |---|---|---|
@@ -16,13 +16,15 @@ Free browser arcade; free tiers first, paid upgrades need an owner decision. Pre
 | Stage before explicit production promotion | Auto-assign domains disabled on both projects; `vercel-production` restricted to main with owner review | [Staging-only run](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188) passed all 28 HTTP checks; approved `e89c799` promotion succeeded and both hosts were verified; both CI secrets configured |
 | Isolate release credentials | [#69](https://github.com/FahadIbrahim93/emberfall/issues/69), [PR #70](https://github.com/FahadIbrahim93/emberfall/pull/70) | Merged into main as `e89c799`; 25 release safety tests pass; installer runs without credentials and authenticated CLI steps use environment tokens only |
 | Reconcile duplicate projects without moving origins | Public `emberfall-game-two.vercel.app` belongs to **emberfall-game**; retain both projects/aliases | Mapping recorded; no deletion |
-| Reconcile stale work | #41 closed as superseded; #44 refreshed against main, conflicts resolved, actual diagnostic tested under LF/CRLF and unsafe mutation; #49 closed by merged #65; #15–17 use current Supabase contracts | #44's old Windows failure reproduced and repaired; fresh CI and human merge pending |
+| Reconcile stale work | #41 closed as superseded; #44 merged as `b7894fc`, diagnostic tested under LF/CRLF and unsafe mutation; #49 closed by #65; #15–17 use current Supabase contracts | [Main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41957184480) passed after the human merge |
 | Rehearse release and restore | [Staging success](https://github.com/FahadIbrahim93/emberfall/actions/runs/41925945188), [successful rollback (attempt 2)](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955101962), [successful return to current](https://github.com/FahadIbrahim93/emberfall/actions/runs/41955669235) | Both hosts restored `28805b3` then returned to `e89c799`; every staged/public manifest, hash and MIME check passed. Independent 28-asset checks confirmed both versions on both hosts. First retry followed a demonstrated transient staged 404; checks were unchanged |
 | Repair rehearsal findings | [#71](https://github.com/FahadIbrahim93/emberfall/issues/71), [PR #72](https://github.com/FahadIbrahim93/emberfall/pull/72), [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41954668924) | Merged as `059bac9`; scoped promotion adapter, matching artifact/Git identity and 33 release tests. Live rollback/promotion now passed; manual domain assignment retained. Earlier CLI/user-404 and identity rejection remain recorded in failed run 41952121300 |
 
-**Exit evidence (2026-11-05):** production-path regressions reject altered/omitted assets and mismatched deployment identity before publication; both hosts serve the same tested `e89c799` release; previous-release restore/re-promotion passed the corrected credentialed workflow. User approved the exact A/B rehearsal and required environment reviews were recorded. Finish human review/merge of #44 before dependent gameplay work; no such work has started.
+**Exit evidence (2026-11-05):** production-path regressions reject altered/omitted assets and mismatched deployment identity before publication; both hosts were independently verified on the same tested `e89c799` release after previous-release restoration/re-promotion. User approved the exact A/B rehearsal and environment reviews were recorded. #44 is human-merged and main CI passed. Subsequent main commits follow the reviewed artifact/promotion procedure; this evidence does not claim every newer commit is already promoted on Vercel.
 
-## Gates 1–7 (pending Gate 0 exit)
+## Gates 1–7
+
+Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) repairs Daily world selection, launch-day encounter rules and ghost day identity. Three audited failures were reproduced against unchanged shipped code; six browser cases cover cosmetic RNG, rare/ordinary Sunday midnight, atomic launch-day capture, ghost replacement and main-mode compatibility. Client v4.29.1/cache v4.56 passes 44 browser, 61 simulation, 64 in-game and 33 release tests, plus required static/economy/portal checks; human review/merge is pending. Server-side posting-day attribution, reward acknowledgement/idempotency and account queues remain separate pending repairs; no server contract or balance change is claimed here.
 
 | Gate | Scope | Exit evidence |
 |---|---|---|

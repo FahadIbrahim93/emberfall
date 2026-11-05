@@ -4,6 +4,12 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Daily repair — v4.29.1
+- Derive Daily world/hazard selection from its gameplay seed; cosmetic randomness no longer selects a different world for the same day.
+- Capture the UTC day once at launch and retain its mutator, encounter schedule, Sunday rules and guide across midnight.
+- Daily ghosts carry their launch day; incompatible-day and unbound legacy tapes are retained until replaced, but are not raced. Main-mode ghosts are unchanged.
+- Cache generation `emberfall-v4.56`. Server submission-day attribution and Daily reward acknowledgement remain pending RPC repairs.
+
 ### Sign-in
 - Email code flow: 6-digit one-time-code input (auto-verifies), "Code sent to … · Change", Resend with a 60 s cooldown, plain-language errors for rate limits, unconfirmed email, wrong password, expired code and offline. A pending code survives reload for 15 min. Verify falls back to the signup token type, so new users' confirmation codes work too. Unconfirmed password sign-in resends the code automatically.
 
