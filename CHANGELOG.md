@@ -4,6 +4,12 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Guest posting choice — v4.29.2
+- Respect the saved guest choice even when a registered account remains signed in. Run posting and guest-best transfer stay paused through reloads, auth refreshes and changes from other tabs.
+- Profile exposes an explicit "Use account for future runs" action; opening accounts or boards never resumes posting. Runs launched as guests stay local after resumption.
+- Keep choices in memory when storage is blocked; a new page defaults to local-only posting if the choice cannot be read. Title/result copy reflects the posting state.
+- Cache generation `emberfall-v4.57`. Pending-run outbox delivery and acknowledged-transfer idempotency remain separate repairs.
+
 ### Daily repair — v4.29.1
 - Derive Daily world/hazard selection from its gameplay seed; cosmetic randomness no longer selects a different world for the same day.
 - Capture the UTC day once at launch and retain its mutator, encounter schedule, Sunday rules and guide across midnight.
