@@ -6,7 +6,8 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ### Confirm focus — v4.29.4
 - After a confirmed donation or reset, restore keyboard focus only once the action has rerendered the hangar: cancellation and Escape return to the original trigger, an ordinary donation finds its rebuilt button, the final donation falls back to the hangar's launch control, and reset keeps its surviving button.
-- Regression coverage: `tests/confirm-focus.spec.js` covers ordinary and final donations, cancel, Escape, reset and keyboard continuation. Cache generation `emberfall-v4.59`.
+- The confirmation step opens on Cancel: its visibility no longer waits on the fade, so the cancel/Escape path moves focus into the dialog and back instead of passing without leaving the trigger.
+- Regression coverage: `tests/confirm-focus.spec.js` covers ordinary and final donations, cancel, Escape, reset and keyboard continuation, with initial-focus assertions in every path. Cache generation `emberfall-v4.59`.
 
 ### Portal Boards — v4.29.3
 - Wire Boards, shared sheet navigation and keyboard focus independently of accounts, so the packaged portal works without `cloud.js`.

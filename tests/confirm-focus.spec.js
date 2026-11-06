@@ -6,7 +6,9 @@ const { test, expect } = require('@playwright/test');
 
    The donation button rebuilds itself in renderDonations(), so the element
    stored when the dialog opened is detached by the time the action returns.
-   Reset keeps its static button; both paths share the same restoration rule. */
+   Reset keeps its static button; both paths share the same restoration rule.
+   The ask starts on Cancel, so cancel/Escape prove focus actually moved into
+   the dialog and back to the trigger. */
 
 async function openHangar(page) {
   await page.goto('/', { waitUntil: 'networkidle' });
@@ -21,6 +23,9 @@ async function openHangar(page) {
   await expect(page.locator('#s-notes')).not.toHaveClass(/on/);
   await page.locator('#btnHangar').click();
   await expect(page.locator('#s-hangar')).toHaveClass(/on/);
+  /* the fade keeps the screen visibility:hidden for a beat; focusing a
+     control before it lands is a no-op, so wait for the screen to show */
+  await expect(page.locator('#s-hangar')).toBeVisible();
 }
 
 async function seedLedger(page, alloy, donated) {
@@ -31,7 +36,7 @@ async function seedLedger(page, alloy, donated) {
   }, [alloy, donated]);
 }
 
-/* Enter opens the ask; Tab traps into its first control and Enter confirms.
+/* Enter opens the ask on Cancel; Tab wraps to Confirm and Enter confirms.
    This is the keyboard path the audit failed. */
 async function confirmFromDonateButton(page) {
   const donate = page.locator('#donateBox .up');
@@ -39,7 +44,8 @@ async function confirmFromDonateButton(page) {
   await expect(donate).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#s-ask')).toHaveClass(/on/);
-  await expect(page.locator('#s-ask')).toBeVisible();   /* the fade gates offsetParent */
+  await expect(page.locator('#s-ask')).toBeVisible();   /* the fade gates visibility */
+  await expect(page.locator('#btnAskNo')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.locator('#btnAskYes')).toBeFocused();
   await page.keyboard.press('Enter');
@@ -102,8 +108,10 @@ test('cancelling a donation keeps focus on the original trigger and mutates noth
 
   const donate = page.locator('#donateBox .up');
   await donate.focus();
+  await expect(donate).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#s-ask')).toHaveClass(/on/);
+  await expect(page.locator('#btnAskNo')).toBeFocused();
   await page.locator('#btnAskNo').click();
   await expect(page.locator('#s-ask')).not.toHaveClass(/on/);
 
@@ -119,8 +127,10 @@ test('Escape cancels a donation, returns focus and mutates nothing', async ({ pa
 
   const donate = page.locator('#donateBox .up');
   await donate.focus();
+  await expect(donate).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#s-ask')).toHaveClass(/on/);
+  await expect(page.locator('#btnAskNo')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('#s-ask')).not.toHaveClass(/on/);
 
@@ -137,9 +147,11 @@ test('confirming a progress reset keeps focus on the surviving reset control', a
 
   const wipe = page.locator('#btnWipe');
   await wipe.focus();
+  await expect(wipe).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#s-ask')).toHaveClass(/on/);
   await expect(page.locator('#s-ask')).toBeVisible();
+  await expect(page.locator('#btnAskNo')).toBeFocused();
   await expect(page.locator('#btnAskYes')).toHaveText('Reset progress');
   await page.keyboard.press('Tab');
   await expect(page.locator('#btnAskYes')).toBeFocused();

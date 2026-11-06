@@ -196,6 +196,9 @@ body.noscan #scan,body.nograin #grain{display:none}
   transition:opacity .32s ease,visibility .32s;background:rgba(3,5,11,.5);
   overflow-y:auto;overscroll-behavior:contain}
 .screen.on{opacity:1;visibility:visible}
+/* the confirm must be focusable as soon as it opens (Cancel is focused
+   synchronously); the opacity fade still runs, only visibility is immediate */
+#s-ask.on{transition:opacity .32s ease,visibility 0s}
 .panel{background:var(--glass);border:1px solid var(--line-soft);backdrop-filter:blur(10px);
   clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)}
 .eyebrow{font-size:.6rem;letter-spacing:.38em;color:var(--ember);margin-bottom:14px}
@@ -7348,7 +7351,8 @@ const NOTES = [
   {
     v: '4.29.4',
     items: [
-      'Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.'
+      'Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.',
+      'The confirmation step opens on Cancel, so cancelling or pressing Escape returns focus to the trigger you left.'
     ]
   },
   {

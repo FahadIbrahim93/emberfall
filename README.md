@@ -120,6 +120,7 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 ## What's new in v4.29.4 — "Confirm Focus"
 
+- The confirmation step opens on Cancel, and cancelling or pressing Escape returns focus to the trigger you left.
 - Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.
 ## What's new in v4.29.3 — "Local Boards"
 
