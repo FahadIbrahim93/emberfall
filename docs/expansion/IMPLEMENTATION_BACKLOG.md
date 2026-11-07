@@ -24,6 +24,8 @@ Free browser arcade; free tiers first, paid upgrades need an owner decision. Pre
 
 **Public release snapshot (2026-11-05):** manifest reads show canonical Vercel on v4.29.0 / `e89c799` and Pages on v4.29.2 / `9d1765e`. Promotion of the merged client repairs to Vercel remains pending; merged, tested and publicly promoted are separate states.
 
+**M0 planning wave (prepared, not approved):** EXP-001–005 deliverables — the execution plan, content vocabulary, Heliox Forge brief, replay-verification contract, telemetry/privacy contract and playtest protocol — are in [PR #59](https://github.com/FahadIbrahim93/emberfall/pull/59). Human sign-off is pending, and the 20-person M5/EXP-020 study has not run; the protocol prepares it, and does not claim results.
+
 ## Gates 1–7
 
 Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) / [PR #74](https://github.com/FahadIbrahim93/emberfall/pull/74) repaired Daily world selection, launch-day encounter rules and ghost day identity; merged as `21babec`, with [main CI](https://github.com/FahadIbrahim93/emberfall/actions/runs/41959479545) passing. Three failures were reproduced before repair; six regression cases cover its boundaries.
