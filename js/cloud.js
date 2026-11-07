@@ -6,8 +6,9 @@
    - supabase-js v2 is VENDORED (js/vendor/supabase.js) and loaded lazily:
      only when a pilot opens the account panel, or already holds a session.
      Offline play, local scores and portal builds never touch it.
-   - Writes go through the RPCs submit_score / set_callsign only; the
-     database refuses direct table writes (RLS + no grants).
+   - Writes go through submit_run_v2 (run receipts), submit_score (legacy
+     compatibility) and set_callsign; the database refuses direct table writes
+     (RLS + no grants).
    ═══════════════════════════════════════════════════════════════════════ */
 const CLOUD = {
   sb: null, user: null, profile: null, loading: null,
@@ -246,10 +247,28 @@ const CLOUD = {
     this.profile = data;
     return data;
   },
-  /* best-effort: the run is already saved locally before this is called */
-  async submit(gameMode, score, stats) {
+  /* best-effort: the run is already saved locally before this is called.
+     A launched run carries a stable id + launch-bound day and uses the receipt
+     RPC; direct/legacy callers keep the compatibility RPC. */
+  async submit(gameMode, score, stats, run) {
     const mode = MIRROR_MODE[gameMode];
     if (!mode || !this.canPost()) return null;
+    if (run && run.id) {
+      try {
+        const { data, error } = await this.sb.rpc('submit_run_v2', {
+          p_run_id: run.id, p_mode: mode, p_day: run.day || null,
+          p_score: Math.trunc(score), p_stats: stats || {}, p_status: 'finished'
+        });
+        if (error) throw error;
+        if (data && typeof data === 'object') return data;
+      } catch (e) {
+        const msg = String(e && e.message || e), code = e && e.code || '';
+        /* The migration is owner-applied: an un-migrated project still posts
+           through submit_score, but that response has no Daily block and is
+           never presented as acknowledged. */
+        if (!(code === 'PGRST202' || /could not find the function|schema cache/i.test(msg))) throw e;
+      }
+    }
     const { data, error } = await this.sb.rpc('submit_score', { p_mode: mode, p_score: Math.trunc(score), p_stats: stats || {} });
     if (error) throw error;
     return data;
