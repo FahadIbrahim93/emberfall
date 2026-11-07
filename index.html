@@ -196,9 +196,6 @@ body.noscan #scan,body.nograin #grain{display:none}
   transition:opacity .32s ease,visibility .32s;background:rgba(3,5,11,.5);
   overflow-y:auto;overscroll-behavior:contain}
 .screen.on{opacity:1;visibility:visible}
-/* the confirm must be focusable as soon as it opens (Cancel is focused
-   synchronously); the opacity fade still runs, only visibility is immediate */
-#s-ask.on{transition:opacity .32s ease,visibility 0s}
 .panel{background:var(--glass);border:1px solid var(--line-soft);backdrop-filter:blur(10px);
   clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)}
 .eyebrow{font-size:.6rem;letter-spacing:.38em;color:var(--ember);margin-bottom:14px}
@@ -1144,7 +1141,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.4</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.5</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1392,7 +1389,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.4 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.5 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1443,6 +1440,16 @@ function hashStr(s) {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
+}
+/* A run identity that survives the local save and every receipt retry. */
+function runUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  const b = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  const h = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
 }
 /* `R` is the run RNG (seeded per run). `FX` is cosmetic-only and never
    affects gameplay, so daily runs stay identical across devices. */
@@ -2000,6 +2007,9 @@ function loadMeta() {
   if (s.codex && typeof s.codex === 'object') META.codex = s.codex;
   if (Array.isArray(s.skyLog)) META.skyLog = s.skyLog.slice(-60);
   META.school = !!s.school;
+  META.daily = (s.daily && typeof s.daily === 'object') ? s.daily : undefined;
+  META.dailyPaid = Math.max(0, +s.dailyPaid || 0);
+  META.dailyAcks = (s.dailyAcks && typeof s.dailyAcks === 'object') ? s.dailyAcks : {};
   if (s.dd && typeof s.dd === 'object') {
     META.dd.wave = +s.dd.wave || 0;
     META.dd.falls = +s.dd.falls || 0;
@@ -2221,8 +2231,8 @@ function nextStreak(prev, day) {
 }
 /* the streak the run being summarized is about to create — feats evaluate
    before the deck's response lands, so they walk the same pure contract */
-function predictedStreak(meta) {
-  return nextStreak(meta && meta.daily, todaySeedKey()).streak;
+function predictedStreak(meta, day) {
+  return nextStreak(meta && meta.daily, day || todaySeedKey()).streak;
 }
 /* streak laurels due to be gifted (feat earned, paint not yet in locker) */
 function streakGiftsDue(feats, paints) {
@@ -2246,40 +2256,51 @@ function seasonEngravingText(count) {
    fresh device), carry the streak. The deck is the ledger — "paid" is this
    run's delta, "total" is what the deck has ever paid this pilot. Returns
    the granted medal names (for game over). */
-function applyDailyResult(res) {
+function applyDailyResult(res, runDayArg) {
   if (!res || !res.daily) return [];
   const d = res.daily;
-  /* nextStreak returns a fresh object — carry the season-end count across it */
-  const prevPerfect = (META.daily && META.daily.perfectSeasons) || 0;
-  const prevWf = (META.daily && META.daily.wardenfalls) || 0;
-  META.daily = nextStreak(META.daily, todaySeedKey());
-  META.daily.streak = d.streak;
-  META.daily.best = Math.max(META.daily.best || 0, d.streak);
-  META.daily.perfectSeasons = Math.max(prevPerfect, d.perfect || 0);
-  /* the season-end honor: a deck-counted flawless week earns its feat exactly
-     at the adoption point — never from the raw streak, never before the deck
-     has verified the week. Monotonic: once earned, it stands. */
+  const runDay = d.day || runDayArg || todaySeedKey();
+  const rid = res.run_id || res.runId || null;
+  const acks = META.dailyAcks || (META.dailyAcks = {});
+  const prevAck = rid ? (+acks[rid] || 0) : 0;
+  const paid = Math.max(0, +d.paid || 0);
+  /* A receipt pays its own reported delta exactly once. Do not gate it on
+     META.dailyPaid: an existing pilot can carry a larger legacy watermark,
+     and a new receipt must still bank its first post-migration reward. */
+  const delta = rid ? Math.max(0, paid - prevAck) : paid;
+  const prevDaily = META.daily || {};
+  const lastDay = prevDaily.lastDay || '';
+  const prevPerfect = prevDaily.perfectSeasons || 0;
+  const prevWf = prevDaily.wardenfalls || 0;
+  if (!lastDay || runDay >= lastDay) {
+    META.daily = nextStreak(prevDaily, runDay);
+    META.daily.streak = Math.max(META.daily.streak || 0, +d.streak || 0);
+  } else {
+    /* an out-of-order older receipt must not rewind lastDay or the streak */
+    META.daily = Object.assign({}, prevDaily);
+  }
+  META.daily.best = Math.max(prevDaily.best || 0, META.daily.streak || 0, +d.streak || 0, +d.best || 0);
+  META.daily.perfectSeasons = Math.max(prevPerfect, +d.perfect || 0);
   if (META.daily.perfectSeasons >= 1 && !META.feats.perfectseason) {
     META.feats.perfectseason = Date.now();
-    saveMeta();
     note('Flawless season — a full Gauntlet week, no gap', 'rare');
   }
-  /* v4.13: the rare honor rides the same adoption point — the deck has
-     verified the kill AND the day, so the count rises monotonically here.
-     v4.13.1: the response also carries the deck's lifetime count, so a
-     second rare Sunday reconciles the same day, on every device. */
-  META.daily.wardenfalls = Math.max(prevWf, d.wardenfall || 0, d.wardenfalls || 0);
+  META.daily.wardenfalls = Math.max(prevWf, +d.wardenfall || 0, +d.wardenfalls || 0);
   if (META.daily.wardenfalls >= 1 && !META.feats.wardenfall) {
     META.feats.wardenfall = Date.now();
-    saveMeta();
     note('Wardenfall felled — the fall is yours', 'rare');
   }
-  META.dailyPaid = Math.max(META.dailyPaid || 0, d.total || 0);
-  if (d.paid > 0) {
-    META.alloy += d.paid;
-    saveMeta();
-    note('Daily ' + (d.medals || []).join(' + ') + ' · +' + fmt(d.paid) + ' alloy', 'good');
+  META.dailyPaid = Math.max(META.dailyPaid || 0, +d.total || 0);
+  if (rid) {
+    acks[rid] = Math.max(prevAck, paid);
+    const keys = Object.keys(acks);
+    if (keys.length > 64) for (const k of keys.slice(0, keys.length - 64)) delete acks[k];
   }
+  if (delta > 0) {
+    META.alloy += delta;
+    note('Daily ' + ((d.medals || []).join(' + ') || 'run') + ' · +' + fmt(delta) + ' alloy', 'good');
+  }
+  saveMeta();
   return d.medals || [];
 }
 /* ══════════════════════════════════════════════════════════════════════
@@ -3245,7 +3266,7 @@ function updateCam(dt) {
    from a free list. Nothing allocates in the steady state.
    ══════════════════════════════════════════════════════════════════════ */
 const GAME = {
-  state: 'boot', paused: false, mode: 'endless', seedLabel: '',
+  state: 'boot', paused: false, mode: 'endless', seedLabel: '', runId: '', runDay: null, ended: false,
   t: 0, runT: 0, hitstop: 0, slowT: 0, slowV: 1, overT: 0, endT: 0,
   score: 0, shown: 0, best: 0, combo: 0, comboT: 0, mult: 1, maxMult: 1,
   kills: 0, shots: 0, hits: 0, grazes: 0, deaths: 0, bombsUsed: 0, bosses: 0,
@@ -6536,6 +6557,9 @@ function startRun(mode) {
   GAME.guestRun = typeof CLOUD !== 'undefined' &&
     (typeof CLOUD.postingMode !== 'function' || CLOUD.postingMode() === 'guest');
   GAME.seedLabel = day;
+  GAME.runId = runUuid();
+  GAME.runDay = day || null;
+  GAME.ended = false;
   const gameplaySeed = day ? hashStr('emberfall-' + day) : null;
   // Do not consume an encounter RNG draw just to choose the Daily world.
   GAME.stageSeed = day ? 1 + (gameplaySeed % 7) : 1 + ((rnd(0, 1e9) | 0) % 7);
@@ -6647,6 +6671,8 @@ function masterySub(id) {
   }
 }
 function endRun() {
+  if (GAME.ended) return;
+  GAME.ended = true;
   STAGE = null;
   if (!GAME.school) GHOST.saveIfBest(GAME.mode === 'daily' ? 'daily' : 'main', GAME.score);
   GHOST.end();
@@ -6695,7 +6721,7 @@ function endRun() {
     gold: GAME.goldSighted === true,
     hazWaves: GAME.hazWaves || 0,
     mode: GAME.mode,
-    dailyStreak: predictedStreak(META),
+    dailyStreak: predictedStreak(META, GAME.runDay || undefined),
     perfectSeasons: (META.daily && META.daily.perfectSeasons) || 0,
     wardenfall: (META.daily && META.daily.wardenfalls >= 1) === true,
     tourWorlds: GAME.mode === 'tour' ? tourWorldsDone(Math.max(1, GAME.wave)) : 0,
@@ -6813,8 +6839,18 @@ function endRun() {
   if (typeof CLOUD !== 'undefined') CLOUD.overPrompt(!GAME.school && GAME.score >= 1);
   if (typeof CLOUD !== 'undefined' && !GAME.school && !GAME.guestRun &&
       typeof CLOUD.canPost === 'function' && CLOUD.canPost() && GAME.score >= 1) {
-    CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) })
-      .then(id => { if (id) note('Run posted to the worldwide board', 'good'); })
+    const run = GAME.runId ? {
+      id: GAME.runId,
+      day: GAME.mode === 'daily' ? GAME.runDay : null
+    } : undefined;
+    CLOUD.submit(mode, GAME.score, { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) }, run)
+      .then(res => {
+        if (!res) return;
+        if (res.daily) {
+          applyDailyResult(res, GAME.runDay || undefined);
+          note('Run posted · Daily rewards acknowledged', 'good');
+        } else note('Run posted to the worldwide board', 'good');
+      })
       .catch(e => { try { note('Worldwide post skipped: ' + String(e && e.message || e).slice(0, 60), 'bad'); } catch (_) { } });
   }
   }
@@ -7067,52 +7103,28 @@ function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
    prompt(), so the click looks dead. One in-game step covers both places. */
 let askYes = null;
 let askReturn = null;
-let askReturnKey = null;
 function askConfirm(message, yesLabel, onYes) {
   askYes = onYes || null;
   askReturn = document.activeElement;
-  /* A confirmed action may rebuild its own trigger (the yard donation runs
-     renderHangar). Remember a stable hook so focus can find the replacement. */
-  askReturnKey = askReturn && askReturn.dataset ? askReturn.dataset.askReturn || null : null;
   $('askH').textContent = yesLabel || 'Confirm';
   $('askMsg').textContent = message;
   $('btnAskYes').textContent = yesLabel || 'Confirm';
   showScreen('s-ask', true);
   $('btnAskNo').focus();
 }
-/* Close the step and hand back where focus belongs. The action runs between
-   close and restore, so a rerendered trigger is resolved after it exists. */
-function takeAskReturn() {
-  askYes = null;
-  const back = askReturn, key = askReturnKey;
-  askReturn = null;
-  askReturnKey = null;
-  showScreen('s-ask', false);
-  return (back || key) ? { back, key } : null;
-}
-/* Resolve after the action: a rerender may have replaced the trigger. */
-function askReturnTarget(handle) {
-  if (!handle) return null;
-  if (!($('s-hangar') && $('s-hangar').classList.contains('on'))) return null;
-  if (handle.back && handle.back.isConnected && handle.back.focus) return handle.back;
-  if (handle.key) {
-    try {
-      const replacement = document.querySelector('[data-ask-return="' + handle.key + '"]');
-      if (replacement && replacement.focus) return replacement;
-    } catch (e) { /* a bad hook falls through to the hangar control */ }
-  }
-  return $('btnBayLaunch');
-}
-function restoreAskFocus(el) {
-  if (el && el.isConnected && el.focus) el.focus({ preventScroll: true });
-}
 function dismissAsk() {
-  restoreAskFocus(askReturnTarget(takeAskReturn()));
+  askYes = null;
+  const back = askReturn;
+  askReturn = null;
+  showScreen('s-ask', false);
+  if (back && back.isConnected && back.focus && $('s-hangar') && $('s-hangar').classList.contains('on')) {
+    back.focus({ preventScroll: true });
+  }
 }
 function settleAsk(ok) {
   const fn = ok ? askYes : null;
-  const handle = takeAskReturn();
-  try { if (fn) fn(); } finally { restoreAskFocus(askReturnTarget(handle)); }
+  dismissAsk();
+  if (fn) fn();
 }
 bindClick('btnAskYes', () => { AU.ui(); settleAsk(true); });
 bindClick('btnAskNo', () => { AU.ui(); settleAsk(false); });
@@ -7349,10 +7361,10 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
-    v: '4.29.4',
+    v: '4.29.5',
     items: [
-      'Return keyboard focus to the hangar after a confirmed donation or reset, including when the donation rebuilds its trigger.',
-      'The confirmation step opens on Cancel, so cancelling or pressing Escape returns focus to the trigger you left.'
+      'Daily runs now carry a stable receipt: replaying a completion returns the original acknowledgement and pays each medal tier once.',
+      'Daily rewards adopt once on this device, survive repeated or out-of-order callbacks, and legacy posts stay explicitly unacknowledged.'
     ]
   },
   {
@@ -8988,22 +9000,37 @@ function runSelfTests() {
     META.paints = paints0;
     saveMeta();
   });
-  T('daily gauntlet: result application banks payouts and updates identity', () => {
-    const pre = { alloy: META.alloy, daily: META.daily };
+  T('daily gauntlet: result application is idempotent and monotonic', () => {
+    const pre = { alloy: META.alloy, daily: META.daily, dailyPaid: META.dailyPaid, dailyAcks: META.dailyAcks, perfect: META.feats.perfectseason, wf: META.feats.wardenfall };
     try {
-      const res = { daily: { streak: 3, paid: 380, total: 1230, medals: ['Crown', 'Eclipse'] } };
+      META.daily = { streak: 1, best: 1, lastDay: '2026-11-01', perfectSeasons: 0, wardenfalls: 0 };
+      META.dailyPaid = 5000;
+      META.dailyAcks = {};
+      const res = { run_id: 'test-daily-1', daily: { day: '2026-11-02', streak: 2, best: 2, paid: 380, total: 760, medals: ['Crest', 'Crown'], perfect: 0, wardenfall: false, wardenfalls: 0 } };
       const got = applyDailyResult(res);
-      eq(got.join('|'), 'Crown|Eclipse', 'returns granted medal names');
-      eq(META.alloy, pre.alloy + 380, 'payout lands in the account');
-      eq(META.dailyPaid, Math.max(pre.dailyPaid || 0, 1230), 'watermark adopts the deck total');
-      eq(META.daily.streak, 3, 'streak updated from the deck');
-      ok(META.daily.best >= 3, 'best tracks the streak');
+      eq(got.join('|'), 'Crest|Crown', 'returns granted medal names');
+      eq(META.alloy, pre.alloy + 380, 'a legacy watermark does not suppress the reward');
+      eq(META.dailyPaid, 5000, 'the larger legacy watermark is preserved');
+      eq(META.daily.streak, 2, 'streak updated for the run day');
+      eq(META.daily.lastDay, '2026-11-02', 'launch day is carried');
+      const after = META.alloy;
+      applyDailyResult(res);
+      eq(META.alloy, after, 'replaying the same receipt pays nothing');
+      applyDailyResult({ run_id: 'older', daily: { day: '2026-10-31', streak: 1, best: 1, paid: 120, total: 300, medals: ['Crest'], perfect: 0, wardenfall: false, wardenfalls: 0 } });
+      eq(META.alloy, after + 120, 'a late older receipt pays at most once');
+      eq(META.daily.lastDay, '2026-11-02', 'an older callback cannot rewind lastDay');
+      eq(META.daily.streak, 2, 'an older callback cannot rewind the streak');
       eq(applyDailyResult(null).length, 0, 'non-daily responses are inert');
-    } finally { META.alloy = pre.alloy; META.daily = pre.daily; saveMeta(); }
+    } finally {
+      META.alloy = pre.alloy; META.daily = pre.daily; META.dailyPaid = pre.dailyPaid; META.dailyAcks = pre.dailyAcks;
+      if (pre.perfect) META.feats.perfectseason = pre.perfect; else delete META.feats.perfectseason;
+      if (pre.wf) META.feats.wardenfall = pre.wf; else delete META.feats.wardenfall;
+      saveMeta();
+    }
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.4', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.5', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
