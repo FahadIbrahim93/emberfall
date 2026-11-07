@@ -8,7 +8,7 @@ Accounts and the worldwide boards live in Supabase project **`rgmbexmodebegllaho
 |---|---|---|
 | `profiles` | table | one row per player (`id` = `auth.users.id`), unique callsign |
 | `player_scores` | table | one row per posted run; `mode` is endless, daily or school; score 1-10,000,000 |
-| `set_callsign`, `submit_score` | RPCs | the only write path; `authenticated` only; rate limit 6/minute and 300/day per player (HTTP 429 when hit) |
+| `set_callsign`, `submit_score`, `submit_run_v2` | RPCs | the only write path; `authenticated` only; rate limit 6/minute and 300/day per player (HTTP 429 when hit). `submit_run_v2` adds run receipts and idempotent Daily acknowledgements; `submit_score` stays as the compatibility path. |
 | `leaderboard_global`, `leaderboard_daily`, `deck_stats` | views | public reads; `security_invoker = true`; `deck_stats` is computed live |
 
 RLS is on for both tables with SELECT-only policies, and `anon`/`authenticated` have no INSERT, UPDATE or DELETE grants. The write logic sits in `SECURITY DEFINER` functions in the unexposed `private` schema. To change the schema, add a new migration file; don't edit applied ones. Full details: [LEADERBOARD-AND-ACCOUNTS.md](LEADERBOARD-AND-ACCOUNTS.md).

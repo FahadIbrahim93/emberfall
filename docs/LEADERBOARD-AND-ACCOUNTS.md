@@ -13,7 +13,8 @@ The static site (Vercel) has its own accounts and worldwide boards in Supabase p
 | `profiles` | `id` = `auth.users.id`, `callsign` 3-16 chars `[A-Za-z0-9_-]`, unique case-insensitively | anyone reads `id, callsign, created_at`; no direct writes |
 | `player_scores` | one row per posted run: `mode` endless/daily/school, `day` (UTC, daily only), `score` 1-10,000,000, small `stats` jsonb | anyone reads; no direct writes |
 | `rpc/set_callsign(p_callsign)` | create or rename your profile | registered users (anonymous sessions are refused) |
-| `rpc/submit_score(p_mode, p_score, p_stats)` | post a run; at most 6/minute and 300/day per user | registered users with a callsign |
+| `rpc/submit_score(p_mode, p_score, p_stats)` | post a run through the compatibility path; at most 6/minute and 300/day per user | registered users with a callsign |
+| `rpc/submit_run_v2(p_run_id, p_mode, p_day, p_score, p_stats, p_status)` | post a run receipt and return an idempotent Daily acknowledgement; replaying the same payload returns the original result | registered users with a callsign |
 | `leaderboard_global` | best run per registered player per mode (endless, school) | anyone reads |
 | `leaderboard_daily` | best run per registered player per UTC day | anyone reads |
 | `deck_stats` | live view: pilots, runs, top score, `updated_at = now()` | anyone reads |
@@ -33,7 +34,7 @@ Client side (`js/cloud.js`):
 - **Registered-only boards.** Only a signed-in, non-anonymous account with a callsign can post. The database enforces this too, so a guest session can't post by calling the RPC directly.
 - **Sign in with X** is planned. The work is in #26 and isn't part of the live site yet.
 - A rate-limited post answers HTTP 429 (`20261023000100_rate_limit_http_429.sql`).
-- Endless and daily runs post through `submit_score` after the local save. Rush and flight school stay on the device. Offline play, local boards and portal builds (`tools/build-portal.sh` strips `cloud.js`) never touch Supabase.
+- Endless and daily runs post through `submit_run_v2` after the local save, carrying a stable run id and the launch day. Replaying a completion returns the original acknowledgement and pays nothing twice; a late older receipt pays at most once and cannot rewind the streak. The runtime falls back to `submit_score` when the additive migration has not been applied, and that legacy result is never treated as acknowledged. Rush and flight school stay on the device. Offline play, local boards and portal builds (`tools/build-portal.sh` strips `cloud.js`) never touch Supabase.
 - The Global tab reads `leaderboard_global` and `leaderboard_daily` with the publishable key; `stats.html` and `pilot.html` read the same views.
 
 Monitoring: `tools/mirror-alarm.mjs` checks the project answers, `deck_stats` is fresh and agrees with `profiles`, and that no machine-pattern callsigns are on the board. The hourly stats workflow and `tools/db-sync.mjs` were removed.

@@ -1,4 +1,4 @@
-# EMBERFALL v4.29.3 — Orbital Intercept
+# EMBERFALL v4.29.5 — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -42,7 +42,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 
 - The game is one `index.html` plus a handful of plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
 - It's hosted as static files on Vercel. Production promotion is explicit; green `main` CI publishes its tested artifact to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/). See the [deployment procedure](docs/DEPLOYMENT.md).
-- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
+- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes. Game-over runs use the additive `submit_run_v2` receipt RPC (stable run id, launch-bound day, idempotent Daily acknowledgement); `submit_score` remains the compatibility path for direct/legacy posts, alongside `set_callsign`. Scores are bounds-checked and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
 - Scores aren't replayed on a server, so a determined cheater could still post a fake score within bounds. Boss Rush, offline play and portal builds keep scores on the device.
 
 More detail in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
@@ -65,10 +65,11 @@ bash check.sh             # syntax gate
 node deadscan.js --check  # dead code and load order
 npm run test:sim          # Vitest, packages/sim
 npm run test:browser      # Playwright
+npm run test:sql          # executable Supabase migration-chain regression (PGlite)
 npm test                  # sim + browser + in-game self-test
 ```
 
-You can also run the self-test in the page with `index.html?selftest` (63 checks).
+You can also run the self-test in the page with `index.html?selftest` (64 checks).
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -117,6 +118,11 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 | v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
 
 <!-- fun-curve:end -->
+
+## What's new in v4.29.5 — "Daily Receipts"
+
+- Daily completions now carry a stable receipt: replaying one returns the original acknowledgement, pays each medal tier once, and never doubles a reward.
+- Game-over posting adopts each acknowledged Daily receipt once; replays cannot double-pay and older callbacks cannot rewind the streak. An un-migrated project falls back to the compatibility post without claiming rewards.
 
 ## What's new in v4.29.3 — "Local Boards"
 
