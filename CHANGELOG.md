@@ -4,6 +4,17 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Guest run handoff — v4.29.6
+- Queue account-mode runs completed without a postable session, carrying the real run id, mode, launch UTC day, score and stats. Deliver the exact run after sign-in or callsign save through `submit_run_v2`, retain it on failure/offline, and remove it only after a truthy acknowledgement.
+- Make delivery single-flight and owner-scoped: a sign-in refresh and callsign save cannot post twice, and another account cannot claim the queued run. Explicit guest-launched runs remain local and are never queued.
+- Regression coverage: four packaged-browser cases prove the signed-out Daily post, acknowledgement-gated removal with retry, guest-mode exclusion, and concurrent single-flight behavior. Cache generation `emberfall-v4.61`.
+
+### Daily receipts — v4.29.5
+- Add an additive `submit_run_v2` receipt RPC: a stable run id, launch-bound UTC day, exact score, validated stats, client-reported status and an idempotent acknowledgement. Replaying a run returns the original acknowledgement; conflicting reuse is refused; quota is charged only after deduplication.
+- Award each Daily medal tier once per UTC day in a server ledger, preserving the existing thresholds, streak, flawless-week and Wardenfall calendar. Receipts are explicitly `client-reported`, never silently verified.
+- Wire game-over posting to the receipt RPC with a legacy `submit_score` fallback; a duplicate finalization cannot post or pay twice. Local adoption settles each receipt against its own run acknowledgement: replaying the same receipt pays nothing, a late older receipt pays at most once and cannot rewind the streak, and a legacy local watermark never suppresses a new reward.
+- Regression coverage: the full migration chain runs in local PGlite with auth stubs (`tools/daily-receipts-sql.test.mjs`), plus browser cases for receipt adoption and the un-migrated fallback. Cache generation `emberfall-v4.60`.
+
 ### Portal Boards — v4.29.3
 - Wire Boards, shared sheet navigation and keyboard focus independently of accounts, so the packaged portal works without `cloud.js`.
 - Hide unavailable account/sign-in/install controls in standalone, query and framed portal modes. Local All-time reads its main board even after Daily or Rush; saved Daily runs have an explicit local label.
