@@ -427,6 +427,8 @@ function renderDonations() {
   const b = document.createElement('button');
   b.className = 'up';
   if (next) {
+    /* renderHangar rebuilds this trigger; the confirm returns focus here. */
+    b.dataset.askReturn = 'donate';
     const need = next.at - META.donated;
     b.innerHTML = '<span><b>Donate to the yard</b><p>Alloy becomes honor. It does not come back. ' +
       'Next honor: ' + esc(next.name) + '.</p></span>' +
