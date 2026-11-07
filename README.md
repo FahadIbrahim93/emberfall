@@ -1,4 +1,4 @@
-# EMBERFALL v4.29.5 — Orbital Intercept
+# EMBERFALL v4.29.6 — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -118,6 +118,10 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 | v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
 
 <!-- fun-curve:end -->
+
+## What's new in v4.29.6 — "Guest Handoff"
+
+- A signed-out run now carries its real identity and launch day through sign-in and is removed only after the board acknowledges it.
 
 ## What's new in v4.29.5 — "Daily Receipts"
 
