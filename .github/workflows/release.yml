@@ -1,0 +1,160 @@
+name: Release or restore a tested payload
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful main-push CI run containing the retained site artifact
+        required: true
+        type: string
+      commit:
+        description: Full commit SHA tested by that run (older releases are valid rollback targets)
+        required: true
+        type: string
+      promote:
+        description: Promote the staged Vercel deployment after its smoke check
+        default: false
+        type: boolean
+      restore_pages:
+        description: Also publish this artifact to Pages (use for rollback)
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: emberfall-production-release
+  cancel-in-progress: false
+
+jobs:
+  source:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require trusted successful main CI provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          RELEASE_SHA: ${{ inputs.commit }}
+        run: |
+          case "$RUN_ID" in *[!0-9]*|'') echo 'run_id must be numeric'; exit 1;; esac
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > release-run.json
+          node tools/release-source.mjs release-run.json "$RELEASE_SHA"
+
+  vercel:
+    needs: source
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: vercel-production
+    env:
+      RELEASE_SHA: ${{ inputs.commit }}
+      RELEASE_RUN_ID: ${{ inputs.run_id }}
+      VERCEL_ORG_ID: team_dQhygReHfUO67Sajlaz6X4gJ
+      # This project owns the public emberfall-game-two.vercel.app alias.
+      VERCEL_PROJECT_ID: prj_8qgnVQhyDTxSea2j53tGAVYwvOy0
+      VERCEL_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: emberfall-site-${{ inputs.commit }}
+          path: dist/site
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Prepare exact tested bytes for Vercel
+        run: node tools/site-payload.mjs vercel --commit "$RELEASE_SHA"
+      - name: Install pinned CLI without release credentials
+        run: npm install --global --ignore-scripts vercel@65.11.0
+      - name: Stage in production environment without assigning domains
+        id: stage
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo 'Configure VERCEL_TOKEN in the vercel-production environment'; exit 1; }
+          deployment=$(vercel deploy --cwd dist/site --prebuilt --prod --skip-domain --yes --meta releaseCommit="$RELEASE_SHA" --meta releaseRun="$RELEASE_RUN_ID" --meta githubCommitSha="$RELEASE_SHA" --meta githubCommitRef=main --meta githubCommitMessage="Tested release $RELEASE_SHA from CI $RELEASE_RUN_ID")
+          DEPLOYMENT_URL="$deployment" node -e 'const u=new URL(process.env.DEPLOYMENT_URL); if(u.protocol!=="https:" || !u.hostname.endsWith(".vercel.app") || u.pathname!=="/") process.exit(1)'
+          echo "url=$deployment" >> "$GITHUB_OUTPUT"
+      - name: Verify staged manifest, sign-in library and every asset
+        env:
+          DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node tools/site-payload.mjs live "$DEPLOYMENT_URL" --commit "$RELEASE_SHA"
+      - name: Promote the verified production deployment
+        if: inputs.promote
+        env:
+          DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node tools/promote-release.mjs
+      - name: Verify public domain routing and release identity
+        if: inputs.promote
+        run: |
+          for i in $(seq 1 15); do
+            if node tools/site-payload.mjs live https://emberfall-game-two.vercel.app/ --commit "$RELEASE_SHA"; then exit 0; fi
+            sleep 3
+          done
+          echo 'Public alias does not serve the tested release; restore the previous successful release'
+          exit 1
+      - name: Record staged release for the owner
+        env:
+          DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
+        run: |
+          echo "Release: $RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Staged production deployment: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promotion requested: ${{ inputs.promote }}" >> "$GITHUB_STEP_SUMMARY"
+
+  pages:
+    needs: source
+    if: inputs.restore_pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: emberfall-pages-publication
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      RELEASE_SHA: ${{ inputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: emberfall-site-${{ inputs.commit }}
+          path: dist/site
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify before publishing
+        run: node tools/site-payload.mjs verify --commit "$RELEASE_SHA"
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: dist/site
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5
+      - name: Verify restored Pages release
+        env:
+          URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          for i in $(seq 1 15); do
+            if node tools/site-payload.mjs live "$URL" --commit "$RELEASE_SHA"; then exit 0; fi
+            sleep 3
+          done
+          exit 1

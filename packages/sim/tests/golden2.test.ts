@@ -14,9 +14,6 @@ import { STAGES, TOUR_CUM, TOUR_FINALE, tourWorldsDone } from '../src/stages.ts'
 
 const here = fileURLToPath(import.meta.url);
 const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
-/* single-path content catalog runtime (ADR 0003): BOSSES + STAGES + the TOUR
-   derivations live in js/catalog.js — the file the client loads */
-const catalogJs = readFileSync(join(here, '..', '..', '..', '..', 'js', 'catalog.js'), 'utf8');
 
 const must = (re: RegExp, what: string): RegExpMatchArray => {
   const m = html.match(re);
@@ -24,16 +21,9 @@ const must = (re: RegExp, what: string): RegExpMatchArray => {
   return m;
 };
 
-/** one live structure in the catalog runtime — fails with the drifted text */
-const mustIn = (re: RegExp, what: string): RegExpMatchArray => {
-  const m = catalogJs.match(re);
-  if (!m) throw new Error(`constant drifted out of the runtime file: ${what}`);
-  return m;
-};
-
 /** live boss statlines: id -> {hp, r, hitR, sc, nodes|null} */
 function liveBosses(): Record<string, Record<string, unknown>> {
-  const block = mustIn(/const BOSSES = \[([\s\S]*?)\n\];/, 'BOSSES table')[1];
+  const block = must(/const BOSSES = \[([\s\S]*?)\n\];/, 'BOSSES table')[1];
   const out: Record<string, Record<string, unknown>> = {};
   for (const chunk of block.split("id: '").slice(1)) {
     const id = chunk.slice(0, chunk.indexOf("'"));
@@ -50,7 +40,7 @@ function liveBosses(): Record<string, Record<string, unknown>> {
 
 /** live STAGES rows: id -> full field set */
 function liveStages(): Record<string, Record<string, unknown>> {
-  const block = mustIn(/const STAGES = \[([\s\S]*?)\n\];/, 'STAGES table')[1];
+  const block = must(/const STAGES = \[([\s\S]*?)\n\];/, 'STAGES table')[1];
   const out: Record<string, Record<string, unknown>> = {};
   for (const chunk of block.split("id: '").slice(1)) {
     const id = chunk.slice(0, chunk.indexOf("'"));
@@ -103,12 +93,12 @@ describe('golden parity 2: the Solar Tour registry matches the live payload', ()
   });
 
   it('the derived campaign constants derive identically', () => {
-    mustIn(/const TOUR_CUM = STAGES\.reduce\(\(a, s\) => \(a\.push\(\(a\[a\.length - 1\] \|\| 0\) \+ s\.waves\), a\), \[\]\);/, 'TOUR_CUM derivation');
+    must(/const TOUR_CUM = STAGES\.reduce\(\(a, s\) => \(a\.push\(\(a\[a\.length - 1\] \|\| 0\) \+ s\.waves\), a\), \[\]\);/, 'TOUR_CUM derivation');
     const liveCum: number[] = [];
     for (const s of Object.values(liveStages())) liveCum.push((liveCum[liveCum.length - 1] || 0) + (s.waves as number));
     expect(TOUR_CUM).toEqual(liveCum);
     expect(TOUR_FINALE).toBe(liveCum[liveCum.length - 1]);
-    mustIn(/const TOUR_FINALE = TOUR_CUM\[TOUR_CUM\.length - 1\];/, 'TOUR_FINALE derivation');
+    must(/const TOUR_FINALE = TOUR_CUM\[TOUR_CUM\.length - 1\];/, 'TOUR_FINALE derivation');
   });
 
   it('tourWorldsDone agrees with the live function on the whole ladder', () => {

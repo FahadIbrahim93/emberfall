@@ -4,6 +4,28 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Confirm focus — v4.29.4
+- After a confirmed donation or reset, restore keyboard focus only once the action has rerendered the hangar: cancellation and Escape return to the original trigger, an ordinary donation finds its rebuilt button, the final donation falls back to the hangar's launch control, and reset keeps its surviving button.
+- The confirmation step opens on Cancel: its visibility no longer waits on the fade, so the cancel/Escape path moves focus into the dialog and back instead of passing without leaving the trigger.
+- Regression coverage: `tests/confirm-focus.spec.js` covers ordinary and final donations, cancel, Escape, reset and keyboard continuation, with initial-focus assertions in every path. Cache generation `emberfall-v4.59`.
+
+### Portal Boards — v4.29.3
+- Wire Boards, shared sheet navigation and keyboard focus independently of accounts, so the packaged portal works without `cloud.js`.
+- Hide unavailable account/sign-in/install controls in standalone, query and framed portal modes. Local All-time reads its main board even after Daily or Rush; saved Daily runs have an explicit local label.
+- Keep hosted account navigation on the same sheet, with inline navigation as a compatibility fallback for an older cached controller. Cache generation `emberfall-v4.58`.
+
+### Guest posting choice — v4.29.2
+- Respect the saved guest choice even when a registered account remains signed in. Run posting and guest-best transfer stay paused through reloads, auth refreshes and changes from other tabs.
+- Profile exposes an explicit "Use account for future runs" action; opening accounts or boards never resumes posting. Runs launched as guests stay local after resumption.
+- Keep choices in memory when storage is blocked; a new page defaults to local-only posting if the choice cannot be read. Title/result copy reflects the posting state.
+- Cache generation `emberfall-v4.57`. Pending-run outbox delivery and acknowledged-transfer idempotency remain separate repairs.
+
+### Daily repair — v4.29.1
+- Derive Daily world/hazard selection from its gameplay seed; cosmetic randomness no longer selects a different world for the same day.
+- Capture the UTC day once at launch and retain its mutator, encounter schedule, Sunday rules and guide across midnight.
+- Daily ghosts carry their launch day; incompatible-day and unbound legacy tapes are retained until replaced, but are not raced. Main-mode ghosts are unchanged.
+- Cache generation `emberfall-v4.56`. Server submission-day attribution and Daily reward acknowledgement remain pending RPC repairs.
+
 ### Sign-in
 - Email code flow: 6-digit one-time-code input (auto-verifies), "Code sent to … · Change", Resend with a 60 s cooldown, plain-language errors for rate limits, unconfirmed email, wrong password, expired code and offline. A pending code survives reload for 15 min. Verify falls back to the signup token type, so new users' confirmation codes work too. Unconfirmed password sign-in resends the code automatically.
 

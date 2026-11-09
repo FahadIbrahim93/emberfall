@@ -3,7 +3,7 @@
 What owns what, and which way data flows. Gameplay behaviour is in the README,
 the economy in `docs/economy-audit.md`, performance in `docs/performance.md`.
 
-**Runtime today:** static files on Vercel (auto-deployed from `main`) plus
+**Runtime today:** static files on Vercel (explicit production promotion) plus
 Supabase for accounts and boards. There is no game server; the old
 self-hosted deck was removed ([ADR 0005](docs/adr/0005-remove-self-hosted-deck.md)).
 
@@ -25,8 +25,9 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   from a module to a core declaration, plus lazy-arrow object values are
   recognized as call-time (`PICK_COL` idiom). It also verifies the script tags
   appear in index.html in module order, before the inline core tag.
-- The core calls `initInput()` (js/input.js) from `boot()` once the DOM exists —
-  that is the one place a module binds listeners.
+- The core calls `initInput()` (js/input.js) and `NET.wireBoards()` (js/net.js)
+  from `boot()` once the DOM exists. Shared sheet navigation is independent of
+  Auth; its wiring is idempotent, including the account client's compatibility call.
 
 ## Module map
 
@@ -34,7 +35,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 |---|---|---|
 | `js/audio.js` | synthesised voices, adaptive score (`AU`, `MUSIC`) | touch game state |
 | `js/sky.js` | sky-event schedulers + `SKY_EVENTS` registry (the single owner of what each event *is*: names, colors, counters) | render or touch META directly (it exposes tick/draw) |
-| `js/net.js` | the Global tab's worldwide boards (`NET`, reads the public views), board/roster/hangar rendering, screen flow | game rules, accounts (`js/cloud.js`) |
+| `js/net.js` | shared account/board sheet navigation and focus; worldwide or portal-local boards; board/roster/hangar rendering, screen flow | game rules, account identity/writes (`js/cloud.js`) |
 | `js/cloud.js` | Supabase accounts and worldwide boards | game rules |
 | `js/mirror-public.js` | public board reads for `stats.html` and `pilot.html` | write anything |
 | `js/art.js` | materials, hull/hostile/capital/pickup renderers (`HULL_ART`, `FOE_ART`, `BOSS_ART`) | game state; palette-reacts via functions called at draw time |
@@ -68,7 +69,8 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 
 ## Invariants worth keeping
 
-1. **No build step.** Any change that needs a bundler is a regression.
+1. **No transpilation or bundler.** Source remains playable through `file://`.
+   Release packaging copies assets and records hashes; it does not compile gameplay.
 2. **Zero npm dependencies** in the runtime path. supabase-js is vendored in `js/vendor/` and loaded only when needed.
 3. **The self-test suite is pure logic only** — safe to run inside the live
    game, any time, without polluting the player's profile (it snapshots and
@@ -77,9 +79,11 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
    stops looking like the game dies in seconds with the restore recipe) →
    deadscan --check (dead code, load order, XSS sinks, `.vercelignore`
    exposure) → econsim --json → copyguard → wardenfall-check → Playwright
-   against the static server (`tools/serve-static.mjs`) → headless
+   against the single packaged release (`tools/serve-static.mjs --release`) → headless
    `?selftest` suite against a committed baseline → Pages deploy → live
-   byte-fidelity smoke. Vercel deploys `main` on push.
+   byte/MIME/provenance smoke. Verification retains artifacts and has read-only
+   repository access. Vercel staging/promotion consumes the same tested artifact;
+   see `docs/DEPLOYMENT.md` for owner release and rollback steps.
 5. **Cache generation bumps on any client payload change** (`sw.js` `CACHE`),
    or installed PWAs never see the update.
 6. **Scored math draws from the run-seeded RNG only.** The cosmetic FX stream

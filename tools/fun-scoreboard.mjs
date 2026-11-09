@@ -322,13 +322,11 @@ if (mode === 'append') {
   }
 
   const version = currentVersion();
-  /* The row for the CURRENT version is expected to be written by CI's
-     record step (main pushes, after the browser suite flew it) — a missing
-     row is a warning here, not a red gate: it cannot exist before the run
-     that measures it, and local hardware numbers must never stand in for
-     CI's. The release checklist still verifies the row landed. */
+  /* CI retains raw measurements as artifacts. A reviewed follow-up PR
+     may distill them into a historical row. Verification never writes
+     to main; local hardware numbers must not stand in for CI's. */
   if (!snap.points.some(p => p.version === version)) {
-    log(`note: v${version} has no fun-curve row yet — CI records it from this push's browser-suite artifacts`);
+    log(`note: v${version} has no fun-curve row yet — use retained CI measurements in a reviewed follow-up PR`);
   }
   const top = snap.points[0];
   log(`gate green — ${snap.points.length} release(s) on the curve; newest v${top.version}: bot wave ${cell(top.loop && top.loop.wave)} · kills ${cell(top.loop && top.loop.kills)} · bot median fps ${cell(top.loop && top.loop.medianFps)}`);
