@@ -1,4 +1,4 @@
-# EMBERFALL v4.29.0 — Orbital Intercept
+# EMBERFALL — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -70,6 +70,8 @@ npm test                  # sim + browser + in-game self-test
 
 You can also run the self-test in the page with `index.html?selftest` (63 checks).
 
+CI runs these checks on every push to `main`. The last main run passed on 2026-11-07.
+
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Tech stack
@@ -91,43 +93,18 @@ For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-por
 - [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md)
 - [Press kit](docs/press-kit.md)
 
-<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
-## The fun curve — the game, measured release over release
+## Release history
 
-Every release, the repo's own instrumented play — the first-60-seconds audit (`tests/fun-audit.spec.js`) and the autopilot bot (`tests/fun-loop.spec.js`) — flies the game, and the numbers become a row here: how deep the bot flies, what it kills, how smoothly it runs. Best-wave counts the wave the bot REACHED in its 56-second headless flight — a depth probe, not a feat claim. Median-fps is environment-sensitive (CI's software renderer vs your GPU) — read the trend within a column, not the absolute.
+Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed and when. Release numbers are not used as achievement claims.
 
-Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, written by `tools/fun-scoreboard.mjs` from the run's own artifacts). The raw artifacts are regenerated every run and stay git-ignored — only the distilled curve ships.
+The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the repo's own instrumented play runs into [`docs/audit/fun-curve.json`](docs/audit/fun-curve.json), written by `tools/fun-scoreboard.mjs`. Median-fps is environment-sensitive — read the trend within a column, not the absolute.
 
-| Release | Date | Bot wave | Bot kills | Bot grazes | Combo × | Bot median fps | First-60s median fps |
-|---|---|---|---|---|---|---|---|
-| v4.29.0 "Pilot Card" | 2026-10-23 | 3 | 27 | 4 | ×2 | 45 | 38 |
-| v4.28.0 "Guest Pass" | 2026-10-23 | 2 | 25 | 4 | ×3 | 34 | 21 |
-| v4.27.0 "The Same Ladder" | 2026-10-19 | 2 | 23 | 1 | ×2 | 29 | 20 |
-| v4.26.0 "The Open Gate" | 2026-09-30 | 2 | 20 | 3 | ×3 | 30 | 26 |
-| v4.25.0 "The Listening Deck" | 2026-09-28 | 3 | 28 | 5 | ×2 | 47 | 45 |
-| v4.24.0 "Signal" | 2026-09-28 | 2 | 15 | 1 | ×2 | 27 | 24 |
-| v4.23.1 "The Fence" | 2026-09-28 | 2 | 17 | 2 | ×2 | 46 | 46 |
-| v4.23.0 "Glasscockpit" | 2026-09-27 | 2 | 19 | 2 | ×2 | 27 | 21 |
-| v4.22.2 "Open Surfaces" | 2026-09-27 | 2 | 20 | 6 | ×2 | 35 | 34 |
-| v4.22.1 "The Recruiting Page" | 2026-09-27 | 3 | 27 | 4 | ×3 | 33 | 30 |
-| v4.22.0 "The World Stage" | 2026-09-27 | 2 | 22 | 6 | ×2 | 27 | 21 |
-| v4.21.2 "Always Reachable" | 2026-09-26 | 2 | 28 | 3 | ×3 | 25 | 23 |
-| v4.21.1 "The Curve" | 2026-09-26 | 3 | 29 | 2 | ×2 | 39 | 23 |
-| v4.21.0 "Proof of Play" | 2026-09-26 | 3 | 28 | 4 | ×2 | 46 | 48 |
-| v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
+## What's new
 
-<!-- fun-curve:end -->
+Detailed per-release notes live in [CHANGELOG.md](CHANGELOG.md). Recent work includes guest play, pilot accounts and callsigns, the Daily Gauntlet board, and the Solar Tour (eight worlds).
 
-## What's new in v4.29.0 — "Pilot Card"
 
-- Sign in with a one-tap email code (or Google, once enabled), pick a ship-icon avatar, see your stats and rank, and switch the boards between Daily and All-time, now reachable from the title on every phone.
-## What's new in v4.28.0 — "Guest Pass"
 
-- Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.
-
-## What's new in v4.27.0 — "The Same Ladder"
-
-- Boards, the `/pilot` page and the public mirror now all describe the same flight: the one that set the score. Ties share a rank. Older notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
