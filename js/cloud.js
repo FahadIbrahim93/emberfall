@@ -6,13 +6,19 @@
    - supabase-js v2 is VENDORED (js/vendor/supabase.js) and loaded lazily:
      only when a pilot opens the account panel, or already holds a session.
      Offline play, local scores and portal builds never touch it.
-   - Writes go through the RPCs submit_score / set_callsign only; the
-     database refuses direct table writes (RLS + no grants).
+   - Writes go through submit_run_v2 (run receipts), submit_score (legacy
+     compatibility) and set_callsign; the database refuses direct table writes
+     (RLS + no grants).
    ═══════════════════════════════════════════════════════════════════════ */
 const CLOUD = {
   sb: null, user: null, profile: null, loading: null,
   STORE: 'sb-rgmbexmodebegllahotc-auth-token',
+  RUN_KEY: 'ef.pendingRuns',
+  RUN_KEY_LEGACY: 'ef.pendingRun',
   _postingMode: null,
+  _pendingPromise: null,
+  _pendingDelivered: false,
+  _pendingUser: null,
 
   /* Posting consent is independent of Auth. Keep the old guest flag so a
      previously chosen local-only session stays local after upgrading. */
@@ -34,6 +40,7 @@ const CLOUD = {
   useAccount() {
     if (!this.user || this.user.is_anonymous) return;
     this.setPostingMode('account');
+    this.deliverPending().catch(() => { });
   },
 
   available() {
@@ -80,6 +87,11 @@ const CLOUD = {
     if (this.user) {
       const { data: rows } = await sb.from('profiles').select('id,callsign,avatar').eq('id', this.user.id).limit(1);
       this.profile = rows && rows[0] ? rows[0] : null;
+    }
+    const uid = this.user && this.user.id || null;
+    if (uid !== this._pendingUser) { this._pendingUser = uid; this._pendingDelivered = false; }
+    if (this.canPost()) {
+      try { await this.deliverPending(); } catch (e) { }
     }
     return this.user;
   },
@@ -194,16 +206,135 @@ const CLOUD = {
     this.profile = data;
     return data;
   },
+  /* Completed account-mode runs that could not post yet. Each record carries
+     the run's real identity and launch day, so a later delivery is the same
+     run rather than a recomputed local best. Distinct runs are kept together;
+     only the exact acknowledged (owner, run_id) is removed. */
+  _normalizeRun(run) {
+    if (!run || typeof run.id !== 'string' || !run.id) return null;
+    if (run.mode !== 'main' && run.mode !== 'daily') return null;
+    if (run.day !== null && run.day !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(run.day))) return null;
+    const score = Math.trunc(+run.score);
+    if (!(score >= 1)) return null;
+    if (!run.stats || typeof run.stats !== 'object') return null;
+    return {
+      id: String(run.id), mode: run.mode, day: run.day || null, score,
+      stats: run.stats, owner: run.owner || null, at: run.at || Date.now()
+    };
+  },
+  _writeRuns(list) {
+    try {
+      if (!list.length) {
+        localStorage.removeItem(this.RUN_KEY);
+        localStorage.removeItem(this.RUN_KEY_LEGACY);
+      } else {
+        localStorage.setItem(this.RUN_KEY, JSON.stringify(list));
+        localStorage.removeItem(this.RUN_KEY_LEGACY);
+      }
+    } catch (e) { return false; }
+    return true;
+  },
+  queuedRuns() {
+    let list = [];
+    try {
+      const raw = localStorage.getItem(this.RUN_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+      }
+      const legacy = localStorage.getItem(this.RUN_KEY_LEGACY);
+      if (legacy) {
+        const q = JSON.parse(legacy);
+        if (q && q.id && !list.some(x => x.id === q.id)) list.push(q);
+        try { localStorage.removeItem(this.RUN_KEY_LEGACY); } catch (e) { }
+        this._writeRuns(list);
+      }
+    } catch (e) { return []; }
+    return list.map(q => this._normalizeRun(q)).filter(Boolean);
+  },
+  queuedRun() {
+    const uid = this.user && this.user.id;
+    return this.queuedRuns().find(q => !q.owner || !uid || q.owner === uid) || null;
+  },
+  rememberRun(run) {
+    const q = this._normalizeRun(run);
+    if (!q) return null;
+    const list = this.queuedRuns();
+    const i = list.findIndex(x => x.id === q.id);
+    if (i >= 0) {
+      q.owner = q.owner || list[i].owner;
+      q.at = list[i].at;
+      list[i] = q;
+    } else list.push(q);
+    if (!this._writeRuns(list)) return null;
+    this._pendingDelivered = false;
+    return q;
+  },
+  /* Remove only the exact acknowledged record. A missing matcher is a no-op. */
+  forgetRun(match) {
+    if (!match || !match.id) return;
+    const list = this.queuedRuns().filter(q => {
+      if (q.id !== match.id) return true;
+      if (match.owner && q.owner && q.owner !== match.owner) return true;
+      return false;
+    });
+    this._writeRuns(list);
+  },
+  /* Deliver every eligible queued run once. A truthy acknowledgement is the
+     only thing allowed to remove that exact record; a transport error leaves
+     it for the next refresh. Concurrent callers share one in-flight drain. */
+  async deliverPending() {
+    if (!this.canPost()) return null;
+    if (this._pendingPromise) return this._pendingPromise;
+    this._pendingPromise = (async () => {
+      const tried = {};
+      let last = null;
+      for (;;) {
+        const q = this.queuedRuns().find(run => !tried[run.id] && (!run.owner || run.owner === this.user.id));
+        if (!q) break;
+        tried[q.id] = true;
+        if (!q.owner) {
+          q.owner = this.user.id;
+          this.rememberRun(q);
+        }
+        let res = null;
+        try {
+          res = await this.submit(q.mode, q.score, q.stats, { id: q.id, day: q.day || null });
+        } catch (e) { continue; }
+        if (!res) continue;
+        this.forgetRun({ id: q.id, owner: this.user.id });
+        last = res;
+        if (res.daily && typeof applyDailyResult === 'function') {
+          try { applyDailyResult(res, q.day || undefined); } catch (e) { }
+        }
+        try {
+          if (typeof note === 'function') note(res.daily
+            ? 'Pending run posted · Daily rewards acknowledged'
+            : 'Pending run posted to the worldwide board', 'good');
+        } catch (e) { }
+      }
+      if (last) this._pendingDelivered = true;
+      return last;
+    })();
+    try { return await this._pendingPromise; } finally { this._pendingPromise = null; }
+  },
   /* guest -> account: offer this device's Endless best to the board once */
   async carryGuestBest() {
     if (!this.canPost()) return null;
+    let pending = null;
+    try { pending = await this.deliverPending(); } catch (e) { return null; }
+    if (pending) return pending;
+    if (this._pendingDelivered) return true;
     let key = 'ef.carried.' + this.user.id;
     try { if (localStorage.getItem(key)) return null; } catch (e) { return null; }
     const best = (typeof loadBoard === 'function' ? loadBoard('main') : [])
       .reduce((a, r) => (r && +r.s > (a ? +a.s : 0) ? r : a), null);
-    try { localStorage.setItem(key, '1'); } catch (e) { }
     if (!best || !(+best.s >= 1)) return null;
-    try { return await this.submit('main', +best.s, { wave: Math.max(1, +best.w || 1), ship: best.k, src: 'guest' }); } catch (e) { return null; }
+    try {
+      const res = await this.submit('main', +best.s, { wave: Math.max(1, +best.w || 1), ship: best.k, src: 'guest' });
+      if (res) { try { localStorage.setItem(key, '1'); } catch (e) { } }
+      return res;
+    } catch (e) { return null; }
   },
   async stats() {
     if (!this.user || typeof mirrorJson !== 'function') return null;
@@ -238,6 +369,7 @@ const CLOUD = {
     const sb = await this.load(); if (!sb) return;
     await sb.auth.signOut();
     this.user = null; this.profile = null;
+    this._pendingUser = null; this._pendingDelivered = false;
   },
   async setCallsign(cs) {
     const sb = await this.load(); if (!sb) throw new Error('offline');
@@ -246,10 +378,28 @@ const CLOUD = {
     this.profile = data;
     return data;
   },
-  /* best-effort: the run is already saved locally before this is called */
-  async submit(gameMode, score, stats) {
+  /* best-effort: the run is already saved locally before this is called.
+     A launched run carries a stable id + launch-bound day and uses the receipt
+     RPC; direct/legacy callers keep the compatibility RPC. */
+  async submit(gameMode, score, stats, run) {
     const mode = MIRROR_MODE[gameMode];
     if (!mode || !this.canPost()) return null;
+    if (run && run.id) {
+      try {
+        const { data, error } = await this.sb.rpc('submit_run_v2', {
+          p_run_id: run.id, p_mode: mode, p_day: run.day || null,
+          p_score: Math.trunc(score), p_stats: stats || {}, p_status: 'finished'
+        });
+        if (error) throw error;
+        if (data && typeof data === 'object') return data;
+      } catch (e) {
+        const msg = String(e && e.message || e), code = e && e.code || '';
+        /* The migration is owner-applied: an un-migrated project still posts
+           through submit_score, but that response has no Daily block and is
+           never presented as acknowledged. */
+        if (!(code === 'PGRST202' || /could not find the function|schema cache/i.test(msg))) throw e;
+      }
+    }
     const { data, error } = await this.sb.rpc('submit_score', { p_mode: mode, p_score: Math.trunc(score), p_stats: stats || {} });
     if (error) throw error;
     return data;
@@ -471,7 +621,7 @@ const CLOUD = {
     on('cloudSave', run(async () => {
       await this.setCallsign(val('cloudCallsign'));
       const carried = await this.carryGuestBest();
-      this.say(carried ? 'Callsign saved. Your guest best is on the board.' : 'Callsign saved.');
+      this.say(carried ? 'Callsign saved. Your guest run is on the board.' : 'Callsign saved.');
     }));
     on('cloudOut', run(async () => { await this.signOut(); this.say('Signed out. Local scores stay on this device.'); }));
   },

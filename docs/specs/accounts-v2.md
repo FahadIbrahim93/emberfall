@@ -28,7 +28,9 @@ Free tiers only: Supabase Auth (free plan, built-in email), Google OAuth (free),
   choose "Use account for future runs" in Profile; signing in alone leaves a saved
   guest choice intact. A run launched in guest mode stays local after resuming.
   If browser storage is blocked, choices last for the current page and a new page
-  defaults to local-only posting. This does not fix pending-run transfer/retry delivery.
+  defaults to local-only posting. A completed account-mode run that cannot post yet
+  is queued with its real id and launch day, delivered once after sign-in, and removed
+  only after acknowledgement (#89). Explicit guest runs stay local.
 - Anonymous Supabase sessions stay refused by the RPCs and hidden from the views.
 
 ## Profile

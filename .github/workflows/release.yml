@@ -89,6 +89,7 @@ jobs:
         env:
           DEPLOYMENT_URL: ${{ steps.stage.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        # site-payload live retries transient 404/5xx/timeouts for up to 60s after Ready.
         run: node tools/site-payload.mjs live "$DEPLOYMENT_URL" --commit "$RELEASE_SHA"
       - name: Promote the verified production deployment
         if: inputs.promote

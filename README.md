@@ -42,7 +42,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 
 - The game is one `index.html` plus a handful of plain JavaScript modules in `js/`, drawn on a 2D canvas. No framework, no bundler.
 - It's hosted as static files on Vercel. Production promotion is explicit; green `main` CI publishes its tested artifact to [GitHub Pages](https://fahadibrahim93.github.io/emberfall/). See the [deployment procedure](docs/DEPLOYMENT.md).
-- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes, and the only write path is two `SECURITY DEFINER` functions: `submit_score` and `set_callsign`. Scores are bounds-checked (1 to 10,000,000) and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
+- Accounts and boards run on Supabase (project `rgmbexmodebegllahotc`). Row-level security is on, the tables accept no direct writes. Game-over runs use the additive `submit_run_v2` receipt RPC (stable run id, launch-bound day, idempotent Daily acknowledgement); `submit_score` remains the compatibility path for direct/legacy posts, alongside `set_callsign`. Scores are bounds-checked and rate-limited (6 a minute, 300 a day per player). Only registered accounts can post, and the public views leave out anonymous sessions. Guests keep their scores on the device.
 - Scores aren't replayed on a server, so a determined cheater could still post a fake score within bounds. Boss Rush, offline play and portal builds keep scores on the device.
 
 More detail in [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
@@ -65,12 +65,13 @@ bash check.sh             # syntax gate
 node deadscan.js --check  # dead code and load order
 npm run test:sim          # Vitest, packages/sim
 npm run test:browser      # Playwright
+npm run test:sql          # executable Supabase migration-chain regression (PGlite)
 npm test                  # sim + browser + in-game self-test
 ```
 
-You can also run the self-test in the page with `index.html?selftest` (63 checks).
+You can also run the self-test in the page with `index.html?selftest` (64 checks).
 
-CI runs these checks on every push to `main`. The last main run passed on 2026-11-07.
+CI runs these checks on every push to `main`. The last main run passed on 2026-11-10.
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -93,6 +94,33 @@ For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-por
 - [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md)
 - [Press kit](docs/press-kit.md)
 
+<!-- fun-curve:start (maintained by tools/fun-scoreboard.mjs — regenerate with --readme; do not hand-edit) -->
+## The fun curve — the game, measured release over release
+
+Every release, the repo's own instrumented play — the first-60-seconds audit (`tests/fun-audit.spec.js`) and the autopilot bot (`tests/fun-loop.spec.js`) — flies the game, and the numbers become a row here: how deep the bot flies, what it kills, how smoothly it runs. Best-wave counts the wave the bot REACHED in its 56-second headless flight — a depth probe, not a feat claim. Median-fps is environment-sensitive (CI's software renderer vs your GPU) — read the trend within a column, not the absolute.
+
+Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, written by `tools/fun-scoreboard.mjs` from the run's own artifacts). The raw artifacts are regenerated every run and stay git-ignored — only the distilled curve ships.
+
+| Release | Date | Bot wave | Bot kills | Bot grazes | Combo × | Bot median fps | First-60s median fps |
+|---|---|---|---|---|---|---|---|
+| v4.29.0 "Pilot Card" | 2026-10-23 | 3 | 27 | 4 | ×2 | 45 | 38 |
+| v4.28.0 "Guest Pass" | 2026-10-23 | 2 | 25 | 4 | ×3 | 34 | 21 |
+| v4.27.0 "The Same Ladder" | 2026-10-19 | 2 | 23 | 1 | ×2 | 29 | 20 |
+| v4.26.0 "The Open Gate" | 2026-09-30 | 2 | 20 | 3 | ×3 | 30 | 26 |
+| v4.25.0 "The Listening Deck" | 2026-09-28 | 3 | 28 | 5 | ×2 | 47 | 45 |
+| v4.24.0 "Signal" | 2026-09-28 | 2 | 15 | 1 | ×2 | 27 | 24 |
+| v4.23.1 "The Fence" | 2026-09-28 | 2 | 17 | 2 | ×2 | 46 | 46 |
+| v4.23.0 "Glasscockpit" | 2026-09-27 | 2 | 19 | 2 | ×2 | 27 | 21 |
+| v4.22.2 "Open Surfaces" | 2026-09-27 | 2 | 20 | 6 | ×2 | 35 | 34 |
+| v4.22.1 "The Recruiting Page" | 2026-09-27 | 3 | 27 | 4 | ×3 | 33 | 30 |
+| v4.22.0 "The World Stage" | 2026-09-27 | 2 | 22 | 6 | ×2 | 27 | 21 |
+| v4.21.2 "Always Reachable" | 2026-09-26 | 2 | 28 | 3 | ×3 | 25 | 23 |
+| v4.21.1 "The Curve" | 2026-09-26 | 3 | 29 | 2 | ×2 | 39 | 23 |
+| v4.21.0 "Proof of Play" | 2026-09-26 | 3 | 28 | 4 | ×2 | 46 | 48 |
+| v4.20.0 "First Contact" | 2026-09-26 | 2 | 17 | 4 | ×2 | 24 | 48 |
+
+<!-- fun-curve:end -->
+
 ## Release history
 
 Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed and when. Release numbers are not used as achievement claims.
@@ -102,7 +130,6 @@ The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the 
 ## What's new
 
 Detailed per-release notes live in [CHANGELOG.md](CHANGELOG.md). Recent work includes guest play, pilot accounts and callsigns, the Daily Gauntlet board, and the Solar Tour (eight worlds).
-
 
 ## License
 
