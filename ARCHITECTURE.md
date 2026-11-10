@@ -49,7 +49,8 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   `loadCfg()` so saved prefs always render. *Never* bind a settings control
   that paints at eval-time only.
 - `META` (career: alloy, hulls, refits, feats, sky log, streaks, sigils,
-  mastery, hullKills) — persisted locally; suite-tested for legacy
+  mastery, hullKills, donations/standing, plate finish) — persisted locally;
+  suite-tested for legacy
   migration. The personalization ledgers (`META.sigils`, `META.mastery`,
   `META.hullKills`) are written only through their bank functions
   (`masteryBankRun`), which share one guard: scored flights only.
@@ -114,8 +115,11 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
   kind follow automatically).
 - New account or board capability → a new migration in `supabase/migrations/`
   and the client call in `js/cloud.js`.
-- New economy constant → keep `tools/econsim.js` extraction patterns in sync —
-  they fail loudly when a constant moves.
+- New economy constant → extend the matching `CATALOGS` entry in
+  `tools/econsim.js` (one descriptor per shop table; row floors and duplicate-id
+  checks replace magic counts). The extraction fails loudly on drift, and
+  `node tools/econsim.js --write-doc` regenerates the totals block in
+  `docs/economy-audit.md` that every run checks.
 
 ## Accounts and boards (live): Supabase
 

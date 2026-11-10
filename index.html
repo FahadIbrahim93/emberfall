@@ -386,6 +386,9 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .donations{display:grid;gap:8px}
 .donations .up{cursor:pointer}
 .donations .buy.no{color:var(--dim)}
+.standing{display:grid;gap:8px}
+.standing .up{cursor:pointer}
+.standing .buy.no{color:var(--dim)}
 .paint b{position:absolute;bottom:3px;left:0;right:0;font-size:.48rem;letter-spacing:.08em;
   color:var(--dimmer);text-align:center;font-weight:400}
 .paint.sel b{color:var(--amber)}
@@ -1148,7 +1151,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.8</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.9</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1197,6 +1200,8 @@ body.touchmode #btnPause{width:48px;height:48px}
         <div class="mastery" id="masteryList"></div>
         <div class="side-head" style="margin-top:16px"><h3>Yard donations</h3><span>Honor is bought, never sold</span></div>
         <div class="donations" id="donateBox"></div>
+        <div class="side-head" style="margin-top:16px"><h3>Yard standing</h3><span>Past the ceiling · honor, never power</span></div>
+        <div class="standing" id="standingBox"></div>
       </div>
     </div>
     <div class="pair" style="margin-top:20px">
@@ -1396,7 +1401,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.8 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.9 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -1963,11 +1968,63 @@ function honorOf(donated) {
   for (const t of DONATIONS) if (donated >= t.at) d = t;
   return d;
 }
+/* YARD STANDING - past the ceiling. The donation ladder ends at
+   Yardmaster; standing continues it. Every 25,000 alloy beyond the ceiling
+   is one rank, and each rank pays a *plate finish* - the dock plate's metal,
+   never the hull's paint. The hull wardrobe has a tested colorblind floor
+   over every paint pair, so standing deliberately sells no hull color; the
+   plate is the canvas it owns. All of it is derived from META.donated: no
+   new ledger, no migration, and nothing here can grant power. */
+const STANDING_STEP = 25000;
+const STANDING = [
+  { rank: 1,  name: 'Steward' },
+  { rank: 2,  name: 'Quartermaster' },
+  { rank: 3,  name: 'Dockmaster' },
+  { rank: 4,  name: 'Yard Marshal' },
+  { rank: 5,  name: 'Keelwright' },
+  { rank: 6,  name: 'Voidwright' },
+  { rank: 7,  name: 'Gatewright' },
+  { rank: 8,  name: 'Starwright' },
+  { rank: 9,  name: 'Keeper of the Yard' },
+  { rank: 10, name: 'Yard Legend' }
+];
+/* earned plates: the yard starter is free, the rest unlock on even rungs */
+const PLATE_FINISHES = [
+  { id: 'steel',     name: 'Yard steel',    hull: '#9fb4c8', lit: '#e6f2ff', at: 0 },
+  { id: 'brass',     name: 'Brass',         hull: '#d9a441', lit: '#fff0c4', at: 2 },
+  { id: 'verdigris', name: 'Verdigris',     hull: '#59c9a8', lit: '#d8fff2', at: 4 },
+  { id: 'obsidian',  name: 'Obsidian',      hull: '#8f93b4', lit: '#d6dbf0', at: 6 },
+  { id: 'aurum',     name: 'Aurum',         hull: '#ffd166', lit: '#fff6d6', at: 8 },
+  { id: 'legend',    name: 'Legend ember',  hull: '#ff8a2b', lit: '#ffd9a8', at: 10 }
+];
+const HONOR_CEILING = DONATIONS[DONATIONS.length - 1].at;
+function toRoman(n) {
+  n = Math.max(0, Math.floor(n));
+  const map = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'],
+    [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let out = '';
+  for (const m of map) while (n >= m[0]) { out += m[1]; n -= m[0]; }
+  return out || '0';
+}
+const standingOf = donated => Math.max(0, Math.floor(((+donated || 0) - HONOR_CEILING) / STANDING_STEP));
+const standingRank = n => n >= 1 && n <= STANDING.length ? STANDING[n - 1] : null;
+const legendStars = n => Math.max(0, n - STANDING.length);
+const standingNextAt = n => HONOR_CEILING + (n + 1) * STANDING_STEP;
+function standingTitle(n) {
+  const r = standingRank(n);
+  if (r) return r.name;
+  const stars = legendStars(n);
+  return stars ? 'Yard Legend +' + stars : '';
+}
+function plateFinish() {
+  const st = standingOf(META.donated || 0);
+  return PLATE_FINISHES.find(f => f.id === META.plate && f.at <= st) || PLATE_FINISHES[0];
+}
 const META = {  alloy: 0, ship: 'vesper', owned: ['vesper'],
   refits: { plating: 0, ordnance: 0, thrusters: 0, capacitor: 0, magnet: 0, fortune: 0 },
   feats: {}, runs: 0, totalKills: 0, bestWave: 0,
   tourBest: 0, tourCleared: false, tourRecords: {},
-  paint: 'yard', paints: ['yard'],
+  paint: 'yard', paints: ['yard'], plate: 'steel',
   sigil: null, sigils: [''], mastery: {}, hullKills: {}, donated: 0,
   sky: { comets: 0, golden: 0, fleets: 0, pyres: 0, escorts: 0, streakCur: 0, streakBest: 0 },
   school: false,             // flight school completed — the +120 pays once
@@ -1997,6 +2054,9 @@ function loadMeta() {
   META.mastery = (s.mastery && typeof s.mastery === 'object') ? s.mastery : {};
   META.hullKills = (s.hullKills && typeof s.hullKills === 'object') ? s.hullKills : {};
   META.donated = Math.max(0, +s.donated || 0);
+  /* a plate finish is worn only while its rank is actually held */
+  META.plate = (typeof s.plate === 'string' && PLATE_FINISHES.some(f => f.id === s.plate && f.at <= standingOf(META.donated)))
+    ? s.plate : 'steel';
   if (s.sky && typeof s.sky === 'object') {
     META.sky.comets = +s.sky.comets || 0;
     META.sky.golden = +s.sky.golden || 0;
@@ -6963,6 +7023,17 @@ function drawDock() {
     g.fillText((hon.at >= 25000 ? '✦ ' : '') + (DB.get('callsign', '') || 'PILOT').toUpperCase() +
       ' · ' + hon.name.toUpperCase() + ' OF THE YARD', w / 2, h * .855);
   }
+  /* standing — v4.30: past the ceiling the plate carries the rank, and the
+     plate's finish is the reward. Nothing here touches the hull. */
+  const st = standingOf(META.donated || 0);
+  if (st > 0) {
+    const fin = plateFinish();
+    g.fillStyle = rgba(fin.hull, .22);
+    g.fillRect(w / 2 - 205, h * .866, 410, 2);
+    g.font = '600 12px system-ui, sans-serif';
+    g.fillStyle = rgba(fin.hull, .92);
+    g.fillText('◆ STANDING ' + toRoman(st) + ' · ' + standingTitle(st).toUpperCase(), w / 2, h * .883);
+  }
 /* season-end honor — v4.11: the deck has counted a week with no gap */
   if (plaqueText) {
     g.font = '600 11px system-ui, sans-serif';
@@ -7186,7 +7257,7 @@ bindClick('btnBayBack', () => toTitle());
 bindClick('btnBayLaunch', () => startRun('endless'));
 bindClick('btnRange', () => RANGE.begin());
 bindClick('btnWipe', () => {
-  askConfirm('Erase all alloy, hulls, refits, feats and scores on this device?', 'Reset progress', () => {
+  askConfirm('Erase all alloy, hulls, refits, feats and scores on this device? Honor, standing and plate finishes are kept.', 'Reset progress', () => {
     DB.del('meta'); DB.del('board.main'); DB.del('board.daily'); DB.del('callsign');
     META.alloy = 0; META.ship = 'vesper'; META.owned = ['vesper']; META.feats = {};
     META.runs = 0; META.totalKills = 0; META.bestWave = 0;
@@ -7407,6 +7478,13 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.9',
+    items: [
+      'The honor ladder keeps climbing: ten yard standing ranks past Yardmaster, then a star for every further 25,000 alloy. Standing is read from what you already donated, so nothing extra is stored and nothing it pays touches a ship\'s power.',
+      'Each even rank unlocks a dock-plate finish — brass, verdigris, obsidian, aurum, legend ember — and the hangar shows the exact remainder to the next rank. Reset progress keeps your honor, standing and finishes.'
+    ]
+  },
   {
     v: '4.29.8',
     items: [
@@ -8434,6 +8512,46 @@ function runSelfTests() {
     ok(earned < DONATIONS[0].at, 'one run cannot out-earn a donation — the sink is real');
     META.donated = sv.d; META.alloy = sv.a;
   });
+  T('yard standing: derived from honor, climbs, and buys no power', () => {
+    const sv = { d: META.donated, a: META.alloy, plate: META.plate };
+    const ceil = HONOR_CEILING;
+    eq(ceil, DONATIONS[DONATIONS.length - 1].at, 'standing starts where donations end');
+    eq(standingOf(ceil - 1), 0, 'below the ceiling there is no standing');
+    eq(standingOf(ceil), 0, 'the ceiling itself is rank zero');
+    eq(standingOf(ceil + STANDING_STEP - 1), 0, 'one alloy short does not rank');
+    eq(standingOf(ceil + STANDING_STEP), 1, 'the first step ranks');
+    eq(standingOf(ceil + STANDING_STEP * STANDING.length), STANDING.length, 'the named ladder tops out at Legend');
+    eq(standingOf(ceil + STANDING_STEP * (STANDING.length + 3)), STANDING.length + 3, 'stars keep climbing past it');
+    ok(STANDING.every((r, i) => r.rank === i + 1), 'ranks are ordered from one');
+    ok(new Set(STANDING.map(r => r.name)).size === STANDING.length, 'every rank has its own name');
+    ok(toRoman(1) === 'I' && toRoman(4) === 'IV' && toRoman(9) === 'IX' && toRoman(10) === 'X' && toRoman(11) === 'XI', 'roman ranks read correctly');
+    /* finishes are earned in order, and the wardrobe is untouched: standing
+       sells plate metal, never a hull colour the colorblind suite must clear */
+    ok(PLATE_FINISHES[0].at === 0, 'the yard starter plate is free');
+    ok(PLATE_FINISHES.every((f, i) => i === 0 || f.at > PLATE_FINISHES[i - 1].at), 'finishes unlock in rank order');
+    ok(PLATE_FINISHES.slice(1).every(f => f.at <= STANDING.length), 'every earned finish fits the named ladder');
+    ok(PLATE_FINISHES.every(f => !PAINTS.some(p => p.id === f.id)), 'plate finishes are not hull paints');
+    /* derived, not stored: the button asks for the remainder, not a full block */
+    META.donated = ceil + STANDING_STEP + 7000;
+    eq(standingOf(META.donated), 1, 'partial progress does not rank');
+    eq(standingNextAt(1) - META.donated, STANDING_STEP - 7000, 'the next step charges only the remainder');
+    /* a locked finish cannot be worn, across a reload */
+    META.plate = 'aurum';
+    saveMeta(); loadMeta();
+    eq(META.plate, 'steel', 'a locked finish falls back to the yard plate');
+    META.donated = ceil + STANDING_STEP * 8;
+    META.plate = 'aurum';
+    saveMeta(); loadMeta();
+    eq(META.plate, 'aurum', 'an earned finish survives a reload');
+    eq(plateFinish().id, 'aurum', 'the worn finish resolves');
+    /* cosmetic-only contract: no power key changes */
+    const keys = ['ship', 'owned', 'refits', 'mastery', 'hullKills', 'sigil', 'sigils'];
+    const snap = keys.map(k => JSON.stringify(META[k]));
+    META.donated += STANDING_STEP;
+    ok(keys.every((k, i) => JSON.stringify(META[k]) === snap[i]), 'standing touches no power key');
+    META.donated = sv.d; META.alloy = sv.a; META.plate = sv.plate;
+    saveMeta();
+  });
   T('arcade confirm: hangar reset and yard donate ask in-game', () => {
     /* Bounty Board frames the game and blocks window.confirm(), which made
        these two buttons look dead. The step has to open, cancel cleanly,
@@ -8643,6 +8761,28 @@ function runSelfTests() {
     loadMeta();
     eq(META.skyLog.length, 60, 'a flooded legacy archive truncates to the newest 60 on load');
     eq(META.skyLog[59].t, 79, 'newest kept, oldest dropped');
+  });
+  T('persistence: standing survives reload and a stale plate falls back', () => {
+    const raw = DB.get('meta', null);
+    const d0 = META.donated, p0 = META.plate;
+    /* an import from another device carries the ledger and the worn finish */
+    DB.set('meta', { donated: 350000, plate: 'legend' });
+    loadMeta();
+    eq(standingOf(META.donated), 10, 'the ladder reads the imported ledger');
+    eq(META.plate, 'legend', 'an earned finish survives import');
+    /* a shorter ledger must not keep wearing a finish it no longer paid for */
+    DB.set('meta', { donated: 150000, plate: 'legend' });
+    loadMeta();
+    eq(standingOf(META.donated), 2, 'a shorter ledger ranks lower');
+    eq(META.plate, 'steel', 'a finish above the held rank falls back to steel');
+    /* legacy save with no plate key at all */
+    DB.set('meta', { donated: 175000 });
+    loadMeta();
+    eq(standingOf(META.donated), 3, 'legacy saves derive their rank from honor');
+    eq(META.plate, 'steel', 'legacy saves load without a plate');
+    if (raw === null) DB.del('meta'); else DB.set('meta', raw);
+    META.donated = d0;
+    META.plate = p0;
   });
   T('SKY_EVENTS extension: escort convoy records through the single owner', () => {
     const keeper = { sky: META.sky, skyLog: META.skyLog, saveMeta };
@@ -9095,7 +9235,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.8', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.9', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
