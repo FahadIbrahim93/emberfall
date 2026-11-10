@@ -6909,7 +6909,7 @@ function endRun() {
       id: GAME.runId,
       day: GAME.mode === 'daily' ? GAME.runDay : null
     } : undefined;
-    const stats = { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) };
+    const stats = { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0), paint: META.paint };
     /* Account-mode runs keep their real identity and launch day. Queue when
        posting is not possible yet, and also when a postable session fails, so
        a network/RPC error does not drop delivery intent. Explicit guest runs
@@ -7481,6 +7481,12 @@ const NOTES = [
     items: [
       'The honor ladder keeps climbing: ten yard standing ranks past Yardmaster, then a star for every further 25,000 alloy. Standing is read from what you already donated, so nothing extra is stored and nothing it pays touches a ship\'s power.',
       'Each even rank unlocks a dock-plate finish — brass, verdigris, obsidian, aurum, legend ember — and the hangar shows the exact remainder to the next rank. Reset progress keeps your honor, standing and finishes.'
+    ]
+  },
+  {
+    v: '4.29.7',
+    items: [
+      'Worldwide standings now page with a frozen watermark, keep exact scores past JavaScript integers, and name the mode of the run that set each All-time best.'
     ]
   },
   {

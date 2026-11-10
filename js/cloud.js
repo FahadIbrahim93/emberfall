@@ -340,6 +340,7 @@ const CLOUD = {
     if (!this.user || typeof mirrorJson !== 'function') return null;
     const id = this.user.id, day = new Date().toISOString().slice(0, 10);
     const [g, d, n] = await Promise.all([
+      /* Compatibility reader: the folded endless view, until standings_page is applied. */
       mirrorJson('/rest/v1/leaderboard_global?mode=eq.endless&user_id=eq.' + id + '&select=score&limit=1').catch(() => []),
       mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day + '&user_id=eq.' + id + '&select=score&limit=1').catch(() => []),
       mirrorRest('/rest/v1/player_scores?user_id=eq.' + id + '&select=id', { headers: { Prefer: 'count=exact', Range: '0-0' } })

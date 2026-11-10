@@ -63,11 +63,11 @@ footer a{color:var(--ember);text-decoration:none}
 <script src="js/mirror-public.js"></script>
 <script>
 'use strict';
-const MODE_LABEL = { main: 'Endless', daily: 'Daily gauntlet', rush: 'Boss rush' };
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
 const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
-const fmt = n => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const fmt = fmtScore;
+const BOARD_LABEL = { alltime: 'All-time', daily: 'Daily', school: 'School' };
 const params = new URLSearchParams(location.search);
 const callsign = (params.get('callsign') || params.get('name') || '').trim();
 
@@ -82,23 +82,51 @@ function fmtDate(iso) {
   if (!iso) return '—';
   try { return String(iso).slice(0, 10); } catch (e) { return '—'; }
 }
-async function mirrorOpt(path) {
-  const r = await mirrorRest(path);
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error('mirror ' + r.status);
-  return r.json();
-}
 function paintModes(rows) {
   if (!rows.length) {
     document.getElementById('modes').innerHTML = '<div class="empty">No accepted runs on the public mirror for this pilot.</div>';
     return;
   }
   document.getElementById('modes').innerHTML = rows.map(row =>
-    '<div class="row"><span class="mode">' + esc(row.mode) + '</span>' +
-    '<span class="score">' + esc(fmt(row.score)) + '</span>' +
+    '<div class="row" data-source="' + esc(row.source || '') + '"><span class="mode">' + esc(row.mode) + '</span>' +
+    '<span class="score">' + esc(fmtScore(row.score)) + '</span>' +
     '<span>W' + esc(row.wave) + ' · ' + esc(row.ship || '—') +
     (paintText(row.paint) ? ' · ' + paintText(row.paint) : '') + '</span>' +
     '<span class="rank">' + (row.rank ? '#' + esc(row.rank) : '') + '</span></div>').join('');
+}
+function rowsFromDossier(card) {
+  return (card.modes || []).map(row => ({
+    mode: (BOARD_LABEL[row.board] || row.board) + (row.source_mode ? ' · ' + sourceLabel(row.source_mode) : ''),
+    source: row.source_mode,
+    score: row.score,
+    wave: row.wave == null ? '—' : row.wave,
+    ship: row.ship,
+    paint: row.paint,
+    rank: row.place
+  }));
+}
+async function rowsFromCompatibility(callsign) {
+  const p = await mirrorPilotRow(callsign);
+  if (!p) return null;
+  const modes = [
+    ['alltime', 'main', 'All-time'],
+    ['daily', 'daily', 'Daily'],
+    ['school', 'school', 'School']
+  ];
+  const loaded = await Promise.all(modes.map(([, key]) => mirrorModeBest(p.deck_id, key)));
+  const rank = await mirrorMainRank(p.best_score);
+  return {
+    pilot: p,
+    rows: modes.map(([, , label], i) => loaded[i] && {
+      mode: label,
+      source: '',
+      score: loaded[i].score,
+      wave: loaded[i].wave,
+      ship: loaded[i].ship,
+      paint: null,
+      rank: label === 'All-time' ? rank : null
+    }).filter(Boolean)
+  };
 }
 
 (async () => {
@@ -109,65 +137,48 @@ function paintModes(rows) {
   }
   document.getElementById('title').firstChild.textContent = callsign.toUpperCase() + ' ';
   document.title = 'EMBERFALL — ' + callsign + ' (pilot profile)';
+  if (!/^[A-Za-z0-9_-]{3,16}$/.test(callsign)) {
+    showErr('That callsign is not a public pilot name. Use 3–16 letters, numbers, underscores or hyphens.');
+    document.getElementById('modes').innerHTML = '<div class="empty">Nothing was looked up.</div>';
+    return;
+  }
   try {
-    const cards = await mirrorOpt('/rest/v1/pilot_cards?select=*&callsign=eq.' + encodeURIComponent(callsign) + '&limit=1');
-    const card = cards && cards[0];
-    if (card) {
-      const career = await mirrorPilotRow(card.callsign);
-      const modes = ['main', 'daily', 'rush'].filter(m => card[m + '_score'] != null).map(m => ({
-        mode: MODE_LABEL[m] || m,
-        score: card[m + '_score'],
-        wave: card[m + '_wave'],
-        ship: card[m + '_ship'],
-        paint: card[m + '_paint'],
-        rank: card[m + '_rank']
-      }));
+    const found = await mirrorPilotDossier(callsign);
+    if (!found.missing && found.card) {
+      const card = found.card;
+      const all = (card.modes || []).find(row => row.board === 'alltime');
       document.getElementById('cards').classList.remove('loading', 'hidden');
       document.getElementById('hero').classList.remove('hidden');
       document.getElementById('callsign').textContent = card.callsign;
-      document.getElementById('meta').innerHTML =
-        '<span>Since ' + esc(fmtDate((career && career.created_at) || card.since)) + '</span>' +
-        (paintText(card.paint) ? '<span>Paint ' + paintText(card.paint) + '</span>' : '') +
-        (card.season_key ? '<span>Season ' + esc(card.season_key) + ' #' + esc(card.season_rank) + '</span>' : '');
-      document.getElementById('cRuns').textContent = career ? fmt(career.runs) : '—';
-      document.getElementById('cStreak').textContent = career ? fmt(career.best_streak || 0) : '—';
-      document.getElementById('cWf').textContent = fmt(card.wardenfalls || 0);
-      document.getElementById('cRank').textContent = card.main_rank ? '#' + card.main_rank : '—';
-      paintModes(modes);
+      document.getElementById('meta').innerHTML = '<span>Since ' + esc(fmtDate(card.since)) + '</span>';
+      document.getElementById('cRuns').textContent = fmt(card.runs);
+      document.getElementById('cStreak').textContent = '—';
+      document.getElementById('cWf').textContent = '—';
+      document.getElementById('cRank').textContent = all && all.place ? '#' + all.place : '—';
+      paintModes(rowsFromDossier(card));
       return;
     }
-    const p = await mirrorPilotRow(callsign);
-    if (!p) {
-      showErr('No pilot named “' + callsign + '” on the public mirror yet. They may not have posted a ranked run yet.');
-      document.getElementById('modes').innerHTML = '<div class="empty">Not on the public mirror.</div>';
+    if (found.missing) {
+      const compat = await rowsFromCompatibility(callsign);
+      if (!compat) {
+        showErr('No pilot named “' + callsign + '” on the public mirror yet. They may not have posted a ranked run yet.');
+        document.getElementById('modes').innerHTML = '<div class="empty">Not on the public mirror.</div>';
+        return;
+      }
+      document.getElementById('cards').classList.remove('loading', 'hidden');
+      document.getElementById('hero').classList.remove('hidden');
+      document.getElementById('callsign').textContent = compat.pilot.callsign;
+      document.getElementById('meta').innerHTML = '<span>Since ' + esc(fmtDate(compat.pilot.created_at)) + '</span>';
+      document.getElementById('cRuns').textContent = '—';
+      document.getElementById('cStreak').textContent = '—';
+      document.getElementById('cWf').textContent = '—';
+      const all = compat.rows.find(row => row.mode === 'All-time');
+      document.getElementById('cRank').textContent = all && all.rank ? '#' + all.rank : '—';
+      paintModes(compat.rows);
       return;
     }
-    const modes = ['main', 'daily', 'rush'];
-    const [rankN, ...modeRows] = await Promise.all([
-      mirrorMainRank(p.best_score),
-      ...modes.map(m => mirrorModeBest(p.deck_id, m))
-    ]);
-    const bests = {};
-    modes.forEach((m, i) => { if (modeRows[i]) bests[m] = modeRows[i]; });
-
-    document.getElementById('cards').classList.remove('loading', 'hidden');
-    document.getElementById('hero').classList.remove('hidden');
-    document.getElementById('callsign').textContent = p.callsign;
-    document.getElementById('meta').innerHTML =
-      '<span>Since ' + esc(fmtDate(p.created_at)) + '</span>' +
-      (p.best_streak > 1 ? '<span>Best streak ' + esc(fmt(p.best_streak)) + '</span>' : '') +
-      (p.total_paid ? '<span>Alloy paid ' + esc(fmt(p.total_paid)) + '</span>' : '');
-    document.getElementById('cRuns').textContent = fmt(p.runs);
-    document.getElementById('cStreak').textContent = fmt(p.best_streak || 0);
-    document.getElementById('cWf').textContent = fmt(p.wardenfalls || 0);
-    document.getElementById('cRank').textContent = rankN ? '#' + rankN : '—';
-    paintModes(modes.filter(m => bests[m]).map(m => ({
-      mode: MODE_LABEL[m] || m,
-      score: bests[m].score,
-      wave: bests[m].wave,
-      ship: bests[m].ship,
-      rank: m === 'main' ? rankN : null
-    })));
+    showErr('No pilot named “' + callsign + '” on the public mirror yet. They may not have posted a ranked run yet.');
+    document.getElementById('modes').innerHTML = '<div class="empty">Not on the public mirror.</div>';
   } catch (e) {
     showErr('The public mirror is not answering (' + e.message + '). Try again in a moment.');
     document.getElementById('modes').innerHTML = '<div class="empty">unavailable</div>';

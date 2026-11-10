@@ -11,13 +11,15 @@ The static site (Vercel) has its own accounts and worldwide boards in Supabase p
 | Object | What it is | Who can do what |
 |--------|-----------|-----------------|
 | `profiles` | `id` = `auth.users.id`, `callsign` 3-16 chars `[A-Za-z0-9_-]`, unique case-insensitively | anyone reads `id, callsign, created_at`; no direct writes |
-| `player_scores` | one row per posted run: `mode` endless/daily/school, `day` (UTC, daily only), `score` 1-10,000,000, small `stats` jsonb | anyone reads; no direct writes |
+| `player_scores` | one row per posted run: `mode` endless/daily/school, `day` (UTC, daily only), `score` bigint of at least 1, small `stats` jsonb | anyone reads; no direct writes |
 | `rpc/set_callsign(p_callsign)` | create or rename your profile | registered users (anonymous sessions are refused) |
 | `rpc/submit_score(p_mode, p_score, p_stats)` | post a run through the compatibility path; at most 6/minute and 300/day per user | registered users with a callsign |
 | `rpc/submit_run_v2(p_run_id, p_mode, p_day, p_score, p_stats, p_status)` | post a run receipt and return an idempotent Daily acknowledgement; replaying the same payload returns the original result | registered users with a callsign |
 | `leaderboard_global` | best run per registered player per mode (endless, school) | anyone reads |
 | `leaderboard_daily` | best run per registered player per UTC day | anyone reads |
-| `deck_stats` | live view: pilots, runs, top score, `updated_at = now()` | anyone reads |
+| `deck_stats` | live view: pilots, runs, top score, `top_score_exact` text, `updated_at = now()` | anyone reads |
+| `rpc/standings_page` | cursor page of the best run per registered pilot, frozen at a watermark. Score is text. `source_mode` is the run that set it. Competition rank | anyone reads; no writes |
+| `rpc/pilot_dossier` | one public profile: callsign, run count, and best all-time, daily, and school rows | anyone reads; a callsign that is not 3–16 safe characters returns null |
 
 How it is locked:
 
@@ -36,7 +38,7 @@ Client side (`js/cloud.js`):
 - A rate-limited post answers HTTP 429 (`20261023000100_rate_limit_http_429.sql`).
 - Endless and daily runs post through `submit_run_v2` after the local save, carrying a stable run id and the launch day. Replaying a completion returns the original acknowledgement and pays nothing twice; a late older receipt pays at most once and cannot rewind the streak. The runtime falls back to `submit_score` when the additive migration has not been applied, and that legacy result is never treated as acknowledged. Rush and flight school stay on the device. Offline play, local boards and portal builds (`tools/build-portal.sh` strips `cloud.js`) never touch Supabase.
 - **Pending run handoff.** A completed account-mode run that cannot post yet (signed out or without a callsign), or that fails mid-post, is queued locally with its real run id, launch day, mode, score and stats. Distinct runs are kept separately and only the exact acknowledged `(owner, run_id)` is removed. Delivery is single-flight and scoped to the first signed-in owner. Explicit guest-launched runs are never queued.
-- The Global tab reads `leaderboard_global` and `leaderboard_daily` with the publishable key; `stats.html` and `pilot.html` read the same views.
+- The Global tab, `stats.html` and `pilot.html` read `standings_page` and `pilot_dossier` once that migration is applied. Until then they fall back to `leaderboard_global` / `leaderboard_daily`. Exact scores stay text; `source_mode` names the run that set an All-time row so a Daily best is never labelled Endless.
 
 Monitoring: `tools/mirror-alarm.mjs` checks the project answers, `deck_stats` is fresh and agrees with `profiles`, and that no machine-pattern callsigns are on the board. The hourly stats workflow and `tools/db-sync.mjs` were removed.
 
