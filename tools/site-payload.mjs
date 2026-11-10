@@ -198,6 +198,36 @@ export async function verifyLive(base, manifest, { headers = {}, fetcher = fetch
   return manifest.assets.length;
 }
 
+// Retry only transport/availability failures. Content mismatches are final.
+const TRANSIENT_LIVE = /HTTP (404|408|425|429|5\d\d)|aborted|timeout|network|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN/i;
+const LIVE_RETRY_BUDGET_MS = 60_000;
+const LIVE_RETRY_DELAYS_MS = [2000, 4000, 8000, 15000, 15000, 16000];
+
+export function isTransientLiveError(error) {
+  return TRANSIENT_LIVE.test(String(error?.message || error || ''));
+}
+
+export async function verifyLiveWithRetry(base, manifest, options = {}) {
+  const budgetMs = options.budgetMs ?? LIVE_RETRY_BUDGET_MS;
+  const delays = options.delays ?? LIVE_RETRY_DELAYS_MS;
+  const sleep = options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const now = options.now ?? Date.now;
+  const started = now();
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await verifyLive(base, manifest, options);
+    } catch (error) {
+      const remaining = budgetMs - (now() - started);
+      if (!isTransientLiveError(error) || remaining <= 0) throw error;
+      const delay = Math.max(0, Math.min(delays[Math.min(attempt, delays.length - 1)], remaining));
+      console.warn(`PAYLOAD: live check retry ${attempt + 1} after ${error.message}; waiting ${delay}ms`);
+      attempt += 1;
+      if (delay > 0) await sleep(delay);
+    }
+  }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const command = process.argv[2] || 'build';
@@ -216,7 +246,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     } else if (command === 'live') {
       const manifest = readManifest(directory);
       if (manifest.commitSha !== commit) throw new Error('release commit does not match expected commit');
-      const count = await verifyLive(process.argv[3], manifest, { headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      const count = await verifyLiveWithRetry(process.argv[3], manifest, { headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
         ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {} });
       console.log(`LIVE: ${count} assets match tested commit ${manifest.commitSha}`);
     } else throw new Error('usage: node tools/site-payload.mjs build|verify|vercel|live <URL> [--commit <SHA>]');

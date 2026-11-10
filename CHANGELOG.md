@@ -8,7 +8,20 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - Add an additive `submit_run_v2` receipt RPC: a stable run id, launch-bound UTC day, exact score, validated stats, client-reported status and an idempotent acknowledgement. Replaying a run returns the original acknowledgement; conflicting reuse is refused; quota is charged only after deduplication.
 - Award each Daily medal tier once per UTC day in a server ledger, preserving the existing thresholds, streak, flawless-week and Wardenfall calendar. Receipts are explicitly `client-reported`, never silently verified.
 - Wire game-over posting to the receipt RPC with a legacy `submit_score` fallback; a duplicate finalization cannot post or pay twice. Local adoption settles each receipt against its own run acknowledgement: replaying the same receipt pays nothing, a late older receipt pays at most once and cannot rewind the streak, and a legacy local watermark never suppresses a new reward.
-- Regression coverage: the full migration chain runs in local PGlite with auth stubs (`tools/daily-receipts-sql.test.mjs`), plus browser cases for receipt adoption and the un-migrated fallback. Cache generation `emberfall-v4.60`.
+- Shared posting budget: `submit_run_v2` and `submit_score` both count `public.player_scores` (6/min, 300/day) under the same per-account advisory lock. An existing receipt is returned before any day-window check, so a lost-response retry still works after the day ages out. Private receipt tables have deny-by-default RLS and no `anon`/`authenticated` privileges. Scores and rewards stay client-reported.
+- Regression coverage: the full migration chain runs in local PGlite with auth stubs (`tools/daily-receipts-sql.test.mjs`), including mixed-RPC quota, aged-ack replay and privilege assertions, plus browser cases for receipt adoption and the un-migrated fallback. Cache generation `emberfall-v4.61`.
+
+### Release staging check
+- Retry the staged Vercel live check for up to 60s when the deployment answers with a transient availability error (HTTP 404/429/5xx, timeouts). A just-Ready `--skip-domain` URL was failing the first fetch even though the tested bytes were already present. Content mismatches still fail immediately.
+
+### HUD Best label on phones
+- Keep the compact "Best" label visible on narrow phones (max-width 600px). Without it the device-local best sat unlabeled beside the pause button and read as a score counter frozen from launch (#92). The live score was never affected.
+- Regression coverage: `tests/hud-best-label.spec.js` seeds a stored best, launches on phone viewports and checks the label is shown and the live score climbs from zero. Cache generation `emberfall-v4.60`.
+
+### Confirm focus — v4.29.4
+- After a confirmed donation or reset, restore keyboard focus only once the action has rerendered the hangar: cancellation and Escape return to the original trigger, an ordinary donation finds its rebuilt button, the final donation falls back to the hangar's launch control, and reset keeps its surviving button.
+- The confirmation step opens on Cancel: its visibility no longer waits on the fade, so the cancel/Escape path moves focus into the dialog and back instead of passing without leaving the trigger.
+- Regression coverage: `tests/confirm-focus.spec.js` covers ordinary and final donations, cancel, Escape, reset and keyboard continuation, with initial-focus assertions in every path. Cache generation `emberfall-v4.59`.
 
 ### Portal Boards — v4.29.3
 - Wire Boards, shared sheet navigation and keyboard focus independently of accounts, so the packaged portal works without `cloud.js`.

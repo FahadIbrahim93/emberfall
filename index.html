@@ -196,6 +196,9 @@ body.noscan #scan,body.nograin #grain{display:none}
   transition:opacity .32s ease,visibility .32s;background:rgba(3,5,11,.5);
   overflow-y:auto;overscroll-behavior:contain}
 .screen.on{opacity:1;visibility:visible}
+/* the confirm must be focusable as soon as it opens (Cancel is focused
+   synchronously); the opacity fade still runs, only visibility is immediate */
+#s-ask.on{transition:opacity .32s ease,visibility 0s}
 .panel{background:var(--glass);border:1px solid var(--line-soft);backdrop-filter:blur(10px);
   clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)}
 .eyebrow{font-size:.6rem;letter-spacing:.38em;color:var(--ember);margin-bottom:14px}
@@ -937,8 +940,10 @@ body.touchmode #btnPause{width:48px;height:48px}
      collides with Score or Best */
   .tc{top:calc(64px + var(--sat));width:min(300px,64vw)}
   #sector{display:none}
-  .best .lbl{display:none}
-  #best{margin-top:0;font-size:.8rem}
+  /* keep the Best label: unlabeled, the static best reads as a frozen
+     score counter (#92) */
+  .best .lbl{font-size:.5rem;letter-spacing:.22em}
+  #best{margin-top:2px;font-size:.8rem}
   .tl{left:calc(16px + var(--sal))}
   .tr{right:calc(12px + var(--sar))}
 }
@@ -7103,28 +7108,52 @@ function bindClick(id, fn) { const el = $(id); if (el) el.onclick = fn; }
    prompt(), so the click looks dead. One in-game step covers both places. */
 let askYes = null;
 let askReturn = null;
+let askReturnKey = null;
 function askConfirm(message, yesLabel, onYes) {
   askYes = onYes || null;
   askReturn = document.activeElement;
+  /* A confirmed action may rebuild its own trigger (the yard donation runs
+     renderHangar). Remember a stable hook so focus can find the replacement. */
+  askReturnKey = askReturn && askReturn.dataset ? askReturn.dataset.askReturn || null : null;
   $('askH').textContent = yesLabel || 'Confirm';
   $('askMsg').textContent = message;
   $('btnAskYes').textContent = yesLabel || 'Confirm';
   showScreen('s-ask', true);
   $('btnAskNo').focus();
 }
-function dismissAsk() {
+/* Close the step and hand back where focus belongs. The action runs between
+   close and restore, so a rerendered trigger is resolved after it exists. */
+function takeAskReturn() {
   askYes = null;
-  const back = askReturn;
+  const back = askReturn, key = askReturnKey;
   askReturn = null;
+  askReturnKey = null;
   showScreen('s-ask', false);
-  if (back && back.isConnected && back.focus && $('s-hangar') && $('s-hangar').classList.contains('on')) {
-    back.focus({ preventScroll: true });
+  return (back || key) ? { back, key } : null;
+}
+/* Resolve after the action: a rerender may have replaced the trigger. */
+function askReturnTarget(handle) {
+  if (!handle) return null;
+  if (!($('s-hangar') && $('s-hangar').classList.contains('on'))) return null;
+  if (handle.back && handle.back.isConnected && handle.back.focus) return handle.back;
+  if (handle.key) {
+    try {
+      const replacement = document.querySelector('[data-ask-return="' + handle.key + '"]');
+      if (replacement && replacement.focus) return replacement;
+    } catch (e) { /* a bad hook falls through to the hangar control */ }
   }
+  return $('btnBayLaunch');
+}
+function restoreAskFocus(el) {
+  if (el && el.isConnected && el.focus) el.focus({ preventScroll: true });
+}
+function dismissAsk() {
+  restoreAskFocus(askReturnTarget(takeAskReturn()));
 }
 function settleAsk(ok) {
   const fn = ok ? askYes : null;
-  dismissAsk();
-  if (fn) fn();
+  const handle = takeAskReturn();
+  try { if (fn) fn(); } finally { restoreAskFocus(askReturnTarget(handle)); }
 }
 bindClick('btnAskYes', () => { AU.ui(); settleAsk(true); });
 bindClick('btnAskNo', () => { AU.ui(); settleAsk(false); });
