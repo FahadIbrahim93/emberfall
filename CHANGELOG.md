@@ -4,6 +4,12 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Guest run handoff — v4.29.6
+- Queue account-mode runs completed without a postable session, carrying the real run id, mode, launch UTC day, score and stats. Deliver the exact run after sign-in or callsign save through `submit_run_v2`, retain it on failure/offline, and remove it only after a truthy acknowledgement.
+- Persist distinct pending runs and remove only the exact acknowledged `(owner, run_id)` record, so an older acknowledgement cannot delete a newer queued run. The ordinary post-failure path also keeps delivery intent.
+- Make delivery single-flight and owner-scoped: a sign-in refresh and callsign save cannot post twice, and another account cannot claim the queued run. Explicit guest-launched runs remain local and are never queued.
+- Regression coverage: packaged-browser cases prove the signed-out Daily post, acknowledgement-gated removal with retry, guest-mode exclusion, concurrent completion/delivery, multiple offline runs, and failed-post queueing. Cache generation `emberfall-v4.62`.
+
 ### Daily receipts — v4.29.5
 - Add an additive `submit_run_v2` receipt RPC: a stable run id, launch-bound UTC day, exact score, validated stats, client-reported status and an idempotent acknowledgement. Replaying a run returns the original acknowledgement; conflicting reuse is refused; quota is charged only after deduplication.
 - Award each Daily medal tier once per UTC day in a server ledger, preserving the existing thresholds, streak, flawless-week and Wardenfall calendar. Receipts are explicitly `client-reported`, never silently verified.
