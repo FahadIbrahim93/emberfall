@@ -4,6 +4,10 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### HUD Best label on phones
+- Keep the compact "Best" label visible on narrow phones (max-width 600px). Without it the device-local best sat unlabeled beside the pause button and read as a score counter frozen from launch (#92). The live score was never affected.
+- Regression coverage: `tests/hud-best-label.spec.js` seeds a stored best, launches on phone viewports and checks the label is shown and the live score climbs from zero. Cache generation `emberfall-v4.60`.
+
 ### Confirm focus — v4.29.4
 - After a confirmed donation or reset, restore keyboard focus only once the action has rerendered the hangar: cancellation and Escape return to the original trigger, an ordinary donation finds its rebuilt button, the final donation falls back to the hangar's launch control, and reset keeps its surviving button.
 - The confirmation step opens on Cancel: its visibility no longer waits on the fade, so the cancel/Escape path moves focus into the dialog and back instead of passing without leaving the trigger.
