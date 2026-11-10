@@ -940,8 +940,10 @@ body.touchmode #btnPause{width:48px;height:48px}
      collides with Score or Best */
   .tc{top:calc(64px + var(--sat));width:min(300px,64vw)}
   #sector{display:none}
-  .best .lbl{display:none}
-  #best{margin-top:0;font-size:.8rem}
+  /* keep the Best label: unlabeled, the static best reads as a frozen
+     score counter (#92) */
+  .best .lbl{font-size:.5rem;letter-spacing:.22em}
+  #best{margin-top:2px;font-size:.8rem}
   .tl{left:calc(16px + var(--sal))}
   .tr{right:calc(12px + var(--sar))}
 }
