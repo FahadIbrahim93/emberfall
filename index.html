@@ -1146,7 +1146,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.6</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.7</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1394,7 +1394,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.6 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.7 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -6849,7 +6849,7 @@ function endRun() {
       id: GAME.runId,
       day: GAME.mode === 'daily' ? GAME.runDay : null
     } : undefined;
-    const stats = { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0) };
+    const stats = { wave: Math.max(1, GAME.wave), ship: META.ship, kills: GAME.kills, runT: Math.round(GAME.runT || 0), paint: META.paint };
     /* Account-mode runs keep their real identity and launch day. Queue when
        posting is not possible yet, and also when a postable session fails, so
        a network/RPC error does not drop delivery intent. Explicit guest runs
@@ -7405,6 +7405,12 @@ bindSegment('segSky', 'sky', () => { });
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.29.7',
+    items: [
+      'Worldwide standings now page with a frozen watermark, keep exact scores past JavaScript integers, and name the mode of the run that set each All-time best.'
+    ]
+  },
   {
     v: '4.29.6',
     items: [
@@ -9081,7 +9087,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.6', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.7', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -4,6 +4,12 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Gate 2 standings — v4.29.7
+- Add additive `standings_page` and `pilot_dossier` RPCs: watermark-frozen cursor pages, exact bigint scores as text, `source_mode` for the run that set each best, and competition ranks `1,1,3`. Indexes cover the best-run walk. `deck_stats` exposes `top_score_exact`.
+- Point `stats.html`, `pilot.html` and the Global tab at those contracts. Retired `seasons` / `pilot_cards` / `board_standings` requests are gone. Until the owner applies the migration, clients keep reading `leaderboard_global` / `leaderboard_daily` without labelling folded Daily rows Endless.
+- Posted run stats now carry paint so a best-run row can keep its hull and wardrobe. Hostile callsigns stay text and are never looked up.
+- Regression coverage: PGlite walks 201 pilots with ties, mid-walk updates and bigint values (`tools/standings-sql.test.mjs`); Playwright covers dossier/source mode, exact scores, cursor paging and empty/error paths (`tests/standings-pages.spec.js`). Cache generation `emberfall-v4.63`. No live migration or production change is claimed here.
+
 ### Guest run handoff — v4.29.6
 - Queue account-mode runs completed without a postable session, carrying the real run id, mode, launch UTC day, score and stats. Deliver the exact run after sign-in or callsign save through `submit_run_v2`, retain it on failure/offline, and remove it only after a truthy acknowledgement.
 - Persist distinct pending runs and remove only the exact acknowledged `(owner, run_id)` record, so an older acknowledgement cannot delete a newer queued run. The ordinary post-failure path also keeps delivery intent.
