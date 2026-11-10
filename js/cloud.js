@@ -13,7 +13,8 @@
 const CLOUD = {
   sb: null, user: null, profile: null, loading: null,
   STORE: 'sb-rgmbexmodebegllahotc-auth-token',
-  RUN_KEY: 'ef.pendingRun',
+  RUN_KEY: 'ef.pendingRuns',
+  RUN_KEY_LEGACY: 'ef.pendingRun',
   _postingMode: null,
   _pendingPromise: null,
   _pendingDelivered: false,
@@ -205,59 +206,115 @@ const CLOUD = {
     this.profile = data;
     return data;
   },
-  /* A completed account-mode run that could not post yet. The record carries
+  /* Completed account-mode runs that could not post yet. Each record carries
      the run's real identity and launch day, so a later delivery is the same
-     run rather than a recomputed local best. */
-  queuedRun() {
-    try {
-      const q = JSON.parse(localStorage.getItem(this.RUN_KEY) || 'null');
-      if (!q || typeof q.id !== 'string' || !q.id) return null;
-      if (q.mode !== 'main' && q.mode !== 'daily') return null;
-      if (q.day !== null && q.day !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(q.day))) return null;
-      if (!(Number.isFinite(+q.score) && +q.score >= 1)) return null;
-      if (!q.stats || typeof q.stats !== 'object') return null;
-      return q;
-    } catch (e) { return null; }
-  },
-  rememberRun(run) {
-    if (!run || !run.id || (run.mode !== 'main' && run.mode !== 'daily')) return null;
+     run rather than a recomputed local best. Distinct runs are kept together;
+     only the exact acknowledged (owner, run_id) is removed. */
+  _normalizeRun(run) {
+    if (!run || typeof run.id !== 'string' || !run.id) return null;
+    if (run.mode !== 'main' && run.mode !== 'daily') return null;
+    if (run.day !== null && run.day !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(run.day))) return null;
     const score = Math.trunc(+run.score);
     if (!(score >= 1)) return null;
-    const q = { id: String(run.id), mode: run.mode, day: run.day || null, score,
-      stats: run.stats && typeof run.stats === 'object' ? run.stats : {}, owner: null, at: Date.now() };
-    try { localStorage.setItem(this.RUN_KEY, JSON.stringify(q)); } catch (e) { return null; }
+    if (!run.stats || typeof run.stats !== 'object') return null;
+    return {
+      id: String(run.id), mode: run.mode, day: run.day || null, score,
+      stats: run.stats, owner: run.owner || null, at: run.at || Date.now()
+    };
+  },
+  _writeRuns(list) {
+    try {
+      if (!list.length) {
+        localStorage.removeItem(this.RUN_KEY);
+        localStorage.removeItem(this.RUN_KEY_LEGACY);
+      } else {
+        localStorage.setItem(this.RUN_KEY, JSON.stringify(list));
+        localStorage.removeItem(this.RUN_KEY_LEGACY);
+      }
+    } catch (e) { return false; }
+    return true;
+  },
+  queuedRuns() {
+    let list = [];
+    try {
+      const raw = localStorage.getItem(this.RUN_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+      }
+      const legacy = localStorage.getItem(this.RUN_KEY_LEGACY);
+      if (legacy) {
+        const q = JSON.parse(legacy);
+        if (q && q.id && !list.some(x => x.id === q.id)) list.push(q);
+        try { localStorage.removeItem(this.RUN_KEY_LEGACY); } catch (e) { }
+        this._writeRuns(list);
+      }
+    } catch (e) { return []; }
+    return list.map(q => this._normalizeRun(q)).filter(Boolean);
+  },
+  queuedRun() {
+    const uid = this.user && this.user.id;
+    return this.queuedRuns().find(q => !q.owner || !uid || q.owner === uid) || null;
+  },
+  rememberRun(run) {
+    const q = this._normalizeRun(run);
+    if (!q) return null;
+    const list = this.queuedRuns();
+    const i = list.findIndex(x => x.id === q.id);
+    if (i >= 0) {
+      q.owner = q.owner || list[i].owner;
+      q.at = list[i].at;
+      list[i] = q;
+    } else list.push(q);
+    if (!this._writeRuns(list)) return null;
     this._pendingDelivered = false;
     return q;
   },
-  forgetRun() {
-    try { localStorage.removeItem(this.RUN_KEY); } catch (e) { }
+  /* Remove only the exact acknowledged record. A missing matcher is a no-op. */
+  forgetRun(match) {
+    if (!match || !match.id) return;
+    const list = this.queuedRuns().filter(q => {
+      if (q.id !== match.id) return true;
+      if (match.owner && q.owner && q.owner !== match.owner) return true;
+      return false;
+    });
+    this._writeRuns(list);
   },
-  /* Deliver the queued run once. A truthy acknowledgement is the only thing
-     allowed to remove it; a transport error leaves it for the next refresh. */
+  /* Deliver every eligible queued run once. A truthy acknowledgement is the
+     only thing allowed to remove that exact record; a transport error leaves
+     it for the next refresh. Concurrent callers share one in-flight drain. */
   async deliverPending() {
     if (!this.canPost()) return null;
-    const q = this.queuedRun();
-    if (!q) return null;
-    if (q.owner && q.owner !== this.user.id) return null;
     if (this._pendingPromise) return this._pendingPromise;
-    if (!q.owner) {
-      q.owner = this.user.id;
-      try { localStorage.setItem(this.RUN_KEY, JSON.stringify(q)); } catch (e) { }
-    }
     this._pendingPromise = (async () => {
-      const res = await this.submit(q.mode, q.score, q.stats, { id: q.id, day: q.day || null });
-      if (!res) return null;
-      this.forgetRun();
-      this._pendingDelivered = true;
-      if (res.daily && typeof applyDailyResult === 'function') {
-        try { applyDailyResult(res, q.day || undefined); } catch (e) { }
+      const tried = {};
+      let last = null;
+      for (;;) {
+        const q = this.queuedRuns().find(run => !tried[run.id] && (!run.owner || run.owner === this.user.id));
+        if (!q) break;
+        tried[q.id] = true;
+        if (!q.owner) {
+          q.owner = this.user.id;
+          this.rememberRun(q);
+        }
+        let res = null;
+        try {
+          res = await this.submit(q.mode, q.score, q.stats, { id: q.id, day: q.day || null });
+        } catch (e) { continue; }
+        if (!res) continue;
+        this.forgetRun({ id: q.id, owner: this.user.id });
+        last = res;
+        if (res.daily && typeof applyDailyResult === 'function') {
+          try { applyDailyResult(res, q.day || undefined); } catch (e) { }
+        }
+        try {
+          if (typeof note === 'function') note(res.daily
+            ? 'Pending run posted · Daily rewards acknowledged'
+            : 'Pending run posted to the worldwide board', 'good');
+        } catch (e) { }
       }
-      try {
-        if (typeof note === 'function') note(res.daily
-          ? 'Pending run posted · Daily rewards acknowledged'
-          : 'Pending run posted to the worldwide board', 'good');
-      } catch (e) { }
-      return res;
+      if (last) this._pendingDelivered = true;
+      return last;
     })();
     try { return await this._pendingPromise; } finally { this._pendingPromise = null; }
   },

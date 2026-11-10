@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ROOT, MANIFEST, buildSite, verifySite, verifyLive, prepareVercel } from './site-payload.mjs';
+import { ROOT, MANIFEST, buildSite, verifySite, verifyLive, verifyLiveWithRetry, isTransientLiveError, prepareVercel } from './site-payload.mjs';
 import { createStaticServer } from './serve-static.mjs';
 
 const sha = 'a'.repeat(40);
@@ -129,4 +129,43 @@ test('the release server exposes only manifest assets and rejects a damaged arti
   assert.equal((await fetch(base)).headers.get('x-emberfall-commit'), sha);
   fs.unlinkSync(path.join(directory, 'js/vendor/supabase.js'));
   assert.throws(() => createStaticServer({ root: directory, release: true }), /ENOENT/);
+});
+
+test('live retries treat short-lived 404s as availability failures and then pass', async t => {
+  const { directory, manifest } = fixture(t);
+  let hits = 0;
+  const fetcher = async input => {
+    const name = new URL(input).pathname.replace(/^\//, '');
+    if (name === MANIFEST) {
+      hits += 1;
+      if (hits < 3) return new Response('', { status: 404 });
+    }
+    const asset = manifest.assets.find(asset => asset.path === name);
+    return new Response(fs.readFileSync(path.join(directory, name)), { headers: { 'content-type': asset?.mime || 'application/json' } });
+  };
+  const waits = [];
+  assert.equal(await verifyLiveWithRetry('https://example.test/', manifest, {
+    fetcher, budgetMs: 60_000, delays: [1000, 2000], now: () => 0, sleep: async ms => { waits.push(ms); }
+  }), manifest.assets.length);
+  assert.equal(hits, 3);
+  assert.deepEqual(waits, [1000, 2000]);
+});
+
+test('live retries stop after the budget and never retry a content mismatch', async t => {
+  const { manifest } = fixture(t);
+  let now = 0;
+  await assert.rejects(verifyLiveWithRetry('https://example.test/', manifest, {
+    fetcher: async () => new Response('', { status: 404 }),
+    budgetMs: 5_000, delays: [2000, 2000, 2000],
+    now: () => now, sleep: async ms => { now += ms; }
+  }), /release-manifest\.json: HTTP 404/);
+
+  let calls = 0;
+  await assert.rejects(verifyLiveWithRetry('https://example.test/', { ...manifest, commitSha: 'b'.repeat(40) }, {
+    fetcher: async () => { calls += 1; return new Response(JSON.stringify(manifest)); },
+    budgetMs: 60_000, delays: [1000], now: () => 0, sleep: async () => { throw new Error('should not sleep'); }
+  }), /manifest does not match/);
+  assert.equal(calls, 1);
+  assert.equal(isTransientLiveError(new Error('release-manifest.json: HTTP 404')), true);
+  assert.equal(isTransientLiveError(new Error('deployed manifest does not match tested artifact')), false);
 });

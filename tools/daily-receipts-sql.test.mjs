@@ -218,3 +218,109 @@ test('lifetime counters stay monotonic and an out-of-order receipt is inert', as
   assert.equal(replay.daily.total, 380);
   assert.equal((await db.query('select best_streak from private.daily_stats where user_id = $1', [U4])).rows[0].best_streak, 2);
 });
+
+const U5 = '00000000-0000-4000-8000-000000000005';
+const U6 = '00000000-0000-4000-8000-000000000006';
+const U7 = '00000000-0000-4000-8000-000000000007';
+const U8 = '00000000-0000-4000-8000-000000000008';
+
+async function legacy(db, mode, score, stats = { wave: 1 }) {
+  const r = await db.query(`select public.submit_score($1, $2::bigint, $3::jsonb) as id`, [mode, score, JSON.stringify(stats)]);
+  return r.rows[0].id;
+}
+
+async function asRole(db, role, fn) {
+  await db.exec(`set role ${role}`);
+  try { return await fn(); }
+  finally { await db.exec('reset role'); }
+}
+
+test('mixed legacy and receipt posts share the per-minute and per-day budget', async () => {
+  const db = await fresh();
+  const day = await today(db);
+  await user(db, U5);
+  await profile(db, U5, 'PILOT91');
+
+  for (let i = 0; i < 5; i++) await legacy(db, 'endless', 10 + i);
+  await submit(db, RUN(50), day, 1, 0);
+  await assert.rejects(() => submit(db, RUN(51), day, 1, 0), /rate limited/);
+  await assert.rejects(() => legacy(db, 'endless', 99), /rate limited/);
+  const replay = await submit(db, RUN(50), day, 1, 0);
+  assert.equal(replay.run_id, RUN(50));
+  assert.equal(await count(db, 'public.player_scores'), 6);
+  assert.equal(await count(db, 'private.daily_receipts'), 1);
+});
+
+test('mixed posting also shares the 300/day cap, and a replay is not charged', async () => {
+  const db = await fresh();
+  const day = await today(db);
+  await user(db, U6);
+  await profile(db, U6, 'PILOT92');
+
+  await db.query(`
+    insert into public.player_scores (user_id, mode, score, stats, created_at)
+    select $1::uuid, 'endless', 1, '{}'::jsonb, now() - interval '2 hours'
+    from generate_series(1, 298)
+  `, [U6]);
+  await legacy(db, 'endless', 2);
+  await submit(db, RUN(60), day, 1, 0);
+  assert.equal(await count(db, 'public.player_scores', 'user_id = $1', [U6]), 300);
+  await assert.rejects(() => submit(db, RUN(61), day, 1, 0), /rate limited/);
+  await assert.rejects(() => legacy(db, 'daily', 3, { wave: 2 }), /rate limited/);
+  const replay = await submit(db, RUN(60), day, 1, 0);
+  assert.equal(replay.accepted, true);
+  assert.equal(await count(db, 'public.player_scores', 'user_id = $1', [U6]), 300);
+});
+
+test('an aged receipt stays replayable; a new run for an expired day is refused', async () => {
+  const db = await fresh();
+  const day = await today(db);
+  const aged = dayShift(day, -2);
+  await user(db, U7);
+  await profile(db, U7, 'PILOT93');
+
+  const stats = { wave: 10, ship: 'vesper', kills: 12, runT: 90 };
+  const scored = await db.query(`
+    insert into public.player_scores (user_id, mode, day, score, stats)
+    values ($1, 'daily', $2::date, 12000, $3::jsonb)
+    returning id
+  `, [U7, aged, JSON.stringify(stats)]);
+  const ack = {
+    run_id: RUN(70), accepted: true, verification: 'client-reported',
+    mode: 'daily', day: aged, score: 12000, player_score_id: scored.rows[0].id,
+    daily: { day: aged, paid: 380, total: 380, streak: 1, medals: ['Crest', 'Crown'] }
+  };
+  await db.query(`
+    insert into private.daily_receipts
+      (user_id, run_id, mode, day, score, stats, status, verification, score_id, ack)
+    values ($1, $2::uuid, 'daily', $3::date, 12000, $4::jsonb, 'finished', 'client-reported', $5, $6::jsonb)
+  `, [U7, RUN(70), aged, JSON.stringify(stats), scored.rows[0].id, JSON.stringify(ack)]);
+
+  const replay = await submit(db, RUN(70), aged, 12000, 10);
+  assert.deepEqual(replay, ack);
+  assert.equal(await count(db, 'private.daily_receipts', 'user_id = $1', [U7]), 1);
+  await assert.rejects(() => submit(db, RUN(71), aged, 12000, 10), /out of range/);
+  assert.equal(await count(db, 'public.player_scores', 'user_id = $1', [U7]), 1);
+});
+
+test('anon and authenticated have no table privileges on private receipt ledgers', async () => {
+  const db = await fresh();
+  const day = await today(db);
+  await user(db, U8);
+  await profile(db, U8, 'PILOT94');
+  await submit(db, RUN(80), day, 1, 0);
+
+  for (const role of ['anon', 'authenticated']) {
+    for (const table of ['private.daily_receipts', 'private.daily_awards', 'private.daily_weeks', 'private.daily_stats']) {
+      await assert.rejects(() => asRole(db, role, () => db.query(`select * from ${table}`)), /permission denied|42501/);
+      await assert.rejects(() => asRole(db, role, () => db.query(`insert into ${table} default values`)), /permission denied|42501/);
+    }
+  }
+
+  const asAuthed = await asRole(db, 'authenticated', () => submit(db, RUN(81), day, 1, 0));
+  assert.equal(asAuthed.accepted, true);
+  await assert.rejects(
+    () => asRole(db, 'anon', () => submit(db, RUN(82), day, 1, 0)),
+    /permission denied|42501|not signed in|guest/
+  );
+});
