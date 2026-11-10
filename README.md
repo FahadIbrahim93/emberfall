@@ -1,4 +1,4 @@
-# EMBERFALL v4.29.6 — Orbital Intercept
+# EMBERFALL — Orbital Intercept
 
 A free arcade space shooter that runs in your browser. Something came through the Kuiper Gate, and you're the last ship between it and the orbital yard.
 
@@ -71,6 +71,8 @@ npm test                  # sim + browser + in-game self-test
 
 You can also run the self-test in the page with `index.html?selftest` (64 checks).
 
+CI runs these checks on every push to `main`. The last main run passed on 2026-11-10.
+
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Tech stack
@@ -119,37 +121,15 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 <!-- fun-curve:end -->
 
-## What's new in v4.29.6 — "Guest Handoff"
+## Release history
 
-- A signed-out run now carries its real identity and launch day through sign-in and is removed only after the board acknowledges it.
+Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed and when. Release numbers are not used as achievement claims.
 
-## What's new in v4.29.5 — "Daily Receipts"
+The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the repo's own instrumented play runs into [`docs/audit/fun-curve.json`](docs/audit/fun-curve.json), written by `tools/fun-scoreboard.mjs`. Median-fps is environment-sensitive — read the trend within a column, not the absolute.
 
-- Daily completions now carry a stable receipt: replaying one returns the original acknowledgement, pays each medal tier once, and never doubles a reward.
-- Game-over posting adopts each acknowledged Daily receipt once; replays cannot double-pay and older callbacks cannot rewind the streak. An un-migrated project falls back to the compatibility post without claiming rewards.
+## What's new
 
-## What's new in v4.29.3 — "Local Boards"
-
-- Portal Boards now opens saved local rankings without accounts, with working touch and keyboard navigation.
-
-## What's new in v4.29.2 — "Guest Choice"
-
-- Play as guest keeps runs on this device, even with a signed-in account; resume posting explicitly from Profile.
-
-## What's new in v4.29.1 — "Bound Daily"
-
-- Daily worlds now follow the gameplay seed, encounter rules keep the launch day across UTC midnight, and Daily ghosts race only their recorded day.
-
-## What's new in v4.29.0 — "Pilot Card"
-
-- Sign in with a one-tap email code (or Google, once enabled), pick a ship-icon avatar, see your stats and rank, and switch the boards between Daily and All-time, now reachable from the title on every phone.
-## What's new in v4.28.0 — "Guest Pass"
-
-- Play as a guest with no account, or create an email account to post your Endless and Daily runs to the worldwide boards; the boards now list registered pilots only.
-
-## What's new in v4.27.0 — "The Same Ladder"
-
-- Boards, the `/pilot` page and the public mirror now all describe the same flight: the one that set the score. Ties share a rank. Older notes are in [CHANGELOG.md](CHANGELOG.md).
+Detailed per-release notes live in [CHANGELOG.md](CHANGELOG.md). Recent work includes guest play, pilot accounts and callsigns, the Daily Gauntlet board, and the Solar Tour (eight worlds).
 
 ## License
 
