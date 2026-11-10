@@ -4,6 +4,13 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Daily receipts — v4.29.5
+- Add an additive `submit_run_v2` receipt RPC: a stable run id, launch-bound UTC day, exact score, validated stats, client-reported status and an idempotent acknowledgement. Replaying a run returns the original acknowledgement; conflicting reuse is refused; quota is charged only after deduplication.
+- Award each Daily medal tier once per UTC day in a server ledger, preserving the existing thresholds, streak, flawless-week and Wardenfall calendar. Receipts are explicitly `client-reported`, never silently verified.
+- Wire game-over posting to the receipt RPC with a legacy `submit_score` fallback; a duplicate finalization cannot post or pay twice. Local adoption settles each receipt against its own run acknowledgement: replaying the same receipt pays nothing, a late older receipt pays at most once and cannot rewind the streak, and a legacy local watermark never suppresses a new reward.
+- Shared posting budget: `submit_run_v2` and `submit_score` both count `public.player_scores` (6/min, 300/day) under the same per-account advisory lock. An existing receipt is returned before any day-window check, so a lost-response retry still works after the day ages out. Private receipt tables have deny-by-default RLS and no `anon`/`authenticated` privileges. Scores and rewards stay client-reported.
+- Regression coverage: the full migration chain runs in local PGlite with auth stubs (`tools/daily-receipts-sql.test.mjs`), including mixed-RPC quota, aged-ack replay and privilege assertions, plus browser cases for receipt adoption and the un-migrated fallback. Cache generation `emberfall-v4.61`.
+
 ### Release staging check
 - Retry the staged Vercel live check for up to 60s when the deployment answers with a transient availability error (HTTP 404/429/5xx, timeouts). A just-Ready `--skip-domain` URL was failing the first fetch even though the tested bytes were already present. Content mismatches still fail immediately.
 

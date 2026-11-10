@@ -64,7 +64,7 @@
     "flawless season: feat gate, engraving contract, adoption monotonicity",
     "wardenfall honors: deck-verified feat, monotonic adoption, plaque contract (v4.13)",
     "daily gauntlet: streak feats predict, gift, and stay mode-honest",
-    "daily gauntlet: result application banks payouts and updates identity",
+    "daily gauntlet: result application is idempotent and monotonic",
     "patch notes data and seen-marker"
   ]
 }

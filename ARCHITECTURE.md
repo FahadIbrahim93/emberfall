@@ -119,7 +119,7 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 
 ## Accounts and boards (live): Supabase
 
-The live game has no server of its own. `js/cloud.js` loads the vendored supabase-js on demand, signs players in with Supabase Auth, and writes only through the `set_callsign` and `submit_score` RPCs; boards read the public views. See [ADR 0004](docs/adr/0004-supabase-source-of-truth.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
+The live game has no server of its own. `js/cloud.js` loads the vendored supabase-js on demand, signs players in with Supabase Auth, and writes only through the `set_callsign`, `submit_score` and `submit_run_v2` RPCs; boards read the public views. See [ADR 0004](docs/adr/0004-supabase-source-of-truth.md) and [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md).
 
 See `docs/DATABASE.md` (schema), `docs/DEPLOYMENT.md` (hosting, rollback)
 and `docs/performance.md` (measured CPU/GPU baselines).
