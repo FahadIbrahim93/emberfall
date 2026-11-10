@@ -81,9 +81,13 @@ test('confirming an ordinary donation returns focus to the rebuilt trigger', asy
   await expect(donate).toBeFocused();
   await expect(donate).toContainText('Donate to the yard');
 
-  /* Keyboard continuation: Tab leaves the restored trigger in DOM order. */
+  /* Keyboard continuation: Tab leaves the restored trigger in DOM order.
+     Since v4.30 the standing block sits between the honor box and Launch,
+     so its donate trigger is the next control. */
   await page.keyboard.press('Tab');
-  await expect(page.locator('#btnBayLaunch')).toBeFocused();
+  await expect(page.locator('#standingBox .up')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#finishList .paint').first()).toBeFocused();
 });
 
 test('the final donation falls back to a visible hangar control', async ({ page }) => {

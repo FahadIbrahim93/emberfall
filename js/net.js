@@ -205,7 +205,9 @@ function avatarUrl(id) {
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
   const honor = honorOf(META.donated || 0);
-  const star = honor && honor.at >= 25000 ? '<span style="color:var(--gold)">✦ </span>' : '';
+  const st = standingOf(META.donated || 0);
+  const star = (honor && honor.at >= 25000 ? '<span style="color:var(--gold)">✦ </span>' : '') +
+    (st ? '<span style="color:var(--gold)">◆' + toRoman(st) + ' </span>' : '');
   const list = loadBoard(mode);
   if (!list.length) {
     el.innerHTML = '<div class="empty">No runs recorded yet.<br>The first one is yours.</div>';
@@ -478,11 +480,85 @@ function renderMastery() {
     msl.appendChild(d);
   }
 }
+/* yard standing — derived from the honor ledger, so nothing new persists
+   but the chosen plate finish. Every 25,000 past the ceiling is one rank;
+   each rank pays plate metal, never hull paint (the wardrobe's colorblind
+   floor is a tested invariant). */
+function renderStanding() {
+  const box = $('standingBox');
+  if (!box) return;
+  box.innerHTML = '';
+  const st = standingOf(META.donated || 0);
+  const ceil = HONOR_CEILING;
+  const nextAt = standingNextAt(st);
+  const need = Math.max(0, nextAt - META.donated);
+  const floor = st === 0 ? ceil : ceil + st * STANDING_STEP;
+  const frac = clamp((META.donated - floor) / STANDING_STEP, 0, 1);
+  const label = st >= STANDING.length ? 'the next star' : 'rank ' + toRoman(st + 1);
+  const nextFinish = PLATE_FINISHES.find(f => f.at === st + 1);
+  const row = document.createElement('div');
+  row.className = 'ms' + (st >= STANDING.length ? ' maxed' : '');
+  row.innerHTML = '<b>' + esc('Yard standing') + '</b>' +
+    '<span class="ms-l">' + esc(st ? '◆ ' + toRoman(st) : '—') + '</span>' +
+    '<span class="ms-bar"><i style="width:' + Math.round(frac * 100) + '%"></i></span>' +
+    '<span class="ms-sub">' + esc(st ? standingTitle(st) : 'No standing yet') +
+    ' · ' + fmt(META.donated) + ' donated' +
+    (nextFinish ? ' · next plate finish: ' + esc(nextFinish.name) : '') +
+    ' · ' + fmt(need) + ' to ' + esc(label) + '</span>';
+  box.appendChild(row);
+  const b = document.createElement('button');
+  b.className = 'up';
+  b.dataset.askReturn = 'standing';
+  b.innerHTML = '<span><b>Donate for standing</b><p>Every ' + fmt(STANDING_STEP) +
+    ' alloy past the ceiling is one rank. Honor is permanent; the alloy is not.</p></span>' +
+    '<span class="buy ' + (META.alloy >= need ? '' : 'no') + '">' + fmt(need) + '<br>to ' + esc(label) + '</span>';
+  b.onclick = () => {
+    AU.ui();
+    if (META.alloy < need) { note('Need ' + fmt(need - META.alloy) + ' more alloy', 'bad'); return; }
+    askConfirm('Donate ' + fmt(need) + ' alloy for yard standing? Honor is permanent; the alloy is not.', 'Donate', () => {
+      const before = st;
+      META.alloy -= need;
+      META.donated += need;
+      const now = standingOf(META.donated);
+      const fin = PLATE_FINISHES.find(f => f.at === now);
+      if (fin) META.plate = fin.id;          /* a new rank arrives already worn */
+      saveMeta();
+      renderHangar();
+      note(now > before ? 'Yard standing ' + toRoman(now) + ' — ' + standingTitle(now) : 'The yard thanks you', 'rare');
+      AU.unlock();
+    });
+  };
+  box.appendChild(b);
+  /* plate finishes — earned at even rungs, worn on the dock only */
+  const fl = document.createElement('div');
+  fl.className = 'paints';
+  fl.id = 'finishList';
+  for (const f of PLATE_FINISHES) {
+    const owned = st >= f.at, sel = (META.plate || 'steel') === f.id;
+    const btn = document.createElement('button');
+    btn.className = 'paint' + (sel ? ' sel' : '') + (owned ? '' : ' locked');
+    const sw = document.createElement('i');
+    sw.style.background = 'radial-gradient(circle at 34% 30%, ' + f.lit + ', ' + f.hull + ' 62%, rgba(0,0,0,.55))';
+    btn.appendChild(sw);
+    const lbl = document.createElement('b');
+    lbl.textContent = owned ? (sel ? 'worn' : f.name) : 'rank ' + toRoman(f.at);
+    btn.appendChild(lbl);
+    btn.onclick = () => {
+      AU.ui();
+      if (!owned) { note('Reach yard standing ' + toRoman(f.at) + ' to unlock ' + f.name, 'dim'); return; }
+      if (sel) return;
+      META.plate = f.id; saveMeta(); renderHangar();
+    };
+    fl.appendChild(btn);
+  }
+  box.appendChild(fl);
+}
 function renderHangar() {
   setText('alloyN', fmt(META.alloy));
   renderSigils();
   renderMastery();
   renderDonations();
+  renderStanding();
   /* v4.1 paint shop — buy, equip, fly in it. High contrast keeps its white. */
   const pl = $('paintList');
   const hc = PAL.name === 'High contrast';

@@ -4,6 +4,13 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Yard standing — v4.30.0
+- The honor ladder no longer ends at Yardmaster. Every 25,000 alloy past the 100,000 ceiling is one standing rank (Steward → Yard Legend), and past Legend the ladder keeps counting stars, so a completed career always has a visible next goal (#48).
+- Standing is derived from the existing donation ledger: no new counter, no migration, and nothing it buys touches a power key. Each even rank unlocks a plate finish (brass, verdigris, obsidian, aurum, legend ember) worn on the dock plate. The hull wardrobe is untouched, so its tested colorblind floor still holds.
+- The hangar gains a standing block (rank, progress, the exact remainder to the next step, next finish) with the same in-game confirm as donations; the dock engraves the rank in the worn finish, and a pilot's own board row carries `◆<rank>` beside the honor mark.
+- "Reset progress" keeps honor, standing and plate finishes, and now says so.
+- Regression coverage: two in-game cases cover thresholds, stars, finish allowlisting, the cosmetic-only contract and reload/migration fallback for a finish above the held rank; `tests/standing.spec.js` covers the remainder donation and the legend star ladder; `tools/econsim.js` extracts the standing rungs into the generated shop totals. Cache generation `emberfall-v4.64`.
+
 ### Guest run handoff — v4.29.6
 - Queue account-mode runs completed without a postable session, carrying the real run id, mode, launch UTC day, score and stats. Deliver the exact run after sign-in or callsign save through `submit_run_v2`, retain it on failure/offline, and remove it only after a truthy acknowledgement.
 - Persist distinct pending runs and remove only the exact acknowledged `(owner, run_id)` record, so an older acknowledgement cannot delete a newer queued run. The ordinary post-failure path also keeps delivery intent.
