@@ -16,7 +16,7 @@ Every number below comes from the repo's own tests (`tests/fun-audit.spec.js`, `
 
 ## The numbers
 
-Measured at v4.21.0. Later releases are in the fun-curve table in the README.
+Measured at v4.29.4. Later releases are in the fun-curve table in the README.
 
 - **Ready to fly about 1.4s after load.** CI requires under 3.5s to get ready, under 2s from Launch to flying and a first shot within 2s.
 - **First enemy fire at about 6s.** Wave 1 teaches dodging right away, and the striker's codex card appears the first time you see one.
