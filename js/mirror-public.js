@@ -35,11 +35,25 @@ async function mirrorJson(path, opts) {
   return r.json();
 }
 
-/* Rank on the endless board: count pilots strictly ahead (no full board). */
+/* Exact decimal text for a bigint score. Number() would round past 2^53. */
+function fmtScore(n) {
+  const s = String(n == null ? '' : n).trim();
+  if (!/^[0-9]+$/.test(s)) return '0';
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+const SOURCE_LABEL = { endless: 'Endless', daily: 'Daily', school: 'School' };
+function sourceLabel(mode) {
+  return SOURCE_LABEL[mode] || '';
+}
+
+/* Compatibility rank: count pilots strictly ahead on the folded endless view.
+   standings_page is the ranked read once that migration is applied. */
 async function mirrorMainRank(bestScore) {
-  const n = Number(bestScore);
-  if (!Number.isSafeInteger(n) || n <= 0) return null;
-  const r = await mirrorRest('/rest/v1/leaderboard_global?mode=eq.endless&score=gt.' + n + '&select=user_id', {
+  const s = String(bestScore == null ? '' : bestScore).trim();
+  if (!/^[0-9]+$/.test(s) || s === '0') return null;
+  const n = s;
+  const r = await mirrorRest('/rest/v1/leaderboard_global?mode=eq.endless&score=gt.' + encodeURIComponent(n) + '&select=user_id', {
     headers: { Prefer: 'count=exact' }
   });
   if (!r.ok) throw new Error('mirror rank ' + r.status);
@@ -76,4 +90,41 @@ async function mirrorModeBest(pilotId, mode) {
   if (!r) return null;
   const st = r.stats || {};
   return { score: r.score, wave: Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1, ship: typeof st.ship === 'string' ? st.ship : null };
+}
+
+/* Cursor page of the frozen best-run board. missing: true means this project
+   has not applied 20261111000000_standings_cursor.sql yet. */
+async function mirrorStandings(opts) {
+  const o = opts || {};
+  const cursor = o.cursor || null;
+  const r = await mirrorRest('/rest/v1/rpc/standings_page', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      p_board: o.board,
+      p_day: o.day || null,
+      p_limit: o.limit || 50,
+      p_watermark: o.watermark || null,
+      p_cursor_score: cursor ? String(cursor.score) : null,
+      p_cursor_at: cursor ? cursor.created_at : null,
+      p_cursor_user: cursor ? cursor.user_id : null
+    })
+  });
+  if (r.status === 404) return { missing: true, watermark: null, rows: [] };
+  if (!r.ok) throw new Error('mirror ' + r.status);
+  const data = await r.json();
+  return { missing: false, watermark: data && data.watermark, rows: (data && data.rows) || [] };
+}
+
+async function mirrorPilotDossier(callsign) {
+  const raw = String(callsign || '').trim();
+  if (!/^[A-Za-z0-9_-]{3,16}$/.test(raw)) return { missing: false, card: null };
+  const r = await mirrorRest('/rest/v1/rpc/pilot_dossier', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_callsign: raw })
+  });
+  if (r.status === 404) return { missing: true, card: null };
+  if (!r.ok) throw new Error('mirror ' + r.status);
+  return { missing: false, card: await r.json() };
 }

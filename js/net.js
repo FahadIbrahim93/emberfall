@@ -124,42 +124,92 @@ const NET = {
       }
       return rows;
     };
-    const rowHtml = (r2, i, tag) => {
-      const st = r2.stats || {};
-      const h = (typeof HULLS !== 'undefined') && typeof st.ship === 'string' && HULLS.find(x => x.id === st.ship);
-      const wave = Number.isFinite(+st.wave) ? Math.trunc(+st.wave) : 1;
+    const rowHtml = (r2, i) => {
+      const ship = r2.ship || (r2.stats && typeof r2.stats.ship === 'string' ? r2.stats.ship : '');
+      const h = (typeof HULLS !== 'undefined') && ship && HULLS.find(x => x.id === ship);
+      const wave = Number.isFinite(+r2.wave) ? Math.trunc(+r2.wave)
+        : (r2.stats && Number.isFinite(+r2.stats.wave) ? Math.trunc(+r2.stats.wave) : 1);
+      const place = Number.isFinite(+r2.place) ? Math.trunc(+r2.place) : (i + 1);
       const mine = typeof CLOUD !== 'undefined' && CLOUD.user && r2.user_id === CLOUD.user.id;
+      const origin = sourceLabel(r2.source_mode);
       return '<div class="row' + (mine ? ' me' : '') + (i < 3 ? ' top' : '') + '">' +
-        '<span class="rk">' + (i + 1) + '</span>' +
+        '<span class="rk">' + place + '</span>' +
         '<span class="nm">' + avIcon(r2.user_id) + '<a href="' + esc(pilotUrl(r2.callsign)) + '">' + esc(r2.callsign) + '</a>' +
         (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') + '</span>' +
-        '<span class="sc">' + fmt(r2.score) + '</span>' +
-        '<span class="wv" title="' + (tag === 'D' ? 'Daily' : 'Worldwide') + ' wave">' + wave + '</span></div>';
+        '<span class="sc">' + fmtScore(r2.score) + '</span>' +
+        '<span class="wv" title="' + esc(origin || 'Wave') + '">' + (origin ? esc(origin) + ' · ' : '') + 'W' + wave + '</span></div>';
     };
-    /* the Daily board: today's UTC seed, best run per pilot */
-    const dayBox = $('dailyBoard'), dstat = $('dailyStat');
-    if (dayBox) {
-      const day = new Date().toISOString().slice(0, 10);
-      if (dstat) dstat.textContent = day + ' UTC';
-      mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars).then(rows => {
-        dayBox.innerHTML = rows.length
-          ? rows.map((r2, i) => rowHtml(r2, i, 'D')).join('')
-          : '<div class="empty"><b>No runs yet today</b>Fly today\u2019s seed to set the first score.</div>';
-      }).catch(() => { dayBox.innerHTML = '<div class="empty err"><b>Board unavailable</b>The day board could not be reached. Try again shortly.</div>'; });
+    const moreHtml = (board, state) => (state && !state.done && !state.missing)
+      ? '<p class="note-s"><button type="button" class="board-more" data-board="' + board + '">More pilots</button></p>' : '';
+    async function fillBoard(board, day, el, emptyTitle, emptyBody) {
+      if (!el) return { rows: [], done: true, missing: true };
+      const state = NET._pages[board] || (NET._pages[board] = { rows: [], watermark: null, cursor: null, done: false, missing: false });
+      if (!state.done) {
+        let page;
+        try {
+          page = await mirrorStandings({ board: board, day: day, limit: 50, watermark: state.watermark, cursor: state.cursor });
+        } catch (e) {
+          if (!state.rows.length) throw e;
+          state.done = true;
+          page = null;
+        }
+        if (page && page.missing && !state.rows.length) {
+          state.missing = true;
+          state.done = true;
+          state.rows = await legacyBoard(board, day);
+        } else if (page && !page.missing) {
+          state.watermark = page.watermark;
+          const rows = await withAvatars(page.rows || []);
+          if (rows.length) {
+            const last = rows[rows.length - 1];
+            const mark = last.user_id + '|' + last.score + '|' + last.created_at;
+            if (mark === state.mark) state.done = true;
+            else {
+              state.mark = mark;
+              state.cursor = { score: last.score, created_at: last.created_at, user_id: last.user_id };
+              state.rows = state.rows.concat(rows);
+            }
+          }
+          if (!rows.length || rows.length < 50) state.done = true;
+        }
+      }
+      if (!state.rows.length) {
+        el.innerHTML = '<div class="empty"><b>' + esc(emptyTitle) + '</b>' + esc(emptyBody) + '</div>';
+        return state;
+      }
+      const foot = board === 'alltime'
+        ? '<p class="note-s board-foot">Best run per pilot, live from the public mirror' +
+          (state.missing ? '.' : ', frozen at the moment you opened this board.') +
+          ' <a href="stats.html">World stats</a></p>'
+        : '';
+      el.innerHTML = state.rows.map((r2, i) => rowHtml(r2, i)).join('') + moreHtml(esc(board), state) + foot;
+      return state;
     }
-    /* rush has no worldwide board and the daily lives above: both show endless */
+    async function legacyBoard(board, day) {
+      if (board === 'daily') {
+        const rows = await mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
+          '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+        return withAvatars(rows.map(r2 => Object.assign({ source_mode: 'daily' }, r2)));
+      }
+      const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.endless' +
+        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+      /* The compatibility view folds Daily into Endless. Do not label those rows Endless. */
+      return withAvatars(rows);
+    }
+    NET.fillBoard = fillBoard;
+    const day = new Date().toISOString().slice(0, 10);
+    const dayBox = $('dailyBoard'), dstat = $('dailyStat');
+    if (dstat) dstat.textContent = day + ' UTC';
+    NET._pages = {};
+    try {
+      await NET.fillBoard('daily', day, dayBox, 'No runs yet today', 'Fly today\u2019s seed to set the first score.');
+    } catch (e) {
+      if (dayBox) dayBox.innerHTML = '<div class="empty err"><b>Board unavailable</b>The day board could not be reached. Try again shortly.</div>';
+    }
     const gmode = MIRROR_MODE[mode] && mode !== 'daily' ? MIRROR_MODE[mode] : 'endless';
     try {
-      const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode +
-        '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50').then(withAvatars);
-      NET.paintMyRank(rows, gmode);
-      if (!rows.length) {
-        box.innerHTML = '<div class="empty"><b>No ranked pilots on the public board yet</b>Sign in, choose a callsign and fly an Endless run.</div>';
-        return;
-      }
-      box.innerHTML = rows.map((r2, i) => rowHtml(r2, i, 'W')).join('') +
-        '<p class="note-s board-foot">Best run per pilot, live from the public mirror. <a href="stats.html">World stats</a></p>';
+      const state = await NET.fillBoard('alltime', null, box, 'No ranked pilots on the public board yet', 'Sign in, choose a callsign and fly an Endless run.');
+      NET.paintMyRank((state && state.rows) || [], gmode);
     } catch (e) {
       box.innerHTML = '<div class="empty err"><b>Board unavailable</b>The public mirror is not answering. Your runs are saved on this device.</div>';
     }
@@ -181,14 +231,34 @@ NET.paintMyRank = async function (rows, gmode) {
   const me = typeof CLOUD !== 'undefined' && CLOUD.user && CLOUD.profile;
   if (!me || rows.some(r => r.user_id === CLOUD.user.id)) return;
   try {
+    const dossier = await mirrorPilotDossier(CLOUD.profile.callsign);
+    if (!dossier.missing && dossier.card) {
+      const all = (dossier.card.modes || []).find(mode => mode.board === 'alltime');
+      if (!all) { el.innerHTML = '<p class="note-s">You have no ranked run yet. Your next Endless run posts here.</p>'; el.classList.remove('hidden'); return; }
+      const origin = sourceLabel(all.source_mode);
+      el.innerHTML = '<div class="row me"><span class="rk">' + all.place + '</span><span class="nm">' + esc(dossier.card.callsign) + '<span class="hl">You</span></span><span class="sc">' + fmtScore(all.score) + '</span><span class="wv">' + esc(origin) + '</span></div>';
+      el.classList.remove('hidden');
+      return;
+    }
     const mine = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.' + gmode + '&user_id=eq.' + CLOUD.user.id + '&select=score&limit=1');
     if (!mine[0]) { el.innerHTML = '<p class="note-s">You have no ranked run yet. Your next Endless run posts here.</p>'; el.classList.remove('hidden'); return; }
     const rk = gmode === 'endless' ? await mirrorMainRank(mine[0].score) : null;
-    el.innerHTML = '<div class="row me"><span class="rk">' + (rk ? fmt(rk) : '—') + '</span><span class="nm">' + esc(CLOUD.profile.callsign) + '<span class="hl">You</span></span><span class="sc">' + fmt(mine[0].score) + '</span><span class="wv"></span></div>';
+    el.innerHTML = '<div class="row me"><span class="rk">' + (rk ? fmtScore(rk) : '—') + '</span><span class="nm">' + esc(CLOUD.profile.callsign) + '<span class="hl">You</span></span><span class="sc">' + fmtScore(mine[0].score) + '</span><span class="wv"></span></div>';
     el.classList.remove('hidden');
   } catch (e) { }
 };
-if (typeof document !== 'undefined') document.addEventListener('click', e => {
+if (typeof document !== 'undefined') document.addEventListener('click', async e => {
+  const more = e.target && e.target.closest && e.target.closest('.board-more');
+  if (more && typeof NET.fillBoard === 'function') {
+    const board = more.dataset.board === 'daily' ? 'daily' : 'alltime';
+    const el = $(board === 'daily' ? 'dailyBoard' : 'globalBoard');
+    const day = board === 'daily' ? new Date().toISOString().slice(0, 10) : null;
+    const empty = board === 'daily'
+      ? ['No runs yet today', 'Fly today\u2019s seed to set the first score.']
+      : ['No ranked pilots on the public board yet', 'Sign in, choose a callsign and fly an Endless run.'];
+    try { await NET.fillBoard(board, day, el, empty[0], empty[1]); } catch (err) { }
+    return;
+  }
   const b = e.target && e.target.closest && e.target.closest('.btab');
   if (!b) return;
   NET.boardTab(b.dataset.board);
