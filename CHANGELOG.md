@@ -4,6 +4,9 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Release staging check
+- Retry the staged Vercel live check for up to 60s when the deployment answers with a transient availability error (HTTP 404/429/5xx, timeouts). A just-Ready `--skip-domain` URL was failing the first fetch even though the tested bytes were already present. Content mismatches still fail immediately.
+
 ### HUD Best label on phones
 - Keep the compact "Best" label visible on narrow phones (max-width 600px). Without it the device-local best sat unlabeled beside the pause button and read as a score counter frozen from launch (#92). The live score was never affected.
 - Regression coverage: `tests/hud-best-label.spec.js` seeds a stored best, launches on phone viewports and checks the label is shown and the live score climbs from zero. Cache generation `emberfall-v4.60`.
