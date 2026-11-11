@@ -21,4 +21,12 @@ There is no sync job and nothing to run by hand: the game reads and writes the p
 
 This file is not applied to the live project from a checkout. The owner applies it.
 
+### Loadout codes (v4.30)
+
+From game v4.30 every run posts `stats.fit`, a short loadout code such as `v:rl.pn|sg:needle|m:trim,claw|f:1a2b3-` (hull initial, weapon pattern and mod, sigil, modules, frame doctrine rows). Daily, rush and flight-school runs fly standard issue and post `v:std`. `player_scores.stats` already stores the field, so nothing changes for writes.
+
+`20261112000000_standings_fit.sql` replaces `standings_page` and `pilot_dossier` so both echo `fit`, allowlisted to `^[a-z0-9:|.,_-]{1,64}$`, and adds the streak laurel paints (`oxblood`, `midnight`) to the echoed paint allowlist. Signatures, grants and ranking are unchanged. Until the owner applies it, the readers simply return no `fit` field and the boards render rows without the loadout chip.
+
+This file is not applied to the live project from a checkout either. The owner applies it.
+
 The self-hosted SQLite deck that once owned this data was removed ([ADR 0005](adr/0005-remove-self-hosted-deck.md)).

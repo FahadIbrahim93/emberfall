@@ -239,3 +239,36 @@ test('anon and authenticated can read standings and cannot write them', async ()
   );
   await db.query('reset role');
 });
+
+test('boards echo the loadout code and laurel paints, and refuse anything else', async () => {
+  const db = await fresh();
+  const at = '2026-11-01T00:00:00Z';
+  const a = await seedPilot(db, 1, { callsign: 'FITTED' });
+  const b = await seedPilot(db, 2, { callsign: 'CRAFTY' });
+  const c = await seedPilot(db, 3, { callsign: 'LEGACY' });
+  await score(db, a, 'endless', '9000', { wave: 14, ship: 'vesper', paint: 'oxblood', fit: 'v:rl.pn|sg:needle|m:trim,claw|f:1a2b3-' }, at);
+  await score(db, b, 'endless', '8000', { wave: 9, ship: 'atlas', paint: 'midnight', fit: 'a:sp.-|<img src=x>' }, at);
+  await score(db, c, 'endless', '7000', { wave: 5, ship: 'halcyon' }, at);
+  await score(db, a, 'daily', '6000', { wave: 8, ship: 'vesper', fit: 'v:std' }, at, '2026-11-01');
+  await db.query('set role anon');
+  const rows = (await page(db, { board: 'alltime', limit: 10 })).rows;
+  const by = Object.fromEntries(rows.map(r => [r.callsign, r]));
+  assert.equal(by.FITTED.fit, 'v:rl.pn|sg:needle|m:trim,claw|f:1a2b3-');
+  assert.equal(by.FITTED.paint, 'oxblood');
+  assert.equal(by.CRAFTY.fit, null, 'markup never passes the code allowlist');
+  assert.equal(by.CRAFTY.paint, 'midnight');
+  assert.equal(by.LEGACY.fit, null, 'pre-v4.30 runs carry no code');
+  const daily = (await page(db, { board: 'daily', day: '2026-11-01', limit: 10 })).rows;
+  assert.equal(daily[0].fit, 'v:std');
+  const dossier = (await db.query('select public.pilot_dossier($1) as d', ['FITTED'])).rows[0].d;
+  const best = dossier.modes.find(m => m.board === 'alltime');
+  assert.equal(best.fit, 'v:rl.pn|sg:needle|m:trim,claw|f:1a2b3-');
+  assert.equal(dossier.modes.find(m => m.board === 'daily').fit, 'v:std');
+  const long = 'v:' + 'a'.repeat(70);
+  await db.query('reset role');
+  await score(db, c, 'endless', '99999', { wave: 5, ship: 'halcyon', fit: long }, at);
+  await db.query('set role anon');
+  const top = (await page(db, { board: 'alltime', limit: 1 })).rows[0];
+  assert.equal(top.callsign, 'LEGACY');
+  assert.equal(top.fit, null, 'codes over 64 characters are dropped');
+});
