@@ -26,6 +26,9 @@ async function openHangar(page) {
   /* the fade keeps the screen visibility:hidden for a beat; focusing a
      control before it lands is a no-op, so wait for the screen to show */
   await expect(page.locator('#s-hangar')).toBeVisible();
+  /* v4.30: donations, standing and the save tools live in the Yard bay */
+  await page.locator('#hgtab-yard').click();
+  await expect(page.locator('#hgbay-yard')).toBeVisible();
 }
 
 async function seedLedger(page, alloy, donated) {

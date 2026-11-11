@@ -19,6 +19,9 @@ async function openHangar(page) {
   await page.locator('#btnHangar').click();
   await expect(page.locator('#s-hangar')).toHaveClass(/on/);
   await expect(page.locator('#s-hangar')).toBeVisible();
+  /* v4.30: donations, standing and the save tools live in the Yard bay */
+  await page.locator('#hgtab-yard').click();
+  await expect(page.locator('#hgbay-yard')).toBeVisible();
 }
 
 async function seed(page, donated, alloy) {
