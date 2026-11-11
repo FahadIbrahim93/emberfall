@@ -25,7 +25,7 @@ This file is not applied to the live project from a checkout. The owner applies 
 
 From game v4.30 every run posts `stats.fit`, a short loadout code such as `v:rl.pn|sg:needle|m:trim,claw|f:1a2b3-` (hull initial, weapon pattern and mod, sigil, modules, frame doctrine rows). Daily, rush and flight-school runs fly standard issue and post `v:std`. `player_scores.stats` already stores the field, so nothing changes for writes.
 
-`20261112000000_standings_fit.sql` replaces `standings_page` and `pilot_dossier` so both echo `fit`, allowlisted to `^[a-z0-9:|.,_-]{1,64}$`, and adds the streak laurel paints (`oxblood`, `midnight`) to the echoed paint allowlist. Signatures, grants and ranking are unchanged. Until the owner applies it, the readers simply return no `fit` field and the boards render rows without the loadout chip.
+`20261112000000_standings_fit.sql` replaces `standings_page` and `pilot_dossier` so both echo `fit`, allowlisted to `^[a-z0-9:|.,_-]{1,64}$`, and adds the streak laurel paints (`oxblood`, `midnight`) to the echoed paint allowlist. Signatures, grants and ranking are unchanged. It was applied to production on 2026-11-11 (migration version `20261111083113`, name `standings_fit`) after a full backup of the affected tables and function definitions. Runs posted before v4.30 return `fit: null` and render without the loadout chip.
 
 This file is not applied to the live project from a checkout either. The owner applies it.
 

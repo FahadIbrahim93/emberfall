@@ -35,7 +35,8 @@ js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inlin
 |---|---|---|
 | `js/audio.js` | synthesised voices, adaptive score (`AU`, `MUSIC`) | touch game state |
 | `js/sky.js` | sky-event schedulers + `SKY_EVENTS` registry (the single owner of what each event *is*: names, colors, counters) | render or touch META directly (it exposes tick/draw) |
-| `js/net.js` | shared account/board sheet navigation and focus; worldwide or portal-local boards; board/roster/hangar rendering, screen flow | game rules, account identity/writes (`js/cloud.js`) |
+| `js/net.js` | shared account/board sheet navigation and focus; worldwide or portal-local boards; board/roster rendering, screen flow | game rules, account identity/writes (`js/cloud.js`) |
+| `js/hangar.js` | the five-bay hangar UI; armory, modules, loadout presets, frame doctrines, contracts; `applyGear()`, the Endless power ceiling and the `stats.fit` loadout code | edit the `WEAPONS`/`HULLS`/`BEAM` tables; run top-level code (declarations only, per deadscan load order) |
 | `js/cloud.js` | Supabase accounts and worldwide boards | game rules |
 | `js/mirror-public.js` | public board reads for `stats.html` and `pilot.html` | write anything |
 | `js/art.js` | materials, hull/hostile/capital/pickup renderers (`HULL_ART`, `FOE_ART`, `BOSS_ART`) | game state; palette-reacts via functions called at draw time |

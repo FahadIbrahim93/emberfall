@@ -6,6 +6,8 @@ A free arcade space shooter that runs in your browser. Something came through th
 
 **Play now: https://emberfall-game-two.vercel.app/**
 
+Current release: **v4.30.0 "The Hangar"** (2026-11-11). See [what's new](#whats-new-in-v4300--the-hangar).
+
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -20,7 +22,9 @@ No install and no account needed. Art, music and sound are generated in code at 
 - **Five ships** with different trade-offs, including WRAITH, the gate-recovered hull, and SERAPH with its continuous cutting lance.
 - **Four modes:** Endless, Boss Rush, the Daily Gauntlet (one seed for everyone, each UTC day) and the Solar Tour (eight worlds, Mercury to the Kuiper Gate).
 - **Scoring that pays for nerve:** graze bullets, chain combos, and pick a boon after each boss.
-- **A hangar to come back to:** paints, sigils, hull mastery and kill plaques.
+- **A hangar worth coming back to:** five bays (Ship, Systems, Arms, Style, Yard) around your docked ship. Choose a weapon pattern and its mods, fit modules and a frame doctrine per hull, save up to three presets, and work through three daily contracts. Paints, sigils, mastery finishes and kill plaques are still there.
+- **You see it before you pay for it.** Tapping an item shows what it changes against your current fit and a "Buy" button. Nothing is spent on a single tap.
+- **Fair boards.** New gear is capped at the existing power ceiling on Endless and Tour, and never flies on the Daily Gauntlet, Boss Rush or flight school. Each run's loadout code is shown on the boards and the stats page.
 - **Accessibility options:** four colour palettes, reduced motion, left-handed and large touch layouts, high-visibility bullets.
 - **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Sign in with X is planned.
 - **Installable PWA** that works offline.
@@ -71,7 +75,7 @@ npm test                  # sim + browser + in-game self-test
 
 You can also run the self-test in the page with `index.html?selftest` (75 checks).
 
-CI runs these checks on every push to `main`. The last main run passed on 2026-11-10.
+CI runs these checks on every push to `main`. At v4.30.0 that is 102 browser tests, 61 simulation tests, 47 release tests, 12 SQL migration tests and 75 in-game checks. The last main run passed on 2026-11-11.
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -103,6 +107,7 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 
 | Release | Date | Bot wave | Bot kills | Bot grazes | Combo × | Bot median fps | First-60s median fps |
 |---|---|---|---|---|---|---|---|
+| v4.30.0 "The Hangar" | 2026-11-11 | 2 | 25 | 5 | ×3 | 47 | 45 |
 | v4.29.0 "Pilot Card" | 2026-10-23 | 3 | 27 | 4 | ×2 | 45 | 38 |
 | v4.28.0 "Guest Pass" | 2026-10-23 | 2 | 25 | 4 | ×3 | 34 | 21 |
 | v4.27.0 "The Same Ladder" | 2026-10-19 | 2 | 23 | 1 | ×2 | 29 | 20 |
@@ -127,9 +132,18 @@ Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed a
 
 The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the repo's own instrumented play runs into [`docs/audit/fun-curve.json`](docs/audit/fun-curve.json), written by `tools/fun-scoreboard.mjs`. Median-fps is environment-sensitive — read the trend within a column, not the absolute.
 
-## What's new
+## What's new in v4.30.0 — "The Hangar"
 
-Detailed per-release notes live in [CHANGELOG.md](CHANGELOG.md). Recent work includes guest play, pilot accounts and callsigns, the Daily Gauntlet board, and the Solar Tour (eight worlds).
+The hangar used to be one long shop page where every upgrade was the obvious buy. It is now five bays built around the docked ship, and it works on a phone without scrolling past the Launch button.
+
+- **Arms:** four weapon patterns (Spread, Rail, Scatter, Seeker), two mods each, and three lenses for SERAPH. Every pattern is tuned to the same total output as Spread, so they are different, not better.
+- **Systems:** six modules, a second module slot, a sigil per hull and three loadout presets per hull. Frame doctrines open as you raise a hull's mastery.
+- **Yard:** three daily contracts and a weekly order to earn alloy, plus the standing ladder past Yardmaster.
+- **Style:** mastery ranks 6 to 10 add cosmetic finishes. Pilots who flew before this release get a free Founder plate.
+- **Fixes:** four paid perks (Rampart, Glasswing, Needle and the Mastery 2 dash) now actually apply in flight, and Boss Rush runs on standard issue as intended.
+- **Saves:** older saves and v3 export codes load unchanged.
+
+Full notes are in [docs/releases/v4.30.0.md](docs/releases/v4.30.0.md) and [CHANGELOG.md](CHANGELOG.md). Earlier releases added guest play, pilot accounts and callsigns, the Daily Gauntlet board and the Solar Tour.
 
 ## License
 

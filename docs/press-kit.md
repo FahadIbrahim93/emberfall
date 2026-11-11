@@ -16,12 +16,12 @@ Every number below comes from the repo's own tests (`tests/fun-audit.spec.js`, `
 
 ## The numbers
 
-Measured at v4.21.0. Later releases are in the fun-curve table in the README.
+Launch timings were first measured at v4.21.0, and CI still holds every build to the same limits. The bot and frame-rate figures come from the v4.30.0 release run (2026-11-11). Every release is in the fun-curve table in the README.
 
 - **Ready to fly about 1.4s after load.** CI requires under 3.5s to get ready, under 2s from Launch to flying and a first shot within 2s.
 - **First enemy fire at about 6s.** Wave 1 teaches dodging right away, and the striker's codex card appears the first time you see one.
-- **A bot plays the core loop.** It reaches wave 3, kills 28, grazes 4 bullets and builds a ×2 combo by actually playing, not by replaying scripted inputs.
-- **Median 46 fps** in real combat with software rendering.
+- **A bot plays the core loop.** In the v4.30.0 run it reached wave 2, killed 25, grazed 5 bullets and built a ×3 combo by actually playing, not by replaying scripted inputs.
+- **Median 47 fps** in real combat with software rendering (45 fps across the first 60 seconds).
 - All of this runs again on every push.
 
 ## Assets (`docs/press/`)
@@ -36,6 +36,7 @@ Measured at v4.21.0. Later releases are in the fun-curve table in the README.
 - 4 modes: Endless, Boss Rush, the Daily Gauntlet (one seed for everyone) and the 8-world Solar Tour
 - 21 hostile types, including elites you can read on sight, 4 scripted teaching waves and then an adaptive wave director
 - Grazing, combos up to ×5 and a weapon ladder up to tier 7
+- A five-bay hangar: weapon patterns and mods, modules, frame doctrines per hull, daily contracts and cosmetic mastery. New gear stays within the existing power ceiling and never flies on the Daily
 - Rare "Wardenfall" Sundays (about 1 in 7) with a world boss and a permanent honor
 - An offline PWA that plays fine with no server
 - Global and daily leaderboards with player accounts and callsigns, on Supabase. Live on the Vercel site.
@@ -43,7 +44,7 @@ Measured at v4.21.0. Later releases are in the fun-curve table in the README.
 
 ## Short blurb
 
-> I'm making a free browser shmup, and its CI plays the game: a bot reaches wave 3, grazes bullets and chains combos on every push. I'm looking for 10 people to tell me whether wave 5 is actually fun. No install: https://emberfall-game-two.vercel.app/. It takes about 30 seconds to reach combat. Tell me where you stopped and why.
+> I'm making a free browser shmup, and its CI plays the game: a bot flies the opening waves, grazes bullets and chains combos on every push. I'm looking for 10 people to tell me whether wave 5 is actually fun. No install: https://emberfall-game-two.vercel.app/. It takes about 30 seconds to reach combat. Tell me where you stopped and why.
 
 ## Playtest questions
 

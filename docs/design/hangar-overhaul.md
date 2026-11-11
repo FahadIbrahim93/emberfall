@@ -1,7 +1,25 @@
 # Hangar and upgrade overhaul ("The Yard, rebuilt")
 
-Status: **Accepted** 2026-11-11 · Owner: Fahad · Tracking: Hangar overhaul epic (see `docs/expansion/IMPLEMENTATION_BACKLOG.md`, Track H)
+Status: **Shipped** in v4.30.0 on 2026-11-11 ([PR #109](https://github.com/FahadIbrahim93/emberfall/pull/109), merge `a93bbe9`) · Accepted 2026-11-11 · Owner: Fahad · Tracking: Hangar overhaul epic (see `docs/expansion/IMPLEMENTATION_BACKLOG.md`, Track H)
 Audited against `origin/main` **cd11007** (v4.29.8, SW cache `emberfall-v4.64`) and open PR #97 (head `issue-48`, CONFLICTING).
+
+## As shipped (v4.30.0)
+
+Everything in sections 3 and 4 shipped, in one PR rather than one per phase. The design below is kept as written; these are the places where the build differs from it, and why.
+
+| Area | Design said | Shipped | Why |
+|---|---|---|---|
+| Delivery | One PR per phase (§4, §6) | All eight phases in PR #109, closing #100–#107 and superseding #97 | The phases share the save schema, the fairness strip and the hangar shell; landing them together kept one schema bump and one migration. |
+| Purchases | Detail sheet with a stat compare (§3.1) | Tapping anything unowned opens an inline offer under it: the flight-sheet change, the price and a "Buy · N alloy" button. One tap never spends. Equipping owned items stays one tap; donations keep their confirm dialog. | Review feedback: instant spends on tap were too easy to trigger on a phone. |
+| Phone layout | Verified at 360×640 and 412×915 (§7) | Verified at 390×844, 768×1024 and 1440×900 in `tests/hangar.spec.js` and on the live site. The dock is letterboxed to 150 px on phones, the flight sheet folds behind a toggle and a delta strip above the command bar repeats the offer summary. | These are the three sizes the release checks use; each bay's first items sit above the fold at all three. |
+| Tab badges | Counts per bay | Dots that mark news only: something newly affordable since the bay was last opened, or a contract ready to claim. | Review feedback: a badge should mean there is something to act on. |
+| Backup reminder | After purchases of 2,000+ alloy, once a day (§3.10) | After purchases of 1,500+ alloy, once a day | Lowered during the build so more of the mid-priced armory and module purchases prompt a backup. |
+| Mastery 2 dash | Not addressed | The extra dash charge now applies (it never did before) and stays on the Daily; rush and flight school strip it. | Owner decision: it is a legacy mastery reward, not new gear, so the Daily rule does not remove it. |
+| Boss Rush | Vanilla | Vanilla, now enforced: `GAME.rush` was never set, so rush had been flying with sigils, mastery XP and gear. | Bug found during the build. |
+| Power ceiling | Clamp at today's top power | As designed; the ceiling was not raised. The compare panel says when a stat is capped. | Owner decision. |
+| Existing perks | Unchanged | Rampart, Glasswing and Needle never applied in flight; all three now do, with tests. | Bug found during the build. |
+| Module split | `js/hangar.js` only if deadscan, SW `CORE` and the manifest change in the same PR (§7) | Split into `js/hangar.js`, listed in the service worker, release payload and copyguard. | The condition in §7 was met. |
+| Phase 7 migration | Applied after owner approval | `20261112000000_standings_fit.sql` was applied on 2026-11-11 (recorded as `20261111083113 standings_fit`) after a backup of the scores, profiles, receipt tables and both reader functions. | As designed. |
 
 ## Decisions (final, owner, 2026-11-11)
 1. **Endless board:** gear is allowed, capped at today's top power (no item raises the ceiling), and every run's loadout is shown on the boards (`stats.fit`).
