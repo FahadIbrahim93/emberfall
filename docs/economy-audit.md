@@ -183,6 +183,11 @@ shipped.
 | Yard standing | 10 ranks × 25,000 | 250,000 |
 | Paints + sigils (v4.1–v4.2) | 12 | 10,450 |
 | **One-time shelf** | **23 purchases** | **45,800** |
+| Armory (v4.30) | 14 patterns, mods and lenses | 24,300 |
+| Modules + slot B (v4.30) | 6 + 1 slot | 13,800 |
+| Frame doctrines (v4.30) | 5 hulls × 6 (one path 5,600) | 56,000 |
+| Weekly plate stock | 1 per week | 2,400 each |
+| Contracts (faucet) | 3 a day + board bonus · weekly 700 | 480–1,920 per day |
 | Yard donations | 3 tiers | 100,000 cumulative |
 <!-- shop-totals:end -->
 

@@ -15,7 +15,7 @@ export const MIME = Object.freeze({
 const FIXED = ['index.html', 'stats.html', 'pilot.html', 'sw.js', 'manifest.webmanifest',
   'LICENSE', 'js/vendor/supabase.js', 'js/vendor/SUPABASE-LICENSE',
   'docs/press-kit.html', 'docs/press/hero.png', 'docs/press/emberfall-wave1.gif'];
-const MODULES = ['audio', 'sky', 'mirror-public', 'cloud', 'net', 'art', 'input'].map(name => `js/${name}.js`);
+const MODULES = ['audio', 'sky', 'mirror-public', 'cloud', 'net', 'hangar', 'art', 'input'].map(name => `js/${name}.js`);
 const REQUIRED = [...FIXED, ...MODULES];
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const safePath = value => typeof value === 'string' && value.length > 0 &&

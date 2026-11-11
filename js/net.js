@@ -135,7 +135,8 @@ const NET = {
       return '<div class="row' + (mine ? ' me' : '') + (i < 3 ? ' top' : '') + '">' +
         '<span class="rk">' + place + '</span>' +
         '<span class="nm">' + avIcon(r2.user_id) + '<a href="' + esc(pilotUrl(r2.callsign)) + '">' + esc(r2.callsign) + '</a>' +
-        (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') + '</span>' +
+        (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') +
+        (typeof r2.fit === 'string' ? fitChip(r2.fit) : '') + '</span>' +   /* loadout code (Phase 7 RPC echo) */
         '<span class="sc">' + fmtScore(r2.score) + '</span>' +
         '<span class="wv" title="' + esc(origin || 'Wave') + '">' + (origin ? esc(origin) + ' · ' : '') + 'W' + wave + '</span></div>';
     };
@@ -290,7 +291,7 @@ function renderBoard(el, mode, highlight, _remote, myPaint) {
     const mine = r.d === highlight || r.n === (DB.get('callsign', '') || '').toUpperCase();
     return '<div class="row' + (mine ? ' me' : '') + '">' +
       '<span class="rk">' + pad2(i + 1) + '</span>' +
-      '<span class="nm">' + dot + (mine ? star : '') + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+      '<span class="nm">' + dot + (mine ? star : '') + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + (r.f ? fitChip(r.f) : '') + '</span>' +
       '<span class="sc">' + padN(r.s, 7) + '</span>' +
       '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
   }).join('');
@@ -621,6 +622,7 @@ function renderStanding() {
     };
     fl.appendChild(btn);
   }
+  extraFinishButtons(fl);
   box.appendChild(fl);
 }
 function renderHangar() {
@@ -655,7 +657,7 @@ function renderHangar() {
       else if (gifted) note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim');
       else if (META.alloy >= p.cost) {
         META.alloy -= p.cost; META.paints.push(p.id); META.paint = p.id;
-        saveMeta(); applyPaint(); renderHangar(); note(p.name + ' acquired', 'rare'); AU.unlock();
+        applyPaint(); hgBought(p.name + ' acquired', p.cost);
       } else note('Need ' + fmt(p.cost - META.alloy) + ' more alloy', 'bad');
     };
     pl.appendChild(b);
@@ -718,13 +720,13 @@ function renderHangar() {
         ? '<span class="cost' + (sel ? '' : ' no') + '">' + (sel ? 'Selected' : 'Tap to fly') + '</span>'
         : '<span class="cost' + (META.alloy >= h.cost ? '' : ' no') + '">' + fmt(h.cost) + ' alloy</span>');
     b.appendChild(d);
+    if (!sel) hgHover(b, h.name, M => { if (!M.owned.includes(h.id)) M.owned.push(h.id); M.ship = h.id; });
     b.onclick = () => {
       AU.ui();
-      if (owned) { META.ship = h.id; saveMeta(); renderHangar(); }
+      if (owned) { hgShip(h.id); saveMeta(); renderHangar(); }
       else if (META.alloy >= h.cost) {
-        META.alloy -= h.cost; META.owned.push(h.id); META.ship = h.id;
-        saveMeta(); renderHangar();
-        note(h.name + ' acquired', 'rare'); AU.unlock();
+        META.alloy -= h.cost; META.owned.push(h.id); hgShip(h.id);
+        hgBought(h.name + ' acquired', h.cost);
       } else {
         note('Need ' + fmt(h.cost - META.alloy) + ' more alloy', 'bad');
       }
@@ -744,7 +746,7 @@ function renderHangar() {
     let dots = '';
     for (let i = 0; i < r.max; i++) dots += '<i class="' + (i < lv ? 'on' : '') + '"></i>';
     b.innerHTML =
-      '<span><b>' + esc(r.name) + '</b><p>' + esc(r.desc) + '</p><span class="dots">' + dots + '</span></span>' +
+      '<span><b>' + esc(r.name) + '</b><p>' + esc(r.desc) + ' ' + esc(refitLine(r.id, lv)) + '</p><span class="dots">' + dots + '</span></span>' +
       '<span class="buy ' + (maxed ? 'max' : can ? '' : 'no') + '">' + (maxed ? 'Max' : fmt(price) + '<br>alloy') + '</span>';
     b.onclick = () => {
       if (maxed) return;
@@ -752,12 +754,13 @@ function renderHangar() {
       if (META.alloy >= price) {
         META.alloy -= price;
         META.refits[r.id] = lv + 1;
-        saveMeta(); renderHangar();
-        note(r.name + ' → ' + (lv + 1), 'good'); AU.pickup();
+        hgBought(r.name + ' → ' + (lv + 1), price, 'good');
       } else note('Need ' + fmt(price - META.alloy) + ' more alloy', 'bad');
     };
+    if (!maxed) hgHover(b, r.name + ' ' + (lv + 1), M => { M.refits[r.id] = lv + 1; });
     ul.appendChild(b);
   }
+  renderBays();
 }
 
 /* ─────────────────── screen flow ─────────────────── */

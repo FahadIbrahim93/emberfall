@@ -69,7 +69,7 @@ npm run test:sql          # executable Supabase migration-chain regression (PGli
 npm test                  # sim + browser + in-game self-test
 ```
 
-You can also run the self-test in the page with `index.html?selftest` (66 checks).
+You can also run the self-test in the page with `index.html?selftest` (74 checks).
 
 CI runs these checks on every push to `main`. The last main run passed on 2026-11-10.
 

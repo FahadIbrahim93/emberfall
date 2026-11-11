@@ -18,6 +18,7 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
 /* ── extract constants from source (drift = loud failure) ── */
 const html = fs.readFileSync('index.html', 'utf8');
 const skySrc = fs.readFileSync('js/sky.js', 'utf8');
+const hangarSrc = fs.readFileSync('js/hangar.js', 'utf8');   /* v4.30 armory, modules, doctrines, contracts */
 const must = (re, what, src) => { const m = (src || html).match(re); if (!m) throw new Error('constant drifted: ' + what); return m; };
 
 /* ── shop catalogs: one descriptor per table ───────────────────────────
@@ -26,12 +27,13 @@ const must = (re, what, src) => { const m = (src || html).match(re); if (!m) thr
    truncation, and the generated totals block in docs/economy-audit.md is
    compared against this extraction on every run — a real price change is
    a deliberate `--write-doc`, never a silent drift. No magic counts. */
-const section = (head, tail) => {
-  const a = html.indexOf(head);
+const section = (head, tail, src) => {
+  src = src || html;
+  const a = src.indexOf(head);
   if (a < 0) throw new Error('catalog drifted: missing "' + head + '"');
-  const b = html.indexOf(tail, a);
+  const b = src.indexOf(tail, a);
   if (b < 0) throw new Error('catalog drifted: unterminated "' + head + '"');
-  return html.slice(a + head.length, b);
+  return src.slice(a + head.length, b);
 };
 
 const CATALOGS = [
@@ -52,11 +54,21 @@ const CATALOGS = [
     take: m => ({ at: +m[1], name: m[2] }) },
   { key: 'standing', label: 'Yard standing', head: 'const STANDING = [', tail: '\n];', min: 3,
     row: /\{ rank: (\d+),\s*name: '([^']+)' \}/g,
-    take: m => ({ rank: +m[1], name: m[2] }) }
+    take: m => ({ rank: +m[1], name: m[2] }) },
+  /* v4.30 hangar (js/hangar.js) */
+  { key: 'armory', label: 'Armory', head: 'const ARMORY = [', tail: '\n];', min: 16, src: hangarSrc,
+    row: /\{ id: '([\w-]+)', code: '\w+', kind: '(pattern|mod)', hull: '(\w+)', parent: '\w*', name: '[^']+', cost: (\d+),/g,
+    take: m => ({ id: m[1], kind: m[2], hull: m[3], cost: +m[4] }) },
+  { key: 'modules', label: 'Modules', head: 'const MODULES = [', tail: '\n];', min: 6, src: hangarSrc,
+    row: /\{ id: '([\w-]+)', name: '[^']+', cost: (\d+),/g,
+    take: m => ({ id: m[1], cost: +m[2] }) },
+  { key: 'frameRows', label: 'Frame rows', head: 'const FRAME_ROWS = [', tail: '];', min: 3, src: hangarSrc,
+    row: /\{ row: (\d+), mastery: (\d+), cost: (\d+) \}/g,
+    take: m => ({ row: +m[1], mastery: +m[2], cost: +m[3] }) }
 ];
 
 function readCatalog(c) {
-  const rows = [...section(c.head, c.tail).matchAll(c.row)].map(c.take);
+  const rows = [...section(c.head, c.tail, c.src).matchAll(c.row)].map(c.take);
   if (rows.length < c.min) throw new Error(c.label + ': ' + rows.length + ' rows (floor ' + c.min + ') — catalog missing or truncated');
   const seen = new Set();
   for (const r of rows) {
@@ -104,6 +116,19 @@ const DAILY_WARDENFALL = +wfallBlock[3];
 if (!(DAILY_WARDENFALL > DAILY_SUNDAY_GUARD)) throw new Error('Wardenfall must pay above the Solar Guard');
 const DAILY_MEDAL_TOTAL = DAILY_MEDAL_ALLOY.reduce((a, c) => a + c, 0);
 
+/* v4.30 contracts: three a day plus a full-board bonus, scaled by tier
+   T = floor(best wave / 5) capped at 6. The faucet must stay under 2,000. */
+const CONTRACT_REWARD = must(/const CONTRACT_REWARD = \[(\d+), (\d+), (\d+)\];/, 'contract rewards', hangarSrc).slice(1).map(Number);
+const CONTRACT_BONUS = +must(/const CONTRACT_BONUS = (\d+);/, 'contract bonus', hangarSrc)[1];
+const WEEKLY_ALLOY = +must(/const WEEKLY_ALLOY = (\d+);/, 'weekly alloy', hangarSrc)[1];
+const contractDay = T => CONTRACT_REWARD.reduce((a, r) => a + Math.round(r * (1 + .5 * T)), 0) + Math.round(CONTRACT_BONUS * (1 + .5 * T));
+const CONTRACT_MAX = contractDay(6);
+if (CONTRACT_MAX > 2000) throw new Error('contracts pay ' + CONTRACT_MAX + '/day at tier 6 — the cap is 2,000');
+const SLOT_B_COST = +must(/const SLOT_B_COST = (\d+);/, 'slot B cost', hangarSrc)[1];
+const WEEKLY_STOCK_COST = +must(/const WEEKLY_STOCK_COST = (\d+);/, 'weekly stock cost', hangarSrc)[1];
+const FRAME_HULLS = new Set([...hangarSrc.matchAll(/\{ id: '(\w+)\.[123][ab]', name:/g)].map(m => m[1]));
+if (FRAME_HULLS.size !== catalogs.hulls.length) throw new Error('every hull needs a doctrine tree (' + FRAME_HULLS.size + ' of ' + catalogs.hulls.length + ')');
+
 /* refit ladders: cost: l => A + l * B over `max` levels */
 const refitTotal = id => { const t = refitTables.find(r => r.id === id); let s = 0; for (let l = 0; l < t.max; l++) s += t.a + l * t.b; return s; };
 const refitGrand = refitTables.reduce((s, r) => s + refitTotal(r.id), 0);
@@ -123,6 +148,9 @@ shopTotals.personalization = {
   count: shopTotals.paints.paid + shopTotals.sigils.count,
   total: shopTotals.paints.total + shopTotals.sigils.total
 };
+shopTotals.armory = { count: catalogs.armory.filter(a => a.cost > 0).length, total: sum(catalogs.armory.map(a => a.cost)) };
+shopTotals.modules = { count: catalogs.modules.length, total: sum(catalogs.modules.map(m => m.cost)) + SLOT_B_COST };
+shopTotals.frames = { hulls: FRAME_HULLS.size, path: sum(catalogs.frameRows.map(r => r.cost)), total: FRAME_HULLS.size * 2 * sum(catalogs.frameRows.map(r => r.cost)) };
 shopTotals.oneTime = {
   purchases: shopTotals.hulls.count + shopTotals.refits.ladders + shopTotals.paints.paid + shopTotals.sigils.count,
   total: shopTotals.hulls.total + shopTotals.refits.total + shopTotals.paints.total + shopTotals.sigils.total
@@ -144,6 +172,11 @@ function shopTotalsBlock() {
     '| Yard standing | ' + s.standing.ranks + ' ranks × ' + fmtN(s.standing.step) + ' | ' + fmtN(s.standing.ladder) + ' |',
     '| Paints + sigils (v4.1–v4.2) | ' + s.personalization.count + ' | ' + fmtN(s.personalization.total) + ' |',
     '| **One-time shelf** | **' + s.oneTime.purchases + ' purchases** | **' + fmtN(s.oneTime.total) + '** |',
+    '| Armory (v4.30) | ' + s.armory.count + ' patterns, mods and lenses | ' + fmtN(s.armory.total) + ' |',
+    '| Modules + slot B (v4.30) | ' + s.modules.count + ' + 1 slot | ' + fmtN(s.modules.total) + ' |',
+    '| Frame doctrines (v4.30) | ' + s.frames.hulls + ' hulls × 6 (one path ' + fmtN(s.frames.path) + ') | ' + fmtN(s.frames.total) + ' |',
+    '| Weekly plate stock | 1 per week | ' + fmtN(WEEKLY_STOCK_COST) + ' each |',
+    '| Contracts (faucet) | 3 a day + board bonus · weekly ' + fmtN(WEEKLY_ALLOY) + ' | ' + fmtN(contractDay(0)) + '–' + fmtN(CONTRACT_MAX) + ' per day |',
     '| Yard donations | ' + s.donations.tiers + ' tiers | ' + fmtN(s.donations.ceiling) + ' cumulative |',
     DOC_END
   ].join('\n');

@@ -1,6 +1,6 @@
 {
-  "total": 66,
-  "passed": 66,
+  "total": 74,
+  "passed": 74,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -67,6 +67,14 @@
     "wardenfall honors: deck-verified feat, monotonic adoption, plaque contract (v4.13)",
     "daily gauntlet: streak feats predict, gift, and stay mode-honest",
     "daily gauntlet: result application is idempotent and monotonic",
+    "hangar save: a v4.29 career migrates losslessly to schema 2",
+    "hangar economy: legacy prices unchanged, new catalog and contract math",
+    "armory patterns are shape, not power (parity at every tier)",
+    "Endless ceiling: no fit lifts a stat past today's top",
+    "Daily, rush, school and range fly standard issue",
+    "loadout code: board alphabet, 64 chars, decodes back",
+    "reset erases gear, keeps cosmetics and honor",
+    "export v4 carries the hangar; a v3 code still imports",
     "patch notes data and seen-marker"
   ]
 }
