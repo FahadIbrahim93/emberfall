@@ -396,10 +396,16 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 /* schematic hot-spots: refit locations pinned on the docked hull */
 #dockSpots{position:absolute;inset:10px 10px 52px;pointer-events:none}
 /* 44 px tap target around a 22 px visual ring (mobile-ux-v2 rule) */
-.spot{position:absolute;pointer-events:auto;width:44px;height:44px;margin:-22px 0 0 -22px;border:0;background:none;
-  color:var(--amber);font-size:.58rem;display:grid;place-items:center}
-.spot::before{content:"";position:absolute;left:11px;top:11px;width:22px;height:22px;box-sizing:border-box;
-  border:1px solid var(--line);border-radius:50%;background:rgba(8,13,26,.8);transition:all .15s}
+/* refit tags: two columns at the dock's edges, clear of the hull and its caption */
+.spot{position:absolute;pointer-events:auto;width:56px;height:44px;margin-top:-22px;padding:0;border:0;background:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.1;white-space:nowrap}
+.spot.l{left:0}.spot.r{right:0}
+.spot.y0{top:22%}.spot.y1{top:50%}.spot.y2{top:78%}
+@media (min-width:901px){.spot{width:72px;height:48px;margin-top:-24px}.spot small{font-size:.52rem}.spot b{font-size:.76rem}}
+.spot small{font-size:.46rem;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.spot b{font-size:.62rem;font-weight:600;color:var(--amber);font-variant-numeric:tabular-nums}
+.spot::before{content:"";position:absolute;inset:2px 0;box-sizing:border-box;
+  border:1px solid var(--line);border-radius:8px;background:rgba(8,13,26,.8);transition:all .15s}
 .spot:hover::before,.spot:focus-visible::before{border-color:var(--ember);background:rgba(255,138,43,.2)}
 .spot{z-index:0}.spot::before{z-index:-1}
 /* ═══ hangar v4.30 — five bays, a sticky command bar, the flight sheet ═══ */
@@ -423,10 +429,10 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .cmp i b,.cmp i u{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
 .cmp i b{background:var(--amber);opacity:.75}
 .cmp i u{background:transparent;border-right:2px solid var(--mint)}
-.cmp i u.down{border-right-color:var(--crimson)}
+.cmp i u.dec{border-right-color:var(--crimson)}
 .cmp em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--ink,#fff);white-space:nowrap}
-.cmp em.up{color:var(--mint)}
-.cmp em.down{color:var(--crimson)}
+.cmp em.inc{color:var(--mint)}
+.cmp em.dec{color:var(--crimson)}
 .fitchip{font-style:normal;font-size:.5rem;letter-spacing:.1em;color:var(--violet);border:1px solid rgba(155,107,255,.4);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:middle}
 .cmp-f{font-size:.58rem;color:var(--dimmer);margin-top:8px;line-height:1.5}
 .capped{color:var(--gold);font-weight:600;letter-spacing:.12em;text-transform:uppercase}
@@ -466,16 +472,17 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
   border-top:1px solid var(--line-soft);backdrop-filter:blur(6px)}
 .hg-delta{display:none;font-size:.6rem;letter-spacing:.06em;color:var(--dim);text-align:center;min-height:0}
 .hg-delta[hidden]{display:none}
-.hg-delta .up{color:var(--mint)}
-.hg-delta .down{color:var(--crimson)}
+.hg-delta .inc{color:var(--mint)}
+.hg-delta .dec{color:var(--crimson)}
 .hg-tabs{display:flex;gap:4px}
 .hg-tab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:64px;min-height:48px;
   padding:4px 8px;border:1px solid transparent;border-radius:10px;font-size:.58rem;letter-spacing:.14em;color:var(--dim);background:none}
 .hg-tab i{font-style:normal;font-size:.95rem;line-height:1}
 .hg-tab.on{color:var(--gold);border-color:var(--line);background:rgba(255,138,43,.08)}
 .hg-tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.hg-tab .badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;
-  background:var(--ember);color:#150c04;font-size:.5rem;line-height:16px;letter-spacing:0;font-weight:700}
+/* a dot, not a count: the text ("new" / "reward ready") is for screen readers */
+.hg-tab .badge{position:absolute;top:7px;left:calc(50% + 10px);width:8px;height:8px;border-radius:50%;
+  background:var(--ember);box-shadow:0 0 0 2px rgba(3,5,11,.9);font-size:0;line-height:0;overflow:hidden;color:transparent}
 .hg-tab .badge[hidden]{display:none}
 .hg-go{display:flex;gap:8px}
 .hg-go .btn{width:auto;min-height:48px;text-align:center;padding-left:18px;padding-right:18px}
@@ -492,7 +499,6 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
   .hg-stage .dock{max-width:calc(24vh * 1120 / 860)}
   .cmp{grid-template-columns:auto 1fr auto 1fr;gap:3px 8px}
   .cmp i{display:none}
-  .hg-delta{display:block}
   .hg-bar{flex-direction:column-reverse;align-items:stretch;gap:8px;padding-top:8px;margin-left:-3vw;margin-right:-3vw;padding-left:3vw;padding-right:3vw}
   .hg-tabs{justify-content:space-between}
   .hg-tab{flex:1;min-width:0;padding:4px 2px;letter-spacing:.06em}
@@ -500,6 +506,25 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
   .hg-go .btn{padding-left:12px;padding-right:12px}
   .hg-go .btn.key{min-width:0}
   .up.gear.mod{margin-left:10px;width:calc(100% - 10px)}
+}
+/* phones: a compact dock (the hull letterboxed between its refit tags) and
+   the flight sheet behind a toggle, so each bay's items start on screen one */
+.hg-sheet-toggle{display:none}
+@media (max-width:600px){
+  .hg-stage .dock{max-width:none;margin-bottom:6px}
+  .hg-stage .dock canvas{height:150px;object-fit:contain}
+  .spot.y0{top:22px}.spot.y2{top:calc(100% - 22px)}
+  #dockSpots{inset:4px 4px 44px}
+  .dock-caption{margin-top:2px}
+  .hg-goal{margin-bottom:6px}
+  .hg-sheet-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;margin-bottom:8px;text-align:left}
+  .hg-sheet-toggle span{font-size:.56rem;letter-spacing:.16em;color:var(--dim)}
+  .hg-stage:not(.sheet-open) .hg-compare{display:none}
+  .hg-delta{display:block}
+  .arms-top{grid-template-columns:minmax(0,1fr);align-items:stretch}
+  .arms-top{gap:8px;margin-bottom:10px}
+  .arms-top canvas{max-width:none;height:96px;object-fit:contain}
+  .arms-top .btn{width:100%}
 }
 @media (max-height:520px) and (orientation:landscape){
   .hg-stage .dock{max-width:calc(46vh * 1120 / 860)}
@@ -1294,6 +1319,7 @@ body.touchmode #btnPause{width:48px;height:48px}
           <p class="dock-sub" id="dockSub"></p>
         </div>
         <p class="hg-goal" id="hgGoal" aria-live="polite"></p>
+        <button class="btn hg-sheet-toggle" id="btnHgSheet" type="button" aria-expanded="false" aria-controls="hgCompare">Flight sheet<span>Show</span></button>
         <div class="hg-compare" id="hgCompare" aria-live="polite"></div>
         <div class="hg-note" id="hgBackup" role="status" hidden></div>
       </div>
@@ -3571,7 +3597,8 @@ function configurePlayer() {
   P.r = 5 * h.hitbox * SHIP_SCALE;   // player hitbox scales with ship presence — same fairness rule as hostiles
   P.grazeMul = h.grazeMul;
   P.scoreMul = h.scoreMul;
-  P.maxCharges = h.dash + (refit('capacitor') >= 3 ? 1 : 0);
+  /* Mastery 2 banks a dash charge on the hull that earned it (drills and rush fly vanilla) */
+  P.maxCharges = h.dash + (refit('capacitor') >= 3 ? 1 : 0) + (GAME.rush || GAME.school || masteryLevel(h.id) < 2 ? 0 : 1);
   P.charges = P.maxCharges;
   P.bombs = h.bombs + (refit('ordnance') >= 4 ? 1 : 0);
   P.weapon = 1 + Math.floor(refit('ordnance') / 2);
@@ -3588,12 +3615,15 @@ function configurePlayer() {
   if (GAME.state === 'playing') GAME.beamRuns = P.beam;
   let lives = h.lives + (refit('plating') >= 3 ? 1 : 0) + (refit('plating') >= 5 ? 1 : 0);
   lives += D().lives;
+  lives += GAME.bonusLives || 0;   /* Rampart */
   if (GAME.mutator && GAME.mutator.id === 'glass') {
     lives = Math.max(1, lives - 1);
     P.dmg *= 1.5;
   }
   /* hangar gear: Endless/Tour only, clamped to today's ceiling (js/hangar.js) */
   lives = applyGear(h, Math.max(1, lives));
+  /* Glasswing: one life, no matter the hull — after gear, so nothing buys it back */
+  if (GAME.livesOverride) lives = GAME.livesOverride;
   GAME.lives = Math.max(1, lives);
 }
 const pickupRadius = () => 92 * (1 + refit('magnet') * .28) * P.magMul;
@@ -3645,7 +3675,7 @@ function firePrimary() {
   for (const [dx, ang] of w.lanes) {
     pb.push({
       x: P.x + dx * .9, y: P.y - 14, vx: Math.sin(ang) * 1020, vy: -Math.cos(ang) * 1020,
-      r: 4, dmg, kind: 'bolt', life: 2
+      r: 4, dmg, kind: 'bolt', life: 2, needle: P.pierce
     });
     GAME.shots++;
   }
@@ -4395,6 +4425,7 @@ function collide() {
         damageFoe(e, hgBoltDmg(b, e), b.x, b.y);
         consumed = true;
         if (b.pierce > 0) { b.pierce--; b.hitDone = (b.hitDone || new Set()).add(e); consumed = false; }
+        else if (b.needle > 0 && (e.dead || e.dying)) { b.needle--; b.hitDone = (b.hitDone || new Set()).add(e); consumed = false; }   /* Needle: through the first kill */
         else break;
       }
     }
@@ -6468,7 +6499,8 @@ function render() {
   RANGE.draw();
 
   if (GAME.state === 'title' || GAME.state === 'boot' || GAME.state === 'hangar') {
-    if (!REDUCE) drawAttract();  // reduced-motion: no self-flying hull
+    /* reduced-motion: no self-flying hull; the hangar's only ship is the one on the dock */
+    if (!REDUCE && GAME.state !== 'hangar') drawAttract();
   } else {
     drawRings();
     drawPicks();
@@ -6853,7 +6885,8 @@ function startRun(mode) {
     grazeHeat: 0, goldSighted: false, school: false,
     skyRun: { comets: 0, goldens: 0, fleets: 0, pyres: 0, escorts: 0, alloy: 0 },
     boons: 0, boonsOffered: 0, killedWarden: false, tookEmp: false, beamRuns: false,
-    ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0
+    ghostBeat: false, rivalBeat: false, rushCleared: false, rushClock: 0,
+    rush: GAME.mode === 'rush'   /* the whole run, including the survive phase after the gauntlet */
   });
   DDA.arm();
   GAME.mutator = GAME.mode === 'daily' ? todayMutator(day) : null;
@@ -7676,7 +7709,8 @@ const NOTES = [
       'The hangar is now five bays around your ship: Ship, Systems, Arms, Style and Yard. Launch stays on screen in every bay, and the flight sheet shows exactly what you will fly before you buy.',
       'The armory: Rail, Scatter and Seeker join Spread, each with two mods, and Seraph gets three lenses. Patterns change the shape of your fire, not its power. Try any of them in the range first.',
       'Modules, a second slot, frame doctrines that open with hull mastery, and three saved presets per hull. Loadouts fly on Endless and Tour; the Daily stays standard issue for everyone.',
-      'Daily contracts and a weekly yard order in the Yard bay, mastery cosmetics from M6 to M10, and a gold Founder plate for every pilot who flew before this update. Your save carries over intact.'
+      'Daily contracts and a weekly yard order in the Yard bay, mastery cosmetics from M6 to M10, and a gold Founder plate for every pilot who flew before this update. Your save carries over intact.',
+      'Fixed: Rampart now adds its extra life, Glasswing holds you to one life, Needle bolts carry through the first hostile they kill, and Mastery 2 adds its dash charge. Boss rush now flies without sigils or mastery perks, as its board promises.'
     ]
   },
   {
@@ -9625,6 +9659,53 @@ function runSelfTests() {
     eq(back.v, 4, 'export stamps v4');
     eq(back.meta.arms.vesper.pat, 'rail', 'armory rides the code');
     showScreen('s-save', false);
+  }));
+  T('paid perks take effect in flight: Rampart, Glasswing, Mastery 2, Needle, rush', () => hgIso(() => {
+    const sv = { score: GAME.score, kills: GAME.kills, hits: GAME.hits, mult: GAME.mult, combo: GAME.combo, comboT: GAME.comboT, wave: GAME.wave };
+    GAME.state = 'playing'; GAME.mode = 'endless'; GAME.school = false; GAME.rush = false; GAME.mutator = null;
+    RANGE.trial = null; RANGE.starting = false;
+    META.ship = 'vesper'; META.mastery = {}; META.sigils = ['', 'rampart', 'glasswing', 'needle'];
+    META.sigil = null; configurePlayer();
+    const plainLives = GAME.lives, plainDash = P.maxCharges;
+    META.sigil = 'rampart'; configurePlayer();
+    eq(GAME.lives, plainLives + 1, 'Rampart launches with one more life');
+    META.sigil = 'glasswing'; configurePlayer();
+    eq(GAME.lives, 1, 'Glasswing launches on one life');
+    META.refits.plating = 5; configurePlayer();
+    eq(GAME.lives, 1, 'Glasswing stays one life with plating V');
+    META.sigil = null; META.refits.plating = 0;
+    META.mastery.vesper = { xp: MASTERY_TIERS[1].xp };
+    configurePlayer();
+    eq(P.maxCharges, plainDash + 1, 'Mastery 2 adds a dash charge');
+    eq(P.charges, P.maxCharges, 'the charge is ready at launch');
+    GAME.mode = 'daily'; configurePlayer();
+    eq(P.maxCharges, plainDash + 1, 'Mastery 2 is a legacy award: it flies the Daily too');
+    GAME.mode = 'rush'; GAME.rush = true; META.sigil = 'rampart'; configurePlayer();
+    eq(P.maxCharges, plainDash, 'rush flies vanilla: no mastery dash');
+    eq(GAME.sigil, null, 'rush flies vanilla: no sigil');
+    eq(GAME.lives, plainLives, 'rush flies vanilla: no Rampart life');
+    GAME.mode = 'endless'; GAME.rush = false; META.mastery = {};
+    /* Needle: a bolt passes through the first hostile it kills, and only that one */
+    const shoot = (sigilId, hp) => {
+      clearAll(); GAME.wave = 1;
+      META.sigil = sigilId; configurePlayer();
+      P.weapon = 1; P.overT = 0; P.fireCd = 0; P.x = W / 2; P.y = 400;
+      const a = spawnFoe('drone', { x: W / 2, y: 300, state: 'hold', entered: true });
+      const b = spawnFoe('drone', { x: W / 2, y: 300, state: 'hold', entered: true });
+      a.hp = a.maxHp = hp; b.hp = b.maxHp = hp;
+      firePrimary();
+      for (const bolt of pb) { bolt.x = W / 2; bolt.y = 300; }
+      collide();
+      return { a: a.dead || a.dying, b: b.dead || b.dying, left: pb.length };
+    };
+    const plain = shoot(null, 1e-6);
+    ok(plain.a !== plain.b, 'a plain bolt stops in the first hostile');
+    const needle = shoot('needle', 1e-6);
+    ok(needle.a && needle.b, 'a Needle bolt kills through to the next hostile');
+    const tough = shoot('needle', 1e6);
+    ok(!tough.b && tough.left === 0, 'Needle only pierces on a kill');
+    clearAll();
+    Object.assign(GAME, sv);
   }));
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');

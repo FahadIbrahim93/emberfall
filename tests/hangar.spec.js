@@ -66,12 +66,50 @@ for (const size of SIZES) {
       expect(m.small, bay + ': targets under 44 px').toEqual([]);
       expect(m.launchIn, bay + ': Launch is on screen').toBe(true);
       expect(m.hOverflow, bay + ': no sideways scroll').toBeLessThanOrEqual(1);
+      /* the bay's own items start on the first screen, above the command bar */
+      const lead = await page.evaluate(b => {
+        document.getElementById('s-hangar').scrollTop = 0;
+        const first = [...document.querySelectorAll('#hgbay-' + b + ' button')].find(x => x.id !== 'btnArmsTry' && x.getBoundingClientRect().height > 0);
+        return { top: first.getBoundingClientRect().top, bar: document.querySelector('.hg-bar').getBoundingClientRect().top };
+      }, bay);
+      expect(lead.top, bay + ': items start above the fold').toBeLessThan(lead.bar - 40);
       /* scrolled to the bottom of the bay, Launch is still there */
       await page.evaluate(() => { const s = document.getElementById('s-hangar'); s.scrollTop = s.scrollHeight; });
       const inView = await page.evaluate(() => { const r = document.getElementById('btnBayLaunch').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + .5; });
       expect(inView, bay + ': Launch survives a full scroll').toBe(true);
       await page.evaluate(() => { document.getElementById('s-hangar').scrollTop = 0; });
     }
+    /* the refit tags flank the hull: none touches the sprite or the service
+       caption, each names its refit and level, and the tab dots carry no count */
+    await page.locator('#hgtab-ship').click();
+    await page.evaluate(() => { document.getElementById('s-hangar').scrollTop = 0; });
+    const dock = await page.evaluate(() => {
+      const c = document.getElementById('dockCanvas').getBoundingClientRect();
+      const d = document.querySelector('.hg-stage .dock').getBoundingClientRect();
+      const k = Math.min(c.width / 1120, c.height / 860), w = 1120 * k, h = 860 * k;
+      const x0 = c.left + (c.width - w) / 2, y0 = c.top + (c.height - h) / 2;
+      const keep = { l: x0 + w * .3, r: x0 + w * .7, t: y0 + h * .26, b: y0 + h * .84 };   /* hull, pad ring core, service caption */
+      const spots = [...document.querySelectorAll('#dockSpots .spot')].map(s => {
+        const q = s.getBoundingClientRect(), v = { l: q.left, r: q.right, t: q.top + 2, b: q.bottom - 2 };
+        return { text: s.textContent, hit: v.l < keep.r && keep.l < v.r && v.t < keep.b && keep.t < v.b, out: q.left < d.left - 1 || q.right > d.right + 1 || q.top < d.top - 1 || q.bottom > d.bottom + 1 };
+      });
+      const rs = [...document.querySelectorAll('#dockSpots .spot')].map(s => s.getBoundingClientRect());
+      let clash = 0;
+      for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+        const p = rs[i], q = rs[j];
+        if (p.left < q.right && q.left < p.right && p.top + 2 < q.bottom - 2 && q.top + 2 < p.bottom - 2) clash++;
+      }
+      const badges = [...document.querySelectorAll('.hg-tab .badge')].filter(b => !b.hidden).map(b => b.textContent);
+      return { spots, badges, clash };
+    });
+    expect(dock.spots.length).toBe(6);
+    expect(dock.clash, 'refit tags overlap each other').toBe(0);
+    for (const sp of dock.spots) {
+      expect(sp.hit, sp.text + ' sits on the hull or caption').toBe(false);
+      expect(sp.out, sp.text + ' spills off the dock').toBe(false);
+      expect(sp.text).toMatch(/^(Guns|Hull|Thrust|Dash|Pickup|Salvage)\d\/5$/);
+    }
+    for (const t of dock.badges) expect(t).not.toMatch(/\d/);
     /* hull stat bars render (they used to compute to 0 px) */
     await page.locator('#hgtab-ship').click();
     const bars = await page.evaluate(() => [...document.querySelectorAll('#hullList .bars i b')].slice(0, 8).map(b => b.getBoundingClientRect()));
@@ -167,6 +205,35 @@ test('Endless flies the fit and records it; the Daily flies standard issue', asy
   expect(errors).toEqual([]);
 });
 
+test('paid perks land on a real launch: Rampart, Glasswing, Mastery 2, Needle, rush', async ({ page }) => {
+  const errors = await boot(page);
+  const r = await page.evaluate(() => {
+    META.ship = 'vesper'; META.mastery = {}; META.sigils = ['', 'rampart', 'glasswing', 'needle'];
+    const launch = (mode, sigilId) => { META.sigil = sigilId; saveMeta(); startRun(mode); return { lives: GAME.lives, dash: P.maxCharges, rush: GAME.rush, sigil: GAME.sigil && GAME.sigil.id, needle: P.pierce }; };
+    const out = { plain: launch('endless', null), rampart: launch('endless', 'rampart'), glass: launch('endless', 'glasswing'), needle: launch('endless', 'needle') };
+    pb.length = 0; P.fireCd = 0; firePrimary();
+    out.needleBolts = pb.filter(b => b.kind === 'bolt').every(b => b.needle === 1);
+    META.mastery.vesper = { xp: MASTERY_TIERS[1].xp };
+    out.m2 = launch('endless', null);
+    out.m2Daily = launch('daily', null);
+    out.rush = launch('rush', 'rampart');
+    out.after = launch('endless', null);
+    GAME.state = 'title';
+    return out;
+  });
+  expect(r.rampart.lives).toBe(r.plain.lives + 1);
+  expect(r.glass.lives).toBe(1);
+  expect(r.needle.needle).toBe(1);
+  expect(r.needleBolts).toBe(true);
+  expect(r.m2.dash).toBe(r.plain.dash + 1);
+  expect(r.m2Daily.dash).toBe(r.plain.dash + 1);
+  expect(r.rush.rush).toBe(true);
+  expect(r.rush.sigil).toBe(null);
+  expect(r.rush.dash).toBe(r.plain.dash);
+  expect(r.after.rush).toBe(false);
+  expect(errors).toEqual([]);
+});
+
 test('a v4.29 save code imports whole and shows the Founder plate once', async ({ page }) => {
   const errors = await boot(page);
   const code = Buffer.from(JSON.stringify({
@@ -196,6 +263,31 @@ test('a v4.29 save code imports whole and shows the Founder plate once', async (
   await page.locator('#btnBayBack').click();
   await openHangar(page);
   await expect(page.locator('#hgBackup')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('tab dots mean news, clear once seen, and the hangar draws one ship', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => { DB.set('hangar.seen', {}); META.alloy = 0; saveMeta(); });
+  await openHangar(page);
+  const dots = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.hg-tab')].map(t => [t.id.slice(6), !t.querySelector('.badge').hidden])));
+  expect(Object.values(await dots()).some(Boolean)).toBe(false);   /* broke: nothing to announce */
+  await page.evaluate(() => { META.alloy = 1500; saveMeta(); renderHangar(); });
+  const rich = await dots();
+  expect(rich.systems).toBe(true);
+  await page.locator('#hgtab-systems').click();
+  expect((await dots()).systems).toBe(false);
+  await page.locator('#hgtab-ship').click();
+  expect((await dots()).systems).toBe(false);                       /* seen stays seen */
+  /* the title's self-flying hull stays off the hangar backdrop */
+  const calls = await page.evaluate(async () => {
+    let n = 0; const real = window.drawAttract;
+    window.drawAttract = function () { n++; return real.apply(this, arguments); };
+    await new Promise(r => setTimeout(r, 400));
+    window.drawAttract = real;
+    return n;
+  });
+  expect(calls).toBe(0);
   expect(errors).toEqual([]);
 });
 

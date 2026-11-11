@@ -1,6 +1,6 @@
 {
-  "total": 74,
-  "passed": 74,
+  "total": 75,
+  "passed": 75,
   "tests": [
     "esc encodes markup",
     "clamp / lerp / angDiff",
@@ -75,6 +75,7 @@
     "loadout code: board alphabet, 64 chars, decodes back",
     "reset erases gear, keeps cosmetics and honor",
     "export v4 carries the hangar; a v3 code still imports",
+    "paid perks take effect in flight: Rampart, Glasswing, Mastery 2, Needle, rush",
     "patch notes data and seen-marker"
   ]
 }

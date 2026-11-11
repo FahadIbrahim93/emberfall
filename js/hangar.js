@@ -489,7 +489,7 @@ function fireArmed(w, over, sg) {
   const sp = 1020 * (fx.speedMul || 1), life = fx.life || 2;
   for (const l of lanes) {
     pb.push({ x: P.x + l[0] * .9, y: P.y - 14, vx: Math.sin(l[1]) * sp, vy: -Math.cos(l[1]) * sp,
-      r: heavy ? 5.5 : 4, dmg: vol * l[2], kind: 'bolt', life, pierce: fx.pierce || 0 });
+      r: heavy ? 5.5 : 4, dmg: vol * l[2], kind: 'bolt', life, pierce: fx.pierce || 0, needle: P.pierce });
     GAME.shots++;
   }
   P.muzzleT = .055;
@@ -751,12 +751,23 @@ function hgBay(id, focus) {
     p.hidden = !on;
   }
   if (focus) $('hgtab-' + id).focus();
+  hgMarkSeen(id);
+  hgBadges();
   hgCompare(null);
 }
 function hgTabsWire() {
   const bar = $('hgTabs');
   if (!bar || bar.dataset.wired) return;
   bar.dataset.wired = '1';
+  /* phones: the flight sheet folds away so the bay's items lead */
+  const st = $('btnHgSheet');
+  if (st) st.onclick = () => {
+    const stage = st.closest('.hg-stage'), open = !stage.classList.contains('sheet-open');
+    stage.classList.toggle('sheet-open', open);
+    st.setAttribute('aria-expanded', open ? 'true' : 'false');
+    st.querySelector('span').textContent = open ? 'Hide' : 'Show';
+    AU.ui();
+  };
   for (const b of BAYS) {
     const t = $('hgtab-' + b.id);
     t.onclick = () => {
@@ -845,7 +856,7 @@ function hgCompare(label, mutate) {
     const a = now[k], b = next ? next[k] : a;
     const s = scale || top;
     const d = b - a;
-    const tone = Math.abs(d) < 1e-6 ? '' : (d > 0) === (k !== 'hitbox') ? ' up' : ' down';
+    const tone = Math.abs(d) < 1e-6 ? '' : (d > 0) === (k !== 'hitbox') ? ' inc' : ' dec';
     html += '<span>' + esc(name) + '</span><i><b style="width:' + Math.round(clamp(a / s, .04, 1) * 100) + '%"></b>' +
       (next ? '<u class="' + tone + '" style="width:' + Math.round(clamp(b / s, .04, 1) * 100) + '%"></u>' : '') + '</i>' +
       '<em class="' + tone + '">' + esc(f(b)) + (next && tone ? ' (' + (d > 0 ? '+' : '−') + esc(f(Math.abs(d)).replace(/^×/, '')) + ')' : '') + '</em>';
@@ -860,7 +871,7 @@ function hgCompare(label, mutate) {
   if (strip) {
     const bits = next ? HG_ROWS.filter(([k]) => Math.abs(next[k] - now[k]) > 1e-6).map(([k, name, f]) => {
       const up = (next[k] > now[k]) === (k !== 'hitbox');
-      return '<b class="' + (up ? 'up' : 'down') + '">' + esc(name + ' ' + f(next[k])) + '</b>';
+      return '<b class="' + (up ? 'inc' : 'dec') + '">' + esc(name + ' ' + f(next[k])) + '</b>';
     }) : [];
     strip.hidden = !bits.length;
     strip.innerHTML = bits.length ? esc(label) + ': ' + bits.join(' · ') : '';
@@ -932,24 +943,48 @@ function refitLine(id, lv) {
 function hgGoals() {
   const out = [];
   const h = hull(), cls = armsClass(h.id);
-  for (const r of REFITS) { const lv = refit(r.id); if (lv < r.max) out.push({ bay: 'ship', name: r.name + ' ' + (lv + 1), cost: r.cost(lv) }); }
-  for (const x of HULLS) if (!META.owned.includes(x.id)) out.push({ bay: 'ship', name: x.name, cost: x.cost });
-  for (const a of ARMORY) if (a.cost && a.hull === cls && !META.armsOwned.includes(a.id)) out.push({ bay: 'arms', name: a.name, cost: a.cost });
-  for (const m of MODULES) if (!META.modules.includes(m.id)) out.push({ bay: 'systems', name: m.name, cost: m.cost });
-  if (!META.slotB) out.push({ bay: 'systems', name: 'Second module slot', cost: SLOT_B_COST });
-  for (const p of PAINTS) if (!p.gift && !META.paints.includes(p.id)) out.push({ bay: 'style', name: p.name + ' paint', cost: p.cost });
+  for (const r of REFITS) { const lv = refit(r.id); if (lv < r.max) out.push({ bay: 'ship', key: 'refit.' + r.id + (lv + 1), name: r.name + ' ' + (lv + 1), cost: r.cost(lv) }); }
+  for (const x of HULLS) if (!META.owned.includes(x.id)) out.push({ bay: 'ship', key: 'hull.' + x.id, name: x.name, cost: x.cost });
+  for (const a of ARMORY) if (a.cost && a.hull === cls && !META.armsOwned.includes(a.id)) out.push({ bay: 'arms', key: 'arms.' + a.id, name: a.name, cost: a.cost });
+  for (const m of MODULES) if (!META.modules.includes(m.id)) out.push({ bay: 'systems', key: 'mod.' + m.id, name: m.name, cost: m.cost });
+  if (!META.slotB) out.push({ bay: 'systems', key: 'slotB', name: 'Second module slot', cost: SLOT_B_COST });
+  for (const p of PAINTS) if (!p.gift && !META.paints.includes(p.id)) out.push({ bay: 'style', key: 'paint.' + p.id, name: p.name + ' paint', cost: p.cost });
   return out;
+}
+/* A tab dot means news, not a count: something in that bay became
+   affordable since you last opened it, or a contract is ready to claim.
+   The "seen" list lives beside the save (device-local UI state). */
+function hgSeen() {
+  const v = DB.get('hangar.seen', null);
+  return v && typeof v === 'object' ? v : {};
+}
+function hgNews(bay, g) {
+  if (bay === 'yard') {
+    const c = contractsToday();
+    return c.list.some((x, i) => !c.claimed[i] && c.prog[i] >= x.target) ||
+      (!weeklyNow().claimed && weeklyNow().prog >= weeklyObjective().target);
+  }
+  const seen = hgSeen()[bay] || [];
+  return (g || hgGoals()).some(x => x.bay === bay && x.cost <= META.alloy && !seen.includes(x.key));
+}
+function hgMarkSeen(bay) {
+  if (bay === 'yard') return;
+  const all = hgSeen();
+  const now = hgGoals().filter(x => x.bay === bay && x.cost <= META.alloy).map(x => x.key);
+  const had = all[bay] || [];
+  if (now.every(k => had.includes(k))) return;
+  all[bay] = had.concat(now.filter(k => !had.includes(k))).slice(-200);
+  DB.set('hangar.seen', all);
 }
 function hgBadges() {
   const g = hgGoals();
   for (const b of BAYS) {
     const t = $('hgtab-' + b.id);
     if (!t) continue;
-    let n = g.filter(x => x.bay === b.id && x.cost <= META.alloy).length;
-    if (b.id === 'yard') { const c = contractsToday(); n = c.list.filter((x, i) => !c.claimed[i] && c.prog[i] >= x.target).length + (weeklyNow().claimed || weeklyNow().prog < weeklyObjective().target ? 0 : 1); }
+    const on = b.id !== META.lastBay && hgNews(b.id, g);
     const s = t.querySelector('.badge');
-    s.textContent = n ? String(n) : '';
-    s.hidden = !n;
+    s.textContent = on ? (b.id === 'yard' ? 'reward ready' : 'new') : '';
+    s.hidden = !on;
   }
   const goal = $('hgGoal');
   if (goal) {
@@ -967,7 +1002,6 @@ function renderBays() {
   renderArmory(); renderSystems(); renderStyle(); renderContracts();
   const lvl = masteryCosmeticLevel(META, META.ship);
   $('dockName').textContent = hull().name + (lvl >= 8 ? ' ACE' : '');
-  hgBadges();
   hgBay(META.lastBay || 'ship');
 }
 function hgItemRow(o) {

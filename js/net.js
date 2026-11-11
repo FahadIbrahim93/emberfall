@@ -676,18 +676,19 @@ function renderHangar() {
       twl.appendChild(d);
     }
   }
-  /* schematic hot-spots — refit locations pinned on the docked machine;
-     the pip number is the installed level, click jumps to the row */
+  /* refit tags — two columns flanking the docked hull (never on the
+     sprite or the service caption): what the refit does, and its level */
   const spots = $('dockSpots');
   if (spots) {
     spots.innerHTML = '';
-    const at = { plating: [50, 68], ordnance: [50, 20], thrusters: [50, 86], capacitor: [50, 44], magnet: [27, 54], fortune: [73, 54] };
+    const at = { ordnance: ['l y0', 'Guns'], plating: ['l y1', 'Hull'], thrusters: ['l y2', 'Thrust'],
+      capacitor: ['r y0', 'Dash'], magnet: ['r y1', 'Pickup'], fortune: ['r y2', 'Salvage'] };
     for (const r of REFITS) {
       const b = document.createElement('button');
-      b.className = 'spot';
-      b.style.left = at[r.id][0] + '%';
-      b.style.top = at[r.id][1] + '%';
-      b.textContent = String(refit(r.id));
+      b.className = 'spot ' + at[r.id][0];
+      const nm = document.createElement('small'), lv = document.createElement('b');
+      nm.textContent = at[r.id][1]; lv.textContent = refit(r.id) + '/' + r.max;
+      b.append(nm, lv);
       b.title = r.name + ' — level ' + refit(r.id) + ' of ' + r.max;
       b.setAttribute('aria-label', b.title);
       b.onclick = () => {
