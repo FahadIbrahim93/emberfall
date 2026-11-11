@@ -467,13 +467,12 @@ function renderSigils() {
       '<span class="sg-buy ' + (sel ? 'worn' : owned ? '' : 'no') + '">' +
       (sel ? 'worn' : owned ? 'wear' : fmt(g.cost) + '<br>alloy') + '</span>';
     b.onclick = () => {
-      AU.ui();
-      if (sel) return;
-      if (owned) { META.sigil = g.id || null; saveMeta(); renderHangar(); if (g.id) note(g.name + ' worn', 'good'); }
-      else if (META.alloy >= g.cost) {
-        META.alloy -= g.cost; META.sigils.push(g.id); META.sigil = g.id;
+      if (sel) { AU.ui(); return; }
+      if (owned) { AU.ui(); META.sigil = g.id || null; saveMeta(); renderHangar(); if (g.id) note(g.name + ' worn', 'good'); }
+      else hgOffer(b, 'sigil.' + g.id, g.name, g.cost, M => { M.sigils.push(g.id); M.sigil = g.id; if (M.loadout && M.loadout[M.ship]) M.loadout[M.ship].sigil = g.id; }, () => {
+        META.sigils.push(g.id); META.sigil = g.id;
         saveMeta(); renderHangar(); note(g.name + ' acquired — read its price twice', 'rare'); AU.unlock();
-      } else note('Need ' + fmt(g.cost - META.alloy) + ' more alloy', 'bad');
+      });
     };
     sgl.appendChild(b);
   }
@@ -651,14 +650,13 @@ function renderHangar() {
     lbl.textContent = owned ? (sel ? 'worn' : p.name) : (gifted ? p.giftDesc : fmt(p.cost));
     b.appendChild(lbl);
     b.onclick = () => {
-      AU.ui();
-      if (sel) return;
-      if (owned) { META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
-      else if (gifted) note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim');
-      else if (META.alloy >= p.cost) {
-        META.alloy -= p.cost; META.paints.push(p.id); META.paint = p.id;
+      if (sel) { AU.ui(); return; }
+      if (owned) { AU.ui(); META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
+      else if (gifted) { AU.ui(); note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim'); }
+      else hgOffer(b, 'paint.' + p.id, p.name + ' paint', p.cost, null, () => {
+        META.paints.push(p.id); META.paint = p.id;
         applyPaint(); hgBought(p.name + ' acquired', p.cost);
-      } else note('Need ' + fmt(p.cost - META.alloy) + ' more alloy', 'bad');
+      });
     };
     pl.appendChild(b);
   }
@@ -723,14 +721,11 @@ function renderHangar() {
     b.appendChild(d);
     if (!sel) hgHover(b, h.name, M => { if (!M.owned.includes(h.id)) M.owned.push(h.id); M.ship = h.id; });
     b.onclick = () => {
-      AU.ui();
-      if (owned) { hgShip(h.id); saveMeta(); renderHangar(); }
-      else if (META.alloy >= h.cost) {
-        META.alloy -= h.cost; META.owned.push(h.id); hgShip(h.id);
+      if (owned) { AU.ui(); hgShip(h.id); saveMeta(); renderHangar(); }
+      else hgOffer(b, 'hull.' + h.id, h.name, h.cost, M => { if (!M.owned.includes(h.id)) M.owned.push(h.id); M.ship = h.id; }, () => {
+        META.owned.push(h.id); hgShip(h.id);
         hgBought(h.name + ' acquired', h.cost);
-      } else {
-        note('Need ' + fmt(h.cost - META.alloy) + ' more alloy', 'bad');
-      }
+      });
     };
     hl.appendChild(b);
   }
@@ -751,12 +746,10 @@ function renderHangar() {
       '<span class="buy ' + (maxed ? 'max' : can ? '' : 'no') + '">' + (maxed ? 'Max' : fmt(price) + '<br>alloy') + '</span>';
     b.onclick = () => {
       if (maxed) return;
-      AU.ui();
-      if (META.alloy >= price) {
-        META.alloy -= price;
+      hgOffer(b, 'refit.' + r.id + (lv + 1), r.name + ' ' + (lv + 1), price, M => { M.refits[r.id] = lv + 1; }, () => {
         META.refits[r.id] = lv + 1;
         hgBought(r.name + ' → ' + (lv + 1), price, 'good');
-      } else note('Need ' + fmt(price - META.alloy) + ' more alloy', 'bad');
+      });
     };
     if (!maxed) hgHover(b, r.name + ' ' + (lv + 1), M => { M.refits[r.id] = lv + 1; });
     ul.appendChild(b);

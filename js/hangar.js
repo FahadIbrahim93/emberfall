@@ -740,6 +740,7 @@ function hgEl(tag, cls, text) {
 }
 function hgBay(id, focus) {
   if (!BAYS.some(b => b.id === id)) id = 'ship';
+  if (id !== META.lastBay) hgOfferClose();
   META.lastBay = id;
   for (const b of BAYS) {
     const t = $('hgtab-' + b.id), p = $('hgbay-' + b.id);
@@ -817,7 +818,7 @@ function hgSheet(mutate) {
     out = {
       hull: GAME.lives, speed: P.speed, single: guns.single * P.dmg, crowd: guns.crowd * P.dmg,
       dash: P.maxCharges, pulses: P.bombs, pickup: pickupRadius(), hitbox: P.r, score: P.scoreMul,
-      capped: (GAME.capped || []).slice(), fit: fitCode()
+      capped: (GAME.capped || []).slice(), fit: fitCode(), tier: P.weapon
     };
   } finally {
     if (mutate) hgRestore(META, JSON.parse(keepMeta));
@@ -912,6 +913,59 @@ function hgSpend(cost) {
   if (META.alloy < cost) { note('Need ' + fmt(cost - META.alloy) + ' more alloy', 'bad'); AU.ui(); return false; }
   META.alloy -= cost;
   return true;
+}
+/* No purchase lands on one tap. Tapping an unowned item opens an inline
+   offer under it: what changes on the flight sheet, the price, and a
+   "Buy · N alloy" button that completes it. Tapping the item again (or
+   Cancel) closes the offer; equipping what you own stays one tap. */
+const HG_OFFER = { key: '' };
+function hgDeltaText(mutate, hint) {
+  if (!mutate) return 'Cosmetic: no change to the flight sheet.';
+  const now = hgSheet(null), next = hgSheet(mutate);
+  const bits = HG_ROWS.filter(([k]) => Math.abs(next[k] - now[k]) > 1e-6)
+    .map(([k, name, f]) => name + ' ' + f(now[k]) + ' → ' + f(next[k]));
+  if (next.capped.length) bits.push('capped at today’s ceiling');
+  if (bits.length) return bits.join(' · ');
+  /* same numbers (patterns are normalised): say so, then say what does change */
+  const f1 = v => v.toFixed(1);
+  return 'Focus fire ' + f1(now.single) + ' and crowd fire ' + f1(now.crowd) + ' stay the same at ordnance tier ' + now.tier + '.' + (hint ? ' ' + hint : '');
+}
+function hgOfferClose() {
+  if (HG_OFFER.key && $('hgDelta')) $('hgDelta').hidden = true;
+  HG_OFFER.key = '';
+  for (const x of document.querySelectorAll('.hg-offer')) x.remove();
+  for (const x of document.querySelectorAll('.offering')) { x.classList.remove('offering'); x.removeAttribute('aria-expanded'); }
+}
+function hgOffer(anchor, key, name, cost, mutate, buy, hint) {
+  const again = HG_OFFER.key === key && document.querySelector('.hg-offer');
+  hgOfferClose();
+  AU.ui();
+  if (again || !anchor) return;
+  HG_OFFER.key = key;
+  anchor.classList.add('offering');
+  anchor.setAttribute('aria-expanded', 'true');
+  const box = hgEl('div', 'hg-offer');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', 'Buy ' + name);
+  box.appendChild(hgEl('p', 'hg-offer-h', name + ' · ' + fmt(cost) + ' alloy'));
+  const delta = hgDeltaText(mutate, hint);
+  box.appendChild(hgEl('p', 'hg-offer-d', delta));
+  const short = cost - META.alloy;
+  const go = hgEl('button', 'btn key hg-buy', short > 0 ? 'Need ' + fmt(short) + ' more alloy' : 'Buy · ' + fmt(cost) + ' alloy');
+  go.type = 'button';
+  go.disabled = short > 0;
+  go.onclick = () => { hgOfferClose(); if (!hgSpend(cost)) return; buy(); };
+  const no = hgEl('button', 'btn hg-cancel', 'Cancel');
+  no.type = 'button';
+  no.onclick = () => { hgOfferClose(); anchor.focus(); };
+  box.append(go, no);
+  anchor.after(box);
+  hgCompare(name, mutate);
+  /* phones: the same summary in the strip above the command bar */
+  const strip = $('hgDelta');
+  if (strip) { strip.textContent = name + ' · ' + fmt(cost) + ' alloy · ' + delta; strip.hidden = false; }
+  (go.disabled ? no : go).focus({ preventScroll: true });
+  box.scrollIntoView({ block: 'nearest', behavior: REDUCE ? 'auto' : 'smooth' });
 }
 function hgBackupShow() {
   const b = $('hgBackup');
@@ -1029,9 +1083,9 @@ function renderArmory() {
       name: p.name, perk: p.perk, weakness: p.weakness, tag: 'pattern',
       state: cur.pat === p.id ? 'worn' : owned(p) ? 'owned' : 'buy', price: p.cost,
       compare: cur.pat === p.id ? null : fit({ pat: p.id, mod: '' }),
-      onclick: () => {
+      onclick: e => {
         if (cur.pat === p.id) return;
-        if (!owned(p)) { if (!hgSpend(p.cost)) return; META.armsOwned.push(p.id); META.arms[h.id] = { pat: p.id, mod: '' }; hgBought(p.name + ' acquired', p.cost); return; }
+        if (!owned(p)) { hgOffer(e.currentTarget, 'arms.' + p.id, p.name, p.cost, fit({ pat: p.id, mod: '' }), () => { META.armsOwned.push(p.id); META.arms[h.id] = { pat: p.id, mod: '' }; hgBought(p.name + ' acquired', p.cost); }, p.perk); return; }
         AU.ui(); META.arms[h.id] = { pat: p.id, mod: '' }; saveMeta(); renderHangar();
       }
     }));
@@ -1040,10 +1094,10 @@ function renderArmory() {
         name: m.name, perk: m.perk, weakness: m.weakness, tag: p.name + ' mod',
         state: cur.mod === m.id ? 'worn' : !owned(p) ? 'locked' : owned(m) ? 'owned' : 'buy', price: m.cost, lockText: 'Needs ' + p.name,
         compare: cur.mod === m.id || !owned(p) ? null : fit({ pat: p.id, mod: m.id }),
-        onclick: () => {
+        onclick: e => {
           if (!owned(p)) { note('Own ' + p.name + ' first', 'dim'); return; }
           if (cur.mod === m.id) { AU.ui(); META.arms[h.id] = { pat: p.id, mod: '' }; saveMeta(); renderHangar(); return; }
-          if (!owned(m)) { if (!hgSpend(m.cost)) return; META.armsOwned.push(m.id); META.arms[h.id] = { pat: p.id, mod: m.id }; hgBought(m.name + ' acquired', m.cost); return; }
+          if (!owned(m)) { hgOffer(e.currentTarget, 'arms.' + m.id, m.name, m.cost, fit({ pat: p.id, mod: m.id }), () => { META.armsOwned.push(m.id); META.arms[h.id] = { pat: p.id, mod: m.id }; hgBought(m.name + ' acquired', m.cost); }, m.perk); return; }
           AU.ui(); META.arms[h.id] = { pat: p.id, mod: m.id }; saveMeta(); renderHangar();
         }
       });
@@ -1100,7 +1154,7 @@ function renderSystems() {
     d.innerHTML =
       '<b>' + (s === 'modA' ? 'Slot A' : 'Slot B') + '</b><span>' + esc(locked ? fmt(SLOT_B_COST) + ' alloy to open' : m ? m.name : 'Empty') + '</span>';
     d.onclick = () => {
-      if (locked) { if (!hgSpend(SLOT_B_COST)) return; META.slotB = true; hgBought('Second module slot opened', SLOT_B_COST); return; }
+      if (locked) { hgOffer(d, 'slotB', 'Second module slot', SLOT_B_COST, M => { M.slotB = true; }, () => { META.slotB = true; hgBought('Second module slot opened', SLOT_B_COST); }); return; }
       if (m) { AU.ui(); lo[s] = ''; saveMeta(); renderHangar(); }
     };
     slots.appendChild(d);
@@ -1114,9 +1168,9 @@ function renderSystems() {
       name: m.name, perk: m.perk, weakness: m.weakness, tag: 'module',
       state: worn ? 'worn' : own ? 'owned' : 'buy', price: m.cost,
       compare: worn ? null : M => { if (!M.modules.includes(m.id)) M.modules.push(m.id); M.loadout[h.id][target] = m.id; },
-      onclick: () => {
+      onclick: e => {
         if (worn) { AU.ui(); if (lo.modA === m.id) lo.modA = ''; if (lo.modB === m.id) lo.modB = ''; saveMeta(); renderHangar(); return; }
-        if (!own) { if (!hgSpend(m.cost)) return; META.modules.push(m.id); lo[target] = m.id; hgBought(m.name + ' acquired', m.cost); return; }
+        if (!own) { hgOffer(e.currentTarget, 'mod.' + m.id, m.name, m.cost, M => { if (!M.modules.includes(m.id)) M.modules.push(m.id); M.loadout[h.id][target] = m.id; }, () => { META.modules.push(m.id); lo[target] = m.id; hgBought(m.name + ' acquired', m.cost); }); return; }
         AU.ui(); lo[target] = m.id; saveMeta(); renderHangar();
       }
     }));
@@ -1176,10 +1230,10 @@ function renderFrames() {
         name: f.name, perk: f.perk, weakness: f.weakness,
         state: gated ? 'locked' : worn ? 'worn' : own ? 'owned' : 'buy', price: r.cost, lockText: 'Mastery ' + toRoman(r.mastery),
         compare: gated || worn ? null : M => { if (!M.framesOwned.includes(f.id)) M.framesOwned.push(f.id); M.frames[h.id]['r' + r.row] = v; },
-        onclick: () => {
+        onclick: e => {
           if (gated) { note('Reach ' + h.name + ' mastery ' + toRoman(r.mastery) + ' to open row ' + r.row, 'dim'); return; }
           if (worn) { AU.ui(); pick['r' + r.row] = ''; saveMeta(); renderHangar(); return; }
-          if (!own) { if (!hgSpend(r.cost)) return; META.framesOwned.push(f.id); pick['r' + r.row] = v; hgBought(f.name + ' fitted', r.cost); return; }
+          if (!own) { hgOffer(e.currentTarget, 'frame.' + f.id, f.name, r.cost, M => { if (!M.framesOwned.includes(f.id)) M.framesOwned.push(f.id); M.frames[h.id]['r' + r.row] = v; }, () => { META.framesOwned.push(f.id); pick['r' + r.row] = v; hgBought(f.name + ' fitted', r.cost); }); return; }
           AU.ui(); pick['r' + r.row] = v; saveMeta(); renderHangar();
         }
       }));
@@ -1260,7 +1314,7 @@ function renderContracts() {
   const sb = hgEl('button', 'up');
   sb.innerHTML = '<span><b>' + esc('This week’s plate · ' + fin.name) + '</b><p>A plate finish for the dock, sold this week only. Cosmetic.</p></span>' +
     '<span class="buy ' + (own ? 'max' : META.alloy >= WEEKLY_STOCK_COST ? '' : 'no') + '">' + (own ? 'Owned' : fmt(WEEKLY_STOCK_COST) + '<br>alloy') + '</span>';
-  sb.onclick = () => { if (own) return; if (!hgSpend(WEEKLY_STOCK_COST)) return; META.finishes.push(fin.id); META.plate = fin.id; hgBought(fin.name + ' plate acquired', WEEKLY_STOCK_COST); };
+  sb.onclick = () => { if (own) return; hgOffer(sb, 'plate.' + fin.id, fin.name + ' plate', WEEKLY_STOCK_COST, null, () => { META.finishes.push(fin.id); META.plate = fin.id; hgBought(fin.name + ' plate acquired', WEEKLY_STOCK_COST); }); };
   wb.appendChild(sb);
 }
 /* plate finishes outside the ladder, appended to the standing finish row */

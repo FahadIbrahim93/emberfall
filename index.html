@@ -447,9 +447,17 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .up .tag{font-style:normal;font-size:.5rem;letter-spacing:.16em;color:var(--violet);margin-left:6px;text-transform:uppercase}
 .up .cost-line{display:block;color:var(--dimmer)}
 .arms-grp{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
-.arms-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-bottom:12px}
-.arms-top canvas{width:100%;max-width:320px;height:auto;border:1px solid var(--line-soft);background:rgba(5,8,16,.6)}
-.arms-top .btn{min-height:44px;width:auto;text-align:center}
+.arms-top{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-bottom:12px}
+.arms-top canvas{display:block;width:100%;height:160px;object-fit:contain;border:1px solid var(--line-soft);background:rgba(5,8,16,.6)}
+.arms-top .btn{min-height:44px;width:100%;text-align:center}
+/* the purchase offer: opens under the tapped item, spends nothing until Buy */
+.hg-offer{grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;
+  border:1px solid var(--ember);background:rgba(255,138,43,.07);padding:10px 12px;margin:-2px 0 4px}
+.hg-offer-h{grid-column:1 / -1;font-size:.66rem;letter-spacing:.12em;color:var(--gold)}
+.hg-offer-d{grid-column:1 / -1;font-size:.62rem;line-height:1.5;color:var(--ink,#fff)}
+.hg-offer .btn{min-height:44px;width:100%;text-align:center}
+.hg-offer .hg-cancel{width:auto;padding-left:16px;padding-right:16px}
+.offering{border-color:var(--ember)}
 .slots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
 .slot{min-height:56px;border:1px dashed var(--line);padding:8px 10px;text-align:left;background:rgba(10,16,30,.5)}
 .slot b{display:block;font-size:.56rem;letter-spacing:.2em;color:var(--dim)}
@@ -514,17 +522,15 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
   .hg-stage .dock{max-width:none;margin-bottom:6px}
   .hg-stage .dock canvas{height:150px;object-fit:contain}
   .spot.y0{top:22px}.spot.y2{top:calc(100% - 22px)}
-  #dockSpots{inset:4px 4px 44px}
+  #dockSpots{inset:4px 4px 54px}   /* bottom tags clear the hull name by 10 px */
   .dock-caption{margin-top:2px}
   .hg-goal{margin-bottom:6px}
   .hg-sheet-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;margin-bottom:8px;text-align:left}
   .hg-sheet-toggle span{font-size:.56rem;letter-spacing:.16em;color:var(--dim)}
   .hg-stage:not(.sheet-open) .hg-compare{display:none}
-  .hg-delta{display:block}
-  .arms-top{grid-template-columns:minmax(0,1fr);align-items:stretch}
-  .arms-top{gap:8px;margin-bottom:10px}
-  .arms-top canvas{max-width:none;height:96px;object-fit:contain}
-  .arms-top .btn{width:100%}
+  .hg-delta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* one line; the offer holds the full text */
+  .arms-top{margin-bottom:10px}
+  .arms-top canvas{height:96px}
 }
 @media (max-height:520px) and (orientation:landscape){
   .hg-stage .dock{max-width:calc(46vh * 1120 / 860)}

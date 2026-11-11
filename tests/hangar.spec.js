@@ -100,10 +100,13 @@ for (const size of SIZES) {
         if (p.left < q.right && q.left < p.right && p.top + 2 < q.bottom - 2 && q.top + 2 < p.bottom - 2) clash++;
       }
       const badges = [...document.querySelectorAll('.hg-tab .badge')].filter(b => !b.hidden).map(b => b.textContent);
-      return { spots, badges, clash };
+      const nameTop = document.getElementById('dockName').getBoundingClientRect().top;
+      const gap = nameTop - Math.max(...rs.map(r => r.bottom - 2));   /* the visible tag is inset 2 px in its 44 px target */
+      return { spots, badges, clash, gap };
     });
     expect(dock.spots.length).toBe(6);
     expect(dock.clash, 'refit tags overlap each other').toBe(0);
+    expect(dock.gap, 'refit tags crowd the hull name').toBeGreaterThanOrEqual(8);
     for (const sp of dock.spots) {
       expect(sp.hit, sp.text + ' sits on the hull or caption').toBe(false);
       expect(sp.out, sp.text + ' spills off the dock').toBe(false);
@@ -124,22 +127,31 @@ test('buying in every bay spends alloy, fits the item and offers a backup', asyn
   await openHangar(page);
   await rich(page);
   const alloy = () => page.evaluate(() => META.alloy);
+  /* every purchase is two steps: the item opens an offer, Buy completes it */
+  const buy = async item => {
+    await item.click();
+    const go = page.locator('.hg-offer .hg-buy');
+    await expect(go).toBeVisible();
+    await expect(go).toHaveText(/^Buy · [\d,]+ alloy$/);
+    await go.click();
+    await expect(page.locator('.hg-offer')).toHaveCount(0);
+  };
   /* Ship: a refit, with the exact number in its copy */
   await page.locator('#hgtab-ship').click();
   const plating = page.locator('#upList .up').first();
   await expect(plating).toContainText('Now +0 hull');
   let a0 = await alloy();
-  await plating.click();
+  await buy(plating);
   expect(a0 - await alloy()).toBe(220);
   /* Systems: a module drops into slot A */
   await page.locator('#hgtab-systems').click();
   a0 = await alloy();
-  await page.locator('#modList .up.gear', { hasText: 'Vector trim' }).click();
+  await buy(page.locator('#modList .up.gear', { hasText: 'Vector trim' }));
   expect(a0 - await alloy()).toBe(1200);
   expect(await page.evaluate(() => META.loadout.vesper.modA)).toBe('trim');
   /* frames: row 1 opens at mastery I */
   a0 = await alloy();
-  await page.locator('#frameTree .up.gear', { hasText: 'Duelist trim' }).click();
+  await buy(page.locator('#frameTree .up.gear', { hasText: 'Duelist trim' }));
   expect(a0 - await alloy()).toBe(800);
   /* presets: save the fit to slot 1 */
   await page.locator('#presetList .preset').first().locator('.btn', { hasText: 'Save' }).click();
@@ -150,7 +162,7 @@ test('buying in every bay spends alloy, fits the item and offers a backup', asyn
   await rail.hover();
   await expect(page.locator('#hgCompare')).toContainText('Rail');
   a0 = await alloy();
-  await rail.click();
+  await buy(rail);
   expect(a0 - await alloy()).toBe(2000);
   expect(await page.evaluate(() => META.arms.vesper.pat)).toBe('rail');
   /* a purchase of 1,500+ offers a save-code backup, once a day */
@@ -161,12 +173,12 @@ test('buying in every bay spends alloy, fits the item and offers a backup', asyn
   /* Style: a paint */
   await page.locator('#hgtab-style').click();
   a0 = await alloy();
-  await page.locator('#paintList .paint.locked').first().click();
+  await buy(page.locator('#paintList .paint.locked').first());
   expect(a0).toBeGreaterThan(await alloy());
   /* Yard: this week's plate */
   await page.locator('#hgtab-yard').click();
   a0 = await alloy();
-  await page.locator('#weekBox .up', { hasText: 'sold this week only' }).click();
+  await buy(page.locator('#weekBox .up', { hasText: 'sold this week only' }));
   expect(a0 - await alloy()).toBe(2400);
   /* every purchase survives a reload */
   await page.reload({ waitUntil: 'networkidle' });
@@ -174,6 +186,56 @@ test('buying in every bay spends alloy, fits the item and offers a backup', asyn
   expect(kept).toEqual({ trim: true, rail: true, pat: 'rail', frame: true, plating: 1 });
   expect(errors).toEqual([]);
 });
+
+for (const size of SIZES) {
+  test('one tap never spends alloy on the ' + size.name + ': it opens an offer with the change and the price', async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, hasTouch: size.touch });
+    const page = await ctx.newPage();
+    const errors = await boot(page);
+    await openHangar(page);
+    await rich(page);
+    const tap = async loc => { if (size.touch) await loc.tap(); else await loc.click(); };
+    const items = [
+      ['ship', '#hullList .hull.locked'], ['ship', '#upList .up:not([disabled])'],
+      ['systems', '#sigilList .sigil.locked'], ['systems', '#modList .up.gear:not(.sel)'], ['systems', '#modList .slot.locked'],
+      ['systems', '#frameTree .up.gear:not(.locked):not(.sel)'],
+      ['arms', '#armsList .up.gear:not(.sel):not(.locked)'],
+      ['style', '#paintList .paint.locked'], ['yard', '#weekBox .up:has-text("sold this week only")']
+    ];
+    for (const [bay, sel] of items) {
+      await page.locator('#hgtab-' + bay).click();
+      const item = page.locator(sel).first();
+      if (!await item.count()) continue;
+      const before = await page.evaluate(() => JSON.stringify([META.alloy, META.owned, META.refits, META.sigils, META.modules, META.slotB, META.framesOwned, META.armsOwned, META.paints, META.finishes]));
+      await item.scrollIntoViewIfNeeded();
+      await tap(item);
+      const offer = page.locator('.hg-offer');
+      await expect(offer, sel + ' opens an offer').toBeVisible();
+      await expect(offer.locator('.hg-offer-h')).toContainText(/[\d,]+ alloy/);
+      await expect(offer.locator('.hg-offer-d')).not.toBeEmpty();
+      await expect(offer.locator('.hg-buy')).toHaveText(/^Buy · [\d,]+ alloy$/);
+      const after = await page.evaluate(() => JSON.stringify([META.alloy, META.owned, META.refits, META.sigils, META.modules, META.slotB, META.framesOwned, META.armsOwned, META.paints, META.finishes]));
+      expect(after, sel + ': a single tap changed the save').toBe(before);
+      await tap(item);   /* tapping the item again closes the offer, still free */
+      await expect(offer).toHaveCount(0);
+      expect(await page.evaluate(() => JSON.stringify([META.alloy, META.owned, META.refits, META.sigils, META.modules, META.slotB, META.framesOwned, META.armsOwned, META.paints, META.finishes]))).toBe(before);
+    }
+    /* the change summary reads on the item itself, and on phones in the strip above the bar */
+    await page.locator('#hgtab-arms').click();
+    const rail = page.locator('#armsList .up.gear', { hasText: 'Rail' }).first();
+    await tap(rail);
+    const d = page.locator('.hg-offer .hg-offer-d');
+    await expect(d).toBeVisible();
+    if (size.width <= 600) {
+      await expect(page.locator('#hgDelta')).toBeVisible();
+      await expect(page.locator('#hgDelta')).toContainText('Rail');
+    }
+    const box = await d.boundingBox();
+    expect(box.height).toBeGreaterThan(8);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+}
 
 test('Endless flies the fit and records it; the Daily flies standard issue', async ({ page }) => {
   const errors = await boot(page);
