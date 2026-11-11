@@ -26,6 +26,9 @@ async function openHangar(page) {
   /* the fade keeps the screen visibility:hidden for a beat; focusing a
      control before it lands is a no-op, so wait for the screen to show */
   await expect(page.locator('#s-hangar')).toBeVisible();
+  /* v4.30: donations, standing and the save tools live in the Yard bay */
+  await page.locator('#hgtab-yard').click();
+  await expect(page.locator('#hgbay-yard')).toBeVisible();
 }
 
 async function seedLedger(page, alloy, donated) {
@@ -81,9 +84,13 @@ test('confirming an ordinary donation returns focus to the rebuilt trigger', asy
   await expect(donate).toBeFocused();
   await expect(donate).toContainText('Donate to the yard');
 
-  /* Keyboard continuation: Tab leaves the restored trigger in DOM order. */
+  /* Keyboard continuation: Tab leaves the restored trigger in DOM order.
+     Since v4.30 the standing block sits between the honor box and Launch,
+     so its donate trigger is the next control. */
   await page.keyboard.press('Tab');
-  await expect(page.locator('#btnBayLaunch')).toBeFocused();
+  await expect(page.locator('#standingBox .up')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#finishList .paint').first()).toBeFocused();
 });
 
 test('the final donation falls back to a visible hangar control', async ({ page }) => {

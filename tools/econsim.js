@@ -6,8 +6,10 @@
    against real server telemetry (60 verified runs: kills/wave, score/kill,
    seconds/wave) and validated against the live pilot anchor — 95 runs,
    lifetime ≈ 58,484 alloy (bank 23,134 + spend 35,360) → ~616/run.
-   Run:  node tools/econsim.js            full report
-         node tools/econsim.js --json     machine-readable */
+   Run:  node tools/econsim.js               full report
+         node tools/econsim.js --json        machine-readable (CI)
+         node tools/econsim.js --write-doc   regenerate the shop totals
+                                             block in docs/economy-audit.md */
 'use strict';
 const fs = require('fs');
 let seed = 42;
@@ -16,27 +18,91 @@ const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
 /* ── extract constants from source (drift = loud failure) ── */
 const html = fs.readFileSync('index.html', 'utf8');
 const skySrc = fs.readFileSync('js/sky.js', 'utf8');
+const hangarSrc = fs.readFileSync('js/hangar.js', 'utf8');   /* v4.30 armory, modules, doctrines, contracts */
 const must = (re, what, src) => { const m = (src || html).match(re); if (!m) throw new Error('constant drifted: ' + what); return m; };
 
-/* hull costs, release order: vesper(0), halcyon, atlas, wraith, seraph */
-const hullCosts = [...html.matchAll(/cost: (\d+),\s*\n\s*desc/g)].map(m => +m[1]);
-if (hullCosts.length !== 5) throw new Error('expected 5 hull costs, got ' + hullCosts.length);
+/* ── shop catalogs: one descriptor per table ───────────────────────────
+   Adding shop content means adding rows to the game, not editing this
+   file. Each catalog is parsed structurally, a row floor catches
+   truncation, and the generated totals block in docs/economy-audit.md is
+   compared against this extraction on every run — a real price change is
+   a deliberate `--write-doc`, never a silent drift. No magic counts. */
+const section = (head, tail, src) => {
+  src = src || html;
+  const a = src.indexOf(head);
+  if (a < 0) throw new Error('catalog drifted: missing "' + head + '"');
+  const b = src.indexOf(tail, a);
+  if (b < 0) throw new Error('catalog drifted: unterminated "' + head + '"');
+  return src.slice(a + head.length, b);
+};
 
-/* v4.1 paint shop: cosmetic sinks extracted from source — tracked so the
-   simulation reports total outstanding sink including personalization */
-const paintCosts = [...html.matchAll(/hull: '#[0-9a-f]+', lit: '#[0-9a-f]+', cost: (\d+)/g)].map(m => +m[1]);
-if (paintCosts.length !== 10) throw new Error('expected 10 paint costs, got ' + paintCosts.length);
-/* yard starter + the two streak laurels are the only zero-cost paints —
-   if that changes, the "laurels are earned, not bought" contract changed */
-if (paintCosts.filter(c => c === 0).length !== 3) throw new Error('expected exactly 3 free paints (yard + 2 laurels), got ' + paintCosts.filter(c => c === 0).length);
+const CATALOGS = [
+  { key: 'hulls', label: 'Hulls', head: 'const HULLS = [', tail: '\n];', min: 5,
+    row: /\{\s*id: '([\w-]+)', name: '[^']+', cls: '[^']+', cost: (\d+),/g,
+    take: m => ({ id: m[1], cost: +m[2] }) },
+  { key: 'refits', label: 'Refits', head: 'const REFITS = [', tail: '\n];', min: 6,
+    row: /\{\s*id: '([\w-]+)', name: '[^']+', max: (\d+), cost: l => (\d+) \+ l \* (\d+),/g,
+    take: m => ({ id: m[1], max: +m[2], a: +m[3], b: +m[4] }) },
+  { key: 'paints', label: 'Paints', head: 'const PAINTS = [', tail: '\n];', min: 10,
+    row: /\{ id: '([\w-]+)',\s*name: '[^']+',\s*hull: '#[0-9a-f]+',\s*lit: '#[0-9a-f]+',\s*cost: (\d+)([^}\n]*)\}/g,
+    take: m => ({ id: m[1], cost: +m[2], gift: (m[3].match(/gift: '([\w-]+)'/) || [])[1] || null }) },
+  { key: 'sigils', label: 'Sigils', head: 'const SIGILS = [', tail: '\n];', min: 5,
+    row: /\{\s*id: '([\w-]+)', name: '[^']+', tier: '\w+', cost: (\d+),/g,
+    take: m => ({ id: m[1], cost: +m[2] }) },
+  { key: 'donations', label: 'Yard donations', head: 'const DONATIONS = [', tail: '\n];', min: 3,
+    row: /\{ at: (\d+),\s*name: '(\w+)',/g,
+    take: m => ({ at: +m[1], name: m[2] }) },
+  { key: 'standing', label: 'Yard standing', head: 'const STANDING = [', tail: '\n];', min: 3,
+    row: /\{ rank: (\d+),\s*name: '([^']+)' \}/g,
+    take: m => ({ rank: +m[1], name: m[2] }) },
+  /* v4.30 hangar (js/hangar.js) */
+  { key: 'armory', label: 'Armory', head: 'const ARMORY = [', tail: '\n];', min: 16, src: hangarSrc,
+    row: /\{ id: '([\w-]+)', code: '\w+', kind: '(pattern|mod)', hull: '(\w+)', parent: '\w*', name: '[^']+', cost: (\d+),/g,
+    take: m => ({ id: m[1], kind: m[2], hull: m[3], cost: +m[4] }) },
+  { key: 'modules', label: 'Modules', head: 'const MODULES = [', tail: '\n];', min: 6, src: hangarSrc,
+    row: /\{ id: '([\w-]+)', name: '[^']+', cost: (\d+),/g,
+    take: m => ({ id: m[1], cost: +m[2] }) },
+  { key: 'frameRows', label: 'Frame rows', head: 'const FRAME_ROWS = [', tail: '];', min: 3, src: hangarSrc,
+    row: /\{ row: (\d+), mastery: (\d+), cost: (\d+) \}/g,
+    take: m => ({ row: +m[1], mastery: +m[2], cost: +m[3] }) }
+];
 
-/* v4.2 sigil bay: one worn sigil, power priced in weakness — alloy sinks
-   extracted from source like every other (anchored on the tier field) */
-const sigilCosts = [...html.matchAll(/tier: '\w+', cost: (\d+),/g)].map(m => +m[1]);
-if (sigilCosts.length !== 5) throw new Error('expected 5 sigil costs, got ' + sigilCosts.length);
+function readCatalog(c) {
+  const rows = [...section(c.head, c.tail, c.src).matchAll(c.row)].map(c.take);
+  if (rows.length < c.min) throw new Error(c.label + ': ' + rows.length + ' rows (floor ' + c.min + ') — catalog missing or truncated');
+  const seen = new Set();
+  for (const r of rows) {
+    if (r.id) { if (seen.has(r.id)) throw new Error(c.label + ': duplicate id "' + r.id + '"'); seen.add(r.id); }
+    if (r.cost != null && !(Number.isInteger(r.cost) && r.cost >= 0)) throw new Error(c.label + ' ' + r.id + ': bad cost ' + r.cost);
+    if (r.max != null && !(Number.isInteger(r.max) && r.max > 0)) throw new Error(c.label + ' ' + r.id + ': bad level count');
+  }
+  return rows;
+}
+const catalogs = Object.fromEntries(CATALOGS.map(c => [c.key, readCatalog(c)]));
 
-/* v4.5 yard donations: the audit's prestige sink (§5.1) — extracted so the
-   honor ladder stays in the model like every other sink */
+/* Zero-cost paints are earned, never sold: the yard starter is free for
+   everyone, every other free paint must name the gift that earns it, and a
+   gifted paint may not also carry a price. */
+for (const p of catalogs.paints) {
+  if (p.cost === 0 && p.id !== 'yard' && !p.gift) throw new Error('paint "' + p.id + '" is free but names no gift');
+  if (p.gift && p.cost !== 0) throw new Error('gift paint "' + p.id + '" must cost 0');
+}
+
+const hullCosts = catalogs.hulls.map(h => h.cost);
+const refitTables = catalogs.refits.map(({ id, max, a, b }) => ({ id, max, a, b }));
+const paintCosts = catalogs.paints.map(p => p.cost);
+const sigilCosts = catalogs.sigils.map(s => s.cost);
+const donationTiers = catalogs.donations;
+if (donationTiers[0].name !== 'Patron') throw new Error('donation ladder must start at Patron, got ' + donationTiers[0].name);
+if (!donationTiers.every((t, i) => i === 0 || t.at > donationTiers[i - 1].at))
+  throw new Error('donation thresholds must climb');
+
+/* v4.30 yard standing continues the ladder past the donation ceiling */
+const standingRanks = catalogs.standing;
+const standingStep = +must(/const STANDING_STEP = (\d+);/, 'standing step')[1];
+if (!(standingStep > 0)) throw new Error('standing step must be positive');
+if (!standingRanks.every((r, i) => r.rank === i + 1)) throw new Error('standing ranks must run 1..n');
+
 /* v4.8 daily gauntlet medals: a tested faucet, paid once per tier per UTC
    day (server-ledgered). Full house = 830/day; the deck also keeps six
    rolling snapshots, so the watermark survives vault restores. */
@@ -49,18 +115,84 @@ if (!wfallBlock) throw new Error('constant drifted: Wardenfall medal row');
 const DAILY_WARDENFALL = +wfallBlock[3];
 if (!(DAILY_WARDENFALL > DAILY_SUNDAY_GUARD)) throw new Error('Wardenfall must pay above the Solar Guard');
 const DAILY_MEDAL_TOTAL = DAILY_MEDAL_ALLOY.reduce((a, c) => a + c, 0);
-const donBlock = html.match(/const DONATIONS = \[([\s\S]*?)\n\];/);
-if (!donBlock) throw new Error('constant drifted: DONATIONS table');
-const donationTiers = [...donBlock[1].matchAll(/at: (\d+),\s*name: '(\w+)'/g)].map(m => ({ at: +m[1], name: m[2] }));
-if (donationTiers.length !== 3 || donationTiers[0].name !== 'Patron')
-  throw new Error('expected 3 donation tiers led by Patron, got ' + donationTiers.length);
 
-/* refit ladders: cost: l => A + l * B, five levels each */
-const refitTables = [...html.matchAll(/id: '(\w+)', name: '[^']+', max: 5, cost: l => (\d+) \+ l \* (\d+)/g)]
-  .map(m => ({ id: m[1], a: +m[2], b: +m[3] }));
-if (refitTables.length !== 6) throw new Error('expected 6 refits, got ' + refitTables.length);
-const refitTotal = id => { const t = refitTables.find(r => r.id === id); let s = 0; for (let l = 0; l < 5; l++) s += t.a + l * t.b; return s; };
+/* v4.30 contracts: three a day plus a full-board bonus, scaled by tier
+   T = floor(best wave / 5) capped at 6. The faucet must stay under 2,000. */
+const CONTRACT_REWARD = must(/const CONTRACT_REWARD = \[(\d+), (\d+), (\d+)\];/, 'contract rewards', hangarSrc).slice(1).map(Number);
+const CONTRACT_BONUS = +must(/const CONTRACT_BONUS = (\d+);/, 'contract bonus', hangarSrc)[1];
+const WEEKLY_ALLOY = +must(/const WEEKLY_ALLOY = (\d+);/, 'weekly alloy', hangarSrc)[1];
+const contractDay = T => CONTRACT_REWARD.reduce((a, r) => a + Math.round(r * (1 + .5 * T)), 0) + Math.round(CONTRACT_BONUS * (1 + .5 * T));
+const CONTRACT_MAX = contractDay(6);
+if (CONTRACT_MAX > 2000) throw new Error('contracts pay ' + CONTRACT_MAX + '/day at tier 6 — the cap is 2,000');
+const SLOT_B_COST = +must(/const SLOT_B_COST = (\d+);/, 'slot B cost', hangarSrc)[1];
+const WEEKLY_STOCK_COST = +must(/const WEEKLY_STOCK_COST = (\d+);/, 'weekly stock cost', hangarSrc)[1];
+const FRAME_HULLS = new Set([...hangarSrc.matchAll(/\{ id: '(\w+)\.[123][ab]', name:/g)].map(m => m[1]));
+if (FRAME_HULLS.size !== catalogs.hulls.length) throw new Error('every hull needs a doctrine tree (' + FRAME_HULLS.size + ' of ' + catalogs.hulls.length + ')');
+
+/* refit ladders: cost: l => A + l * B over `max` levels */
+const refitTotal = id => { const t = refitTables.find(r => r.id === id); let s = 0; for (let l = 0; l < t.max; l++) s += t.a + l * t.b; return s; };
 const refitGrand = refitTables.reduce((s, r) => s + refitTotal(r.id), 0);
+
+/* ── shop totals + the audit block that must agree with them ─────────── */
+const fmtN = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const sum = a => a.reduce((x, y) => x + y, 0);
+const shopTotals = {
+  hulls: { count: catalogs.hulls.length, total: sum(hullCosts) },
+  refits: { ladders: refitTables.length, levels: sum(refitTables.map(r => r.max)), total: refitGrand },
+  paints: { paid: catalogs.paints.filter(p => p.cost > 0).length, earned: catalogs.paints.filter(p => p.cost === 0).length, total: sum(paintCosts) },
+  sigils: { count: sigilCosts.length, total: sum(sigilCosts) },
+  donations: { tiers: donationTiers.length, ceiling: donationTiers[donationTiers.length - 1].at },
+  standing: { ranks: standingRanks.length, step: standingStep, ladder: standingRanks.length * standingStep }
+};
+shopTotals.personalization = {
+  count: shopTotals.paints.paid + shopTotals.sigils.count,
+  total: shopTotals.paints.total + shopTotals.sigils.total
+};
+shopTotals.armory = { count: catalogs.armory.filter(a => a.cost > 0).length, total: sum(catalogs.armory.map(a => a.cost)) };
+shopTotals.modules = { count: catalogs.modules.length, total: sum(catalogs.modules.map(m => m.cost)) + SLOT_B_COST };
+shopTotals.frames = { hulls: FRAME_HULLS.size, path: sum(catalogs.frameRows.map(r => r.cost)), total: FRAME_HULLS.size * 2 * sum(catalogs.frameRows.map(r => r.cost)) };
+shopTotals.oneTime = {
+  purchases: shopTotals.hulls.count + shopTotals.refits.ladders + shopTotals.paints.paid + shopTotals.sigils.count,
+  total: shopTotals.hulls.total + shopTotals.refits.total + shopTotals.paints.total + shopTotals.sigils.total
+};
+
+const DOC = 'docs/economy-audit.md';
+const DOC_START = '<!-- shop-totals:start';
+const DOC_END = '<!-- shop-totals:end -->';
+function shopTotalsBlock() {
+  const s = shopTotals;
+  return [
+    DOC_START + ' (generated by tools/econsim.js --write-doc; do not hand-edit) -->',
+    '| Catalog | Bought | Alloy |',
+    '|---|---|---|',
+    '| Hulls | ' + s.hulls.count + ' | ' + fmtN(s.hulls.total) + ' |',
+    '| Refits | ' + s.refits.ladders + ' ladders × ' + (s.refits.levels / s.refits.ladders) + ' levels | ' + fmtN(s.refits.total) + ' |',
+    '| Paints | ' + s.paints.paid + ' paid · ' + s.paints.earned + ' earned | ' + fmtN(s.paints.total) + ' |',
+    '| Sigils | ' + s.sigils.count + ' | ' + fmtN(s.sigils.total) + ' |',
+    '| Yard standing | ' + s.standing.ranks + ' ranks × ' + fmtN(s.standing.step) + ' | ' + fmtN(s.standing.ladder) + ' |',
+    '| Paints + sigils (v4.1–v4.2) | ' + s.personalization.count + ' | ' + fmtN(s.personalization.total) + ' |',
+    '| **One-time shelf** | **' + s.oneTime.purchases + ' purchases** | **' + fmtN(s.oneTime.total) + '** |',
+    '| Armory (v4.30) | ' + s.armory.count + ' patterns, mods and lenses | ' + fmtN(s.armory.total) + ' |',
+    '| Modules + slot B (v4.30) | ' + s.modules.count + ' + 1 slot | ' + fmtN(s.modules.total) + ' |',
+    '| Frame doctrines (v4.30) | ' + s.frames.hulls + ' hulls × 6 (one path ' + fmtN(s.frames.path) + ') | ' + fmtN(s.frames.total) + ' |',
+    '| Weekly plate stock | 1 per week | ' + fmtN(WEEKLY_STOCK_COST) + ' each |',
+    '| Contracts (faucet) | 3 a day + board bonus · weekly ' + fmtN(WEEKLY_ALLOY) + ' | ' + fmtN(contractDay(0)) + '–' + fmtN(CONTRACT_MAX) + ' per day |',
+    '| Yard donations | ' + s.donations.tiers + ' tiers | ' + fmtN(s.donations.ceiling) + ' cumulative |',
+    DOC_END
+  ].join('\n');
+}
+/* --write-doc rewrites the block; every other run refuses to proceed on a
+   mismatch, so the audit can no longer describe an older shop than the
+   one that shipped. */
+function syncDocs(write) {
+  const doc = fs.readFileSync(DOC, 'utf8');
+  const a = doc.indexOf(DOC_START);
+  const b = doc.indexOf(DOC_END, a < 0 ? 0 : a);
+  if (a < 0 || b < 0) throw new Error('economy audit is missing the ' + DOC_START + ' … ' + DOC_END + ' block');
+  const next = doc.slice(0, a) + shopTotalsBlock() + doc.slice(b + DOC_END.length);
+  if (write) { if (next !== doc) fs.writeFileSync(DOC, next); return; }
+  if (next !== doc) throw new Error('docs/economy-audit.md shop totals are stale — run: node tools/econsim.js --write-doc');
+}
 
 /* run-end formula: earned = (alloyRun + score/DIV + wave*WAVE_MULT) * (1 + fortune*.05) */
 const fm = must(/bonusMul = 1 \+ refit\('fortune'\) \* \.05;\s*\n\s*const earned = Math\.round\(\(GAME\.alloyRun \+ GAME\.score \/ (\d+) \+ GAME\.wave \* (\d+)\) \* bonusMul\)/, 'run-end formula');
@@ -190,13 +322,13 @@ function career(profile) {
   let bank = 0, careerComets = 0, run = 0;
   const costs = hullCosts.filter(c => c > 0);
   const owned = new Set();
-  const refitLeft = new Map(refitTables.map(r => [r.id, 5]));
+  const refitLeft = new Map(refitTables.map(r => [r.id, r.max]));
   const nextCost = () => {
     let best = null;
     for (const c of costs) if (!owned.has(c) && (best === null || c < best)) best = c;
     for (const r of refitTables) {
       if (refitLeft.get(r.id) > 0) {
-        const c = r.a + (5 - refitLeft.get(r.id)) * r.b;
+        const c = r.a + (r.max - refitLeft.get(r.id)) * r.b;
         if (best === null || c < best) best = c;
       }
     }
@@ -218,7 +350,7 @@ function career(profile) {
       bank -= cost;
       if (costs.includes(cost) && !owned.has(cost)) owned.add(cost);
       else for (const rt of refitTables) {
-        if (refitLeft.get(rt.id) > 0 && rt.a + (5 - refitLeft.get(rt.id)) * rt.b === cost) { refitLeft.set(rt.id, refitLeft.get(rt.id) - 1); break; }
+        if (refitLeft.get(rt.id) > 0 && rt.a + (rt.max - refitLeft.get(rt.id)) * rt.b === cost) { refitLeft.set(rt.id, refitLeft.get(rt.id) - 1); break; }
       }
     }
     if (!marks.firstHull && owned.size >= 1) marks.firstHull = run;
@@ -231,15 +363,19 @@ function career(profile) {
 function median(arr) { const s = arr.slice().sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; }
 
 function main() {
+  syncDocs(process.argv.includes('--write-doc'));
   const out = {
     extracted: { hullCosts, refitGrand, SCORE_DIV, WAVE_MULT, DROP_P, COMET_GAP_S, GOLD_P, KILLS_MODEL: '1.66*w^1.09', SECONDS_PER_WAVE },
+    shop: shopTotals,
     anchor: anchorCheck(),
     incomeCurve: incomeCurve(3000),
     milestones: null,
-    spend: { hulls: hullCosts.reduce((a, c) => a + c, 0), refits: refitGrand, grandTotal: hullCosts.reduce((a, c) => a + c, 0) + refitGrand,
-      paints: paintCosts.reduce((a, c) => a + c, 0), sigils: sigilCosts.reduce((a, c) => a + c, 0),
-      donationsCeiling: donationTiers[donationTiers.length - 1].at,
-      allIn: hullCosts.reduce((a, c) => a + c, 0) + refitGrand + paintCosts.reduce((a, c) => a + c, 0) + sigilCosts.reduce((a, c) => a + c, 0) }
+    spend: {
+      hulls: shopTotals.hulls.total, refits: shopTotals.refits.total,
+      grandTotal: shopTotals.hulls.total + shopTotals.refits.total,
+      paints: shopTotals.paints.total, sigils: shopTotals.sigils.total,
+      donationsCeiling: shopTotals.donations.ceiling, allIn: shopTotals.oneTime.total
+    }
   };
   const seeds = [];
   for (let s = 0; s < 21; s++) {
@@ -274,6 +410,13 @@ function main() {
   console.log('  all hulls owned: run ~' + out.milestones.seraphOwned);
   console.log('  full completion: run ~' + out.milestones.fullCompletion);
   console.log('  grand total to own everything: ' + out.spend.grandTotal + ' (hulls ' + out.spend.hulls + ' + refits ' + out.spend.refits + ')');
+
+  console.log('\nShop shelf (extracted; docs/economy-audit.md totals regenerate from it):');
+  console.log('  ' + fmtN(out.shop.oneTime.total) + ' for ' + out.shop.oneTime.purchases + ' purchases — hulls ' +
+    fmtN(out.shop.hulls.total) + ' · refits ' + fmtN(out.shop.refits.total) + ' · paints ' +
+    fmtN(out.shop.paints.total) + ' (' + out.shop.paints.paid + ' paid, ' + out.shop.paints.earned + ' earned) · sigils ' +
+    fmtN(out.shop.sigils.total) + ' · donations ceiling ' + fmtN(out.shop.donations.ceiling) +
+    ' · standing ' + out.shop.standing.ranks + ' ranks × ' + fmtN(out.shop.standing.step) + ' = ' + fmtN(out.shop.standing.ladder));
 
   console.log('\nDaily gauntlet faucet (v4.8, server-ledgered, once per tier per day):');
   console.log('  weekday full house: ' + DAILY_MEDAL_TOTAL + '/day · Sunday with the honor guard: ' +

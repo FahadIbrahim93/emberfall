@@ -64,8 +64,11 @@ footer a{color:var(--ember);text-decoration:none}
 <script>
 'use strict';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night']);
+const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night', 'oxblood', 'midnight']);
 const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
+/* v4.30 loadout code (stats.fit), echoed by the boards once the owner applies
+   20261112000000_standings_fit.sql. Same alphabet the server allowlists. */
+const fitText = f => typeof f === 'string' && /^[a-z0-9:|.,_-]{1,64}$/.test(f) ? (/^[a-z]:std/.test(f) ? 'standard issue' : 'fit ' + esc(f)) : '';
 const fmt = fmtScore;
 const BOARD_LABEL = { alltime: 'All-time', daily: 'Daily', school: 'School' };
 const params = new URLSearchParams(location.search);
@@ -91,7 +94,7 @@ function paintModes(rows) {
     '<div class="row" data-source="' + esc(row.source || '') + '"><span class="mode">' + esc(row.mode) + '</span>' +
     '<span class="score">' + esc(fmtScore(row.score)) + '</span>' +
     '<span>W' + esc(row.wave) + ' · ' + esc(row.ship || '—') +
-    (paintText(row.paint) ? ' · ' + paintText(row.paint) : '') + '</span>' +
+    (paintText(row.paint) ? ' · ' + paintText(row.paint) : '') + (fitText(row.fit) ? ' · ' + fitText(row.fit) : '') + '</span>' +
     '<span class="rank">' + (row.rank ? '#' + esc(row.rank) : '') + '</span></div>').join('');
 }
 function rowsFromDossier(card) {
@@ -102,6 +105,7 @@ function rowsFromDossier(card) {
     wave: row.wave == null ? '—' : row.wave,
     ship: row.ship,
     paint: row.paint,
+    fit: row.fit,
     rank: row.place
   }));
 }

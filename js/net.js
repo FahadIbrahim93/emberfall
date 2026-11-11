@@ -135,7 +135,8 @@ const NET = {
       return '<div class="row' + (mine ? ' me' : '') + (i < 3 ? ' top' : '') + '">' +
         '<span class="rk">' + place + '</span>' +
         '<span class="nm">' + avIcon(r2.user_id) + '<a href="' + esc(pilotUrl(r2.callsign)) + '">' + esc(r2.callsign) + '</a>' +
-        (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') + '</span>' +
+        (h ? '<span class="hl">' + esc(h.name) + '</span>' : '') +
+        (typeof r2.fit === 'string' ? fitChip(r2.fit) : '') + '</span>' +   /* loadout code (Phase 7 RPC echo) */
         '<span class="sc">' + fmtScore(r2.score) + '</span>' +
         '<span class="wv" title="' + esc(origin || 'Wave') + '">' + (origin ? esc(origin) + ' · ' : '') + 'W' + wave + '</span></div>';
     };
@@ -275,7 +276,9 @@ function avatarUrl(id) {
 
 function renderBoard(el, mode, highlight, _remote, myPaint) {
   const honor = honorOf(META.donated || 0);
-  const star = honor && honor.at >= 25000 ? '<span style="color:var(--gold)">✦ </span>' : '';
+  const st = standingOf(META.donated || 0);
+  const star = (honor && honor.at >= 25000 ? '<span style="color:var(--gold)">✦ </span>' : '') +
+    (st ? '<span style="color:var(--gold)">◆' + toRoman(st) + ' </span>' : '');
   const list = loadBoard(mode);
   if (!list.length) {
     el.innerHTML = '<div class="empty">No runs recorded yet.<br>The first one is yours.</div>';
@@ -288,7 +291,7 @@ function renderBoard(el, mode, highlight, _remote, myPaint) {
     const mine = r.d === highlight || r.n === (DB.get('callsign', '') || '').toUpperCase();
     return '<div class="row' + (mine ? ' me' : '') + '">' +
       '<span class="rk">' + pad2(i + 1) + '</span>' +
-      '<span class="nm">' + dot + (mine ? star : '') + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + '</span>' +
+      '<span class="nm">' + dot + (mine ? star : '') + esc(r.n).slice(0, 12) + (h ? ' · ' + esc(h.name) : '') + (r.f ? fitChip(r.f) : '') + '</span>' +
       '<span class="sc">' + padN(r.s, 7) + '</span>' +
       '<span class="wv">W' + pad2(r.w || 1) + '</span></div>';
   }).join('');
@@ -464,13 +467,12 @@ function renderSigils() {
       '<span class="sg-buy ' + (sel ? 'worn' : owned ? '' : 'no') + '">' +
       (sel ? 'worn' : owned ? 'wear' : fmt(g.cost) + '<br>alloy') + '</span>';
     b.onclick = () => {
-      AU.ui();
-      if (sel) return;
-      if (owned) { META.sigil = g.id || null; saveMeta(); renderHangar(); if (g.id) note(g.name + ' worn', 'good'); }
-      else if (META.alloy >= g.cost) {
-        META.alloy -= g.cost; META.sigils.push(g.id); META.sigil = g.id;
+      if (sel) { AU.ui(); return; }
+      if (owned) { AU.ui(); META.sigil = g.id || null; saveMeta(); renderHangar(); if (g.id) note(g.name + ' worn', 'good'); }
+      else hgOffer(b, 'sigil.' + g.id, g.name, g.cost, M => { M.sigils.push(g.id); M.sigil = g.id; if (M.loadout && M.loadout[M.ship]) M.loadout[M.ship].sigil = g.id; }, () => {
+        META.sigils.push(g.id); META.sigil = g.id;
         saveMeta(); renderHangar(); note(g.name + ' acquired — read its price twice', 'rare'); AU.unlock();
-      } else note('Need ' + fmt(g.cost - META.alloy) + ' more alloy', 'bad');
+      });
     };
     sgl.appendChild(b);
   }
@@ -548,11 +550,86 @@ function renderMastery() {
     msl.appendChild(d);
   }
 }
+/* yard standing — derived from the honor ledger, so nothing new persists
+   but the chosen plate finish. Every 25,000 past the ceiling is one rank;
+   each rank pays plate metal, never hull paint (the wardrobe's colorblind
+   floor is a tested invariant). */
+function renderStanding() {
+  const box = $('standingBox');
+  if (!box) return;
+  box.innerHTML = '';
+  const st = standingOf(META.donated || 0);
+  const ceil = HONOR_CEILING;
+  const nextAt = standingNextAt(st);
+  const need = Math.max(0, nextAt - META.donated);
+  const floor = st === 0 ? ceil : ceil + st * STANDING_STEP;
+  const frac = clamp((META.donated - floor) / STANDING_STEP, 0, 1);
+  const label = st >= STANDING.length ? 'the next star' : 'rank ' + toRoman(st + 1);
+  const nextFinish = PLATE_FINISHES.find(f => f.at === st + 1);
+  const row = document.createElement('div');
+  row.className = 'ms' + (st >= STANDING.length ? ' maxed' : '');
+  row.innerHTML = '<b>' + esc('Yard standing') + '</b>' +
+    '<span class="ms-l">' + esc(st ? '◆ ' + toRoman(st) : '—') + '</span>' +
+    '<span class="ms-bar"><i style="width:' + Math.round(frac * 100) + '%"></i></span>' +
+    '<span class="ms-sub">' + esc(st ? standingTitle(st) : 'No standing yet') +
+    ' · ' + fmt(META.donated) + ' donated' +
+    (nextFinish ? ' · next plate finish: ' + esc(nextFinish.name) : '') +
+    ' · ' + fmt(need) + ' to ' + esc(label) + '</span>';
+  box.appendChild(row);
+  const b = document.createElement('button');
+  b.className = 'up';
+  b.dataset.askReturn = 'standing';
+  b.innerHTML = '<span><b>Donate for standing</b><p>Every ' + fmt(STANDING_STEP) +
+    ' alloy past the ceiling is one rank. Honor is permanent; the alloy is not.</p></span>' +
+    '<span class="buy ' + (META.alloy >= need ? '' : 'no') + '">' + fmt(need) + '<br>to ' + esc(label) + '</span>';
+  b.onclick = () => {
+    AU.ui();
+    if (META.alloy < need) { note('Need ' + fmt(need - META.alloy) + ' more alloy', 'bad'); return; }
+    askConfirm('Donate ' + fmt(need) + ' alloy for yard standing? Honor is permanent; the alloy is not.', 'Donate', () => {
+      const before = st;
+      META.alloy -= need;
+      META.donated += need;
+      const now = standingOf(META.donated);
+      const fin = PLATE_FINISHES.find(f => f.at === now);
+      if (fin) META.plate = fin.id;          /* a new rank arrives already worn */
+      saveMeta();
+      renderHangar();
+      note(now > before ? 'Yard standing ' + toRoman(now) + ' — ' + standingTitle(now) : 'The yard thanks you', 'rare');
+      AU.unlock();
+    });
+  };
+  box.appendChild(b);
+  /* plate finishes — earned at even rungs, worn on the dock only */
+  const fl = document.createElement('div');
+  fl.className = 'paints';
+  fl.id = 'finishList';
+  for (const f of PLATE_FINISHES) {
+    const owned = st >= f.at, sel = (META.plate || 'steel') === f.id;
+    const btn = document.createElement('button');
+    btn.className = 'paint' + (sel ? ' sel' : '') + (owned ? '' : ' locked');
+    const sw = document.createElement('i');
+    sw.style.background = 'radial-gradient(circle at 34% 30%, ' + f.lit + ', ' + f.hull + ' 62%, rgba(0,0,0,.55))';
+    btn.appendChild(sw);
+    const lbl = document.createElement('b');
+    lbl.textContent = owned ? (sel ? 'worn' : f.name) : 'rank ' + toRoman(f.at);
+    btn.appendChild(lbl);
+    btn.onclick = () => {
+      AU.ui();
+      if (!owned) { note('Reach yard standing ' + toRoman(f.at) + ' to unlock ' + f.name, 'dim'); return; }
+      if (sel) return;
+      META.plate = f.id; saveMeta(); renderHangar();
+    };
+    fl.appendChild(btn);
+  }
+  extraFinishButtons(fl);
+  box.appendChild(fl);
+}
 function renderHangar() {
   setText('alloyN', fmt(META.alloy));
   renderSigils();
   renderMastery();
   renderDonations();
+  renderStanding();
   /* v4.1 paint shop — buy, equip, fly in it. High contrast keeps its white. */
   const pl = $('paintList');
   const hc = PAL.name === 'High contrast';
@@ -573,14 +650,13 @@ function renderHangar() {
     lbl.textContent = owned ? (sel ? 'worn' : p.name) : (gifted ? p.giftDesc : fmt(p.cost));
     b.appendChild(lbl);
     b.onclick = () => {
-      AU.ui();
-      if (sel) return;
-      if (owned) { META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
-      else if (gifted) note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim');
-      else if (META.alloy >= p.cost) {
-        META.alloy -= p.cost; META.paints.push(p.id); META.paint = p.id;
-        saveMeta(); applyPaint(); renderHangar(); note(p.name + ' acquired', 'rare'); AU.unlock();
-      } else note('Need ' + fmt(p.cost - META.alloy) + ' more alloy', 'bad');
+      if (sel) { AU.ui(); return; }
+      if (owned) { AU.ui(); META.paint = p.id; saveMeta(); applyPaint(); renderHangar(); }
+      else if (gifted) { AU.ui(); note('Fly the Daily ' + (p.gift === 'streak14' ? '14' : '30') + ' days in a row to earn it', 'dim'); }
+      else hgOffer(b, 'paint.' + p.id, p.name + ' paint', p.cost, null, () => {
+        META.paints.push(p.id); META.paint = p.id;
+        applyPaint(); hgBought(p.name + ' acquired', p.cost);
+      });
     };
     pl.appendChild(b);
   }
@@ -598,18 +674,19 @@ function renderHangar() {
       twl.appendChild(d);
     }
   }
-  /* schematic hot-spots — refit locations pinned on the docked machine;
-     the pip number is the installed level, click jumps to the row */
+  /* refit tags — two columns flanking the docked hull (never on the
+     sprite or the service caption): what the refit does, and its level */
   const spots = $('dockSpots');
   if (spots) {
     spots.innerHTML = '';
-    const at = { plating: [50, 68], ordnance: [50, 20], thrusters: [50, 86], capacitor: [50, 44], magnet: [27, 54], fortune: [73, 54] };
+    const at = { ordnance: ['l y0', 'Guns'], plating: ['l y1', 'Hull'], thrusters: ['l y2', 'Thrust'],
+      capacitor: ['r y0', 'Dash'], magnet: ['r y1', 'Pickup'], fortune: ['r y2', 'Salvage'] };
     for (const r of REFITS) {
       const b = document.createElement('button');
-      b.className = 'spot';
-      b.style.left = at[r.id][0] + '%';
-      b.style.top = at[r.id][1] + '%';
-      b.textContent = String(refit(r.id));
+      b.className = 'spot ' + at[r.id][0];
+      const nm = document.createElement('small'), lv = document.createElement('b');
+      nm.textContent = at[r.id][1]; lv.textContent = refit(r.id) + '/' + r.max;
+      b.append(nm, lv);
       b.title = r.name + ' — level ' + refit(r.id) + ' of ' + r.max;
       b.setAttribute('aria-label', b.title);
       b.onclick = () => {
@@ -642,16 +719,13 @@ function renderHangar() {
         ? '<span class="cost' + (sel ? '' : ' no') + '">' + (sel ? 'Selected' : 'Tap to fly') + '</span>'
         : '<span class="cost' + (META.alloy >= h.cost ? '' : ' no') + '">' + fmt(h.cost) + ' alloy</span>');
     b.appendChild(d);
+    if (!sel) hgHover(b, h.name, M => { if (!M.owned.includes(h.id)) M.owned.push(h.id); M.ship = h.id; });
     b.onclick = () => {
-      AU.ui();
-      if (owned) { META.ship = h.id; saveMeta(); renderHangar(); }
-      else if (META.alloy >= h.cost) {
-        META.alloy -= h.cost; META.owned.push(h.id); META.ship = h.id;
-        saveMeta(); renderHangar();
-        note(h.name + ' acquired', 'rare'); AU.unlock();
-      } else {
-        note('Need ' + fmt(h.cost - META.alloy) + ' more alloy', 'bad');
-      }
+      if (owned) { AU.ui(); hgShip(h.id); saveMeta(); renderHangar(); }
+      else hgOffer(b, 'hull.' + h.id, h.name, h.cost, M => { if (!M.owned.includes(h.id)) M.owned.push(h.id); M.ship = h.id; }, () => {
+        META.owned.push(h.id); hgShip(h.id);
+        hgBought(h.name + ' acquired', h.cost);
+      });
     };
     hl.appendChild(b);
   }
@@ -668,20 +742,19 @@ function renderHangar() {
     let dots = '';
     for (let i = 0; i < r.max; i++) dots += '<i class="' + (i < lv ? 'on' : '') + '"></i>';
     b.innerHTML =
-      '<span><b>' + esc(r.name) + '</b><p>' + esc(r.desc) + '</p><span class="dots">' + dots + '</span></span>' +
+      '<span><b>' + esc(r.name) + '</b><p>' + esc(r.desc) + ' ' + esc(refitLine(r.id, lv)) + '</p><span class="dots">' + dots + '</span></span>' +
       '<span class="buy ' + (maxed ? 'max' : can ? '' : 'no') + '">' + (maxed ? 'Max' : fmt(price) + '<br>alloy') + '</span>';
     b.onclick = () => {
       if (maxed) return;
-      AU.ui();
-      if (META.alloy >= price) {
-        META.alloy -= price;
+      hgOffer(b, 'refit.' + r.id + (lv + 1), r.name + ' ' + (lv + 1), price, M => { M.refits[r.id] = lv + 1; }, () => {
         META.refits[r.id] = lv + 1;
-        saveMeta(); renderHangar();
-        note(r.name + ' → ' + (lv + 1), 'good'); AU.pickup();
-      } else note('Need ' + fmt(price - META.alloy) + ' more alloy', 'bad');
+        hgBought(r.name + ' → ' + (lv + 1), price, 'good');
+      });
     };
+    if (!maxed) hgHover(b, r.name + ' ' + (lv + 1), M => { M.refits[r.id] = lv + 1; });
     ul.appendChild(b);
   }
+  renderBays();
 }
 
 /* ─────────────────── screen flow ─────────────────── */
