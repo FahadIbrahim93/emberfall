@@ -372,7 +372,7 @@ owner" line is unconfirmed; this design is the reference.
 ## 6. Process notes
 * AGENTS.md/PLAYBOOK: builders only take `ready` + `agent:<lane>` issues in the **current gate**. This overhaul is
   new scope, so it is listed as "Track H: Hangar overhaul" in `docs/expansion/IMPLEMENTATION_BACKLOG.md`.
-* Builder: Engineering (a Cursor cloud agent) builds every phase; the builder lanes do not claim Track H issues. The
+* Builder: Engineering builds every phase; the builder lanes do not claim Track H issues. The
   Phase 7 SQL is an additive migration file, and **it is applied to the live project only after Fahad approves**.
 * Every PR runs the full AGENTS.md rule 4 battery, with a version + SW cache bump, a CHANGELOG entry, a NOTES entry, the
   selftest baseline updated (new `T()` count), a fun-curve row via `tools/fun-scoreboard.mjs` (README/press-kit markers
