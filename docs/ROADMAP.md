@@ -27,6 +27,7 @@ Ordered by priority, not by release date. Every item ships the usual way: gated 
 
 ## Done recently
 
+- Hangar overhaul, v4.30.0 (#100–#107, PR #109): five bays, armory, modules and presets, frame doctrines, contracts, mastery cosmetics, loadout codes on the boards
 - Supabase accounts and global and daily boards (#25)
 - Retired `tools/db-sync.mjs`, the hourly Mirror stats workflow and the old mirror project (#25)
 - Copy rewrite in a plainer voice (#24)

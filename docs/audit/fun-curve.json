@@ -6,6 +6,25 @@
   ],
   "points": [
     {
+      "version": "4.30.0",
+      "date": "2026-11-11",
+      "codename": "The Hangar",
+      "loop": {
+        "wave": 2,
+        "kills": 25,
+        "grazes": 5,
+        "combo": 13,
+        "mult": 3,
+        "medianFps": 47
+      },
+      "first60": {
+        "medianFps": 45,
+        "firstPlayingMs": 653,
+        "firstKillMs": 653,
+        "fbSeen": 5
+      }
+    },
+    {
       "version": "4.29.0",
       "date": "2026-10-23",
       "codename": "Pilot Card",
