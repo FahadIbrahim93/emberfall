@@ -4,6 +4,11 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Modal focus trap — v4.29.8
+- Modal screens become focusable the instant they open: `.screen` no longer holds `visibility` behind its fade. A hidden dialog refuses `focus()` silently, so the synchronous Resume focus did nothing and the first Tab presses landed on `<body>` behind the pause panel. The confirm carried its own workaround; every surface now shares the immediate-visibility rule, and closing still keeps the delayed hide so the fade-out stays visible.
+- `trapTab()` can no longer hand focus outside its dialog: if focus is missing before the press, or a focus attempt does not land inside, the default stays prevented and focus parks on the dialog itself.
+- Regression coverage: the pause case asserts containment after **every** Tab and Shift+Tab press instead of only after the loop, and that the dialog holds focus the moment it opens. Cache generation `emberfall-v4.64`.
+
 ### Gate 2 standings — v4.29.7
 - Add additive `standings_page` and `pilot_dossier` RPCs: watermark-frozen cursor pages, exact bigint scores as text, `source_mode` for the run that set each best, and competition ranks `1,1,3`. Indexes cover the best-run walk. `deck_stats` exposes `top_score_exact`.
 - Point `stats.html`, `pilot.html` and the Global tab at those contracts. Retired `seasons` / `pilot_cards` / `board_standings` requests are gone. Until the owner applies the migration, clients keep reading `leaderboard_global` / `leaderboard_daily` without labelling folded Daily rows Endless.

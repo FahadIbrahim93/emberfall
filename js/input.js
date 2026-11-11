@@ -135,12 +135,27 @@ function onKeyDown(e) {
 function onKeyUp(e) { INPUT.keys[e.code] = false; }
 
 function trapTab(e, root) {
+  if (!root) return;
   const f = Array.from(root.querySelectorAll('button,input,[tabindex]:not([tabindex="-1"])'))
     .filter(el => el.offsetParent !== null && !el.disabled);
-  if (!f.length) return;
+  const inside = () => !!document.activeElement && root.contains(document.activeElement);
+  /* Focus is only ever placed inside the dialog. focus() on a panel that is
+     still hidden is a silent no-op, which used to leave focus on <body> and
+     let it walk the page behind the modal; if the target refuses focus, the
+     dialog itself takes it (made focusable on demand). */
+  const park = el => {
+    e.preventDefault();
+    try { el.focus({ preventScroll: true }); } catch (err) { }
+    if (inside()) return;
+    if (!root.hasAttribute('tabindex')) root.setAttribute('tabindex', '-1');
+    try { root.focus({ preventScroll: true }); } catch (err) { }
+  };
+  if (!f.length) return park(root);
   const i = f.indexOf(document.activeElement);
-  if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
-  else if (!e.shiftKey && (i === f.length - 1 || i === -1)) { e.preventDefault(); f[0].focus(); }
+  if (e.shiftKey && i <= 0) return park(f[f.length - 1]);
+  if (!e.shiftKey && (i === f.length - 1 || i === -1)) return park(f[0]);
+  /* focus escaped some other way (body, a stale node): bring it back */
+  if (!inside()) return park(e.shiftKey ? f[f.length - 1] : f[0]);
 }
 
 /* ── pointer (mouse) ── */

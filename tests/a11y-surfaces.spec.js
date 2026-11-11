@@ -45,10 +45,22 @@ test('pause traps Tab focus (pinned contract)', async ({ page }) => {
   await expect(page.locator('#hud')).toBeVisible();
   await page.keyboard.press('KeyP');
   await expect(page.locator('#s-pause')).toHaveClass(/on/);
-  for (let i = 0; i < 25; i++) await page.keyboard.press('Tab');
-  const inside = await page.evaluate(() =>
-    document.activeElement && document.getElementById('s-pause').contains(document.activeElement));
-  expect(inside, 'focus stays inside the pause dialog after 25 Tabs').toBe(true);
+  const inside = () => page.evaluate(() =>
+    !!document.activeElement && document.getElementById('s-pause').contains(document.activeElement));
+  /* the panel must be focusable the instant it opens: its visibility used to
+     wait for the fade, so the synchronous Resume focus was a silent no-op and
+     the trap had nothing to hold on to */
+  expect(await inside(), 'pause takes focus as soon as it opens').toBe(true);
+  /* assert after every press, not only at the end: the escape happened on
+     the first presses, while the dialog was still transitioning in */
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press('Tab');
+    expect(await inside(), 'focus stays inside the pause dialog after Tab #' + (i + 1)).toBe(true);
+  }
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press('Shift+Tab');
+    expect(await inside(), 'focus stays inside the pause dialog after Shift+Tab #' + (i + 1)).toBe(true);
+  }
 });
 
 test('settings switches are keyboard-operable toggles with real state', async ({ page }) => {

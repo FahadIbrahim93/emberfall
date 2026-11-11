@@ -195,10 +195,12 @@ body.noscan #scan,body.nograin #grain{display:none}
 .screen{position:fixed;inset:0;z-index:8;display:grid;opacity:0;visibility:hidden;
   transition:opacity .32s ease,visibility .32s;background:rgba(3,5,11,.5);
   overflow-y:auto;overscroll-behavior:contain}
-.screen.on{opacity:1;visibility:visible}
-/* the confirm must be focusable as soon as it opens (Cancel is focused
-   synchronously); the opacity fade still runs, only visibility is immediate */
-#s-ask.on{transition:opacity .32s ease,visibility 0s}
+/* visibility flips with the class, not after the fade: a hidden dialog
+   refuses focus() silently, so every modal opens unfocusable and its Tab
+   trap leaks to <body> (the confirm hit this first — Cancel is focused
+   synchronously). Opacity still fades in; the base rule keeps the delayed
+   hide on close, so the fade-out stays visible. */
+.screen.on{opacity:1;visibility:visible;transition:opacity .32s ease,visibility 0s}
 .panel{background:var(--glass);border:1px solid var(--line-soft);backdrop-filter:blur(10px);
   clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px)}
 .eyebrow{font-size:.6rem;letter-spacing:.38em;color:var(--ember);margin-bottom:14px}
@@ -1146,7 +1148,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.7</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.29.8</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1394,7 +1396,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.7 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.29.8 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7406,6 +7408,12 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.29.8',
+    items: [
+      'Modal screens take keyboard focus the moment they open — pause, settings and game-over alike — so Tab can no longer slip behind the panel during the fade.'
+    ]
+  },
+  {
     v: '4.29.7',
     items: [
       'Worldwide standings now page with a frozen watermark, keep exact scores past JavaScript integers, and name the mode of the run that set each All-time best.'
@@ -9087,7 +9095,7 @@ function runSelfTests() {
   });
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.7', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.29.8', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
