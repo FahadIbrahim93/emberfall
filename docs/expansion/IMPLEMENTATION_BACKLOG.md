@@ -65,6 +65,21 @@ Gate 1 is active. [#73](https://github.com/FahadIbrahim93/emberfall/issues/73) /
 
 Retain EXP-001/006 ID/schema validation, EXP-007/008 classic-script seams/timelines, EXP-010–013 Heliox readability/three stages, EXP-017 sharing after prerequisites. EXP-003/015/018 use the corrected Daily/replay contracts. EXP-004 uses privacy rules below. EXP-005/019/020 require observed human/device evidence. Defer EXP-009/014 six-plane work until the existing-hull slice passes. No mandatory three-mission deck or six-plane dependency.
 
+## Track H — Hangar overhaul
+
+Owner-approved 2026-11-11 as a separate track alongside the gates. Epic [#100](https://github.com/FahadIbrahim93/emberfall/issues/100); design `docs/design/hangar-overhaul.md`. Track H is built by Engineering, not by the builder lanes: Freebuff, OpenBot and Hermes must not claim these issues. PR #97's standing ladder is carried into the overhaul as its first commits, and #97 is closed as superseded once that lands. Rules for every phase: new power items are sidegrades within today's power ceiling; weapon mods, modules and frames are stripped on Daily, rush, school and the range; `WEAPONS`/`HULLS`/`BEAM` tables are not edited; every new save key is allowlisted and a v3 export loads unchanged; saves stay device-local (cloud careers remain Gate 2). This track supersedes the later layers of `docs/specs/alloy-armory.md`.
+
+| Phase | Issue | Scope | Depends on | Migration | Status |
+|---|---|---|---|---|---|
+| 0 | [PR #97](https://github.com/FahadIbrahim93/emberfall/pull/97) | Yard standing ladder, carried into the overhaul as its first commits | — | no | Superseded on landing |
+| 1 | [#101](https://github.com/FahadIbrahim93/emberfall/issues/101) | Five-bay hangar shell, stat compare, purchase moment, backup reminder, save schema v2 | 0 | no | Next |
+| 2 | [#102](https://github.com/FahadIbrahim93/emberfall/issues/102) | Armory: weapon patterns and mods | 1 | no | Waiting |
+| 3 | [#103](https://github.com/FahadIbrahim93/emberfall/issues/103) | Contracts board and weekly order | 1 | no | Waiting |
+| 4 | [#104](https://github.com/FahadIbrahim93/emberfall/issues/104) | Loadout: modules, slot B, presets | 2 | no | Waiting |
+| 5 | [#105](https://github.com/FahadIbrahim93/emberfall/issues/105) | Per-hull frame doctrines | 4 | no | Waiting |
+| 6 | [#106](https://github.com/FahadIbrahim93/emberfall/issues/106) | Mastery M6–M10 cosmetics, Founder's plate | 1 | no | Waiting |
+| 7 | [#107](https://github.com/FahadIbrahim93/emberfall/issues/107) | Loadout shown on boards (`stats.fit`) | 2, 4, 5 | yes, additive; applied only after owner approval | Waiting |
+
 ## Cross-cutting acceptance and operations
 
 - No unexplained type errors or unresolved critical/high defect. Preserve coverage while moving onto production code. Malicious callsigns/URLs/imports/replays/oversized data fail safely. Deliberately break critical invariants in disposable runs and observe failure.

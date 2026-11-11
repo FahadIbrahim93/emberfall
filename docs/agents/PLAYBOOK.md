@@ -22,7 +22,7 @@ Source of truth for *rules*: `AGENTS.md`. This file is *how* to work.
 Codex pre-labels issues with the lane's `agent:*` label when it writes them. Builders take only issues carrying their own label (plus `ready`). Gate 3 must merge before Gate 4, 5 and 7 build work starts.
 
 ## Work order
-1. Only work the **current gate** (the backlog says which is active). Never start a later gate early.
+1. Only work the **current gate** (the backlog says which is active). Never start a later gate early. Track H (the hangar overhaul) is built by Engineering, not by the builder lanes; do not claim its issues.
 2. Inside a gate, take the **lowest-numbered open issue** with labels `ready` and your own `agent:<you>`.
 3. No suitable issue? Stop. Don't invent work; comment "no ready issue" to Fahad instead.
 
