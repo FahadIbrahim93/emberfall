@@ -2,8 +2,11 @@
 
 Status: **approved** 2026-11-10 by the owner — all five layers, modules follow the
 sigil precedent, standing survives "Reset progress", the weekly contract is capped at
-700 alloy. **Layer 1 (standing) is built** and ships in v4.30.0 (cache
-`emberfall-v4.64`); it closes #48 on merge. Layers 2–5 are approved and unimplemented.
+700 alloy. **Layer 1 (standing) is built** and ships as game v4.29.9 (cache
+`emberfall-v4.65`); it closes #48 on merge. Layers 2–5 are re-homed in the hangar
+overhaul (game v4.30.0, cache `emberfall-v4.66`): modules ship as specified, the weekly
+contract is the Yard bay's weekly order (700 alloy), bundles become per-hull presets,
+and boss trials are deferred. See Revision 3.
 
 Supersedes nothing. Extends the hangar described in `docs/economy-audit.md` §6 and
 replaces the open item in §5.1.
@@ -357,3 +360,11 @@ every later cosmetic reward onto the same finish channel for the G5 guard (weekl
 stock and trial first-clears were previously specified as hull paints, which the ΔE
 floor forbids), added the consolidated price and guard tables, and replaced the stale
 notes about audit totals with the generated-block procedure.
+
+**Revision 3 — 2026-11-11, hangar overhaul.** Layer 1 shipped as v4.29.9 when PR #97 was
+rebased onto main (the v4.30.0 label above it in Revision 2 predates the rebase). The
+owner folded the remaining layers into the hangar overhaul (#100): modules and the
+second slot ship in the Systems bay; the weekly contract is the Yard bay's weekly order
+and its stock is a plate finish (the finish channel, per the G5 guard); bundles are
+superseded by three presets per hull; boss trials are deferred. Gear flies on Endless
+and Tour only and is clamped to the legacy ceiling there.

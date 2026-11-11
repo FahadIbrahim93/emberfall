@@ -1260,7 +1260,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.29.9</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.30.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1557,7 +1557,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.29.9 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.30.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7671,6 +7671,15 @@ bindSegment('segSky', 'sky', () => { });
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.30.0',
+    items: [
+      'The hangar is now five bays around your ship: Ship, Systems, Arms, Style and Yard. Launch stays on screen in every bay, and the flight sheet shows exactly what you will fly before you buy.',
+      'The armory: Rail, Scatter and Seeker join Spread, each with two mods, and Seraph gets three lenses. Patterns change the shape of your fire, not its power. Try any of them in the range first.',
+      'Modules, a second slot, frame doctrines that open with hull mastery, and three saved presets per hull. Loadouts fly on Endless and Tour; the Daily stays standard issue for everyone.',
+      'Daily contracts and a weekly yard order in the Yard bay, mastery cosmetics from M6 to M10, and a gold Founder plate for every pilot who flew before this update. Your save carries over intact.'
+    ]
+  },
+  {
     v: '4.29.9',
     items: [
       'The honor ladder keeps climbing: ten yard standing ranks past Yardmaster, then a star for every further 25,000 alloy. Standing is read from what you already donated, so nothing extra is stored and nothing it pays touches a ship\'s power.',
@@ -9619,7 +9628,7 @@ function runSelfTests() {
   }));
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.29.9', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.30.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

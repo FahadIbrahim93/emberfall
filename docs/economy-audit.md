@@ -191,6 +191,12 @@ shipped.
 | Yard donations | 3 tiers | 100,000 cumulative |
 <!-- shop-totals:end -->
 
+The v4.30 hangar rows (armory, modules, doctrines, weekly stock) are new sinks for a
+late career; none of them adds power above the legacy ceiling on Endless, and the Daily
+flies standard issue. Contracts are the only new faucet: three objectives a day plus the
+board bonus, 480 alloy at tier 0 and 1,920 at tier 6 (best wave 30+), plus 700 once a
+week. `tools/econsim.js` fails if a tier-6 day pays more than 2,000.
+
 Paints land mid-game onward; sigils are priced late (900–1,400 each, about
 one wave-26 run, and each one *costs* something in flight — the shop is a
 power-swap, not a power-up).
