@@ -121,17 +121,31 @@ h3,
 
 /* list and card copy */
 .hull b { font-size: var(--fs-label); letter-spacing: .1em; }
+/* Prose: sentences, ledes and notes. Body size with reading leading. */
+.hull p,
+.sigil p,
+.roster p,
+.note-s,
+.sheet-lede,
+.hg-offer-d,
+#cloudHow {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+/* Dense rows: names, codes, counts, stat cells and comparison tables. This
+   is where most of a menu's information lives, so it sets the real size of
+   the floor: 11 px with tight leading. Sentences get 13 px (above); nobody
+   reads a stat row as a paragraph, and treating one like a paragraph is what
+   pushed the hangar's first item below the fold. */
 .hull .cls,
 .hull .cost,
-.hull p,
 .bars,
-.sigil p,
 .sigil .sg-t,
 .sigil .sg-buy,
 #sigilNote,
 .ms-l,
 .ms-sub,
-.ms b,
 .dock-sub,
 .paint b,
 .up p,
@@ -146,33 +160,34 @@ h3,
 .hg-goal,
 .hg-delta,
 .hg-offer-h,
-.hg-offer-d,
 .tw b,
 .tw span,
 .unlock,
 .runstat,
 .roster b,
-.roster p,
 .pf-stats,
-.note-s,
-.sheet-lede,
-.board .row,
-#myRank .row,
 .row .rk,
-.row .wv,
-#cloudHow {
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+.row .wv {
+  font-size: var(--fs-micro);
+  line-height: 1.4;
 }
 
+/* Table rows keep a column of slack for their numbers without going to prose
+   size — the leaderboard has to fit four columns on a 390 px screen. */
+.board .row,
+#myRank .row {
+  font-size: var(--fs-label);
+  line-height: 1.4;
+}
+
+/* List titles: one step above their description, still compact. */
 .hull b,
 .ms b,
 .up b,
 .sigil b,
-.roster b,
-.tw b {
-  font-size: var(--fs-ui);
-  line-height: 1.25;
+.roster b {
+  font-size: var(--fs-label);
+  line-height: 1.3;
 }
 
 .up b,
