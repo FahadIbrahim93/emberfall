@@ -11,7 +11,7 @@ function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'emberfall-payload-'));
   // The fixture owns this absolute temporary directory, including its build output.
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  for (const name of ['index.html', 'stats.html', 'pilot.html', 'sw.js', 'manifest.webmanifest', 'LICENSE', 'vercel.json', 'js', 'icons', 'fonts']) {
+  for (const name of ['index.html', 'stats.html', 'pilot.html', 'sw.js', 'manifest.webmanifest', 'LICENSE', 'vercel.json', 'js', 'css', 'icons', 'fonts']) {
     fs.cpSync(path.join(ROOT, name), path.join(root, name), { recursive: true });
   }
   for (const name of ['press-kit.html', 'press', 'screenshots']) {

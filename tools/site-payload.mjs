@@ -12,7 +12,7 @@ export const MIME = Object.freeze({
   '.webmanifest': 'application/manifest+json', '.png': 'image/png',
   '.gif': 'image/gif', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.css': 'text/css'
 });
-const FIXED = ['index.html', 'stats.html', 'pilot.html', 'sw.js', 'manifest.webmanifest',
+const FIXED = ['index.html', 'css/ui.css', 'stats.html', 'pilot.html', 'sw.js', 'manifest.webmanifest',
   'LICENSE', 'js/vendor/supabase.js', 'js/vendor/SUPABASE-LICENSE',
   'docs/press-kit.html', 'docs/press/hero.png', 'docs/press/emberfall-wave1.gif'];
 const MODULES = ['audio', 'sky', 'mirror-public', 'cloud', 'net', 'hangar', 'art', 'input'].map(name => `js/${name}.js`);
@@ -124,7 +124,7 @@ export function buildSite(source = ROOT, commit = currentCommit(source)) {
   }
   if (path.relative(source, directory) !== path.join('dist', 'site')) throw new Error('unsafe release output');
   const names = new Set(REQUIRED);
-  for (const [folder, pattern] of [['js', /\.js$/], ['icons', /\.png$/], ['fonts', /\.woff2$/], ['docs/screenshots', /\.png$/]]) {
+  for (const [folder, pattern] of [['js', /\.js$/], ['css', /\.css$/], ['icons', /\.png$/], ['fonts', /\.woff2$/], ['docs/screenshots', /\.png$/]]) {
     for (const name of walk(path.join(source, folder))) if (pattern.test(name)) names.add(`${folder}/${name}`);
   }
   for (const name of names) {

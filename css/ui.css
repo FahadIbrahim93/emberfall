@@ -1,0 +1,578 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMBERFALL — UI system ("One Deck"), loaded AFTER the app shell styles.
+
+   This file is the single owner of:
+     · the design tokens that are not palette channels (space, type, ink,
+       surface, geometry, focus, motion, target size);
+     · the primitives every menu surface uses (button, tabs, segmented control,
+       switch, slider, field, card states, chips);
+     · the settings screen's section layout;
+     · the type floor and the focus contract.
+
+   Rules this file keeps (enforced by tools/ui-audit.js):
+     1. Colour comes from tokens. Accent tints are derived from the live
+        palette (color-mix on --ember / --amber / --crimson), so the four
+        visual styles actually restyle the menus, not only the canvas.
+     2. No informational text below 11 px, no interactive target below 44 px.
+     3. One focus ring: outer for unclipped shapes, inset for clipped ones.
+     4. Motion: three durations, two easings, and a class-based reduced-motion
+        path that mirrors the OS preference.
+
+   Palette channels (--ember --amber --gold --crimson --aether --mint --violet)
+   are owned at runtime by bindSegment('segPal') in index.html. Never redefine
+   them here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── type scale ─────────────────────────────────────────────────────────
+     micro = caps metadata · label = control labels · body = sentences ·
+     ui = list titles/values · title = screen titles · h2 = display headings.
+     rem against the 16 px root, so every size here is a real pixel figure. */
+  --fs-micro: .6875rem;   /* 11px */
+  --fs-label: .75rem;     /* 12px */
+  --fs-body: .8125rem;    /* 13px */
+  --fs-ui: .9375rem;      /* 15px */
+  --fs-title: 1.25rem;    /* 20px */
+  --fs-h2: 1.625rem;      /* 26px */
+  --lh-tight: 1.2;
+  --lh-body: 1.55;
+
+  /* ── ink ────────────────────────────────────────────────────────────────
+     --dimmer is kept as a disabled FILL only: at 2.6:1 it fails as text. */
+  --ink-2: #a3adc4;
+  --ink-3: #8f99b3;       /* ≈6.6:1 on the void — the old --dimmer slot */
+  --good: var(--mint);
+  --ok: var(--mint);
+  --danger: var(--crimson);
+
+  /* ── surfaces and derived accents ───────────────────────────────────── */
+  --ui-surface: rgba(9, 14, 27, .94);
+  --ui-sunken: rgba(3, 5, 11, .55);
+  --ui-wash: color-mix(in oklab, var(--ember) 9%, transparent);
+  --ui-wash-2: color-mix(in oklab, var(--ember) 16%, transparent);
+  --ui-line: color-mix(in oklab, var(--ember) 30%, transparent);
+  --ui-line-soft: color-mix(in oklab, var(--ember) 13%, transparent);
+  --ui-danger-wash: color-mix(in oklab, var(--crimson) 12%, transparent);
+  --ui-ok-wash: color-mix(in oklab, var(--mint) 12%, transparent);
+
+  /* ── focus ──────────────────────────────────────────────────────────────
+     Clipped-corner shapes clip outlines, so they use the inset ring. */
+  --ui-focus: 0 0 0 2px var(--void), 0 0 0 4px var(--amber);
+  --ui-focus-inset: inset 0 0 0 2px var(--amber);
+
+  /* ── motion ─────────────────────────────────────────────────────────── */
+  --dur-1: 90ms;
+  --dur-2: 160ms;
+  --dur-3: 260ms;
+
+  /* ── geometry ───────────────────────────────────────────────────────── */
+  --clip-card: 12px;
+  --clip-screen: 16px;
+  --target: 44px;
+}
+
+/* ═════════════════════════════ typography floor ═════════════════════════
+   The shell accumulated 79 declarations below 0.7rem. These overrides raise
+   the informational layer to 11px+ without changing layout structure: only
+   size, tracking and leading move. Anything purely decorative (frame
+   corners, badge dots) keeps its size. */
+
+.lbl,
+#sector,
+#bossName,
+.tag,
+.note,
+.note.codex span,
+.eyebrow,
+.roster .th,
+.footline,
+.creds,
+.tip,
+.stat span,
+.seg button,
+.opt label,
+.set-hint,
+.hg-tab,
+.hg-tab .badge,
+.pf-s span,
+.bhead,
+.board-meta,
+.fld-l,
+.sheet-eyebrow {
+  font-size: max(var(--fs-micro), .6875rem);
+  letter-spacing: .12em;
+}
+
+.eyebrow,
+.sheet-eyebrow,
+.fld-l,
+.opt label,
+.set-hint {
+  letter-spacing: .16em;
+}
+
+.creds { line-height: 1.9; }
+.creds kbd { font-size: var(--fs-micro); }
+
+h3,
+.side-head h3 { font-size: var(--fs-label); letter-spacing: .18em; }
+.sheet-head h2 { font-size: var(--fs-title); }
+.card h2 { font-size: clamp(1.15rem, 1rem + 1.4vw, var(--fs-h2)); }
+
+/* list and card copy */
+.hull b { font-size: var(--fs-label); letter-spacing: .1em; }
+.hull .cls,
+.hull .cost,
+.hull p,
+.bars,
+.sigil p,
+.sigil .sg-t,
+.sigil .sg-buy,
+#sigilNote,
+.ms-l,
+.ms-sub,
+.ms b,
+.dock-sub,
+.paint b,
+.up p,
+.up .buy,
+.up .tag,
+.slot b,
+.slot span,
+.frame-h,
+.cmp,
+.cmp-h,
+.cmp-f,
+.hg-goal,
+.hg-delta,
+.hg-offer-h,
+.hg-offer-d,
+.tw b,
+.tw span,
+.unlock,
+.runstat,
+.roster b,
+.roster p,
+.pf-stats,
+.note-s,
+.sheet-lede,
+.board .row,
+#myRank .row,
+.row .rk,
+.row .wv,
+#cloudHow {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+.hull b,
+.ms b,
+.up b,
+.sigil b,
+.roster b,
+.tw b {
+  font-size: var(--fs-ui);
+  line-height: 1.25;
+}
+
+.up b,
+.sigil b,
+.slot span { letter-spacing: .04em; }
+
+.bars,
+.sigil .sg-t,
+.hull .cls,
+.paint b,
+.up .tag,
+.frame-h,
+.cmp-h,
+.tw span,
+.row .rk,
+.row .wv,
+.ms-sub,
+.hg-delta,
+.set-hint {
+  font-size: var(--fs-micro);
+}
+
+/* the dock's refit tags: one step up, and the label gets room to fit */
+.spot small { font-size: var(--fs-micro); letter-spacing: .06em; }
+.spot b { font-size: var(--fs-label); }
+.spot { width: 64px; }
+@media (min-width: 901px) { .spot { width: 84px; } }
+
+.paint b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.paint { height: 62px; }
+
+/* board rows: keep the four columns but never collapse the pilot column */
+.bhead, .board .row, #myRank .row { font-size: var(--fs-body); }
+
+/* ═════════════════════════════ surfaces ════════════════════════════════
+   One modal language: dim + desaturate the field, one card, one header
+   rhythm, a scroll container that always keeps its final action reachable. */
+
+.screen { background: rgba(3, 5, 11, .68); }
+@media (min-width: 901px) {
+  .screen { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+}
+
+.card {
+  width: min(560px, 94vw);
+  padding: clamp(20px, 3.4vw, 30px);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-line);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .55);
+  max-height: calc(100dvh - 32px);
+}
+.card.wide { width: min(640px, 94vw); }
+.card > .eyebrow { margin-bottom: 10px; }
+.card > h2 { margin-bottom: 16px; }
+.card > .lede { font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* one pair layout everywhere; wraps instead of overflowing at 320px */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s2); }
+.pair .btn { text-align: center; }
+
+/* ═════════════════════════════ buttons ═════════════════════════════════
+   One implementation: the v4.29 rules stay authoritative for look, these
+   add the size scale, the shared focus ring and the disabled/busy contract. */
+
+.btn {
+  min-height: var(--target);
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(20, 28, 46, .82), rgba(10, 16, 30, .86));
+  border: 1px solid var(--ui-line);
+  transition: background-color var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease),
+              color var(--dur-2) var(--ease), transform var(--dur-1) var(--ease),
+              box-shadow var(--dur-2) var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background-color: var(--ui-wash);
+  border-color: color-mix(in oklab, var(--ember) 62%, transparent);
+  padding-left: var(--s4);            /* neutralise the legacy hover shift */
+}
+.btn:focus-visible { outline: none; box-shadow: var(--ui-focus-inset); }
+.btn.key { background: var(--ember); border-color: var(--ember); color: #160b02; }
+.btn.key:hover:not(:disabled) { background: var(--amber); border-color: var(--amber); }
+.btn.key:focus-visible { box-shadow: inset 0 0 0 2px #160b02, inset 0 0 0 4px var(--amber); }
+.btn.warn {
+  color: color-mix(in oklab, var(--crimson) 72%, white);
+  border-color: color-mix(in oklab, var(--crimson) 34%, transparent);
+  background: var(--ui-danger-wash);
+}
+.btn.warn:hover:not(:disabled) {
+  color: #fff;
+  border-color: var(--crimson);
+  background: color-mix(in oklab, var(--crimson) 20%, transparent);
+}
+.btn.ghost { background: transparent; border-color: var(--hair, rgba(255, 255, 255, .1)); color: var(--ink-2); }
+.btn.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .05); color: var(--ink); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.btn .sub { font-size: var(--fs-label); line-height: 1.35; color: var(--ink-2); }
+
+/* size scale */
+.btn.sm { min-height: 36px; padding: var(--s2) var(--s3); font-size: var(--fs-label); }
+.btn.lg { min-height: 56px; font-size: var(--fs-label); }
+.btn.icon { width: var(--target); min-width: var(--target); padding: 0; display: grid; place-items: center; }
+
+/* ═════════════════════════════ tabs (one grammar) ═══════════════════════
+   .tab (registry), .btab (boards) and .hg-tab (bays) stay as classes for
+   their layouts, but share state, focus and target rules. */
+
+.tab, .btab, .hg-tab {
+  min-height: var(--target);
+  color: var(--ink-2);
+  transition: color var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease),
+              border-color var(--dur-2) var(--ease);
+}
+.tab:focus-visible, .btab:focus-visible, .hg-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-inset);
+}
+.tab[aria-selected="true"], .tab.on,
+.btab[aria-selected="true"], .btab.on,
+.hg-tab[aria-selected="true"], .hg-tab.on { color: var(--amber); }
+.tab { font-size: var(--fs-label); letter-spacing: .1em; }
+.btab { font-size: var(--fs-micro); letter-spacing: .14em; }
+.hg-tab { font-size: var(--fs-micro); letter-spacing: .08em; }
+@media (max-width: 600px) { .hg-tab { letter-spacing: .02em; } }
+
+/* ═════════════════════════════ segmented control ════════════════════════
+   A radiogroup (roles are added by bindSegment). Grid + wrap replaces the
+   flex strip that crushed five difficulty names into one 190px column. */
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 1px;
+  border: 1px solid var(--ui-line-soft);
+  background: var(--ui-line-soft);
+}
+.seg button {
+  min-height: var(--target);
+  padding: var(--s2) 6px;
+  font-size: var(--fs-label);
+  letter-spacing: .06em;
+  color: var(--ink-2);
+  background: rgba(8, 13, 26, .9);
+  border: 0;
+  transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+.seg button:hover { color: var(--ink); background: var(--ui-wash); }
+.seg button:focus-visible { outline: none; box-shadow: var(--ui-focus-inset); }
+.seg button.on,
+.seg button[aria-checked="true"] {
+  color: #160b02;
+  background: var(--amber);
+  font-weight: 600;
+}
+@media (max-width: 380px) { .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* palette swatches inside the Visual style control (pure CSS preview) */
+#segPal button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+#segPal button::before {
+  content: "";
+  width: 12px; height: 12px; flex: none;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--pv-a) 0 50%, var(--pv-b) 50% 100%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .35), 0 0 6px rgba(0, 0, 0, .5);
+}
+#segPal button:nth-child(1) { --pv-a: #ff8a2b; --pv-b: #ff5c7a; }   /* palette-preview */
+#segPal button:nth-child(2) { --pv-a: #ffffff; --pv-b: #ffe600; }
+#segPal button:nth-child(3) { --pv-a: #ffb000; --pv-b: #6f8dff; }
+#segPal button:nth-child(4) { --pv-a: #00e0c0; --pv-b: #ff5c9c; }
+
+/* ═════════════════════════════ switch ═══════════════════════════════════
+   The visual track stays 52×32; the button itself is 44px tall, so the tap
+   target is real rather than implied by padding. */
+
+.sw {
+  width: 56px;
+  height: var(--target);
+  flex: none;
+  border: 0;
+  background: transparent;
+  position: relative;
+}
+.sw::before {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; top: 50%;
+  height: 32px; margin-top: -16px;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-wash);
+  transition: border-color var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease);
+}
+.sw i {
+  position: absolute;
+  top: 50%; left: 7px;
+  width: 20px; height: 20px;
+  margin-top: -10px;
+  background: var(--dimmer);
+  transition: left var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease);
+}
+.sw.on::before { border-color: var(--ember); background: var(--ui-wash-2); }
+.sw.on i { left: 31px; background: var(--amber); }
+.sw:focus-visible { outline: none; box-shadow: var(--ui-focus-inset); }
+.sw[aria-checked="true"]::before { border-color: var(--ember); }
+.sw[aria-checked="true"] i { left: 31px; background: var(--amber); }
+
+/* ═════════════════════════════ sliders ══════════════════════════════════ */
+
+input[type=range] {
+  height: var(--target);
+  accent-color: var(--amber);
+}
+input[type=range]:focus-visible { outline: none; box-shadow: var(--ui-focus); }
+input[type=range]::-webkit-slider-thumb {
+  width: 20px; height: 20px; margin-top: -9px;
+  background: var(--amber);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 0 10px color-mix(in oklab, var(--amber) 45%, transparent);
+}
+input[type=range]::-moz-range-thumb { width: 20px; height: 20px; background: var(--amber); }
+input[type=range]::-webkit-slider-runnable-track { height: 3px; background: var(--ui-line); }
+input[type=range]::-moz-range-track { height: 3px; background: var(--ui-line); }
+
+/* ═════════════════════════════ settings ═════════════════════════════════
+   Five sections instead of one 24-control grid. Every row is a 56px line
+   with a 44px control and a live value; every section can be restored.
+
+   Audio · Display · Controls · Accessibility · (footer: restore all)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.set {
+  display: grid;
+  gap: var(--s5);
+  margin: var(--s4) 0 var(--s5);
+}
+.set-sec {
+  display: grid;
+  gap: var(--s2);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.set-sec > legend {
+  display: block;
+  width: 100%;
+  padding: 0 0 var(--s2);
+  margin: 0 0 var(--s1);
+  border-bottom: 1px solid var(--ui-line-soft);
+}
+.set-sec > legend h3, .set-sec h3 {
+  font-family: Michroma, "Trebuchet MS", sans-serif;
+  font-size: var(--fs-label);
+  letter-spacing: .2em;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s2) var(--s4);
+  min-height: 56px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .045);
+}
+.set-row:last-child { border-bottom: 0; }
+.set-row > label {
+  font-size: var(--fs-label);
+  letter-spacing: .06em;
+  color: var(--ink);
+  margin: 0;
+  display: block;
+}
+.set-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  letter-spacing: .02em;
+  text-transform: none;
+  font-size: var(--fs-micro);
+  line-height: 1.45;
+}
+.set-row.col { grid-template-columns: minmax(0, 1fr); }
+.set-row.col > .seg { margin-top: 8px; }
+
+.set-val {
+  min-width: 3.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-body);
+  color: var(--amber);
+  letter-spacing: .04em;
+}
+.set-row.col .set-val { text-align: left; }
+
+/* a slider line: label above, control + value below */
+.set-slide { display: grid; grid-template-columns: minmax(0, 1fr) 3.4em; align-items: center; gap: var(--s3); }
+.set-slide input[type=range] { min-width: 0; }
+
+.set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--ui-line-soft);
+  padding-top: var(--s4);
+}
+.set-note {
+  font-size: var(--fs-micro);
+  letter-spacing: .04em;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ═════════════════════════════ cards and states ══════════════════════════
+   The 13 legacy card idioms keep their grids; they share the state contract:
+   selected, locked, owned/fitted, unaffordable, capped. State is always
+   carried by text as well as colour. */
+
+.hull, .up, .sigil, .ms, .slot, .contract, .tw, .paint, .frame-row, .hg-offer {
+  border-color: var(--ui-line-soft);
+}
+.hull:hover:not(.locked), .up:hover:not(:disabled), .sigil:hover {
+  border-color: var(--ui-line);
+  background: var(--ui-wash);
+}
+.hull:focus-visible, .up:focus-visible, .sigil:focus-visible,
+.paint:focus-visible, .slot:focus-visible, .spot:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-inset);
+}
+.paint.sel, .hull.sel, .sigil.sel, .up.gear.sel {
+  border-color: var(--amber);
+  background: var(--ui-wash-2);
+}
+.up .buy.no, .hull .cost.no, .sigil .sg-buy.no { color: var(--ink-3); }
+.up .buy.max { color: var(--ok); }
+
+/* one chip for fit codes, ranks, caps and ownership */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--ui-line-soft);
+  color: var(--ink-2);
+  font-size: var(--fs-micro);
+  font-style: normal;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chip.ok { color: var(--ok); border-color: color-mix(in oklab, var(--mint) 42%, transparent); }
+.chip.warn { color: var(--amber); border-color: var(--ui-line); }
+.chip.off { color: var(--ink-3); }
+.fitchip { font-size: var(--fs-micro); }
+
+/* ═════════════════════════════ hangar bar ═══════════════════════════════
+   Back lives in the screen header now; the bar owns loadout, range, launch. */
+
+.hg-bar { border-top-color: var(--ui-line-soft); }
+.hg-bar .btn { min-height: 48px; }
+.hg-tab .badge { background: var(--ember); }
+
+/* ═════════════════════════════ HUD ══════════════════════════════════════
+   Readability floor only: sizes and contrast. Layout is untouched. */
+
+#hud .lbl { font-size: var(--fs-micro); color: var(--ink-2); }
+#score { letter-spacing: .04em; }
+#mult { font-size: var(--fs-body); }
+#best { font-size: var(--fs-body); color: var(--ink-2); }
+#waveLbl { font-size: var(--fs-micro); color: var(--ink-2); }
+#sector { color: var(--ink-3); }
+.tag { padding: 5px 8px; }
+#bossName { letter-spacing: .24em; }
+
+/* ═════════════════════════════ reduced motion ════════════════════════════
+   Mirrors the OS media query so the in-game switch has the same effect. */
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+}
+html.reduce-motion #grain { animation: none; }
+
+/* ═════════════════════════════ small-screen guardrails ══════════════════ */
+
+@media (max-width: 420px) {
+  .card { width: 100%; max-height: calc(100dvh - 16px); padding: 18px 16px; }
+  .set-row { min-height: 52px; }
+  .card > h2 { font-size: 1.1rem; }
+}
+
+/* landscape phones: keep the settings card scrollable, never taller than it */
+@media (max-height: 520px) and (orientation: landscape) {
+  .card, .card.wide { max-height: calc(100dvh - 16px); }
+  .set { gap: var(--s4); }
+}
