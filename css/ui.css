@@ -112,7 +112,7 @@
 }
 
 .creds { line-height: 1.9; }
-.creds kbd { font-size: var(--fs-micro); }
+kbd, .flag { font-size: var(--fs-micro); letter-spacing: .1em; }
 
 h3,
 .side-head h3 { font-size: var(--fs-label); letter-spacing: .18em; }
