@@ -1,0 +1,615 @@
+{
+  "armedAtMs": 1413,
+  "menuAtMs": 2087,
+  "afterMenuState": "playing",
+  "hangarSeen": false,
+  "bayClickAtMs": 3678,
+  "firstPlayingMs": 801,
+  "firstShotMs": 801,
+  "firstFoeMs": 801,
+  "firstKillMs": 801,
+  "firstMultMs": null,
+  "juice": {
+    "maxParts": 65,
+    "maxRings": 3,
+    "maxShake": 8.5,
+    "maxHitstop": 0.015,
+    "minFps": 20,
+    "warmupMinFps": 21,
+    "sustainedMinFps": 20,
+    "medianFps": 25
+  },
+  "combat": {
+    "foesSeen": 13,
+    "fbSeen": 5
+  },
+  "final": {
+    "t": 34602.69999999998,
+    "state": "playing",
+    "wave": 1,
+    "score": 282,
+    "kills": 4,
+    "combo": 0,
+    "mult": 1,
+    "shots": 100,
+    "grazes": 2,
+    "shake": 0,
+    "hitstop": -0.035,
+    "slowV": 0.3,
+    "fps": 45,
+    "foes": 7,
+    "pb": 0,
+    "fb": 5,
+    "parts": 10,
+    "rings": 0,
+    "picks": 0
+  },
+  "samples": 60,
+  "fpsCurve": [
+    [
+      801,
+      22,
+      52,
+      4
+    ],
+    [
+      1412,
+      22,
+      30,
+      4
+    ],
+    [
+      2087,
+      21,
+      11,
+      4
+    ],
+    [
+      2787,
+      21,
+      10,
+      4
+    ],
+    [
+      3476,
+      21,
+      9,
+      4
+    ],
+    [
+      4088,
+      22,
+      9,
+      4
+    ],
+    [
+      4673,
+      22,
+      10,
+      4
+    ],
+    [
+      5366,
+      21,
+      10,
+      8
+    ],
+    [
+      5877,
+      21,
+      10,
+      8
+    ],
+    [
+      6494,
+      21,
+      10,
+      8
+    ],
+    [
+      7200,
+      20,
+      10,
+      8
+    ],
+    [
+      7891,
+      21,
+      10,
+      8
+    ],
+    [
+      8587,
+      22,
+      9,
+      8
+    ],
+    [
+      9266,
+      21,
+      10,
+      8
+    ],
+    [
+      9777,
+      21,
+      10,
+      8
+    ],
+    [
+      10285,
+      25,
+      9,
+      8
+    ],
+    [
+      10963,
+      22,
+      63,
+      11
+    ],
+    [
+      11390,
+      22,
+      60,
+      11
+    ],
+    [
+      11906,
+      22,
+      51,
+      11
+    ],
+    [
+      12514,
+      22,
+      22,
+      11
+    ],
+    [
+      13169,
+      23,
+      11,
+      11
+    ],
+    [
+      13776,
+      23,
+      1,
+      11
+    ],
+    [
+      14364,
+      23,
+      25,
+      10
+    ],
+    [
+      14816,
+      25,
+      9,
+      10
+    ],
+    [
+      15305,
+      24,
+      9,
+      10
+    ],
+    [
+      15904,
+      25,
+      40,
+      9
+    ],
+    [
+      16301,
+      24,
+      20,
+      9
+    ],
+    [
+      16964,
+      24,
+      10,
+      9
+    ],
+    [
+      17572,
+      24,
+      9,
+      9
+    ],
+    [
+      18079,
+      25,
+      10,
+      7
+    ],
+    [
+      18680,
+      24,
+      10,
+      6
+    ],
+    [
+      19076,
+      24,
+      9,
+      11
+    ],
+    [
+      19475,
+      24,
+      8,
+      11
+    ],
+    [
+      20022,
+      24,
+      10,
+      11
+    ],
+    [
+      20425,
+      39,
+      10,
+      11
+    ],
+    [
+      20772,
+      42,
+      11,
+      11
+    ],
+    [
+      21126,
+      48,
+      10,
+      11
+    ],
+    [
+      21570,
+      49,
+      10,
+      11
+    ],
+    [
+      21966,
+      49,
+      11,
+      11
+    ],
+    [
+      22371,
+      47,
+      10,
+      11
+    ],
+    [
+      22726,
+      40,
+      65,
+      10
+    ],
+    [
+      23166,
+      42,
+      59,
+      10
+    ],
+    [
+      23573,
+      46,
+      39,
+      10
+    ],
+    [
+      23965,
+      47,
+      14,
+      13
+    ],
+    [
+      24366,
+      49,
+      2,
+      13
+    ],
+    [
+      24723,
+      46,
+      14,
+      13
+    ],
+    [
+      25083,
+      46,
+      18,
+      12
+    ],
+    [
+      25480,
+      46,
+      9,
+      12
+    ],
+    [
+      25869,
+      48,
+      35,
+      10
+    ],
+    [
+      26269,
+      49,
+      25,
+      10
+    ],
+    [
+      26622,
+      47,
+      15,
+      9
+    ],
+    [
+      27063,
+      48,
+      12,
+      9
+    ],
+    [
+      27471,
+      46,
+      10,
+      8
+    ],
+    [
+      27828,
+      45,
+      11,
+      8
+    ],
+    [
+      28172,
+      49,
+      10,
+      8
+    ],
+    [
+      28526,
+      48,
+      10,
+      8
+    ],
+    [
+      28866,
+      48,
+      11,
+      8
+    ],
+    [
+      29272,
+      49,
+      10,
+      7
+    ],
+    [
+      29673,
+      50,
+      11,
+      7
+    ],
+    [
+      30080,
+      48,
+      8,
+      7
+    ]
+  ],
+  "screens": [
+    {
+      "name": "loaded",
+      "ms": 690,
+      "state": "boot",
+      "text": "EMBERFALL Calibrating gun lanes"
+    },
+    {
+      "name": "armed-after-key",
+      "ms": 1423,
+      "state": "title",
+      "text": "EMBERFALL Charting the corridor VESPER-01 · INTERCEPTOR Sol Defense Command · deep-range intercept EMBER FALL অপার্থিব — the otherworldly tide Something came through the Kuiper gate and it has not stopped since. You are the only hull between it and the last orbital yard. Fly the corridor. Nothing gets past you. LAUNCH INTERCEPT VESPER-01 · Cozy HANGAR 0 alloy · 1 of 5 hulls FLIGHT SCHOOL Three dri"
+    },
+    {
+      "name": "after-menu-launch",
+      "ms": 3683,
+      "state": "playing",
+      "text": "Score 0000000 ×1 Best 0000000 Wave 01 Operation Zero Pulse Hull Shield Overdrive Dash 2/2 Ordnance · 2 pulse Operation Zero Pulse Wave 01 CODEX · Solar flare The sun exhales. Rising heat tides scorch the low field — read the glow climbing under you."
+    },
+    {
+      "name": "after-launch-sequence",
+      "ms": 4412,
+      "state": "playing",
+      "text": "Score 0000000 ×1 Best 0000000 Wave 01 Operation Zero Pulse Hull Shield Overdrive Dash 2/2 Ordnance · 2 pulse Operation Zero Pulse Wave 01 CODEX · Solar flare The sun exhales. Rising heat tides scorch the low field — read the glow climbing under you."
+    }
+  ],
+  "endText": "Score 0000298 ×1 Best 0000298 Wave 01 Operation Zero Pulse Hull Shield Overdrive Dash 2/2 Ordnance · 2 pulse",
+  "samples10s": [
+    {
+      "t": 6595.999999999971,
+      "state": "playing",
+      "wave": 1,
+      "score": 35,
+      "kills": 1,
+      "combo": 1,
+      "mult": 1,
+      "shots": 12,
+      "grazes": 0,
+      "shake": 0,
+      "hitstop": 0,
+      "slowV": 1,
+      "fps": 21,
+      "foes": 4,
+      "pb": 2,
+      "fb": 0,
+      "parts": 11,
+      "rings": 0,
+      "picks": 1,
+      "ms": 2087
+    },
+    {
+      "t": 8596.100000000006,
+      "state": "playing",
+      "wave": 1,
+      "score": 35,
+      "kills": 1,
+      "combo": 1,
+      "mult": 1,
+      "shots": 18,
+      "grazes": 0,
+      "shake": 0,
+      "hitstop": 0,
+      "slowV": 1,
+      "fps": 22,
+      "foes": 4,
+      "pb": 1,
+      "fb": 0,
+      "parts": 9,
+      "rings": 0,
+      "picks": 0,
+      "ms": 4088
+    },
+    {
+      "t": 22585.49999999997,
+      "state": "playing",
+      "wave": 1,
+      "score": 112,
+      "kills": 2,
+      "combo": 1,
+      "mult": 1,
+      "shots": 54,
+      "grazes": 0,
+      "shake": 0,
+      "hitstop": -0.018299999999999275,
+      "slowV": 0.3,
+      "fps": 25,
+      "foes": 7,
+      "pb": 0,
+      "fb": 2,
+      "parts": 10,
+      "rings": 0,
+      "picks": 0,
+      "ms": 18079
+    },
+    {
+      "t": 23585.699999999983,
+      "state": "playing",
+      "wave": 1,
+      "score": 112,
+      "kills": 2,
+      "combo": 1,
+      "mult": 1,
+      "shots": 58,
+      "grazes": 0,
+      "shake": 0,
+      "hitstop": -0.018299999999999275,
+      "slowV": 0.3,
+      "fps": 24,
+      "foes": 11,
+      "pb": 1,
+      "fb": 2,
+      "parts": 9,
+      "rings": 0,
+      "picks": 0,
+      "ms": 19076
+    },
+    {
+      "t": 24530.600000000006,
+      "state": "playing",
+      "wave": 1,
+      "score": 112,
+      "kills": 2,
+      "combo": 1,
+      "mult": 1,
+      "shots": 61,
+      "grazes": 0,
+      "shake": 0,
+      "hitstop": -0.018299999999999275,
+      "slowV": 0.3,
+      "fps": 24,
+      "foes": 11,
+      "pb": 0,
+      "fb": 2,
+      "parts": 10,
+      "rings": 0,
+      "picks": 0,
+      "ms": 20022
+    },
+    {
+      "t": 29592.199999999983,
+      "state": "playing",
+      "wave": 1,
+      "score": 205,
+      "kills": 3,
+      "combo": 1,
+      "mult": 1,
+      "shots": 76,
+      "grazes": 2,
+      "shake": 0,
+      "hitstop": -0.021600000000002187,
+      "slowV": 0.3,
+      "fps": 46,
+      "foes": 12,
+      "pb": 2,
+      "fb": 0,
+      "parts": 18,
+      "rings": 0,
+      "picks": 0,
+      "ms": 25083
+    },
+    {
+      "t": 31530.399999999994,
+      "state": "playing",
+      "wave": 1,
+      "score": 282,
+      "kills": 4,
+      "combo": 2,
+      "mult": 1,
+      "shots": 85,
+      "grazes": 2,
+      "shake": 0,
+      "hitstop": -0.035,
+      "slowV": 0.3,
+      "fps": 48,
+      "foes": 9,
+      "pb": 1,
+      "fb": 3,
+      "parts": 12,
+      "rings": 0,
+      "picks": 0,
+      "ms": 27063
+    },
+    {
+      "t": 34588.80000000002,
+      "state": "playing",
+      "wave": 1,
+      "score": 282,
+      "kills": 4,
+      "combo": 0,
+      "mult": 1,
+      "shots": 100,
+      "grazes": 2,
+      "shake": 0,
+      "hitstop": -0.035,
+      "slowV": 0.3,
+      "fps": 48,
+      "foes": 7,
+      "pb": 1,
+      "fb": 5,
+      "parts": 8,
+      "rings": 0,
+      "picks": 0,
+      "ms": 30080
+    }
+  ]
+}

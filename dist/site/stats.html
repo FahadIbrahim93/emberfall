@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>EMBERFALL — world stats &amp; leaderboard</title>
+<style>
+:root{--bg:#0b0d14;--panel:#12141d;--line:#232736;--ink:#e8e6e0;--dim:#8b8fa0;--ember:#ff8a2b;--crimson:#b82c3a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 "Chakra Petch",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:48px 16px}
+h1{font-family:Michroma,system-ui,sans-serif;font-size:clamp(1.4rem,4vw,2.2rem);letter-spacing:.12em;margin-bottom:4px}
+h1 .ember{color:var(--ember)}
+.sub{color:var(--dim);font-size:.85rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:32px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;width:100%;max-width:760px;margin-bottom:36px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;text-align:center}
+.card .n{font-family:Michroma,system-ui,sans-serif;font-size:1.7rem;color:var(--ember)}
+.card .l{color:var(--dim);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;margin-top:4px}
+h2{font-family:Michroma,system-ui,sans-serif;font-size:.9rem;letter-spacing:.16em;color:var(--dim);margin:8px 0 12px;width:100%;max-width:760px}
+.board{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px}
+.row{display:grid;grid-template-columns:2.2rem 1fr auto auto;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);font-size:.92rem}
+.row:first-child{border-top:0}
+.row .rank{color:var(--dim);font-size:.78rem}
+.row .name{font-weight:600;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .wf{color:var(--ember);font-size:.8rem}
+.row .score{font-family:Michroma,system-ui,sans-serif;font-size:.95rem}
+.empty{color:var(--dim);padding:22px 16px;text-align:center;font-size:.9rem}
+.days{width:100%;max-width:760px;display:grid;gap:8px}
+.day{display:grid;grid-template-columns:1fr auto auto;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:.9rem;align-items:center}
+.day .d{color:var(--dim);letter-spacing:.06em}
+.day .p{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.day .s{font-family:Michroma,system-ui,sans-serif;color:var(--ember)}
+footer{margin-top:40px;color:var(--dim);font-size:.8rem;display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+footer a{color:var(--ember);text-decoration:none}
+.err{background:rgba(184,44,58,.12);border:1px solid var(--crimson);border-radius:10px;padding:14px 18px;max-width:760px;color:var(--ink);font-size:.9rem;display:none}
+.tabs{display:flex;gap:8px;width:100%;max-width:760px;margin:0 0 12px}
+.tabs button{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:inherit;letter-spacing:.08em;text-transform:uppercase;font-size:.72rem;cursor:pointer}
+.tabs button.on{color:var(--ink);border-color:var(--ember)}
+.pilot{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:28px}
+.pilot h3{font-family:Michroma,system-ui,sans-serif;letter-spacing:.12em;font-size:1rem;margin-bottom:6px}
+.pilot p{color:var(--dim);font-size:.85rem}
+</style>
+</head>
+<body>
+<h1>EMBER<span class="ember">FALL</span></h1>
+<p class="sub">world stats &amp; leaderboard — read-only public mirror</p>
+<div class="err" id="err"></div>
+<div class="cards" id="cards">
+  <div class="card"><div class="n" id="cPilots">—</div><div class="l">pilots</div></div>
+  <div class="card"><div class="n" id="cRuns">—</div><div class="l">runs ranked</div></div>
+  <div class="card"><div class="n" id="cTop">—</div><div class="l">top score</div></div>
+</div>
+<h2>Global leaderboard — the run that set the score</h2>
+<div class="tabs" id="tabs">
+  <button type="button" data-mode="main" class="on">Classic</button>
+  <button type="button" data-mode="daily">Daily</button>
+  <button type="button" data-mode="rush">Rush</button>
+</div>
+<div class="pilot" id="pilot" hidden></div>
+<div class="board" id="board"><div class="empty">loading…</div></div>
+<h2>Gauntlet seasons</h2>
+<div class="days" id="seasons"><div class="day"><span class="d">loading…</span></div></div>
+<h2>Daily gauntlet — recent days</h2>
+<div class="days" id="days"><div class="day"><span class="d">loading…</span></div></div>
+<footer>
+  <a href="index.html">▶ play the game</a>
+  <a href="https://github.com/FahadIbrahim93/emberfall">repository</a>
+  <span>Supabase is the source of truth; this page reads its public, read-only board views</span>
+</footer>
+<script src="js/mirror-public.js"></script>
+<script>
+'use strict';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = fmtScore;
+/* Paint is a wardrobe id, never a color string. Anything else is omitted
+   so a mirror row cannot land in a style attribute or a tag. */
+const PAINT_OK = new Set(['yard', 'slate', 'verdant', 'crimson', 'violet', 'glacier', 'gold', 'night', 'oxblood', 'midnight']);
+const paintText = p => PAINT_OK.has(p) ? esc(p) : '';
+/* v4.30 loadout code (stats.fit), echoed by the boards once the owner applies
+   20261112000000_standings_fit.sql. Same alphabet the server allowlists. */
+const fitText = f => typeof f === 'string' && /^[a-z0-9:|.,_-]{1,64}$/.test(f) ? (/^[a-z]:std/.test(f) ? 'standard issue' : 'fit ' + esc(f)) : '';
+const ntxt = (n, width) => {
+  if (n == null || n === '') return '';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '';
+  const s = String(Math.max(0, Math.trunc(v)));
+  return width ? s.padStart(width, '0') : s;
+};
+const q = new URLSearchParams(location.search);
+let mode = ['main', 'daily', 'rush'].includes(q.get('mode')) ? q.get('mode') : 'main';
+function profileHref(name) {
+  return 'pilot.html?callsign=' + encodeURIComponent(name);
+}
+function paintBoard(state) {
+  const b = document.getElementById('board');
+  const rows = state && state.rows;
+  if (!rows || !rows.length) {
+    b.innerHTML = '<div class="empty">no ranked runs on this board yet — be the first: press ▶ play the game</div>';
+    return;
+  }
+  const html = rows.map(r => {
+    const rank = ntxt(r.place, 2) || '—';
+    const name = r.callsign;
+    const origin = r.source_mode ? sourceLabel(r.source_mode) : (state.board === 'daily' ? 'Daily' : 'All-time');
+    const extra = esc(origin) + ' · W' + (ntxt(r.wave, 2) || '01') +
+      (r.ship ? ' · ' + esc(r.ship) : '') + (paintText(r.paint) ? ' · ' + paintText(r.paint) : '') +
+      (fitText(r.fit) ? ' · ' + fitText(r.fit) : '');
+    return '<div class="row" data-source="' + esc(r.source_mode || '') + '"><span class="rank">' + rank + '</span>' +
+      '<span class="name"><a href="' + esc(profileHref(name == null ? '' : String(name))) + '" style="color:inherit;text-decoration:none">' + esc(name) + '</a></span>' +
+      '<span class="wf">' + extra + '</span>' +
+      '<span class="score">' + esc(fmtScore(r.score)) + '</span></div>';
+  }).join('');
+  const more = state.done || state.missing ? '' :
+    '<div class="day"><button type="button" id="boardMore">More pilots</button></div>';
+  b.innerHTML = html + more;
+}
+const pages = {};
+function cursorOf(rows) {
+  const last = rows[rows.length - 1];
+  return last ? { score: last.score, created_at: last.created_at, user_id: last.user_id } : null;
+}
+async function legacyRows(board, day) {
+  if (board === 'daily') {
+    const rows = await mirrorJson('/rest/v1/leaderboard_daily?day=eq.' + day +
+      '&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+    return rows.map((r, i) => ({ place: i + 1, source_mode: 'daily', callsign: r.callsign, score: r.score,
+      wave: r.stats && r.stats.wave, ship: r.stats && typeof r.stats.ship === 'string' ? r.stats.ship : null }));
+  }
+  const rows = await mirrorJson('/rest/v1/leaderboard_global?mode=eq.endless&select=user_id,callsign,score,stats&order=score.desc,created_at.asc&limit=50');
+  /* Compatibility rows have no trustworthy source mode. All-time is the label, never Endless. */
+  return rows.map((r, i) => ({ place: i + 1, source_mode: '', callsign: r.callsign, score: r.score,
+    wave: r.stats && r.stats.wave, ship: r.stats && typeof r.stats.ship === 'string' ? r.stats.ship : null }));
+}
+async function extendPage(state) {
+  if (state.done) return state;
+  const page = await mirrorStandings({ board: state.board, day: state.day, limit: 50, watermark: state.watermark, cursor: state.cursor });
+  if (page.missing) {
+    state.missing = true;
+    state.done = true;
+    state.rows = await legacyRows(state.board, state.day);
+    return state;
+  }
+  state.watermark = page.watermark;
+  const rows = page.rows || [];
+  if (rows.length) {
+    const mark = rows[rows.length - 1].user_id + '|' + rows[rows.length - 1].score;
+    if (mark === state.mark) state.done = true;
+    else { state.mark = mark; state.cursor = cursorOf(rows); state.rows = state.rows.concat(rows); }
+  }
+  if (!rows.length || rows.length < 50) state.done = true;
+  return state;
+}
+async function loadBoard(more) {
+  document.querySelectorAll('#tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.mode === mode));
+  if (mode === 'rush') {
+    document.getElementById('board').innerHTML = '<div class="empty">Rush runs stay on each pilot\u2019s device — no worldwide board.</div>';
+    return;
+  }
+  const board = mode === 'daily' ? 'daily' : 'alltime';
+  const day = mode === 'daily' ? new Date().toISOString().slice(0, 10) : null;
+  const key = board + ':' + (day || '');
+  if (!pages[key]) pages[key] = { board: board, day: day, rows: [], watermark: null, cursor: null, done: false, missing: false };
+  const state = pages[key];
+  if (!more && state.rows.length) { paintBoard(state); return; }
+  await extendPage(state);
+  paintBoard(state);
+  if (board === 'alltime' && state.rows[0]) document.getElementById('cTop').textContent = fmtScore(state.rows[0].score);
+}
+/* gauntlet days, derived from the daily best-run board (no sync pump) */
+function scoreAbove(a, b) {
+  const as = String(a == null ? '' : a).trim();
+  const bs = String(b == null ? '' : b).trim();
+  if (!/^[0-9]+$/.test(as)) return false;
+  if (!/^[0-9]+$/.test(bs)) return true;
+  if (as.length !== bs.length) return as.length > bs.length;
+  return as > bs;
+}
+function gauntletDays(rows) {
+  const by = new Map();
+  for (const r of rows) {
+    const d = by.get(r.day) || { day: r.day, pilots: 0, runs: 0, top_score: '0', top_pilot: '' };
+    d.pilots++; d.runs++;
+    if (scoreAbove(r.score, d.top_score)) { d.top_score = String(r.score); d.top_pilot = r.callsign; }
+    by.set(r.day, d);
+  }
+  return [...by.values()].slice(0, 8);
+}
+function showPilot(card) {
+  const el = document.getElementById('pilot');
+  if (!card) { el.hidden = true; return; }
+  const byBoard = {};
+  for (const modeRow of card.modes || []) byBoard[modeRow.board] = modeRow;
+  const lines = ['alltime', 'daily', 'school'].map(board => {
+    const row = byBoard[board];
+    const name = board === 'alltime' ? 'All-time' : sourceLabel(board);
+    if (!row) return esc(name) + ': no accepted run';
+    const origin = sourceLabel(row.source_mode);
+    return esc(name) + ' #' + esc(ntxt(row.place)) + ' · ' + esc(fmtScore(row.score)) +
+      (origin ? ' · ' + esc(origin) : '') +
+      (row.ship ? ' · ' + esc(row.ship) : '');
+  }).join('<br>');
+  el.hidden = false;
+  el.innerHTML = '<h3>' + esc(card.callsign) + '</h3><p>' +
+    esc(ntxt(card.runs) || '0') + ' ranked runs<br>' + lines + '</p>';
+}
+async function loadStats() {
+  try {
+    return await mirrorJson('/rest/v1/deck_stats?select=pilots,runs,top_score,top_score_exact');
+  } catch (e) {
+    return await mirrorJson('/rest/v1/deck_stats?select=pilots,runs,top_score');
+  }
+}
+(async () => {
+  try {
+    const [stats, days, pilotName] = await Promise.all([
+      loadStats(),
+      mirrorJson('/rest/v1/leaderboard_daily?select=day,callsign,score&order=day.desc,score.desc&limit=1000').then(gauntletDays),
+      Promise.resolve(q.get('pilot') || q.get('callsign'))
+    ]);
+    if (stats.length) {
+      document.getElementById('cPilots').textContent = fmt(stats[0].pilots);
+      document.getElementById('cRuns').textContent = fmt(stats[0].runs);
+      document.getElementById('cTop').textContent = fmtScore(stats[0].top_score_exact != null ? stats[0].top_score_exact : stats[0].top_score);
+    }
+    await loadBoard(false);
+    document.getElementById('tabs').addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      mode = btn.dataset.mode;
+      const next = new URL(location.href);
+      next.searchParams.set('mode', mode);
+      history.replaceState(null, '', next);
+      try { await loadBoard(false); }
+      catch (err) {
+        document.getElementById('board').innerHTML = '<div class="empty">unavailable</div>';
+      }
+    });
+    document.getElementById('board').addEventListener('click', async (ev) => {
+      if (!ev.target.closest || !ev.target.closest('#boardMore')) return;
+      try { await loadBoard(true); }
+      catch (err) {
+        document.getElementById('board').innerHTML = '<div class="empty">unavailable</div>';
+      }
+    });
+    document.getElementById('seasons').innerHTML = '<div class="day"><span class="d">weekly seasons are not published yet</span></div>';
+    const d = document.getElementById('days');
+    if (!days.length) { d.innerHTML = '<div class="day"><span class="d">no gauntlet days flown yet</span></div>'; }
+    else {
+      d.innerHTML = days.map(x =>
+        '<div class="day"><span class="d">' + esc(x.day) + ' · ' + esc(x.pilots) + ' pilot' + (x.pilots === 1 ? '' : 's') + '</span>' +
+        '<span class="p">' + (x.top_pilot
+          ? '<a href="' + esc(profileHref(x.top_pilot)) + '" style="color:inherit;text-decoration:none">' + esc(x.top_pilot) + '</a>'
+          : '—') + '</span>' +
+        '<span class="s">' + esc(fmt(x.top_score)) + '</span></div>').join('');
+    }
+    if (pilotName) {
+      const found = /^[A-Za-z0-9_-]{3,16}$/.test(pilotName) ? await mirrorPilotDossier(pilotName) : { missing: false, card: null };
+      if (found.card) showPilot(found.card);
+      else {
+        const el = document.getElementById('pilot');
+        el.hidden = false;
+        el.innerHTML = '<h3>' + esc(pilotName) + '</h3><p>No public dossier on the mirror yet. <a href="' + esc(profileHref(pilotName)) + '" style="color:#ff8a2b">Open the profile page</a>.</p>';
+      }
+    }
+  } catch (e) {
+    const el = document.getElementById('err');
+    el.style.display = 'block';
+    el.textContent = 'The public mirror is not answering right now (' + e.message + '). The game itself never depends on it — play on.';
+    document.getElementById('board').innerHTML = '<div class="empty">unavailable</div>';
+  }
+})();
+</script>
+</body>
+</html>

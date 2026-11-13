@@ -1,0 +1,14 @@
+{
+  "best": {
+    "wave": 2,
+    "grazes": 1,
+    "combo": 11,
+    "mult": 2,
+    "kills": 15
+  },
+  "finalState": "playing",
+  "medianFps": 44,
+  "samples": 291,
+  "endWave": 2,
+  "endKills": 15
+}

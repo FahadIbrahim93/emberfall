@@ -145,6 +145,60 @@ The hangar used to be one long shop page where every upgrade was the obvious buy
 
 Full notes are in [docs/releases/v4.30.0.md](docs/releases/v4.30.0.md) and [CHANGELOG.md](CHANGELOG.md). Earlier releases added guest play, pilot accounts and callsigns, the Daily Gauntlet board and the Solar Tour.
 
+
+## Improvement suggestions
+
+A short honest punch list, in rough priority order. (Performance work done in
+this pass is marked ✅ and measured notes live in [docs/performance.md](docs/performance.md).)
+
+**Code structure / refactor**
+
+- **Split the inline core.** `index.html` carries ~8,400 lines of game logic in one
+  `<script>` block while six modules already live in `js/`. The next extractions with
+  the cleanest seams: the wave/boss director, the economy/meta (alloy, contracts,
+  mastery), and the render layer (`drawFoe`/`drawBullets`/beams/particles are pure
+  functions of state today). Keep the classic-script global convention so `file://`
+  play keeps working.
+- **One memoization pattern.** `art.js` has `RGB_MEMO`, `js/sky.js` re-parses hex
+  colors per call, and the core now has `RGB_OF_MEMO` + `FB_STROKE`. Fold these into
+  a single tiny color utility module that everything imports-by-global.
+- **Cache DOM lookups in `syncHUD`.** It calls `$()` for the same ~15 elements every
+  frame; resolve them once at boot into a frozen map (the `setText` diff-cache shows
+  the intended pattern).
+- **Dead-code budget.** `deadscan.js --check` is green, but it only proves symbols
+  are *referenced*; a periodic manual skim of the settings/portal branches would
+  catch code paths that are referenced yet unreachable in practice.
+
+**Performance**
+
+- ✅ **Memoized `rgbOf`** — the hot render path parsed + joined palette hexes up to
+  ~50×/frame; now a string cache keyed by hex.
+- ✅ **Batched `drawBullets` hostile-fire passes** — glow rims, white cores and
+  colored rings draw in three style-stable passes instead of thrashing canvas
+  state per bullet; stroke styles are cached per color and invalidated on palette
+  switch (`buildSprites`). Verified against the full suite (61 sim, 75 self-test,
+  93+ browser tests).
+- **Next lever: particle batching.** `drawParticles` walks the pool four times and
+  toggles composite modes between passes; grouping the pool by mode at spawn time
+  (four buckets) would make each pass a straight `drawImage`/stroke loop.
+- **Sky event ticks** (`cometTick`/`fleetTick`/`pyreTick`/`convoyTick`) run inside
+  `render()`, coupling simulation to draw rate; moving them into the fixed-step
+  sim keeps behavior identical under fps caps.
+- **Consider an offscreen starfield bake** for the title screen — the drifts are
+  cheap but they redraw gradients every frame during long idle sessions.
+
+**Product / QA**
+
+- **Fix `tests/portal-boards.spec.js`** — "packaged portal Boards opens without an
+  account controller or external requests" fails on the current `main` before any
+  local changes (verified by stashing); it also blocks 11 dependent tests from
+  running in CI's serial shard. This is the one red item in the suite.
+- Add a frame-cost regression guard: the repo measures performance by hand
+  (docs/performance.md); a Playwright test asserting p95 frame ms under injected
+  CPU load would keep the numbers honest automatically.
+- Sign-in with X is promised in the feature list but unimplemented — either ship
+  it or move it to the roadmap.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
