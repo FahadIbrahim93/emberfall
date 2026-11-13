@@ -2,7 +2,7 @@
 
 How player accounts and the worldwide boards work. Nothing on the gameplay path depends on a cloud service: you can play, offline, without an account.
 
-> **Status (2026-10-23):** live on https://emberfall-game-two.vercel.app since #25 (merged as `a7d9f94`). Supabase is the source of truth for accounts and boards ([ADR 0004](adr/0004-supabase-source-of-truth.md)). You can play as a guest with no account, or create an account with an email and password. The worldwide boards list registered pilots only. **Sign in with X** is planned and lives in #26 until it's ready. Portal builds always keep scores on the device.
+> **Status (2026-11-14):** live on https://emberfall-game-two.vercel.app since #25 (merged as `a7d9f94`). Supabase is the source of truth for accounts and boards ([ADR 0004](adr/0004-supabase-source-of-truth.md)). You can play as a guest with no account, or create an account with an email and a password. The worldwide boards list registered pilots only. Watermark standings, exact bigint scores and competition ranks shipped in v4.29.7 ([PR #96](https://github.com/FahadIbrahim93/emberfall/pull/96)); from v4.30.0 those same readers echo each run's loadout code. **Sign in with X** is not in the product: an earlier pull request (#26) landed and was later reverted. Cloud careers is the next persistence gate ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115)). Portal builds always keep scores on the device.
 
 ## Supabase accounts and worldwide boards (2026-10-23)
 
@@ -34,7 +34,7 @@ Client side (`js/cloud.js`):
 - **Email accounts** use email and password (8 characters or more). If the project requires email confirmation, sign-up says "Check your inbox to confirm your email, then sign in", and the confirmation link brings the player back to the game already signed in.
 - **Callsign on first sign-in.** A new account is asked for a callsign before anything posts. The callsign is what the boards show; the email never appears anywhere public.
 - **Registered-only boards.** Only a signed-in, non-anonymous account with a callsign can post. The database enforces this too, so a guest session can't post by calling the RPC directly.
-- **Sign in with X** is planned. The work is in #26 and isn't part of the live site yet.
+- **Sign in with X** is not offered on the live site. The earlier work in #26 was reverted.
 - A rate-limited post answers HTTP 429 (`20261023000100_rate_limit_http_429.sql`).
 - Endless and daily runs post through `submit_run_v2` after the local save, carrying a stable run id and the launch day. Replaying a completion returns the original acknowledgement and pays nothing twice; a late older receipt pays at most once and cannot rewind the streak. The runtime falls back to `submit_score` when the additive migration has not been applied, and that legacy result is never treated as acknowledged. Rush and flight school stay on the device. Offline play, local boards and portal builds (`tools/build-portal.sh` strips `cloud.js`) never touch Supabase.
 - **Pending run handoff.** A completed account-mode run that cannot post yet (signed out or without a callsign), or that fails mid-post, is queued locally with its real run id, launch day, mode, score and stats. Distinct runs are kept separately and only the exact acknowledged `(owner, run_id)` is removed. Delivery is single-flight and scoped to the first signed-in owner. Explicit guest-launched runs are never queued.

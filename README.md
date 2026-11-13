@@ -6,7 +6,7 @@ A free arcade space shooter that runs in your browser. Something came through th
 
 **Play now: https://emberfall-game-two.vercel.app/**
 
-Current release: **v4.30.0 "The Hangar"** (2026-11-11). See [what's new](#whats-new-in-v4300--the-hangar).
+Current release: **v4.31.0** (2026-11-14). See [what's new](#whats-new-in-v4310).
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -26,7 +26,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 - **You see it before you pay for it.** Tapping an item shows what it changes against your current fit and a "Buy" button. Nothing is spent on a single tap.
 - **Fair boards.** New gear is capped at the existing power ceiling on Endless and Tour, and never flies on the Daily Gauntlet, Boss Rush or flight school. Each run's loadout code is shown on the boards and the stats page.
 - **Accessibility options:** four colour palettes, reduced motion, left-handed and large touch layouts, high-visibility bullets.
-- **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Sign in with X is planned.
+- **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Sign in with X is not in the product today; email accounts and guest play are.
 - **Installable PWA** that works offline.
 
 ## Controls
@@ -75,7 +75,7 @@ npm test                  # sim + browser + in-game self-test
 
 You can also run the self-test in the page with `index.html?selftest` (75 checks).
 
-CI runs these checks on every push to `main`. At v4.30.0 that is 102 browser tests, 61 simulation tests, 47 release tests, 12 SQL migration tests and 75 in-game checks. The last main run passed on 2026-11-11.
+CI runs these checks on every push to `main`. At v4.31.0 that is 106 browser tests, 61 simulation tests, 47 release tests (including 12 SQL migration tests) and 75 in-game checks.
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -132,72 +132,18 @@ Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed a
 
 The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the repo's own instrumented play runs into [`docs/audit/fun-curve.json`](docs/audit/fun-curve.json), written by `tools/fun-scoreboard.mjs`. Median-fps is environment-sensitive — read the trend within a column, not the absolute.
 
-## What's new in v4.30.0 — "The Hangar"
+## What's new in v4.31.0
 
-The hangar used to be one long shop page where every upgrade was the obvious buy. It is now five bays built around the docked ship, and it works on a phone without scrolling past the Launch button.
+Settings and the rest of the menus now share one design. Settings is four labelled sections — Audio, Display, Controls and Accessibility — with a hint on every control, live slider readouts, and a Restore defaults that never touches your alloy, unlocks, saves or scores.
 
-- **Arms:** four weapon patterns (Spread, Rail, Scatter, Seeker), two mods each, and three lenses for SERAPH. Every pattern is tuned to the same total output as Spread, so they are different, not better.
-- **Systems:** six modules, a second module slot, a sigil per hull and three loadout presets per hull. Frame doctrines open as you raise a hull's mastery.
-- **Yard:** three daily contracts and a weekly order to earn alloy, plus the standing ladder past Yardmaster.
-- **Style:** mastery ranks 6 to 10 add cosmetic finishes. Pilots who flew before this release get a free Founder plate.
-- **Fixes:** four paid perks (Rampart, Glasswing, Needle and the Mastery 2 dash) now actually apply in flight, and Boss Rush runs on standard issue as intended.
-- **Saves:** older saves and v3 export codes load unchanged.
+- Colourblind palettes restyle the menus, not only the playfield. Reduce motion is a setting, seeded from your device until you change it.
+- What's new and Pilot data keep the keyboard inside the dialog. The pause action that actually returned to the title now reads "Leave to bridge".
+- Opening Settings no longer jumps to the bottom: the heading, Restore defaults and Done stay on screen.
+- Informational text is no smaller than 11 px.
 
-Full notes are in [docs/releases/v4.30.0.md](docs/releases/v4.30.0.md) and [CHANGELOG.md](CHANGELOG.md). Earlier releases added guest play, pilot accounts and callsigns, the Daily Gauntlet board and the Solar Tour.
+The hangar from v4.30.0 is unchanged. Career saves stay on your device. There is no database change in this release.
 
-
-## Improvement suggestions
-
-A short honest punch list, in rough priority order. (Performance work done in
-this pass is marked ✅ and measured notes live in [docs/performance.md](docs/performance.md).)
-
-**Code structure / refactor**
-
-- **Split the inline core.** `index.html` carries ~8,400 lines of game logic in one
-  `<script>` block while six modules already live in `js/`. The next extractions with
-  the cleanest seams: the wave/boss director, the economy/meta (alloy, contracts,
-  mastery), and the render layer (`drawFoe`/`drawBullets`/beams/particles are pure
-  functions of state today). Keep the classic-script global convention so `file://`
-  play keeps working.
-- **One memoization pattern.** `art.js` has `RGB_MEMO`, `js/sky.js` re-parses hex
-  colors per call, and the core now has `RGB_OF_MEMO` + `FB_STROKE`. Fold these into
-  a single tiny color utility module that everything imports-by-global.
-- **Cache DOM lookups in `syncHUD`.** It calls `$()` for the same ~15 elements every
-  frame; resolve them once at boot into a frozen map (the `setText` diff-cache shows
-  the intended pattern).
-- **Dead-code budget.** `deadscan.js --check` is green, but it only proves symbols
-  are *referenced*; a periodic manual skim of the settings/portal branches would
-  catch code paths that are referenced yet unreachable in practice.
-
-**Performance**
-
-- ✅ **Memoized `rgbOf`** — the hot render path parsed + joined palette hexes up to
-  ~50×/frame; now a string cache keyed by hex.
-- ✅ **Batched `drawBullets` hostile-fire passes** — glow rims, white cores and
-  colored rings draw in three style-stable passes instead of thrashing canvas
-  state per bullet; stroke styles are cached per color and invalidated on palette
-  switch (`buildSprites`). Verified against the full suite (61 sim, 75 self-test,
-  93+ browser tests).
-- **Next lever: particle batching.** `drawParticles` walks the pool four times and
-  toggles composite modes between passes; grouping the pool by mode at spawn time
-  (four buckets) would make each pass a straight `drawImage`/stroke loop.
-- **Sky event ticks** (`cometTick`/`fleetTick`/`pyreTick`/`convoyTick`) run inside
-  `render()`, coupling simulation to draw rate; moving them into the fixed-step
-  sim keeps behavior identical under fps caps.
-- **Consider an offscreen starfield bake** for the title screen — the drifts are
-  cheap but they redraw gradients every frame during long idle sessions.
-
-**Product / QA**
-
-- **Fix `tests/portal-boards.spec.js`** — "packaged portal Boards opens without an
-  account controller or external requests" fails on the current `main` before any
-  local changes (verified by stashing); it also blocks 11 dependent tests from
-  running in CI's serial shard. This is the one red item in the suite.
-- Add a frame-cost regression guard: the repo measures performance by hand
-  (docs/performance.md); a Playwright test asserting p95 frame ms under injected
-  CPU load would keep the numbers honest automatically.
-- Sign-in with X is promised in the feature list but unimplemented — either ship
-  it or move it to the roadmap.
+Full notes are in [docs/releases/v4.31.0.md](docs/releases/v4.31.0.md) and [CHANGELOG.md](CHANGELOG.md). The previous release, [v4.30.0 "The Hangar"](docs/releases/v4.30.0.md), rebuilt the hangar around the docked ship.
 
 ## License
 

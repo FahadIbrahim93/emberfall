@@ -126,3 +126,60 @@ test('restore defaults resets every control and never touches progress', async (
   await expect(sw).toHaveAttribute('aria-checked', before);
   expect(await page.evaluate(() => META.alloy), 'reset never touches alloy').toBe(4321);
 });
+
+/* The rebuilt settings card is taller than a phone, and taller than most
+   desktop windows. Opening it used to focus Done, which scrolled Audio
+   off the screen. The heading and the closing actions stay in view;
+   only the section list scrolls. */
+test('settings opens on Audio, with Restore and Done still on screen', async ({ browser }) => {
+  for (const size of [
+    { name: 'phone', width: 390, height: 844 },
+    { name: 'desktop', width: 1440, height: 900 }
+  ]) {
+    const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height } });
+    const page = await ctx.newPage();
+    await titleUp(page);
+    const close = page.locator('#btnNotesClose');
+    try { await close.waitFor({ state: 'visible', timeout: 2500 }); await close.click(); } catch { /* not shown */ }
+    await page.locator('#btnSettings').click();
+    await expect(page.locator('#s-set'), size.name).toHaveClass(/on/);
+    const vis = await page.evaluate(() => {
+      const box = el => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, height: r.height,
+          on: r.top >= -0.5 && r.bottom <= innerHeight + 0.5 && r.height > 0 };
+      };
+      const body = document.querySelector('#s-set .set');
+      return {
+        heading: box(document.getElementById('setH')),
+        audio: box([...document.querySelectorAll('#s-set legend, #s-set h3')].find(el => /Audio/i.test(el.textContent))),
+        master: box(document.getElementById('lMas')),
+        restore: box(document.getElementById('btnSetReset')),
+        done: box(document.getElementById('btnSetClose')),
+        scrollTop: body ? body.scrollTop : null,
+        bodyH: body ? body.clientHeight : null,
+        bodyScroll: body ? body.scrollHeight : null
+      };
+    });
+    expect(vis.heading && vis.heading.on, size.name + ': Settings heading on screen').toBe(true);
+    expect(vis.audio && vis.audio.on, size.name + ': Audio section on screen').toBe(true);
+    expect(vis.master && vis.master.on, size.name + ': Master volume on screen').toBe(true);
+    expect(vis.restore && vis.restore.on, size.name + ': Restore defaults on screen').toBe(true);
+    expect(vis.done && vis.done.on, size.name + ': Done on screen').toBe(true);
+    expect(vis.scrollTop, size.name + ': section list starts at the top').toBe(0);
+    expect(vis.bodyScroll, size.name + ': section list is a scroller').toBeGreaterThan(vis.bodyH);
+    /* scrolling the sections leaves Done and Restore where they are */
+    await page.evaluate(() => { const b = document.querySelector('#s-set .set'); b.scrollTop = b.scrollHeight; });
+    const after = await page.evaluate(() => {
+      const on = el => { const r = el.getBoundingClientRect(); return r.top >= -0.5 && r.bottom <= innerHeight + 0.5; };
+      return { done: on(document.getElementById('btnSetClose')),
+        restore: on(document.getElementById('btnSetReset')),
+        master: (() => { const r = document.getElementById('lMas').getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; })() };
+    });
+    expect(after.done, size.name + ': Done stays after a full scroll').toBe(true);
+    expect(after.restore, size.name + ': Restore stays after a full scroll').toBe(true);
+    expect(after.master, size.name + ': Master volume has scrolled away').toBe(false);
+    await ctx.close();
+  }
+});

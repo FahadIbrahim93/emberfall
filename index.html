@@ -1290,7 +1290,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.30.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.31.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1633,7 +1633,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.30.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.31.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7455,7 +7455,17 @@ function openSettings(from) {
   setReturn = from;
   applyPortalChrome();
   showScreen('s-set', true);
-  $('btnSetClose').focus();
+  /* Done sits at the bottom of a long card. Focusing it scrolled Audio
+     off the screen on every phone and on most desktops. The section list
+     is the scroller; park focus on the dialog (Escape and the Tab trap
+     still work) and start at the top. */
+  const pane = $('s-set');
+  const body = pane && pane.querySelector('.set');
+  if (body) body.scrollTop = 0;
+  if (pane) {
+    if (!pane.hasAttribute('tabindex')) pane.setAttribute('tabindex', '-1');
+    try { pane.focus({ preventScroll: true }); } catch (err) { }
+  }
 }
 /* Portal chrome: no worldwide account, no install prompt, no external or
    social anchors. Local boards stay. */
@@ -7834,6 +7844,14 @@ bindClick('btnSetReset', () => askConfirm(
    version gets the fresh marker, and DB.notesSeen remembers how far the
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
+  {
+    v: '4.31.0',
+    items: [
+      'Settings is rebuilt: Audio, Display, Controls and Accessibility, each with a short hint, and a Restore defaults that never touches your alloy, unlocks, saves or scores.',
+      'Colourblind palettes now restyle the menus, not only the playfield. Reduce motion is a setting you can turn on, and every dialog — including What\'s new and Pilot data — keeps the keyboard inside it.',
+      'Opening Settings no longer jumps to the bottom. The pause action that used to say "Leave to hangar" actually returned to the title; it now reads "Leave to bridge". Informational text is no smaller than 11 px.'
+    ]
+  },
   {
     v: '4.30.0',
     items: [
@@ -9840,7 +9858,7 @@ function runSelfTests() {
   }));
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.30.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.31.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }

@@ -4,7 +4,11 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
-### UI system — foundations
+## [4.31.0] — 2026-11-14
+
+The menu and settings overhaul ([PR #111](https://github.com/FahadIbrahim93/emberfall/pull/111)), a render pass ([PR #114](https://github.com/FahadIbrahim93/emberfall/pull/114)), and a settings-open fix. Release notes: [docs/releases/v4.31.0.md](docs/releases/v4.31.0.md). No database change; existing saves are untouched.
+
+### Menu and settings — v4.31.0
 - **One UI layer.** New `css/ui.css` owns the shell's tokens, primitives and
   the settings layout, loaded after the app styles so it is the single place a
   button, tab, switch or card is defined. `tools/ui-audit.js` (in `check.sh`)
@@ -24,7 +28,8 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - **Segmented controls are real radiogroups.** Difficulty, visual style,
   quality, frame cap and sky traffic expose `role="radio"` with
   `aria-checked`, roving tabindex, arrow keys and Home/End. They also wrap in a
-  grid, so five difficulty names are no longer crushed into one column.
+  grid, so five difficulty names are no longer crushed into one column. A
+  wrapping row no longer leaves an empty painted cell.
 - **Reduce motion is a setting.** `CFG.reduceMotion` seeds from
   `prefers-reduced-motion`, and the switch stills menus, sky drifts and the
   dock through a class-based mirror of the media query.
@@ -36,13 +41,28 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
   more (it had 79 declarations under 0.7 rem, down to 7.4 px), `--dimmer` is
   retired as a text colour (2.6:1) in favour of `--ink-3` (~6.6:1), and
   switches, segments and tabs meet the 44 px target rule.
+- **Settings opens at the top.** Opening Settings focused Done, which scrolled
+  Audio off the screen on a phone and on a typical desktop. The heading,
+  Restore defaults and Done now stay in view; only the section list scrolls.
 - **Fixes.** `--good` was used by the Tour wall and never declared, so sealed
   worlds lost their caption colour; `--text` was a third name for ink. The
   pause action labelled "Leave to hangar" actually returned to the title and
   now reads "Leave to bridge".
-- **Shipping.** `css/ui.css` is registered in the service worker precache
-  (`emberfall-v4.67`), the release payload (`REQUIRED`/`FIXED` + the `css`
-  walk), the site-payload test fixture and the portal build.
+
+### Render
+- Palette colour conversion (`rgbOf`) is memoized, and hostile-fire drawing
+  batches its outline, core and ring passes instead of changing canvas state
+  on every bullet ([PR #114](https://github.com/FahadIbrahim93/emberfall/pull/114)).
+
+### Tooling
+- Playwright 1.65.0 ([PR #112](https://github.com/FahadIbrahim93/emberfall/pull/112)).
+- `@electric-sql/pglite` 0.5.16, used only by the SQL tests
+  ([PR #113](https://github.com/FahadIbrahim93/emberfall/pull/113)).
+
+Service worker cache `emberfall-v4.68`. A Playwright case covers the
+settings-open layout at 390×844 and 1440×900, on top of the settings
+radiogroup, slider and Restore defaults cases from #111. Tests at release:
+106 browser, 61 simulation, 47 release and 75 in-game checks.
 
 ## [4.30.0] — 2026-11-11 "The Hangar"
 

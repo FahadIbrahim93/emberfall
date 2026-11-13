@@ -30,4 +30,3 @@ docs/audit/*
 
 # Per-worktree agent journal: keep local, not in the product repository.
 .freebuff/run.md
-!docs/audit/fun-curve.json

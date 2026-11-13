@@ -1,6 +1,6 @@
 # UI system — "One Deck"
 
-Status: **in progress**. This document owns the shell's design system (tokens,
+Status: **Shipped** in v4.31.0 on 2026-11-14 ([PR #111](https://github.com/FahadIbrahim93/emberfall/pull/111)), with a settings-open fix in the same release. This document owns the shell's design system (tokens,
 primitives, states, settings IA, focus and input contract). It is the reference
 for `css/ui.css` and is gated by `tools/ui-audit.js`.
 
