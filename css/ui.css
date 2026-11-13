@@ -320,8 +320,8 @@ h3,
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 1px;
-  border: 1px solid var(--ui-line-soft);
-  background: var(--ui-line-soft);
+  border: 0;
+  background: transparent;
 }
 .seg button {
   min-height: var(--target);
@@ -330,7 +330,7 @@ h3,
   letter-spacing: .06em;
   color: var(--ink-2);
   background: rgba(8, 13, 26, .9);
-  border: 0;
+  border: 1px solid var(--ui-line-soft);
   transition: background-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
 .seg button:hover { color: var(--ink); background: var(--ui-wash); }
@@ -501,6 +501,26 @@ input[type=range]::-moz-range-track { height: 3px; background: var(--ui-line); }
   color: var(--ink-3);
   line-height: 1.5;
   margin: 0;
+}
+
+/* The heading, Restore defaults and Done stay in view. Only the section
+   list scrolls — focusing Done used to take Audio off the screen. */
+#s-set .card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#s-set .set {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  margin: var(--s3) 0 var(--s4);
+}
+#s-set .set-actions,
+#s-set .card > .pair {
+  flex: 0 0 auto;
 }
 
 /* ═════════════════════════════ cards and states ══════════════════════════

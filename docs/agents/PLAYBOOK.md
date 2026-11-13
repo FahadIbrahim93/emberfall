@@ -14,7 +14,7 @@ Source of truth for *rules*: `AGENTS.md`. This file is *how* to work.
 ## Lanes (who takes which work)
 | Agent | Label | Lane |
 |---|---|---|
-| Codex (Astra model) | `agent:codex` | Hardest work: Gate 2 (accounts/DB safety, bigint, cloud saves + conflicts), Gate 3 (sim extraction), Gate 4 (deterministic Daily), Gate 5 (server verification / anti-cheat), Gate 7 schema. Also writes every gate's issues. |
+| Codex (Astra model) | `agent:codex` | Hardest work: cloud careers ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115); local-first snapshots, CAS, conflicts), Gate 3 (sim extraction), Gate 4 (deterministic Daily), Gate 5 (server verification / anti-cheat), Gate 7 schema. Standings and bigint display already shipped in PR #96. Also writes every gate's issues. |
 | Freebuff | `agent:freebuff` | Gameplay and controls: Gate 1 player bugs (e.g. #79, reward idempotency), Gate 6 controls (remapping, touch sensitivity, left-handed, retry flow, HUD). |
 | OpenBot | `agent:openbot` | Visuals and content: Gate 6 visual polish (hit/death feedback, telegraphs, contrast, menus), Gate 7 Heliox art/audio after Codex lands the schema. |
 | Hermes | `agent:hermes` | Docs and outreach: CHANGELOG/README/press-kit after merges, playtest notes (#58), X post drafts for Fahad's approval. No game logic. |
@@ -22,7 +22,7 @@ Source of truth for *rules*: `AGENTS.md`. This file is *how* to work.
 Codex pre-labels issues with the lane's `agent:*` label when it writes them. Builders take only issues carrying their own label (plus `ready`). Gate 3 must merge before Gate 4, 5 and 7 build work starts.
 
 ## Work order
-1. Only work the **current gate** (the backlog says which is active). Never start a later gate early. Track H (the hangar overhaul) shipped in v4.30.0 and was built by Engineering. Hangar follow-ups are filed as new issues and go through the normal gate and lane rules; do not reopen the Track H issues.
+1. Only work the **current gate** (the backlog says which is next). Never start a later gate early. Gate 0, Gate 1 and Gate 2 standings have shipped. Track H (the hangar overhaul) shipped in v4.30.0 and was built by Engineering; do not reopen the Track H issues. The next persistence gate is cloud careers ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115)). Hangar follow-ups are filed as new issues and go through the normal gate and lane rules.
 2. Inside a gate, take the **lowest-numbered open issue** with labels `ready` and your own `agent:<you>`.
 3. No suitable issue? Stop. Don't invent work; comment "no ready issue" to Fahad instead.
 

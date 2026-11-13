@@ -23,7 +23,7 @@ Everything in sections 3 and 4 shipped, in one PR rather than one per phase. The
 
 ## Decisions (final, owner, 2026-11-11)
 1. **Endless board:** gear is allowed, capped at today's top power (no item raises the ceiling), and every run's loadout is shown on the boards (`stats.fit`).
-2. **Saves:** build now on device-local saves, with a backup (export) reminder after significant purchases. Cloud careers remain a separate track (Gate 2).
+2. **Saves:** build now on device-local saves, with a backup (export) reminder after significant purchases. Cloud careers remain a separate track ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115)).
 3. **PR #97:** its standing ladder is carried into the overhaul as the first commits, and #97 is closed as superseded once the overhaul lands. This design supersedes the additional layers in `docs/specs/alloy-armory.md`: fittings/bundles are replaced by loadout presets, Yard trials are deferred, and the weekly order and modules are folded into Phases 3 and 4.
 4. The "approved by the owner" line in `docs/specs/alloy-armory.md` is **unconfirmed**. This document is the reference for Layers 2–5.
 
@@ -87,7 +87,7 @@ height**:
   830/day on a weekday full house, 1,630 on Sundays, and +1,000 for a rare Wardenfall. Paid into the local wallet through
   `applyDailyResult()`, which is replay-safe via acks.
 * **Stored**: `localStorage` only (`DB.set('meta', META)`). Cloud careers were removed with the deck (ADR 0005) and are
-  planned again as **Gate 2 "cloud careers"** (Codex lane). Clearing the browser loses everything except a manual
+  planned again as **cloud careers** ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115), Codex lane). Clearing the browser loses everything except a manual
   export code.
 * **Trust**: no alloy validation anywhere; import writes `payload.meta` straight to storage (then `loadMeta`
   sanitises shapes, not amounts). `submit_run_v2` validates mode/day/score ≥ 1/wave ≤ 10000/stats < 4 KB only;

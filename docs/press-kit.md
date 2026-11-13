@@ -16,7 +16,7 @@ Every number below comes from the repo's own tests (`tests/fun-audit.spec.js`, `
 
 ## The numbers
 
-Launch timings were first measured at v4.21.0, and CI still holds every build to the same limits. The bot and frame-rate figures come from the v4.30.0 release run (2026-11-11). Every release is in the fun-curve table in the README.
+Launch timings were first measured at v4.21.0, and CI still holds every build to the same limits. The bot and frame-rate figures last recorded in this kit come from the v4.30.0 release run (2026-11-11); later rows, when present, are in the fun-curve table in the README.
 
 - **Ready to fly about 1.4s after load.** CI requires under 3.5s to get ready, under 2s from Launch to flying and a first shot within 2s.
 - **First enemy fire at about 6s.** Wave 1 teaches dodging right away, and the striker's codex card appears the first time you see one.
