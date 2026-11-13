@@ -4,7 +4,45 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
-Nothing yet.
+### UI system — foundations
+- **One UI layer.** New `css/ui.css` owns the shell's tokens, primitives and
+  the settings layout, loaded after the app styles so it is the single place a
+  button, tab, switch or card is defined. `tools/ui-audit.js` (in `check.sh`)
+  guards the promises: every custom property resolves, no hardcoded ember in
+  the system layer, no text under 11 px, `!important` only in the
+  reduced-motion override, every modal surface registered in the focus stack.
+- **Colourblind palettes reach the menus.** Accent tints are now derived from
+  the live palette with `color-mix()`, so Ember, High contrast, Deuteranopia
+  and Tritanopia restyle the chrome instead of only the playfield. The Visual
+  style control shows a two-tone swatch per palette.
+- **Settings rebuilt.** The flat 24-control grid is four sections — Audio,
+  Display, Controls, Accessibility — with 56 px rows, a one-line hint per
+  control, live percentage readouts on every slider, and **Restore defaults**
+  (confirmed, and it never touches alloy, unlocks, saves or scores).
+  `CFG_DEFAULTS` is captured before `loadCfg()`, and reset replays the same
+  `SETTING_PAINTS` contract `boot()` uses.
+- **Segmented controls are real radiogroups.** Difficulty, visual style,
+  quality, frame cap and sky traffic expose `role="radio"` with
+  `aria-checked`, roving tabindex, arrow keys and Home/End. They also wrap in a
+  grid, so five difficulty names are no longer crushed into one column.
+- **Reduce motion is a setting.** `CFG.reduceMotion` seeds from
+  `prefers-reduced-motion`, and the switch stills menus, sky drifts and the
+  dock through a class-based mirror of the media query.
+- **One modal stack.** `js/input.js` owns Escape and Tab for every dialog.
+  What's new and Pilot data previously had no focus trap — Tab escaped to the
+  page behind them — and are now trapped and Escape-closable. The boon draft
+  and game over stay non-dismissable by design.
+- **Readability floor.** The shell's informational layer is raised to 11 px or
+  more (it had 79 declarations under 0.7 rem, down to 7.4 px), `--dimmer` is
+  retired as a text colour (2.6:1) in favour of `--ink-3` (~6.6:1), and
+  switches, segments and tabs meet the 44 px target rule.
+- **Fixes.** `--good` was used by the Tour wall and never declared, so sealed
+  worlds lost their caption colour; `--text` was a third name for ink. The
+  pause action labelled "Leave to hangar" actually returned to the title and
+  now reads "Leave to bridge".
+- **Shipping.** `css/ui.css` is registered in the service worker precache
+  (`emberfall-v4.67`), the release payload (`REQUIRED`/`FIXED` + the `css`
+  walk), the site-payload test fixture and the portal build.
 
 ## [4.30.0] — 2026-11-11 "The Hangar"
 

@@ -84,13 +84,32 @@ function onKeyDown(e) {
   AU.init(); AU.resume();
 
   if (GAME.state === 'boot') { finishBoot(); return; }
-  /* the in-game confirm sits over the hangar; Escape must cancel it,
-     not walk back to the title, and Tab stays inside the dialog */
-  if ($('s-ask') && $('s-ask').classList.contains('on')) {
-    if (e.code === 'Escape') { e.preventDefault(); dismissAsk(); }
-    else if (e.code === 'Tab') trapTab(e, $('s-ask'));
-    return;
+  /* ── one modal stack ─────────────────────────────────────────────────
+     Every dialog surface registers here, topmost first, so the in-game
+     confirm wins over settings and a confirm opened from the hangar can
+     never walk back to the title. Notes and Pilot data used to be the two
+     surfaces with no Escape and no focus trap at all: Tab escaped to the
+     page behind the dialog. */
+  const MODAL_IDS = ['s-ask', 's-set', 's-notes', 's-save', 's-boons', 's-over', 's-pause'];
+  const topModal = () => MODAL_IDS.find(id => {
+    const el = $(id);
+    return !!el && el.classList.contains('on');
+  }) || null;
+  /* the account/boards sheet (js/net.js) owns its own Escape and trap */
+  const sheet = $('acctSheet');
+  if (sheet && sheet.classList.contains('on')) return;
+  const modal = topModal();
+  if (modal && e.code === 'Escape') {
+    if (modal === 's-ask') { e.preventDefault(); dismissAsk(); return; }
+    if (modal === 's-set') { e.preventDefault(); closeSettings(); return; }
+    if (modal === 's-notes') { e.preventDefault(); const b = $('btnNotesClose'); if (b) b.click(); return; }
+    if (modal === 's-save') { e.preventDefault(); const b = $('btnSaveClose'); if (b) b.click(); return; }
+    if (modal === 's-pause') { e.preventDefault(); if (GAME.paused) resumeRun(); return; }
+    /* the boon draft and the game-over screen are decisions: Escape does
+       not dismiss them, and the action keys stay quiet behind them */
   }
+  if (modal && e.code === 'Tab') { trapTab(e, $(modal)); return; }
+  if (modal === 's-ask' || modal === 's-boons') return;
   if (e.code === 'KeyM') { AU.muted = !AU.muted; AU.applyVolumes(); note(AU.muted ? 'Audio muted' : 'Audio on'); }
   if (e.code === 'KeyF') toggleFullscreen();
   if (e.code === 'KeyP' || e.code === 'Escape') {
@@ -100,23 +119,13 @@ function onKeyDown(e) {
     } else if ($('s-set').classList.contains('on')) closeSettings();
     else if (GAME.state === 'hangar') toTitle();
   }
-  /* focus-trap coverage for every modal surface: pause + game-over (the
-     original two) and the settings dialog when it is opened from the title
-     (from a paused game the same Tab path already trapped — one branch per
-     surface, in priority order) */
-  if (e.code === 'Tab' && (GAME.paused || GAME.state === 'over' ||
-      ($('s-set').classList.contains('on') && GAME.state !== 'playing'))) {
-    trapTab(e, GAME.paused ? $('s-pause')
-      : ($('s-set').classList.contains('on') && GAME.state !== 'playing' ? $('s-set') : $('s-over')));
-    return;
-  }
+  /* Tab is handled by the modal stack above: every surface shares one trap */
   /* v4.22.2: the action keys stay quiet while a modal surface holds the
      screen. Enter on a focused settings switch used to ALSO launch a run
      from the title (the switch fired and the game launched — found by the
      a11y spec); B rushed from behind the panel the same way. Shift/E are
      already state-gated to 'playing', which the modal excludes. */
-  const modalUp = $('s-set').classList.contains('on') || $('s-over').classList.contains('on') ||
-    $('s-notes').classList.contains('on') || GAME.paused;
+  const modalUp = !!topModal() || GAME.paused;
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
     if (GAME.state === 'playing' && !GAME.paused) { const [dx, dy] = dashDirection(); tryDash(dx, dy); }
   }

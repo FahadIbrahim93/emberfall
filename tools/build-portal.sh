@@ -12,11 +12,12 @@ ZIP="$ROOT/dist-portal.zip"
 LIMIT=$((20 * 1024 * 1024))
 
 rm -rf "$OUT" "$ZIP"
-mkdir -p "$OUT/js" "$OUT/fonts" "$OUT/icons"
+mkdir -p "$OUT/js" "$OUT/css" "$OUT/fonts" "$OUT/icons"
 
 # Playable shell only. Stats, tests, tools, goldens, docs, package metadata, and markdown stay out. LICENSE stays.
 cp "$ROOT/index.html" "$OUT/index.html"
 cp "$ROOT/js/"*.js "$OUT/js/"
+cp "$ROOT/css/"*.css "$OUT/css/"
 cp "$ROOT/fonts/"*.woff2 "$OUT/fonts/"
 cp "$ROOT/icons/"*.png "$OUT/icons/"
 cp "$ROOT/manifest.webmanifest" "$ROOT/sw.js" "$ROOT/LICENSE" "$OUT/"

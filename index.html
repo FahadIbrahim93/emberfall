@@ -573,8 +573,6 @@ h1 .b{color:transparent;-webkit-text-stroke:1.6px var(--ember);
 .card.wide{width:min(600px,94vw)}
 .runstat{display:flex;gap:26px;margin-bottom:20px;font-size:.62rem;color:var(--dim);letter-spacing:.14em}
 .runstat b{display:block;color:var(--ink);font-size:1rem;font-variant-numeric:tabular-nums;margin-top:3px}
-.setgrid{border-top:1px solid var(--line-soft);padding-top:18px;margin-top:20px;
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:15px 24px}
 .opt label{display:block;font-size:.58rem;letter-spacing:.26em;color:var(--dim);margin-bottom:7px}
 .opt.line{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .opt.line label{margin:0}
@@ -734,7 +732,7 @@ body.needrotate #rotate{display:grid}
 @media (min-width:901px) and (max-height:780px){.pilot-strip{display:none}}
 #cloudBox .up,#cloudBox input,.btab{min-height:44px}
 #cloudBox input{font-size:16px}
-#cloudBox input{background:rgba(3,5,11,.55);border:1px solid var(--line-soft);color:var(--text,#e6f2ff);padding:0 12px;font-family:inherit;letter-spacing:.06em;border-radius:0}
+#cloudBox input{background:rgba(3,5,11,.55);border:1px solid var(--line-soft);color:var(--ink);padding:0 12px;font-family:inherit;letter-spacing:.06em;border-radius:0}
 #cloudBox input:focus{outline:none;border-color:var(--amber)}  /* >=16px: iOS does not zoom the page on focus */
 #cloudPw summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--dim);font-size:.7rem;letter-spacing:.14em}
 .pf-head{display:flex;gap:12px;align-items:center}
@@ -1093,6 +1091,7 @@ body.touchmode #btnPause{width:48px;height:48px}
   .tr{right:calc(12px + var(--sar))}
 }
 </style>
+<link rel="stylesheet" href="css/ui.css">
 </head>
 <body>
 <div id="stage"><canvas id="game" role="img" aria-label="Live game view — deep-range intercept. Keyboard: WASD or arrows fly, Space fires, Shift dashes, E pulses, P pauses."></canvas></div>
@@ -1426,7 +1425,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       <button class="btn" id="btnPauseSet">Settings</button>
       <button class="btn" id="btnRestart">Restart run</button>
       <button class="btn warn hidden" id="btnAbandonTour">Abandon tour</button>
-      <button class="btn warn" id="btnAbort">Leave to hangar</button>
+      <button class="btn warn" id="btnAbort">Leave to bridge</button>
     </div>
   </div>
 </section>
@@ -1436,50 +1435,95 @@ body.touchmode #btnPause{width:48px;height:48px}
   <div class="panel card wide">
     <p class="eyebrow">Configuration</p>
     <h2 id="setH">Settings</h2>
-    <div class="setgrid" style="border:0;padding:0;margin:0">
-      <div class="opt"><label id="lMas">Master volume</label><input type="range" id="rMas" min="0" max="100" aria-labelledby="lMas"></div>
-      <div class="opt"><label id="lMus">Music</label><input type="range" id="rMus" min="0" max="100" aria-labelledby="lMus"></div>
-      <div class="opt"><label id="lSfx">Effects</label><input type="range" id="rSfx" min="0" max="100" aria-labelledby="lSfx"></div>
-      <div class="opt full"><label>Difficulty</label>
-        <div class="seg" id="segDiff">
-          <button data-v="0" class="on">Cozy</button><button data-v="1">Cadet</button>
-          <button data-v="2">Pilot</button>
-          <button data-v="3">Ace</button><button data-v="4">Nightmare</button>
-        </div></div>
-      <div class="opt full"><label>Visual style</label>
-        <div class="seg" id="segPal">
-          <button data-v="0" class="on">Ember</button><button data-v="1">High contrast</button>
-          <button data-v="2">Deuteranopia</button><button data-v="3">Tritanopia</button>
-        </div></div>
-      <div class="opt full"><label>Render quality</label>
-        <div class="seg" id="segQ">
-          <button data-v="0">Battery</button><button data-v="1">Balanced</button>
-          <button data-v="2" class="on">Full</button><button data-v="3">Auto</button>
-        </div></div>
-      <div class="opt line"><label id="lShake">Screen shake</label><button class="sw" id="swShake" aria-labelledby="lShake"><i></i></button></div>
-      <div class="opt line"><label id="lFlash">Flashes</label><button class="sw" id="swFlash" aria-labelledby="lFlash"><i></i></button></div>
-      <div class="opt line"><label id="lScan">Scanlines</label><button class="sw" id="swScan" aria-labelledby="lScan"><i></i></button></div>
-      <div class="opt line"><label id="lGrain">Film grain</label><button class="sw" id="swGrain" aria-labelledby="lGrain"><i></i></button></div>
-      <div class="opt line"><label id="lHit">Show hitbox</label><button class="sw" id="swHit" aria-labelledby="lHit"><i></i></button></div>
-      <div class="opt line"><label id="lAuto">Auto-fire</label><button class="sw" id="swAuto" aria-labelledby="lAuto"><i></i></button></div>
-      <div class="opt line"><label id="lHap">Vibration</label><button class="sw" id="swHap" aria-labelledby="lHap"><i></i></button></div>
-      <div class="opt line"><label id="lLefty">Left-handed touch</label><button class="sw" id="swLefty" aria-labelledby="lLefty"><i></i></button></div>
-      <div class="opt line"><label id="lBig">Larger touch buttons</label><button class="sw" id="swBig" aria-labelledby="lBig"><i></i></button></div>
-      <div class="opt"><label id="lBtnScale">Button size</label><input type="range" id="rBtnScale" min="70" max="140" step="5" aria-labelledby="lBtnScale"></div>
-      <div class="opt"><label id="lBtnOp">Button opacity</label><input type="range" id="rBtnOp" min="40" max="100" step="2" aria-labelledby="lBtnOp"></div>
-      <div class="opt line"><label id="lGhost">Daily ghost</label><button class="sw" id="swGhost" aria-labelledby="lGhost"><i></i></button></div>
-      <div class="opt line"><label id="lOut">High-vis bullets</label><button class="sw" id="swOut" aria-labelledby="lOut"><i></i></button></div>
-      <div class="opt line"><label id="lFps">Show FPS</label><button class="sw" id="swFps" aria-labelledby="lFps"><i></i></button></div>
-      <div class="opt full"><label>Frame rate cap</label>
-        <div class="seg" id="segCap">
-          <button data-v="0">Off</button><button data-v="30">30</button>
-          <button data-v="60">60</button><button data-v="120">120</button>
-        </div></div>
-      <div class="opt full"><label>Sky traffic — comets, convoys, lost fleets</label>
-        <div class="seg" id="segSky">
-          <button data-v="0">Sparse</button><button data-v="1" class="on">Standard</button>
-          <button data-v="2">Busy</button><button data-v="3">Storm</button>
-        </div></div>
+    <div class="set">
+      <fieldset class="set-sec">
+        <legend><h3>Audio</h3></legend>
+        <div class="set-row col">
+          <div><label id="lMas" for="rMas">Master volume</label><span class="set-hint">Everything the game makes a sound with.</span></div>
+          <div class="set-slide"><input type="range" id="rMas" min="0" max="100" aria-labelledby="lMas"><output class="set-val" id="oMas" for="rMas">80%</output></div>
+        </div>
+        <div class="set-row col">
+          <div><label id="lMus" for="rMus">Music</label><span class="set-hint">The adaptive score. It follows the fight.</span></div>
+          <div class="set-slide"><input type="range" id="rMus" min="0" max="100" aria-labelledby="lMus"><output class="set-val" id="oMus" for="rMus">58%</output></div>
+        </div>
+        <div class="set-row col">
+          <div><label id="lSfx" for="rSfx">Effects</label><span class="set-hint">Guns, impacts, pickups and menu feedback.</span></div>
+          <div class="set-slide"><input type="range" id="rSfx" min="0" max="100" aria-labelledby="lSfx"><output class="set-val" id="oSfx" for="rSfx">85%</output></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="set-sec">
+        <legend><h3>Display</h3></legend>
+        <div class="set-row col">
+          <div><label id="lQ">Render quality</label><span class="set-hint">Battery is the cheapest; Auto follows the device.</span></div>
+          <div class="seg" id="segQ" role="radiogroup" aria-labelledby="lQ">
+            <button data-v="0" type="button" role="radio" aria-checked="false">Battery</button><button data-v="1" type="button" role="radio" aria-checked="false">Balanced</button>
+            <button data-v="2" type="button" role="radio" aria-checked="true" class="on">Full</button><button data-v="3" type="button" role="radio" aria-checked="false">Auto</button>
+          </div>
+        </div>
+        <div class="set-row col">
+          <div><label id="lCap">Frame rate cap</label><span class="set-hint">A cap saves battery. Off uses the display's own rate.</span></div>
+          <div class="seg" id="segCap" role="radiogroup" aria-labelledby="lCap">
+            <button data-v="0" type="button" role="radio" aria-checked="true" class="on">Off</button><button data-v="30" type="button" role="radio" aria-checked="false">30</button>
+            <button data-v="60" type="button" role="radio" aria-checked="false">60</button><button data-v="120" type="button" role="radio" aria-checked="false">120</button>
+          </div>
+        </div>
+        <div class="set-row col">
+          <div><label id="lSky">Sky traffic</label><span class="set-hint">Comets, convoys and lost fleets crossing the backdrop.</span></div>
+          <div class="seg" id="segSky" role="radiogroup" aria-labelledby="lSky">
+            <button data-v="0" type="button" role="radio" aria-checked="false">Sparse</button><button data-v="1" type="button" role="radio" aria-checked="true" class="on">Standard</button>
+            <button data-v="2" type="button" role="radio" aria-checked="false">Busy</button><button data-v="3" type="button" role="radio" aria-checked="false">Storm</button>
+          </div>
+        </div>
+        <div class="set-row"><div><label id="lScan">Scanlines</label><span class="set-hint">The thin horizontal grade over the glass.</span></div><button class="sw" id="swScan" type="button" role="switch" aria-checked="true" aria-labelledby="lScan"><i></i></button></div>
+        <div class="set-row"><div><label id="lGrain">Film grain</label><span class="set-hint">Animated noise. Costs a little GPU.</span></div><button class="sw" id="swGrain" type="button" role="switch" aria-checked="true" aria-labelledby="lGrain"><i></i></button></div>
+        <div class="set-row"><div><label id="lFlash">Flashes</label><span class="set-hint">Bright impact flashes. Off is the calmer cut.</span></div><button class="sw" id="swFlash" type="button" role="switch" aria-checked="true" aria-labelledby="lFlash"><i></i></button></div>
+        <div class="set-row"><div><label id="lShake">Screen shake</label><span class="set-hint">Camera kick when things hit you.</span></div><button class="sw" id="swShake" type="button" role="switch" aria-checked="true" aria-labelledby="lShake"><i></i></button></div>
+        <div class="set-row"><div><label id="lGhost">Daily ghost</label><span class="set-hint">Race a recording of the day's best run.</span></div><button class="sw" id="swGhost" type="button" role="switch" aria-checked="true" aria-labelledby="lGhost"><i></i></button></div>
+        <div class="set-row"><div><label id="lFps">Show FPS</label><span class="set-hint">A frame-time readout in the corner.</span></div><button class="sw" id="swFps" type="button" role="switch" aria-checked="false" aria-labelledby="lFps"><i></i></button></div>
+      </fieldset>
+
+      <fieldset class="set-sec">
+        <legend><h3>Controls</h3></legend>
+        <div class="set-row col">
+          <div><label id="lDiff">Difficulty</label><span class="set-hint">Harder tiers pay a higher score multiplier.</span></div>
+          <div class="seg" id="segDiff" role="radiogroup" aria-labelledby="lDiff">
+            <button data-v="0" type="button" role="radio" aria-checked="true" class="on">Cozy</button><button data-v="1" type="button" role="radio" aria-checked="false">Cadet</button>
+            <button data-v="2" type="button" role="radio" aria-checked="false">Pilot</button>
+            <button data-v="3" type="button" role="radio" aria-checked="false">Ace</button><button data-v="4" type="button" role="radio" aria-checked="false">Nightmare</button>
+          </div>
+        </div>
+        <div class="set-row"><div><label id="lAuto">Auto-fire</label><span class="set-hint">Hold is optional: guns fire on their own.</span></div><button class="sw" id="swAuto" type="button" role="switch" aria-checked="true" aria-labelledby="lAuto"><i></i></button></div>
+        <div class="set-row"><div><label id="lLefty">Left-handed touch</label><span class="set-hint">Mirrors dash and pulse to the left thumb.</span></div><button class="sw" id="swLefty" type="button" role="switch" aria-checked="false" aria-labelledby="lLefty"><i></i></button></div>
+        <div class="set-row"><div><label id="lBig">Larger touch buttons</label><span class="set-hint">Dash and pulse grow for big hands or small phones.</span></div><button class="sw" id="swBig" type="button" role="switch" aria-checked="false" aria-labelledby="lBig"><i></i></button></div>
+        <div class="set-row col">
+          <div><label id="lBtnScale" for="rBtnScale">Button size</label><span class="set-hint">Scales the on-screen flight buttons.</span></div>
+          <div class="set-slide"><input type="range" id="rBtnScale" min="70" max="140" step="5" aria-labelledby="lBtnScale"><output class="set-val" id="oBtnScale" for="rBtnScale">100%</output></div>
+        </div>
+        <div class="set-row col">
+          <div><label id="lBtnOp" for="rBtnOp">Button opacity</label><span class="set-hint">Lower lets more of the fight show through.</span></div>
+          <div class="set-slide"><input type="range" id="rBtnOp" min="40" max="100" step="2" aria-labelledby="lBtnOp"><output class="set-val" id="oBtnOp" for="rBtnOp">92%</output></div>
+        </div>
+        <div class="set-row"><div><label id="lHap">Vibration</label><span class="set-hint">A short pulse on hits and purchases, where supported.</span></div><button class="sw" id="swHap" type="button" role="switch" aria-checked="true" aria-labelledby="lHap"><i></i></button></div>
+      </fieldset>
+
+      <fieldset class="set-sec">
+        <legend><h3>Accessibility</h3></legend>
+        <div class="set-row col">
+          <div><label id="lPal">Visual style</label><span class="set-hint">Repaints the flight field and these menus. Every style keeps hostile and friendly apart.</span></div>
+          <div class="seg" id="segPal" role="radiogroup" aria-labelledby="lPal">
+            <button data-v="0" type="button" role="radio" aria-checked="true" class="on">Ember</button><button data-v="1" type="button" role="radio" aria-checked="false">High contrast</button>
+            <button data-v="2" type="button" role="radio" aria-checked="false">Deuteranopia</button><button data-v="3" type="button" role="radio" aria-checked="false">Tritanopia</button>
+          </div>
+        </div>
+        <div class="set-row"><div><label id="lOut">High-visibility bullets</label><span class="set-hint">Outlines hostile fire so it reads against the sky.</span></div><button class="sw" id="swOut" type="button" role="switch" aria-checked="true" aria-labelledby="lOut"><i></i></button></div>
+        <div class="set-row"><div><label id="lHit">Show hitbox</label><span class="set-hint">Draws your exact collision point.</span></div><button class="sw" id="swHit" type="button" role="switch" aria-checked="false" aria-labelledby="lHit"><i></i></button></div>
+        <div class="set-row"><div><label id="lMotion">Reduce motion</label><span class="set-hint">Stills the menus, sky drifts and dock. Follows your device setting until you change it.</span></div><button class="sw" id="swMotion" type="button" role="switch" aria-checked="false" aria-labelledby="lMotion"><i></i></button></div>
+      </fieldset>
+    </div>
+    <div class="set-actions">
+      <p class="set-note">Changes save automatically. Restoring defaults never touches your alloy, unlocks, saves or scores.</p>
+      <button class="btn ghost" id="btnSetReset" type="button">Restore defaults</button>
     </div>
     <div class="pair" style="margin-top:22px">
       <button class="btn key" id="btnSetClose">Done</button>
@@ -1681,17 +1725,20 @@ const DB = {
 };
 
 /* ─────────────────────────── settings ─────────────────────────── */
-const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CFG = {
   master: 80, music: 58, sfx: 85,
   diff: 0, pal: 0, quality: 3,
   shake: !REDUCE, flash: !REDUCE, scan: true, grain: !REDUCE,
+  reduceMotion: REDUCE, /* menu + HUD motion; the OS preference seeds it */
   hitbox: false, autofire: true, haptics: true, fps: false, fpscap: 0,
   touchLeft: false, touchBig: false, ghost: true, outline: true,
   cozy: false, /* vestigial — Cozy lives in DIFF; kept so old saves merge cleanly */
   sky: 1, /* sky traffic cadence — table in js/sky.js */
   btnScale: 1, btnOpacity: 92, btnSpacing: 1
 };
+/* captured before loadCfg(): the one source for "Restore defaults" */
+const CFG_DEFAULTS = Object.freeze({ ...CFG });
 function loadCfg() {
   const s = DB.get('cfg', null);
   if (s && typeof s === 'object') { for (const k in CFG) if (k in s) CFG[k] = s[k]; return; }
@@ -7626,18 +7673,22 @@ const SETTING_PAINTS = [];
 function bindRange(id, key, onChange) {
   const el = $(id);
   if (!el) return;
-  const paint = () => { 
-    if(id === 'rBtnScale') el.value = Math.round((CFG.btnScale||1)*100);
-    else if(id === 'rBtnOp') el.value = CFG.btnOpacity||92;
-    else el.value = CFG[key]; 
+  const out = $('o' + id.slice(1));
+  const read = () => id === 'rBtnScale' ? Math.round((CFG.btnScale || 1) * 100)
+    : id === 'rBtnOp' ? (CFG.btnOpacity || 92)
+    : CFG[key];
+  const paint = () => {
+    el.value = read();
+    el.setAttribute('aria-valuetext', read() + '%');
+    if (out) out.textContent = read() + '%';
   };
   SETTING_PAINTS.push(paint);
   paint();
   el.addEventListener('input', () => {
-    if(id === 'rBtnScale'){ CFG[key]=+el.value/100; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
-    if(id === 'rBtnOp'){ CFG[key]=+el.value; saveCfg(); AU.init(); AU.applyVolumes(); if(onChange) onChange(+el.value); return; }
+    if (id === 'rBtnScale') { CFG[key] = +el.value / 100; saveCfg(); paint(); AU.init(); AU.applyVolumes(); if (onChange) onChange(+el.value); return; }
+    if (id === 'rBtnOp') { CFG[key] = +el.value; saveCfg(); paint(); AU.init(); AU.applyVolumes(); if (onChange) onChange(+el.value); return; }
     CFG[key] = +el.value;
-    saveCfg(); AU.init(); AU.applyVolumes();
+    saveCfg(); paint(); AU.init(); AU.applyVolumes();
     if (onChange) onChange(+el.value);
   });
 }
@@ -7673,14 +7724,39 @@ bindSwitch('swFps', 'fps', v => { PROF.on = v; });
 function bindSegment(id, key, apply) {
   const box = $(id);
   if (!box) return;
+  const items = Array.from(box.children);
+  box.setAttribute('role', 'radiogroup');
   const paint = () => {
-    Array.from(box.children).forEach(b => b.classList.toggle('on', +b.dataset.v === CFG[key]));
+    items.forEach((b, i) => {
+      const on = +b.dataset.v === CFG[key];
+      b.type = 'button';
+      b.classList.toggle('on', on);
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+      if (!b.id) b.id = id + '-' + i;
+    });
     if (apply) apply(CFG[key]);
   };
-  Array.from(box.children).forEach(b => {
-    b.onclick = () => { CFG[key] = +b.dataset.v; saveCfg(); paint(); AU.ui(); };
+  const choose = b => { CFG[key] = +b.dataset.v; saveCfg(); paint(); AU.ui(); };
+  items.forEach(b => {
+    b.onclick = () => choose(b);
+    b.addEventListener('keydown', e => {
+      const i = items.indexOf(b);
+      const step = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1
+        : (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 0;
+      if (step) {
+        e.preventDefault();
+        const next = items[(i + step + items.length) % items.length];
+        next.focus(); choose(next);
+      } else if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const next = items[e.key === 'Home' ? 0 : items.length - 1];
+        next.focus(); choose(next);
+      }
+    });
   });
-  SETTING_PAINTS.push(paint);   // same replay contract as bindSwitch
+  SETTING_PAINTS.push(paint);
   paint();
 }
 bindSegment('segDiff', 'diff', () => { if (GAME.state === 'title') refreshTitleMeta(); });
@@ -7703,6 +7779,25 @@ bindSegment('segPal', 'pal', v => {
 bindSegment('segQ', 'quality', () => applyQuality());
 bindSegment('segCap', 'fpscap', () => { });
 bindSegment('segSky', 'sky', () => { });
+bindSwitch('swMotion', 'reduceMotion', v => {
+  REDUCE = !!v;
+  document.documentElement.classList.toggle('reduce-motion', REDUCE);
+});
+
+/* Restore defaults: one function, one list, and the same paint contract the
+   boot replay uses, so no control can drift from CFG after a reset. */
+function resetSettings() {
+  for (const k of Object.keys(CFG_DEFAULTS)) CFG[k] = CFG_DEFAULTS[k];
+  saveCfg();
+  SETTING_PAINTS.forEach(p => p());
+  document.documentElement.classList.toggle('reduce-motion', !!CFG.reduceMotion);
+  applyTouchBtnCfg();
+  AU.init(); AU.applyVolumes();
+  note('Settings restored to defaults', 'good');
+}
+bindClick('btnSetReset', () => askConfirm(
+  'Restore every setting to its default? Your alloy, unlocks, saves and scores are not touched.',
+  'Restore defaults', resetSettings));
 
 /* ── What's new — the changelog lives with the code that changed it.
    Newest first; entries only need adding, never editing. The most recent

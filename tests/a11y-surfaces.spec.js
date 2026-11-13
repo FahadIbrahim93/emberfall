@@ -77,3 +77,52 @@ test('settings switches are keyboard-operable toggles with real state', async ({
   await sw.click();
   expect(await sw.getAttribute('aria-checked')).toBe(before);
 });
+
+/* The settings rebuild: segments are radiogroups with one tab stop and arrow
+   keys, sliders publish the value they are setting, and restore-defaults is a
+   confirmed action that puts every control back without touching progress. */
+test('settings segments are radiogroups: one tab stop, arrow keys select', async ({ page }) => {
+  await titleUp(page);
+  await page.locator('#btnSettings').click();
+  await expect(page.locator('#s-set')).toHaveClass(/on/);
+  const group = page.locator('#segDiff');
+  expect(await group.getAttribute('role')).toBe('radiogroup');
+  const cozy = group.getByRole('radio', { name: 'Cozy', exact: true });
+  const cadet = group.getByRole('radio', { name: 'Cadet', exact: true });
+  await expect(cozy).toHaveAttribute('aria-checked', 'true');
+  await cozy.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(cadet).toHaveAttribute('aria-checked', 'true');
+  await expect(cozy).toHaveAttribute('aria-checked', 'false');
+  expect(await cadet.evaluate(el => el === document.activeElement), 'selection follows focus').toBe(true);
+});
+
+test('settings sliders publish the value they set', async ({ page }) => {
+  await titleUp(page);
+  await page.locator('#btnSettings').click();
+  await expect(page.locator('#s-set')).toHaveClass(/on/);
+  await expect(page.locator('#oMas')).toHaveText('80%');
+  await page.locator('#rMas').evaluate(el => {
+    el.value = '35';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(page.locator('#oMas')).toHaveText('35%');
+  expect(await page.locator('#rMas').getAttribute('aria-valuetext')).toBe('35%');
+});
+
+test('restore defaults resets every control and never touches progress', async ({ page }) => {
+  await titleUp(page);
+  await page.evaluate(() => { META.alloy = 4321; saveMeta(); });
+  await page.locator('#btnSettings').click();
+  await expect(page.locator('#s-set')).toHaveClass(/on/);
+  const sw = page.locator('#swShake');
+  const before = await sw.getAttribute('aria-checked');
+  await sw.click();
+  await expect(sw).toHaveAttribute('aria-checked', before === 'true' ? 'false' : 'true');
+  await page.locator('#btnSetReset').click();
+  await expect(page.locator('#s-ask')).toHaveClass(/on/);
+  await expect(page.locator('#btnAskYes')).toHaveText('Restore defaults');
+  await page.locator('#btnAskYes').click();
+  await expect(sw).toHaveAttribute('aria-checked', before);
+  expect(await page.evaluate(() => META.alloy), 'reset never touches alloy').toBe(4321);
+});
