@@ -2681,7 +2681,16 @@ function hexRgb(hex) {
   const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
-const rgbOf = hex => hexRgb(hex).join(',');
+/* Memoized: hot render paths (bullets, rings, beams) call this every frame
+   with the same handful of palette hexes; a plain string cache removes the
+   per-call parse + join + array garbage. Palettes are small and swap rarely,
+   so the cache stays tiny. */
+const RGB_OF_MEMO = Object.create(null);
+function rgbOf(hex) {
+  let v = RGB_OF_MEMO[hex];
+  if (v === undefined) v = RGB_OF_MEMO[hex] = hexRgb(hex).join(',');
+  return v;
+}
 
 /* Ship scale — one dial for ship presence. Applies to both sides (fair),
    feeds the COLLISION radii too, so what you see is what you clip. */
@@ -2709,6 +2718,7 @@ TOUCH.apply();
 let SPR = {};
 function buildSprites() {
   clearArtCache(); // hull/carapace gradients are palette-derived
+  if (typeof clearFbStrokeCache === 'function') clearFbStrokeCache(); // bullet strokes are palette-derived too
   SPR = {
     white: radialSprite('235,242,255', 64),
     hull: radialSprite(rgbOf(PAL.hull), 64),
@@ -6267,23 +6277,43 @@ function drawShield(x, y) {
   ctx.restore();
 }
 
+/* Per-colour stroke styles for hostile fire, built lazily from the live
+   palette — same lazy-memo pattern as RGB_MEMO in art.js. The per-bullet
+   string concat used to allocate twice per enemy shot per frame. */
+const FB_STROKE = Object.create(null);
+function fbStroke(col) {
+  let s = FB_STROKE[col];
+  if (!s) s = FB_STROKE[col] = 'rgba(' + rgbOf(col) + ',.95)';
+  return s;
+}
+function clearFbStrokeCache() {
+  for (const k in FB_STROKE) delete FB_STROKE[k];
+}
 function drawBullets() {
+  // Batch the fixed-style passes so state changes happen once per frame,
+  // not thrice per bullet: all dark rims → all white cores → all rings.
+  const outline = CFG.outline;
   // hostile fire first so player shots read on top
   for (const b of fb) {
-    const rgb = b.kind === 'seek' ? rgbOf(PAL.rare) : rgbOf(b.col || PAL.foe);
     emit(b.kind === 'seek' ? SPR.rare : SPR.foe, b.x, b.y, b.r * 4.4, .9);
+  }
+  if (outline) {
     // high-vis mode: a dark rim between glow and core. On bright backdrops
     // the dark ring is what the eye tracks, and it costs one stroke.
-    if (CFG.outline) {
-      ctx.strokeStyle = 'rgba(5,8,16,.75)';
-      ctx.lineWidth = 2.2;
+    ctx.strokeStyle = 'rgba(5,8,16,.75)';
+    ctx.lineWidth = 2.2;
+    for (const b of fb) {
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .9, 0, TAU); ctx.stroke();
     }
-    // white-hot core: hostile fire must be the FIRST thing you see
-    ctx.fillStyle = '#ffffff';
+  }
+  // white-hot core: hostile fire must be the FIRST thing you see
+  ctx.fillStyle = '#ffffff';
+  for (const b of fb) {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * .55, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(' + rgb + ',.95)';
-    ctx.lineWidth = 1.6;
+  }
+  ctx.lineWidth = 1.6;
+  for (const b of fb) {
+    ctx.strokeStyle = fbStroke(b.kind === 'seek' ? PAL.rare : (b.col || PAL.foe));
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
   }
   for (const b of pb) {
