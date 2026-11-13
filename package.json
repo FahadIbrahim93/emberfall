@@ -14,7 +14,7 @@
     "replay:record": "node tools/replay-record.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.15",
+    "@electric-sql/pglite": "^0.5.16",
     "@playwright/test": "1.65.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0",
