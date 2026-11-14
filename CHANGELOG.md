@@ -4,6 +4,24 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### The gates check themselves
+- **`package.json` states its licence.** `"license": "MIT"` now agrees with
+  `LICENSE`; before, npm metadata and tooling saw no licence at all, and the
+  copyguard licence check only rejected a *contradiction*, never a silence.
+- **copyguard can no longer go inert.** A derived check that finds no claim to
+  inspect is a failure, not a skip — the module-count and provider patterns had
+  both been matching nothing while the gate printed a clean pass. Each new
+  guard is proved by `tools/copyguard.test.mjs`, which mutates a fixture copy
+  once per check (a wrong module count, a reworded sentence, an unqualified
+  "no build step", an invented provider, a shipped provider removed from the
+  README, third-party text appended to `LICENSE`, a disagreeing manifest
+  licence, a stale version, a stale test count) and requires every mutation to
+  exit 1 naming its file. `npm run test:release` runs it.
+- **Coverage prints its denominator.** `check.sh` logs
+  `COVERAGE: statements n% (covered/total) · branches … · functions … ·
+  lines …`, so no percentage this repo quotes can appear without the size of
+  what it measures. Reported, never gated.
+
 ### The simulation seam is closed — one simulation
 - **The duplicate simulation is deleted.** `packages/sim/src/*.ts` was a
   1,180-line re-implementation of catalog/combat/boss logic that the game never
