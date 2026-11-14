@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createWorld } from '../src/world.ts';
-import { step, endHash } from '../src/step.ts';
-import { spawnFoe, firePlayer } from '../src/combat.ts';
-import { STEP } from '../src/constants.ts';
-import type { InputFrame } from '../src/types.ts';
+import { createWorld, step, endHash, spawnFoe, firePlayer, STEP } from '../src/index.ts';
+import type { InputFrame } from '../src/index.ts';
 
-const fire: InputFrame = { mx: 0, my: 0, fire: true, dash: false, pulse: false };
-const idle: InputFrame = { mx: 0, my: 0, fire: false, dash: false, pulse: false };
+const fire: InputFrame = { mx: 0, my: 0, fire: true };
+const idle: InputFrame = { mx: 0, my: 0, fire: false };
 
 describe('spawnFoe', () => {
   it('creates a drone with scaled hp', () => {
@@ -65,8 +62,6 @@ describe('T-DET combat replay', () => {
       mx: Math.sin(i * 0.05) * 0.6,
       my: -0.2,
       fire: i % 4 === 0,
-      dash: false,
-      pulse: false,
     });
     const run = (seed: number) => {
       const w = createWorld({ seed, hullId: 'vesper', difficulty: 2 });
@@ -85,12 +80,13 @@ describe('T-DET combat replay', () => {
   });
 
   it('different seeds diverge after combat', () => {
-    const script = (i: number): InputFrame => ({
-      mx: 0, my: 0, fire: true, dash: false, pulse: false,
-    });
+    /* 480 straight-up ticks on wave 1 are identical for every seed — the
+       director has not drawn on R yet. Give it a moving target and enough
+       time for spawn variation to matter, or this asserts nothing. */
+    const script = (i: number): InputFrame => ({ mx: Math.sin(i * 0.05) * 0.5, my: 0, fire: true });
     const run = (seed: number) => {
       const w = createWorld({ seed });
-      for (let i = 0; i < 480; i++) step(w, STEP, script(i));
+      for (let i = 0; i < 1200; i++) step(w, STEP, script(i));
       return endHash(w);
     };
     expect(run(1)).not.toEqual(run(2));

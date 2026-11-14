@@ -2,6 +2,9 @@
  * P1-7 golden-replay helper.
  * Prefer: npx vite-node tools/replay-record.mjs --seed 42 --steps 2400 --out goldens/combat-42.json
  *
+ * The goldens are recorded through packages/sim, which is now a facade over the
+ * shipped inline core: a golden is the shipped simulation's own digest.
+ *
  * No shebang on purpose: vite-node loads this file as module source and
  * chokes on `#!` (node's own loader strips it, vite-node's does not).
  */
@@ -26,48 +29,48 @@ async function trySim() {
     /* relative specifiers on purpose: vite-node intercepts and transforms
        them; a pathToFileURL() absolute URL escapes the module runner and
        dies on the .ts extension in plain node */
-    const { createWorld } = await import('../packages/sim/src/world.ts');
-    const { step, endHash } = await import('../packages/sim/src/step.ts');
-    const { STEP } = await import('../packages/sim/src/constants.ts');
-    return { createWorld, step, endHash, STEP };
-  } catch {
+    const sim = await import('../packages/sim/src/index.ts');
+    const { goldenInput } = await import('../packages/sim/host/goldens.mjs');
+    return { sim, goldenInput };
+  } catch (e) {
+    console.error(e);
     return null;
   }
 }
 
-const sim = await trySim();
+/* the running per-tick digest chain is part of the golden: comparing it names
+   the tick a change first bites instead of only saying "the end differs" */
+function play(sim, goldenInput, seed, steps) {
+  const w = sim.createWorld({ seed, autoWave: true });
+  let h = 2166136261 >>> 0;
+  const tickChain = [];
+  for (let i = 0; i < steps; i++) {
+    sim.step(w, sim.STEP, goldenInput(i));
+    const t = sim.endHash(w);
+    for (let k = 0; k < t.length; k++) { h ^= t.charCodeAt(k); h = Math.imul(h, 16777619); }
+    tickChain.push(('00000000' + (h >>> 0).toString(16)).slice(-8));
+  }
+  return { w, chain: ('00000000' + (h >>> 0).toString(16)).slice(-8), tickChain };
+}
+
+const loaded = await trySim();
 
 if (args.out) {
+  if (!loaded) process.exit(1);
   mkdirSync(dirname(args.out), { recursive: true });
-  if (!sim) {
-    writeFileSync(args.out, JSON.stringify({
-      version: 1, seed: args.seed, steps: args.steps,
-      endHash: null, score: null,
-      note: 'Skeleton — run under vite-node to lock endHash',
-    }, null, 2) + '\n');
-    console.log('wrote skeleton (no TS loader)', args.out);
-    process.exit(0);
-  }
-  const w = sim.createWorld({ seed: args.seed, autoWave: true });
-  for (let i = 0; i < args.steps; i++) {
-    sim.step(w, sim.STEP, {
-      mx: Math.sin(i * 0.04) * 0.6,
-      my: Math.cos(i * 0.03) * 0.3,
-      fire: i % 4 === 0,
-      dash: false,
-      pulse: false,
-    });
-  }
+  const { w, chain, tickChain } = play(loaded.sim, loaded.goldenInput, args.seed, args.steps);
   const meta = {
-    version: 1,
+    version: 3,
     seed: args.seed,
     steps: args.steps,
-    endHash: sim.endHash(w),
+    endHash: loaded.sim.endHash(w),
+    chain,
+    tickChain: tickChain.join(' '),
     score: w.score,
     kills: w.kills,
     grazes: w.grazes,
     wave: w.wave,
-    note: 'Locked T-DET golden',
+    note: 'Locked against the shipped core (packages/sim is a facade over index.html)',
   };
   writeFileSync(args.out, JSON.stringify(meta, null, 2) + '\n');
   console.log('locked', args.out, meta.endHash);
@@ -75,24 +78,13 @@ if (args.out) {
 }
 
 if (args.verify) {
+  if (!loaded) process.exit(1);
   const g = JSON.parse(readFileSync(args.verify, 'utf8'));
-  if (!sim || g.endHash == null) {
-    console.log('verify skip/skeleton', g.seed);
-    process.exit(0);
-  }
-  const w = sim.createWorld({ seed: g.seed, autoWave: true });
-  for (let i = 0; i < g.steps; i++) {
-    sim.step(w, sim.STEP, {
-      mx: Math.sin(i * 0.04) * 0.6,
-      my: Math.cos(i * 0.03) * 0.3,
-      fire: i % 4 === 0,
-      dash: false,
-      pulse: false,
-    });
-  }
-  const h = sim.endHash(w);
-  if (h !== g.endHash) {
-    console.error('MISMATCH', h, '!=', g.endHash);
+  const { w, chain, tickChain } = play(loaded.sim, loaded.goldenInput, g.seed, g.steps);
+  const h = loaded.sim.endHash(w);
+  const bad = (g.tickChain || []).findIndex((v, i) => v !== tickChain[i]);
+  if (h !== g.endHash || chain !== g.chain || (g.tickChain && bad !== -1)) {
+    console.error('MISMATCH', h, '!=', g.endHash, bad >= 0 ? `first divergent tick ${bad}` : '');
     process.exit(1);
   }
   console.log('OK', g.seed, h);

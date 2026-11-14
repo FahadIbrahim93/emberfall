@@ -1,0 +1,14 @@
+{
+  "note": "Equal by construction: tools/parity/sim-digest.mjs runs packages/sim, which is a facade over the shipped inline core. Recorded deliberately when the seam closed (v2 format).",
+  "recorded": "2026-11-14",
+  "shipped": {
+    "digest": "520|1|6|0|0|3|2|2|292.235|812.040|6|5|0",
+    "chain": "ba9ab8b8",
+    "state": "playing"
+  },
+  "sim": {
+    "digest": "520|1|6|0|0|3|2|2|292.235|812.040|6|5|0",
+    "hash": "520|1|6|0|0|3|2|2|292.235|812.040|6|5|0",
+    "state": "playing"
+  }
+}

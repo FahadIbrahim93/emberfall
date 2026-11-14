@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { createWorld } from '../src/world.ts';
-import { step, endHash } from '../src/step.ts';
-import { STEP } from '../src/constants.ts';
+import { createWorld, step, endHash, STEP } from '../src/index.ts';
+import { goldenInput } from '../host/goldens.mjs';
 
 type Golden = {
   seed: number;
   steps: number;
   endHash: string;
+  chain: string;
+  tickChain: string;
   score: number;
 };
 
@@ -15,18 +16,19 @@ function load(name: string): Golden {
   return JSON.parse(readFileSync(new URL(`../../../goldens/${name}`, import.meta.url), 'utf8'));
 }
 
-function replay(seed: number, steps: number): string {
+const hex = (h: number): string => ('00000000' + (h >>> 0).toString(16)).slice(-8);
+
+function replay(seed: number, steps: number) {
   const w = createWorld({ seed, autoWave: true });
+  let h = 2166136261 >>> 0;
+  const tickChain: string[] = [];
   for (let i = 0; i < steps; i++) {
-    step(w, STEP, {
-      mx: Math.sin(i * 0.04) * 0.6,
-      my: Math.cos(i * 0.03) * 0.3,
-      fire: i % 4 === 0,
-      dash: false,
-      pulse: false,
-    });
+    step(w, STEP, goldenInput(i));
+    const t = endHash(w);
+    for (let k = 0; k < t.length; k++) { h ^= t.charCodeAt(k); h = Math.imul(h, 16777619); }
+    tickChain.push(hex(h));
   }
-  return endHash(w);
+  return { end: endHash(w), chain: hex(h), tickChain };
 }
 
 describe('T-DET locked goldens', () => {
@@ -34,7 +36,14 @@ describe('T-DET locked goldens', () => {
     it(`matches ${name}`, () => {
       const g = load(name);
       expect(g.endHash).toBeTruthy();
-      expect(replay(g.seed, g.steps)).toBe(g.endHash);
+      const run = replay(g.seed, g.steps);
+      expect(run.end).toBe(g.endHash);
+      if (g.chain) expect(run.chain).toBe(g.chain);
+      if (g.tickChain) {
+        const want = String(g.tickChain).split(' ');
+        const at = run.tickChain.findIndex((v, i) => v !== want[i]);
+        expect(at, at >= 0 ? `golden drifted at tick ${at}` : 'golden tick-chain length differs').toBe(-1);
+      }
     });
   }
 

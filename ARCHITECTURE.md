@@ -7,13 +7,40 @@ the economy in `docs/economy-audit.md`, performance in `docs/performance.md`.
 Supabase for accounts and boards. There is no game server; the old
 self-hosted deck was removed ([ADR 0005](docs/adr/0005-remove-self-hosted-deck.md)).
 
+## Simulation parity (what is actually gated)
+
+There is one simulation: the inline core in `index.html`. `packages/sim/` is a
+typed **facade over those same bytes**, loaded headlessly by
+`packages/sim/host/env.mjs` (a Node `vm` context with stub DOM/canvas/audio).
+The duplicate TypeScript re-implementation is gone; the unit tests and the game
+run the same simulation. Details and the re-record procedure:
+[docs/sim-parity.md](docs/sim-parity.md).
+
+Three gates keep it that way:
+
+- `tools/parity.test.mjs` steps the **real inline core** headlessly through the
+  shared scenario (`packages/sim/host/scenario.mjs`) and compares a final digest
+  **and a committed per-tick hash chain** in
+  `tools/parity/shipped-baseline.json`. Drift fails naming the first tick.
+- `packages/sim/tests/parity-shipped.test.ts` drives every golden twice — via
+  the facade, and via a raw `stepGame` loop with no facade code in the path —
+  and requires identical per-tick chains and identical final digests. It also
+  compares every primitive against the running core (RNG stream, hash, combo
+  bands, catalogues, scale constants).
+- `tools/parity/cross-sim-baseline.json` records the shipped digest and the
+  facade digest as the **same value**, and
+  `tools/parity/sim-digest.mjs --write` refuses to record a disagreement.
+
 ## The load contract (the most important invariant)
 
 Classic scripts, no bundler, no ESM — `file://` play is a hard requirement.
-Five modules load **before** the inline core, in this order:
+Eight modules load **before** the inline core, in this order (as the script
+tags appear in `index.html`; `tools/copyguard.js` checks documented counts
+against the file):
 
 ```
-js/audio.js → js/sky.js → js/net.js → js/art.js → js/input.js → <inline core>
+js/audio.js → js/sky.js → js/mirror-public.js → js/cloud.js → js/net.js
+→ js/hangar.js → js/art.js → js/input.js → <inline core>
 ```
 
 - Modules share globals with the core by design (one namespace, classic scripts).

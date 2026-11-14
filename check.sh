@@ -7,6 +7,16 @@ set -e
 # recovery guidance if index.html ever stops being the game.
 node tools/stubguard.js
 node tools/stubguard-output.test.js
+# the SHIPPED simulation, stepped headlessly against a committed digest (no
+# browser, no dependencies): any change to scored gameplay math fails here
+node --test tools/parity.test.mjs
+# types are a gate, not documentation (docs/expansion/REALITIES.md §3)
+if [ -x node_modules/.bin/tsc ]; then
+  node_modules/.bin/tsc --noEmit
+else
+  echo "check.sh: tsc missing — run npm ci before the gate" >&2
+  exit 1
+fi
 node tools/check-actions.mjs
 node tools/release-policy.mjs
 node tools/ui-audit.js

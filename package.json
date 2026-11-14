@@ -9,6 +9,9 @@
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",
     "test:sim": "vitest run",
+    "test:parity": "node --test tools/parity.test.mjs",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "test": "npm run test:sim && npm run test:browser && npm run test:selftest",
     "build:portal": "bash tools/build-portal.sh",
     "replay:record": "node tools/replay-record.mjs"
@@ -16,6 +19,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
     "@playwright/test": "1.65.0",
+    "@vitest/coverage-v8": "^5.1.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0",
     "yaml": "2.9.1"

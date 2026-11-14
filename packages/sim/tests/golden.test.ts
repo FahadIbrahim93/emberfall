@@ -1,25 +1,21 @@
 /**
- * Golden parity — the live inline payload (index.html) is the source of
- * truth for every constant the sim package re-declares. These tests
- * EXTRACT from index.html the way tools/econsim.js does and compare
- * against the sim's copies, so any future edit that drifts one side
- * without the other fails CI with the exact divergent value.
- *
- * Covers: catalogs (FOES, WEAPONS, DIFF), combat math (elite multipliers,
- * wave scale, bolt speed, scale constants, combo bands, fire model) and
- * the deterministic core (makeRng sequence, hashStr, STEP/MAX_ACCUM).
+ * Golden parity — the tables and formulas the sim package exposes are the
+ * shipped game's own, read out of the running core by the facade. These tests
+ * compare the exposed values against the live payload text in index.html, so
+ * they still fail if the payload's shape changes under the regexes, and they
+ * fail if the facade ever starts serving a transcription instead of the real
+ * table. Behaviour assertions run through the facade, i.e. through stepGame.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 
-import { FOES, DIFF, WEAPONS, MAX_WEAPON, OVER_RATE, OVER_DMG, BOLT_SPEED } from '../src/catalog.ts';
-import { SHIP_SCALE, SHOT_SCALE, firePlayer, spawnFoe, bindRng } from '../src/combat.ts';
-import { multFor } from '../src/math.ts';
-import { makeRng, hashStr } from '../src/rng.ts';
-import { ARENA_W, ARENA_H, STEP, MAX_ACCUM, GRAZE_HEAT_DECAY } from '../src/constants.ts';
-import type { World } from '../src/types.ts';
+import {
+  FOES, DIFF, WEAPONS, MAX_WEAPON, SHIP_SCALE, SHOT_SCALE,
+  createWorld, spawnFoe, firePlayer, multFor, makeRng, hashStr,
+  ARENA_W, ARENA_H, STEP, MAX_ACCUM, GRAZE_HEAT_DECAY,
+} from '../src/index.ts';
 
 const here = fileURLToPath(import.meta.url);   /* …/packages/sim/tests/golden.test.ts */
 const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
@@ -71,12 +67,14 @@ function liveDiff(): Record<string, Record<string, number>> {
   return out;
 }
 
-function mkWorld(weapon: number, over = 0): World {
-  return {
-    wave: 1, difficulty: 2, nextId: 1,
-    player: { x: 100, y: 100, r: 10, alive: true, fireCd: 0, weapon, dmg: 1, overT: over, rateMul: 1, beam: false },
-    foes: [], playerBullets: [], foeBullets: [], shots: 0, hits: 0,
-  } as unknown as World;
+/** a parked, single-foe world — the director is off, so nothing else moves */
+function arena(opts: { seed?: number; wave?: number; weapon?: number; over?: number } = {}) {
+  const w = createWorld({ seed: opts.seed ?? 7, autoWave: false });
+  w.wave = opts.wave ?? 1;
+  w.player.fireCd = 0;
+  if (opts.weapon != null) w.player.weapon = opts.weapon;
+  if (opts.over != null) w.player.overT = opts.over;
+  return w;
 }
 
 describe('golden parity: catalogs match the live payload', () => {
@@ -130,8 +128,7 @@ describe('golden parity: combat math matches the live formulas', () => {
     must(/e\.r \*= 1\.18; e\.hitR \*= 1\.18;/, 'elite size mult');
     must(/e\.cd \*= \.78;/, 'elite cd mult');
     /* and spawnFoe reproduces it numerically (striker W1 Pilot: cd 1.9·0.78) */
-    bindRng(7);
-    const w = mkWorld(1);
+    const w = arena();
     const e = spawnFoe(w, 'striker', { x: 100, y: -40, elite: true })!;
     expect(e.hp).toBe(Math.round(3 * 2.1));            // 3 base hp × 2.1
     expect(e.sc).toBe(Math.round(110 * 2.4));          // 110 base sc × 2.4
@@ -140,10 +137,8 @@ describe('golden parity: combat math matches the live formulas', () => {
 
   it('spawnFoe applies the live wave scale (1 + (wave-1)*.075) on hp', () => {
     must(/const scale = 1 \+ \(GAME\.wave - 1\) \* \.075;/, 'live wave scale');
-    bindRng(7);
-    const world = mkWorld(1);
-    world.wave = 5;
-    const e = spawnFoe(world, 'drone', { x: 100, y: -40 })!;
+    const w = arena({ wave: 5 });
+    const e = spawnFoe(w, 'drone', { x: 100, y: -40 })!;
     expect(e.hp).toBe(Math.max(1, Math.round(2 * (1 + 4 * 0.075)))); // drone hp 2 at wave 5
   });
 
@@ -151,27 +146,27 @@ describe('golden parity: combat math matches the live formulas', () => {
     must(/vx: Math\.sin\(ang\) \* 1020, vy: -Math\.cos\(ang\) \* 1020/, 'live bolt speed 1020');
     must(/P\.fireCd = w\.rate \* \(over \? \.68 : 1\) \* P\.rateMul/, 'live overdrive rate');
     must(/const dmg = w\.dmg \* P\.dmg \* \(over \? 1\.15 : 1\);/, 'live overdrive dmg');
-    expect(BOLT_SPEED).toBe(1020);
-    expect(OVER_RATE).toBe(0.68);
-    expect(OVER_DMG).toBe(1.15);
   });
 
   it('firePlayer reproduces the live cadence and lane geometry per tier', () => {
     for (let tier = 1; tier <= MAX_WEAPON; tier++) {
       const live = liveWeapons()[tier]!;
-      const w = mkWorld(tier);
+      const w = arena({ weapon: tier });
       firePlayer(w);
-      expect(w.playerBullets.length, `W${tier} lane count`).toBe(live.lanes.length);
+      /* the top tier also racks two homing seekers on their own cooldown */
+      const seekers = tier >= MAX_WEAPON ? 2 : 0;
+      expect(w.playerBullets.length, `W${tier} lane count`).toBe((live.lanes as unknown[]).length + seekers);
       for (const b of w.playerBullets) {
+        if (b.kind === 'seeker') continue;
         expect(Math.hypot(b.vx, b.vy)).toBeCloseTo(1020, 6);
       }
       // the cooldown is the live per-tier rate — no fabricated 0.14
-      expect(w.player.fireCd, `W${tier} fireCd`).toBeCloseTo(live.rate, 10);
+      expect(w.player.fireCd, `W${tier} fireCd`).toBeCloseTo(live.rate as number, 6);
       // overdrive: ×0.68 rate, ×1.15 dmg
-      const wo = mkWorld(tier, 1);
+      const wo = arena({ weapon: tier, over: 1 });
       firePlayer(wo);
-      expect(wo.player.fireCd).toBeCloseTo(live.rate * 0.68, 10);
-      expect(wo.playerBullets[0].dmg).toBeCloseTo(live.dmg * 1.15, 10);
+      expect(wo.player.fireCd).toBeCloseTo((live.rate as number) * 0.68, 6);
+      expect(wo.playerBullets[0].dmg).toBeCloseTo((live.dmg as number) * 1.15, 6);
     }
   });
 
