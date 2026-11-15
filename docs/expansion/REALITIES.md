@@ -18,7 +18,7 @@ Any new scored content (stage, hazard, enemy, boss, plane, objective, mission) t
 
 - **Update 2026-11-14 (seam closed):** `packages/sim/` is no longer a second implementation. The 1,180-line TypeScript copy is deleted; `packages/sim/src/index.ts` is a typed facade over the shipped inline core, which `packages/sim/host/env.mjs` boots headlessly in a Node `vm`. The game and the tests therefore run the same simulation by construction.
 - **The parity gate is an equality gate, not a ratchet.** `tools/parity.test.mjs` compares the shipped core's 900-tick digest and per-tick chain against committed values; `packages/sim/tests/parity-shipped.test.ts` drives each golden through the facade and through a raw `stepGame` loop and requires identical per-tick digests; `tools/parity/cross-sim-baseline.json` holds one digest, not two. Perturbing bolt speed in `index.html` from 1020 to 980 failed both gates, naming tick 95; restoring it went green. Numbers and the reconciliation record: `docs/sim-parity.md`.
-- **The shipped game still does not `import` anything.** It loads the inline core as a classic script, unchanged, so `file://` play needs no build. New scored gameplay goes in the inline core, where the gates now cover it.
+- **The shipped game still does not `import` anything.** The inline core is now `js/sim.js`, loaded as a ninth classic script, so `file://` play still needs no build. New scored gameplay goes in `js/sim.js`, where the gates now cover it.
 - The backlog item `EXP-007` (content registry seam without changing current behavior) is the right place to close this, but it is not done yet.
 
 ## 3. Typing is not enforced in CI
@@ -43,7 +43,7 @@ Any new scored content (stage, hazard, enemy, boss, plane, objective, mission) t
 
 Per `IMPLEMENTATION_BACKLOG.md`, gameplay coding may begin only after `EXP-001` through `EXP-005` are approved and the Heliox three-stage brief is signed off. On top of that, the following should be true before a large batch of new gameplay lands:
 
-- Extracting the inline core into `js/sim.js` (a ninth classic script) so coverage can instrument the simulation and the `vm` bootstrap can go away. The seam is closed; this is the next structural step, not a correctness gap.
+- **Done:** the inline core is now `js/sim.js` (a ninth classic script); coverage attributes to it through the `vm` bootstrap (absolute filenames).
 - A typecheck gate in CI if expansion adds TypeScript; if there is still no typecheck gate, TypeScript content will not be typechecked in CI.
 - An accepted verification story for any leaderboard tier that implies "verified," with the UI language to match.
 

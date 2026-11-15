@@ -28,7 +28,7 @@ const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
 let fail = 0;
 const bad = message => { console.error('UI-AUDIT FAIL — ' + message); fail++; };
 
-const html = read('index.html');
+const html = read('index.html') + '\n' + (fs.existsSync(path.join(ROOT, 'js/sim.js')) ? read('js/sim.js') : '');
 const SYSTEM = ['css/ui.css'];
 const systemCss = SYSTEM.map(read).join('\n');
 

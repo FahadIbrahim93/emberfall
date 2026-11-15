@@ -18,7 +18,7 @@ import {
 } from '../src/index.ts';
 
 const here = fileURLToPath(import.meta.url);   /* …/packages/sim/tests/golden.test.ts */
-const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
+const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8') + '\n' + readFileSync(join(here, '..', '..', '..', '..', 'js', 'sim.js'), 'utf8');
 
 /** one live constant — fails with the drifted source text if absent */
 const must = (re: RegExp, what: string): RegExpMatchArray => {
