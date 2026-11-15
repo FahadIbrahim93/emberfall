@@ -30,7 +30,7 @@ const INCIDENT = `
   └─────────────────────────────────────────────────────────────────────┘
 `;
 
-const s = fs.readFileSync('index.html', 'utf8');
+const s = fs.readFileSync('index.html', 'utf8') + '\n' + (fs.existsSync('js/sim.js') ? fs.readFileSync('js/sim.js', 'utf8') : '');
 const lines = s.split('\n').length;
 const bad = [];
 

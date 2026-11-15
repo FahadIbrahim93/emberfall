@@ -30,18 +30,17 @@ that was wrong — its physics, director and several archetypes disagreed with
 production — so the shipped code had to win and the parallel implementation had
 to go.
 
-`index.html` still plays straight from disk over `file://`: eight classic
-scripts in the same order, then the inline core. No build, no network, no
-module graph.
+`index.html` still plays straight from disk over `file://`: nine classic
+scripts in the same order. The inline core is now `js/sim.js`. No build, no
+network, no module graph.
 
 ## How one simulation is loaded twice
 
 - **The game** evaluates `js/audio.js`, `sky`, `mirror-public`, `cloud`, `net`,
-  `hangar`, `art`, `input`, then the inline core, as classic scripts.
+  `hangar`, `art`, `input`, `sim`, as classic scripts.
 - **The tests** import `packages/sim/src/index.ts`, which calls
   `packages/sim/host/env.mjs`: a Node `vm` context with stub DOM/canvas/audio/
-  storage that evaluates exactly those files, in exactly that order, and fails
-  loudly if the inline core cannot run.
+  storage that evaluates exactly those files, in exactly that order.
 
 The facade then exposes live handles, not copies: `world.player`,
 `world.foes`, `world.playerBullets`, `world.foeBullets` are the real `P`,
@@ -154,9 +153,8 @@ Vitest suite.
 
 ## Still open
 
-- The simulation is still inline in `index.html`. Extracting it into
-  `js/sim.js` (classic script, same eight-script order plus one) would let
-  coverage instrument it and drop the `vm` bootstrap. That is a larger change
-  and was deliberately not attempted here; the gates now make it safe to try.
+- The simulation now lives in `js/sim.js` and is loaded as a ninth classic
+  script; coverage attributes to it through the `vm` bootstrap (absolute
+  filenames), and the inline `<script>` block is gone.
 - `types.ts` is documentation-grade types for the shipped shapes. It is not
   checked against `index.html`, so a shipped field rename will not fail `tsc`.

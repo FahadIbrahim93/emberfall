@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { BOSS_DEFS, STAGES, TOUR_CUM, TOUR_FINALE, tourWorldsDone } from '../src/index.ts';
 
 const here = fileURLToPath(import.meta.url);
-const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
+const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8') + '\n' + readFileSync(join(here, '..', '..', '..', '..', 'js', 'sim.js'), 'utf8');
 
 const must = (re: RegExp, what: string): RegExpMatchArray => {
   const m = html.match(re);

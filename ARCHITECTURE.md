@@ -9,7 +9,7 @@ self-hosted deck was removed ([ADR 0005](docs/adr/0005-remove-self-hosted-deck.m
 
 ## Simulation parity (what is actually gated)
 
-There is one simulation: the inline core in `index.html`. `packages/sim/` is a
+There is one simulation: `js/sim.js`. `packages/sim/` is a
 typed **facade over those same bytes**, loaded headlessly by
 `packages/sim/host/env.mjs` (a Node `vm` context with stub DOM/canvas/audio).
 The duplicate TypeScript re-implementation is gone; the unit tests and the game
@@ -18,7 +18,7 @@ run the same simulation. Details and the re-record procedure:
 
 Three gates keep it that way:
 
-- `tools/parity.test.mjs` steps the **real inline core** headlessly through the
+- `tools/parity.test.mjs` steps the **real `js/sim.js`** headlessly through the
   shared scenario (`packages/sim/host/scenario.mjs`) and compares a final digest
   **and a committed per-tick hash chain** in
   `tools/parity/shipped-baseline.json`. Drift fails naming the first tick.
@@ -34,13 +34,13 @@ Three gates keep it that way:
 ## The load contract (the most important invariant)
 
 Classic scripts, no bundler, no ESM — `file://` play is a hard requirement.
-Eight modules load **before** the inline core, in this order (as the script
+Nine modules load **before** the inline core, in this order (as the script
 tags appear in `index.html`; `tools/copyguard.js` checks documented counts
 against the file):
 
 ```
 js/audio.js → js/sky.js → js/mirror-public.js → js/cloud.js → js/net.js
-→ js/hangar.js → js/art.js → js/input.js → <inline core>
+→ js/hangar.js → js/art.js → js/input.js → js/sim.js
 ```
 
 - Modules share globals with the core by design (one namespace, classic scripts).
@@ -69,7 +69,7 @@ js/audio.js → js/sky.js → js/mirror-public.js → js/cloud.js → js/net.js
 | `js/mirror-public.js` | public board reads for `stats.html` and `pilot.html` | write anything |
 | `js/art.js` | materials, hull/hostile/capital/pickup renderers (`HULL_ART`, `FOE_ART`, `BOSS_ART`) | game state; palette-reacts via functions called at draw time |
 | `js/input.js` | four input schemes → one contract (`INPUT`, `getMove()`, `resolveFiring()`); binds everything in `initInput()` | simulate or render |
-| inline core | sim (`stepGame`), waves, collision, scoring, render pipeline, UI wiring, boot, self-tests | — |
+| `js/sim.js` | sim (`stepGame`), waves, collision, scoring, render pipeline, UI wiring, boot, self-tests | — |
 
 ## State ownership
 

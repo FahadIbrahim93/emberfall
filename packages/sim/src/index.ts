@@ -6,7 +6,7 @@
  * index.html was the real thing, and the two disagreed on the shared scenario.
  * The duplicate is gone. Everything below is a typed facade over the very bytes
  * the browser executes, loaded headlessly by ../../host/env.mjs. There is one
- * simulation: index.html's inline core. The game loads it as a classic script
+ *    simulation: js/sim.js. The game loads it as a classic script
  * (no build, file:// works); the tests import this module, which boots those
  * same bytes in a Node vm context.
  *

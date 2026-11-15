@@ -1,6 +1,6 @@
 /* parity/env.mjs — a headless browser stub for the SHIPPED game.
 
-   The game is eight classic scripts plus one inline core in index.html. This
+   The game is nine classic scripts (the inline core is now js/sim.js). This
    module evaluates exactly those bytes, in exactly that order, inside a Node
    `vm` context with a stub DOM/audio/storage environment. No bundler, no
    transcription: if the inline core cannot run here, the loader fails loudly
@@ -260,13 +260,16 @@ function makeEnvironment(randomSeed) {
   return { sandbox, document, listeners, store, win };
 }
 
-/* the shipped script list, in the order index.html loads it */
+/* the shipped script list, in the order index.html loads it.
+   After Gate 3 extraction the inline core is js/sim.js, so there are nine
+   classic scripts and zero inline blocks. */
 export function scriptSources() {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const srcs = [...html.matchAll(/<script src="(js\/[^"]+)"><\/script>/g)].map(m => m[1]);
   const inlines = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map(m => m[1]).filter(s => s.trim());
-  if (!srcs.length || !inlines.length) throw new Error('parity: could not find the shipped scripts in index.html');
+  if (!srcs.length) throw new Error('parity: could not find the shipped scripts in index.html');
+  if (inlines.length) throw new Error('parity: index.html still has an inline <script> block; the core must live in js/sim.js');
   return { srcs, inlines };
 }
 
@@ -282,7 +285,7 @@ export function loadShippedCore(opts = {}) {
     const file = path.join(ROOT, src);
     const code = fs.readFileSync(file, 'utf8');
     try {
-      new vm.Script(code, { filename: src }).runInContext(context);
+      new vm.Script(code, { filename: file }).runInContext(context);
     } catch (e) {
       throw new Error(`parity: ${src} failed to load — ${e && e.message || e}`);
     }
@@ -290,7 +293,7 @@ export function loadShippedCore(opts = {}) {
 
   inlines.forEach((code, i) => {
     try {
-      new vm.Script(code, { filename: `index.html#inline${i + 1}` }).runInContext(context);
+      new vm.Script(code, { filename: path.join(ROOT, 'index.html') }).runInContext(context);
     } catch (e) {
       throw new Error(`parity: inline payload ${i + 1} failed to load — ${e && e.message || e}`);
     }

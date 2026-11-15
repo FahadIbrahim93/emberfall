@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # EMBERFALL build check: syntax-verify every script — each js/*.js module
-# AND each inline <script> payload in index.html. After the monolith split
-# there are four script blocks; first-match extraction would check nothing.
+# (the simulation now lives in js/sim.js, so there are no inline payloads).
 set -e
 # stubguard first (2026-09-21 incident): fail in seconds with focused
 # recovery guidance if index.html ever stops being the game.
@@ -41,6 +40,5 @@ while ((m = re.exec(html))) {
   if (!m[1].trim()) continue;
   new vm.Script(m[1], { filename: "index.html#inline" + (++n) });
 }
-if (!n) { console.error("no inline payload found in index.html"); process.exit(1); }
 console.log("SYNTAX-OK: js/*.js modules + " + n + " inline payload(s)");
 '

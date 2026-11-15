@@ -4,6 +4,17 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### Gate 3: the inline core is now a module
+- **The simulation is extracted.** The 8,445-line inline `<script>` block in
+  `index.html` is now `js/sim.js`, loaded as a ninth classic script. `index.html`
+  plays unchanged from `file://` with no build; the parity corpus (shipped
+  digest, per-tick chain, three goldens) proves the extraction changed nothing.
+- **Coverage instruments the simulation.** `vitest.config.ts` now targets
+  `js/sim.js` (loaded into the parity `vm` with an absolute filename) instead
+  of the 300-line facade.
+- **Load contract updated.** `ARCHITECTURE.md`, `docs/sim-parity.md` and the
+  copyguard claim now say nine modules; `sw.js` cache bumped to `emberfall-v4.69`.
+
 ### The gates check themselves
 - **`package.json` states its licence.** `"license": "MIT"` now agrees with
   `LICENSE`; before, npm metadata and tooling saw no licence at all, and the

@@ -16,7 +16,7 @@ let seed = 42;
 const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 
 /* ── extract constants from source (drift = loud failure) ── */
-const html = fs.readFileSync('index.html', 'utf8');
+const html = fs.readFileSync('index.html', 'utf8') + '\n' + (fs.existsSync('js/sim.js') ? fs.readFileSync('js/sim.js', 'utf8') : '');
 const skySrc = fs.readFileSync('js/sky.js', 'utf8');
 const hangarSrc = fs.readFileSync('js/hangar.js', 'utf8');   /* v4.30 armory, modules, doctrines, contracts */
 const must = (re, what, src) => { const m = (src || html).match(re); if (!m) throw new Error('constant drifted: ' + what); return m; };
