@@ -47,7 +47,7 @@ if (lines < 4000) bad.push(`payload is ${lines} lines — the game is ~7,900 (a 
 if (!/EMBERFALL v\d+\.\d+\.\d+/.test(s)) bad.push('no version stamp (EMBERFALL vX.Y.Z) anywhere in the payload');
 
 // 3) the load contract — classic scripts before the inline core.
-for (const mod of ['audio', 'sky', 'art', 'net', 'input']) {
+for (const mod of ['audio', 'sky', 'art', 'net', 'input', 'career']) {
   if (!s.includes(`js/${mod}.js`)) bad.push(`load contract broken: no reference to js/${mod}.js`);
 }
 

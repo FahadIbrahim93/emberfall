@@ -4,8 +4,8 @@
   "license": "MIT",
   "scripts": {
     "build:site": "node tools/site-payload.mjs build",
-    "test:release": "node --test tools/check-actions.test.mjs tools/site-payload.test.mjs tools/release-source.test.mjs tools/release-policy.test.mjs tools/promote-release.test.mjs tools/wardenfall-check.test.mjs tools/daily-receipts-sql.test.mjs tools/standings-sql.test.mjs tools/copyguard.test.mjs",
-    "test:sql": "node --test tools/daily-receipts-sql.test.mjs tools/standings-sql.test.mjs",
+    "test:release": "node --test tools/check-actions.test.mjs tools/site-payload.test.mjs tools/release-source.test.mjs tools/release-policy.test.mjs tools/promote-release.test.mjs tools/wardenfall-check.test.mjs tools/daily-receipts-sql.test.mjs tools/standings-sql.test.mjs tools/career-sql.test.mjs tools/career.test.mjs tools/copyguard.test.mjs",
+    "test:sql": "node --test tools/daily-receipts-sql.test.mjs tools/standings-sql.test.mjs tools/career-sql.test.mjs",
     "verify:site": "node tools/site-payload.mjs verify",
     "test:browser": "playwright test",
     "test:selftest": "node tools/selftest-ci.js",

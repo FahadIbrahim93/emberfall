@@ -34,13 +34,13 @@ Three gates keep it that way:
 ## The load contract (the most important invariant)
 
 Classic scripts, no bundler, no ESM — `file://` play is a hard requirement.
-Nine modules load **before** the inline core, in this order (as the script
+Ten modules load **before** the inline core, in this order (as the script
 tags appear in `index.html`; `tools/copyguard.js` checks documented counts
 against the file):
 
 ```
 js/audio.js → js/sky.js → js/mirror-public.js → js/cloud.js → js/net.js
-→ js/hangar.js → js/art.js → js/input.js → js/sim.js
+→ js/hangar.js → js/art.js → js/input.js → js/sim.js → js/career.js
 ```
 
 - Modules share globals with the core by design (one namespace, classic scripts).

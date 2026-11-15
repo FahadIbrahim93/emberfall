@@ -30,7 +30,7 @@ that was wrong — its physics, director and several archetypes disagreed with
 production — so the shipped code had to win and the parallel implementation had
 to go.
 
-`index.html` still plays straight from disk over `file://`: nine classic
+`index.html` still plays straight from disk over `file://`: ten classic
 scripts in the same order. The inline core is now `js/sim.js`. No build, no
 network, no module graph.
 
