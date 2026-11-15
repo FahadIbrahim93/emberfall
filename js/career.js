@@ -9,7 +9,7 @@
 
    The schema/version lives in the snapshot itself ('v'), so an older client's
    snapshot can be upgraded on read. The database side is additive only
-   (supabase/migrations/20261115000000_cloud_careers.sql).
+   (the 20261115000000_cloud_careers migration).
    ═══════════════════════════════════════════════════════════════════════ */
 const CAREER_SCHEMA_VERSION = 1;
 
