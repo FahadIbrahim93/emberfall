@@ -90,15 +90,15 @@ test('a clean fixture passes, so the mutations below mean something', () => {
 
 test('wrong module count fails and names the file', () => {
   const dir = fixture();
-  rewrite(dir, 'ARCHITECTURE.md', 'Nine modules load', 'Six modules load');
+  rewrite(dir, 'ARCHITECTURE.md', 'Ten modules load', 'Six modules load');
   const res = runCopyguard(dir);
   assert.equal(res.code, 1, res.output);
-  assert.match(res.output, /ARCHITECTURE\.md:\d+ — claims Six modules before the inline core; index\.html loads 9/);
+  assert.match(res.output, /ARCHITECTURE\.md:\d+ — claims Six modules before the inline core; index\.html loads 10/);
 });
 
 test('a reworded module claim fails instead of quietly checking nothing', () => {
   const dir = fixture();
-  rewrite(dir, 'ARCHITECTURE.md', 'Nine modules load **before** the inline core', 'Everything loads before the core');
+  rewrite(dir, 'ARCHITECTURE.md', 'Ten modules load **before** the inline core', 'Everything loads before the core');
   const res = runCopyguard(dir);
   assert.equal(res.code, 1, res.output);
   assert.match(res.output, /the count pattern is inert/);
