@@ -12,7 +12,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.join(__dirname, '..');
+/* COPYGUARD_ROOT lets tools/copyguard.test.mjs point the guard at a mutated
+   copy of the repo, which is how each claim is proved to bite. Defaults to
+   the repo this file lives in. */
+const ROOT = process.env.COPYGUARD_ROOT
+  ? path.resolve(process.env.COPYGUARD_ROOT)
+  : path.join(__dirname, '..');
 const VERSION = 'v4.31.0';
 const ALLOW = [];   // extra allowed patterns only for HISTORICAL release notes
 
@@ -106,6 +111,7 @@ const readmeText = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
    core"), so the match tolerates `**` and a little wording between the
    number and "inline core" — the previous pattern silently skipped the
    real sentence, which is how "five modules" survived in ARCHITECTURE. */
+let moduleClaims = 0;
 for (const f of ['README.md', 'ARCHITECTURE.md']) {
   if (!fs.existsSync(path.join(ROOT, f))) continue;
   for (const [ln, text] of collect(f)) {
@@ -113,16 +119,25 @@ for (const f of ['README.md', 'ARCHITECTURE.md']) {
     if (!m) continue;
     const stated = NUM[m[1].toLowerCase()];
     if (stated == null) continue;        /* "a handful of modules" is not a count */
+    moduleClaims++;
     if (stated !== moduleCount) {
       complain(f, ln, text, `claims ${m[1]} modules before the inline core; index.html loads ${moduleCount}`);
     }
   }
 }
+/* a pattern that matches nothing passes over an empty set and the claim goes
+   unchecked — that is exactly how "five modules" survived while this gate was
+   green. Silence is now a failure. */
+if (!moduleClaims) {
+  complain('ARCHITECTURE.md', 0, '', 'no "<N> modules … before the inline core" claim matched — the count pattern is inert, so the module claim is unchecked');
+}
 
 /* "no build step" is true for playing and false for the repo: package.json
    owns the build scripts, and the README must name them rather than imply
    the repo has none. */
-if (buildScripts.length) {
+if (!buildScripts.length) {
+  complain('package.json', 0, '', 'no build:* script found — the README "no build" claim would be checked against nothing');
+} else {
   for (const [ln, text] of collect('README.md')) {
     if (/\bno build step\b/i.test(text) && !/to play|does not build the game/i.test(text)) {
       complain('README.md', ln, text, `unqualified "no build step": ${buildScripts.join(', ')} exist`);
@@ -143,6 +158,11 @@ const cloud = fs.readFileSync(path.join(ROOT, 'js/cloud.js'), 'utf8');
 const oauth = [...cloud.matchAll(/provider:\s*'([a-z]+)'/g)].map(m => m[1]);
 const hasEmail = /signInWithPassword/.test(cloud) && /signUp\b/.test(cloud);
 const shippedProviders = new Set([...oauth, ...(hasEmail ? ['email'] : [])]);
+/* same rule as the module count: an empty provider set means every provider
+   claim below is vacuous, so fail instead of iterating over nothing */
+if (!shippedProviders.size) {
+  complain('js/cloud.js', 0, '', 'no OAuth provider or email path found — the provider claims would be checked against nothing');
+}
 for (const p of shippedProviders) {
   /* the provider has to be named in an auth context — a bare word match is
      satisfied by `fonts.google.com`, which is not a sign-in provider */
@@ -195,4 +215,7 @@ if (fail) {
   console.error(`copyguard: ${fail} violation(s)`);
   process.exit(1);
 }
-console.log(`copyguard: copy claims match provenance (baseline ${baseline.total}/${baseline.total})`);
+console.log(
+  `copyguard: copy claims match provenance (baseline ${baseline.total}/${baseline.total}; ` +
+  `derived: ${moduleCount} modules, ${[...shippedProviders].join('+')}, ${pkg.license || 'no pkg.license'} · LICENSE)`,
+);
