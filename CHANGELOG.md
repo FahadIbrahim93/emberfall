@@ -4,6 +4,13 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+## [4.32.0] — 2026-11-16 "One Simulation"
+
+The tests now run the same simulation the game plays ([PR #118](https://github.com/FahadIbrahim93/emberfall/pull/118)), the copy and coverage gates fail loudly instead of skipping ([PR #120](https://github.com/FahadIbrahim93/emberfall/pull/120)), and a Sunday-only Daily receipt assertion is fixed ([PR #124](https://github.com/FahadIbrahim93/emberfall/pull/124)). Release notes: [docs/releases/v4.32.0.md](docs/releases/v4.32.0.md). No database change; existing saves are untouched.
+
+### Daily receipt tests
+- The same-day follow-up run that asserts a reward of `0` used wave 20, which earns Sunday's Solar Guard (800) because payouts use wave or score. Its wave is now 15, under every remaining daily threshold ([PR #124](https://github.com/FahadIbrahim93/emberfall/pull/124)).
+
 ### The gates check themselves
 - **`package.json` states its licence.** `"license": "MIT"` now agrees with
   `LICENSE`; before, npm metadata and tooling saw no licence at all, and the
@@ -79,6 +86,8 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 - `tools/copyguard.js` now derives these claims from the files that own them:
   the module count from `index.html`, the build-step wording, the auth
   providers from `js/cloud.js`, and the licence from `LICENSE`.
+
+Service worker cache `emberfall-v4.69`. No player-facing flight or menu change. No database change. Tests at release: 106 browser, 78 simulation, 58 release and 75 in-game checks.
 
 ## [4.31.0] — 2026-11-14
 

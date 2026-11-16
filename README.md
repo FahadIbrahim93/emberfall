@@ -6,7 +6,7 @@ A free arcade space shooter that runs in your browser. Something came through th
 
 **Play now: https://emberfall-game-two.vercel.app/**
 
-Current release: **v4.31.0** (2026-11-14). See [what's new](#whats-new-in-v4310).
+Current release: **v4.32.0** (2026-11-16). See [what's new](#whats-new-in-v4320).
 
 [![CI](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml/badge.svg)](https://github.com/FahadIbrahim93/emberfall/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -135,6 +135,16 @@ Data: `docs/audit/fun-curve.json` (committed; one write-once row per version, wr
 Full per-release notes live in [CHANGELOG.md](CHANGELOG.md), with what changed and when. Release numbers are not used as achievement claims.
 
 The per-release fun curve (bot depth, kills, grazes, fps) is distilled from the repo's own instrumented play runs into [`docs/audit/fun-curve.json`](docs/audit/fun-curve.json), written by `tools/fun-scoreboard.mjs`. Median-fps is environment-sensitive — read the trend within a column, not the absolute.
+
+## What's new in v4.32.0 — "One Simulation"
+
+This is a reliability release. The game you play is unchanged: menus, hangar, Daily, and flight feel the same.
+
+The tests now run the same simulation the game does, instead of a second copy that had already drifted. Checks that used to pass quietly when they had nothing to inspect now fail out loud. A Daily receipt test that broke every Sunday UTC is fixed.
+
+Career saves stay on your device. There is no database change in this release.
+
+Full notes are in [docs/releases/v4.32.0.md](docs/releases/v4.32.0.md) and [CHANGELOG.md](CHANGELOG.md). The previous release, [v4.31.0](docs/releases/v4.31.0.md), rebuilt the menus and Settings.
 
 ## What's new in v4.31.0
 

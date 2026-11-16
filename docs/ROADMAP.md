@@ -4,8 +4,8 @@ Ordered by priority, not by release date. Every item ships the usual way: gated 
 
 ## Where things stand (2026-11-14)
 
-- **Live:** v4.31.0 at https://emberfall-game-two.vercel.app and on [GitHub Pages](https://fahadibrahim93.github.io/emberfall/). Player accounts with callsigns, worldwide and daily boards, watermark standings, the five-bay hangar, and the rebuilt menus and Settings. Guests play without an account; email accounts post to boards that list registered pilots only. Saves stay on the device.
-- **Just shipped:** the menu and settings overhaul (v4.31.0, PR #111), the hangar overhaul (v4.30.0, PR #109), and Gate 2 standings (v4.29.7, PR #96). Issues #16, #17 and #48 are closed.
+- **Live:** v4.32.0 at https://emberfall-game-two.vercel.app and on [GitHub Pages](https://fahadibrahim93.github.io/emberfall/). Player accounts with callsigns, worldwide and daily boards, watermark standings, the five-bay hangar, and the rebuilt menus and Settings. Guests play without an account; email accounts post to boards that list registered pilots only. Saves stay on the device.
+- **Just shipped:** one simulation and louder gates (v4.32.0, PRs #118, #120, #124), the menu and settings overhaul (v4.31.0, PR #111), the hangar overhaul (v4.30.0, PR #109), and Gate 2 standings (v4.29.7, PR #96). Issues #16, #17 and #48 are closed.
 - **Next product work:** cloud careers ([#115](https://github.com/FahadIbrahim93/emberfall/issues/115)), so a signed-in pilot can use more than one device without silent loss. Portal submissions (itch.io and CrazyGames) remain open.
 - **Distribution:** submitted free to the Bounty Board Arcade (review pending). itch.io and CrazyGames are next.
 
@@ -32,6 +32,7 @@ Ordered by priority, not by release date. Every item ships the usual way: gated 
 
 ## Done recently
 
+- One simulation and louder gates, v4.32.0 (PRs #118, #120, #124): tests run the shipped core, copy/coverage gates fail when they have nothing to inspect, Sunday Daily receipt test fixed. No player-facing flight change, no database change.
 - Menu and settings overhaul, v4.31.0 (PR #111): one UI layer, rebuilt Settings with Restore defaults, palettes on the menus, reduce motion, a single modal focus stack, and Settings that open at the top
 - Hangar overhaul, v4.30.0 (#100–#107, PR #109): five bays, armory, modules and presets, frame doctrines, contracts, mastery cosmetics, loadout codes on the boards
 - Cosmetic standing ladder past Yardmaster (#48, carried into PR #109)

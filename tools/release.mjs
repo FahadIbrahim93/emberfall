@@ -10,7 +10,7 @@
      node tools/release.mjs audit
          Verify every stamp on the tree agrees — footline, header comment,
          NOTES[0].v, the selftest assertion, the sw cache number, the
-         README title and its newest "What's new" section. Zero-exit only
+         README current-release line and its newest "What's new" section. Zero-exit only
          when the tree tells one version story. Run it anytime; CI could.
 
      node tools/release.mjs stamp <version> "<codename>" "<note sentence>"
@@ -72,7 +72,7 @@ function stamps() {
   const notes = (index.match(/const NOTES = \[\s*\{\s*v:\s*'(\d+\.\d+\.\d+)'/) || [])[1] || null;
   const assert = (index.match(/NOTES\[0\]\.v === '(\d+\.\d+\.\d+)'/) || [])[1] || null;
   const cache = (sw.match(/const CACHE = 'emberfall-v(\d+\.\d+)'/) || [])[1] || null;
-  const title = (readme.match(/^# EMBERFALL v(\d+\.\d+\.\d+)/m) || [])[1] || null;
+  const title = (readme.match(/Current release: \*\*v(\d+\.\d+\.\d+)\*\*/) || [])[1] || null;
   const section = (readme.match(/^## What's new in v(\d+\.\d+\.\d+)[^\n]*$/m) || [])[1] || null;
   return { index, sw, readme, foot, head, notes, assert, cache, title, section };
 }
@@ -87,7 +87,7 @@ function bumpCache(swSrc) {
 }
 function audit() {
   const s = stamps();
-  const sites = { footline: s.foot, 'header comment': s.head, 'NOTES[0].v': s.notes, 'selftest assertion': s.assert, 'README title': s.title, 'README newest section': s.section };
+  const sites = { footline: s.foot, 'header comment': s.head, 'NOTES[0].v': s.notes, 'selftest assertion': s.assert, 'README current release': s.title, 'README newest section': s.section };
   const bad = Object.entries(sites).filter(([, v]) => !v);
   if (bad.length) fail('unparseable stamp site(s): ' + bad.map(([k]) => k).join(', '));
   const versions = new Set(Object.values(sites));
@@ -118,8 +118,12 @@ function stamp(toVersion, codename, note) {
   index = index.replace(notesRe, m => m + entry);
   /* selftest assertion */
   index = index.replace(/NOTES\[0\]\.v === '\d+\.\d+\.\d+'/, `NOTES[0].v === '${toVersion}'`);
-  /* README: title + new section above the old newest */
-  readme = readme.replace(/^# EMBERFALL v\d+\.\d+\.\d+ — /m, `# EMBERFALL v${toVersion} — `);
+  /* README: current-release line + new section above the old newest */
+  const released = new Date().toISOString().slice(0, 10);
+  const anchor = 'v' + toVersion.replace(/\./g, '');
+  const currentRe = /Current release: \*\*v\d+\.\d+\.\d+\*\* \([^)]+\)\. See \[what's new\]\(#whats-new-in-v\d+\)\./;
+  if (!currentRe.test(readme)) fail('could not find the README current-release line');
+  readme = readme.replace(currentRe, `Current release: **v${toVersion}** (${released}). See [what's new](#whats-new-in-${anchor}).`);
   const sectionAnchor = "## What's new in v";
   const reol = readme.includes('\r\n') ? '\r\n' : '\n';
   const section = ['## What\'s new in v' + toVersion + (codename ? ' — "' + codename + '"' : ''), '', '- ' + note, ''].join(reol);
@@ -133,7 +137,7 @@ function stamp(toVersion, codename, note) {
   write('sw.js', swSrc);
   console.log(`RELEASE: stamped v${from} → v${toVersion}`);
   console.log('  index.html: footline, header comment, NOTES[0], selftest assertion');
-  console.log('  README.md: title, new "What\'s new" section' + (codename ? ` (${codename})` : ''));
+  console.log('  README.md: current release, new "What\'s new" section' + (codename ? ` (${codename})` : ''));
   console.log('  sw.js: cache → emberfall-v' + next);
   console.log('RELEASE: next — edit code, pass the battery, then: node tools/release.mjs baseline && git commit -a && node tools/release.mjs tag "<message>"');
 }
