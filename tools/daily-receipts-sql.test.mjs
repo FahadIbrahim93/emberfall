@@ -110,7 +110,7 @@ test('duplicate Daily receipts return one acknowledgement and one reward delta',
   assert.ok(legacy.rows[0].id);
   assert.equal(await count(db, 'private.daily_receipts'), 2);
 
-  const third = await submit(db, RUN(3), day, 30000, 20);
+  const third = await submit(db, RUN(3), day, 30000, 15);
   assert.equal(third.daily.paid, 0);
   assert.equal(third.daily.total, 830);
   assert.deepEqual(third.daily.medals, []);
