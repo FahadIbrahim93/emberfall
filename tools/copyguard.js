@@ -18,7 +18,7 @@ const path = require('node:path');
 const ROOT = process.env.COPYGUARD_ROOT
   ? path.resolve(process.env.COPYGUARD_ROOT)
   : path.join(__dirname, '..');
-const VERSION = 'v4.31.0';
+const VERSION = 'v4.32.0';
 const ALLOW = [];   // extra allowed patterns only for HISTORICAL release notes
 
 const FILES = [

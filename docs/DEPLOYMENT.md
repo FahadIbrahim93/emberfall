@@ -7,7 +7,7 @@ The game is static; Supabase project `rgmbexmodebegllahotc` supplies accounts an
 | Vercel | https://emberfall-game-two.vercel.app/ | Explicit promotion of a tested production-environment deployment |
 | Pages | https://fahadibrahim93.github.io/emberfall/ | The retained artifact from successful main CI |
 
-The Vercel public alias belongs to project **emberfall-game** (`prj_8qgnVQhyDTxSea2j53tGAVYwvOy0`), despite its name. The other linked project, **emberfall-game-two**, is retained. Automatic production domain assignment is disabled on both projects. Git integration builds may still run, but do not promote. Do not delete either project or move existing public origins: careers and sign-ins are stored per origin.
+The Vercel public alias belongs to project **emberfall-game** (`prj_8qgnVQhyDTxSea2j53tGAVYwvOy0`), despite its hostname. The older **emberfall-game-two** project was deleted on 2026-11-11 and must not be recreated; the alias still points at emberfall-game. Automatic production domain assignment is disabled. Git integration builds may still run, but do not promote. Do not delete the remaining project or move the public origin: careers and sign-ins are stored per origin.
 
 ## Build and test one payload
 

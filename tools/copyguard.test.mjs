@@ -149,7 +149,7 @@ test('a stale version string fails', () => {
   insertAfterTitle(dir, 'README.md', 'The cache for EMBERFALL v3.6.0 is warming.');
   const res = runCopyguard(dir);
   assert.equal(res.code, 1, res.output);
-  assert.match(res.output, /stale version — expected v4\.31\.0/);
+  assert.match(res.output, /stale version — expected v4\.32\.0/);
 });
 
 test('a stale test count fails', () => {

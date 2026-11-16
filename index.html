@@ -1290,7 +1290,7 @@ body.touchmode #btnPause{width:48px;height:48px}
       </div>
     </aside>
   </div>
-  <div class="footline"><span>EMBERFALL v4.31.0</span><span>Hope Theory</span><span>Runs offline</span></div>
+  <div class="footline"><span>EMBERFALL v4.32.0</span><span>Hope Theory</span><span>Runs offline</span></div>
 </section>
 
 <!-- ════════ ACCOUNT / BOARDS SHEET (accounts v2 polish) ════════ -->
@@ -1633,7 +1633,7 @@ body.touchmode #btnPause{width:48px;height:48px}
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════════════
-   EMBERFALL v4.31.0 — zero-build orbital intercept shooter, Provenance
+   EMBERFALL v4.32.0 — zero-build orbital intercept shooter, Provenance
    Runtime art, sound, and UI are local; no network needed after first paint;
    hosted installs work offline after caching.
    Append ?selftest to the URL to run the built-in suite.
@@ -7845,6 +7845,13 @@ bindClick('btnSetReset', () => askConfirm(
    pilot has read, so a release with no entry just clears the marker. ── */
 const NOTES = [
   {
+    v: '4.32.0',
+    items: [
+      'A reliability release: the tests now run the same simulation the game plays, and checks that had nothing to inspect fail out loud instead of passing quietly.',
+      'A Daily receipt test that broke every Sunday UTC is fixed. Menus, the hangar and the feel of a flight are unchanged. Your save is untouched.'
+    ]
+  },
+  {
     v: '4.31.0',
     items: [
       'Settings is rebuilt: Audio, Display, Controls and Accessibility, each with a short hint, and a Restore defaults that never touches your alloy, unlocks, saves or scores.',
@@ -9858,7 +9865,7 @@ function runSelfTests() {
   }));
   T('patch notes data and seen-marker', () => {
     ok(NOTES.length >= 1, 'has entries');
-    ok(NOTES[0].v === '4.31.0', 'newest entry matches current release');
+    ok(NOTES[0].v === '4.32.0', 'newest entry matches current release');
     const vs = NOTES.map(n => n.v);
     ok(new Set(vs).size === vs.length, 'no duplicate versions');
     for (const n of NOTES) { ok(n.items.length >= 1, 'entry ' + n.v + ' has items'); for (const it of n.items) ok(typeof it === 'string' && it.length > 8, 'item substance'); }
