@@ -54,7 +54,7 @@ height**:
 ### 1.1 Where things live
 | Concern | Location |
 |---|---|
-| Hull table `HULLS` (5) | `index.html` ~L1829 (parity copy: `packages/sim/src/catalog.ts`) |
+| Hull table `HULLS` (5) | `index.html` ~L1829 (read at test time through `packages/sim`) |
 | Refit table `REFITS` (6×5) | `index.html` ~L1857 |
 | Paints `PAINTS` (10) | `index.html` ~L1870 |
 | Sigils `SIGILS` (5) | `index.html` ~L1892 |

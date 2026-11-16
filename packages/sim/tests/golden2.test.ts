@@ -1,16 +1,15 @@
 /**
- * Golden parity, part 2 — the two data domains the first suite had not
- * yet mirrored: boss statlines and the Solar Tour stage registry.
- * Same discipline as golden.test.ts: the live payload is read at test
- * time and the sim's copies are pinned to it, field by field.
+ * Golden parity, part 2 — boss statlines and the Solar Tour stage registry,
+ * now read out of the running shipped core rather than a TypeScript copy.
+ * The live payload text is still parsed, so a shape change in index.html fails
+ * here with the field that moved.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 
-import { BOSS_DEFS } from '../src/bosses.ts';
-import { STAGES, TOUR_CUM, TOUR_FINALE, tourWorldsDone } from '../src/stages.ts';
+import { BOSS_DEFS, STAGES, TOUR_CUM, TOUR_FINALE, tourWorldsDone } from '../src/index.ts';
 
 const here = fileURLToPath(import.meta.url);
 const html = readFileSync(join(here, '..', '..', '..', '..', 'index.html'), 'utf8');
@@ -81,7 +80,7 @@ describe('golden parity 2: the Solar Tour registry matches the live payload', ()
     const live = liveStages();
     expect(STAGES.map(s => s.id)).toEqual(Object.keys(live));
     for (const s of STAGES) {
-      const L = live[s.id] as Record<string, unknown>;
+      const L = live[s.id as string] as Record<string, unknown>;
       expect(s.name, `${s.id}.name`).toBe(L.name);
       expect(s.waves, `${s.id}.waves`).toBe(L.waves);
       for (const k of ['tint', 'crater', 'ring', 'storm', 'lights', 'hue', 'sat', 'bri'] as const) {
@@ -93,7 +92,7 @@ describe('golden parity 2: the Solar Tour registry matches the live payload', ()
   });
 
   it('the derived campaign constants derive identically', () => {
-    must(/const TOUR_CUM = STAGES\.reduce\(\(a, s\) => \(a\.push\(\(a\[a\.length - 1\] \|\| 0\) \+ s\.waves\), a\), \[\]\);/, 'TOUR_CUM derivation');
+    must(/const TOUR_CUM = STAGES\.reduce\(\(a, s\) => \(a\.push\(\(a\[a\.length - 1\] \|\| 0\) \+ s\.waves\), a\), \[\]\)/, 'TOUR_CUM derivation');
     const liveCum: number[] = [];
     for (const s of Object.values(liveStages())) liveCum.push((liveCum[liveCum.length - 1] || 0) + (s.waves as number));
     expect(TOUR_CUM).toEqual(liveCum);

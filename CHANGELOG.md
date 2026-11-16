@@ -4,6 +4,82 @@ Notable changes to EMBERFALL. The format follows [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+### The gates check themselves
+- **`package.json` states its licence.** `"license": "MIT"` now agrees with
+  `LICENSE`; before, npm metadata and tooling saw no licence at all, and the
+  copyguard licence check only rejected a *contradiction*, never a silence.
+- **copyguard can no longer go inert.** A derived check that finds no claim to
+  inspect is a failure, not a skip — the module-count and provider patterns had
+  both been matching nothing while the gate printed a clean pass. Each new
+  guard is proved by `tools/copyguard.test.mjs`, which mutates a fixture copy
+  once per check (a wrong module count, a reworded sentence, an unqualified
+  "no build step", an invented provider, a shipped provider removed from the
+  README, third-party text appended to `LICENSE`, a disagreeing manifest
+  licence, a stale version, a stale test count) and requires every mutation to
+  exit 1 naming its file. `npm run test:release` runs it.
+- **Coverage prints its denominator.** `check.sh` logs
+  `COVERAGE: statements n% (covered/total) · branches … · functions … ·
+  lines …`, so no percentage this repo quotes can appear without the size of
+  what it measures. Reported, never gated.
+
+### The simulation seam is closed — one simulation
+- **The duplicate simulation is deleted.** `packages/sim/src/*.ts` was a
+  1,180-line re-implementation of catalog/combat/boss logic that the game never
+  imported, and it produced a different game (0 points / 0 kills against the
+  shipped core's 200 / 4 on the shared scenario). It is gone. `packages/sim`
+  is now a typed facade over the bytes `index.html` executes, loaded headlessly
+  by `packages/sim/host/env.mjs` in a Node `vm` with stub DOM/canvas/audio.
+  The game and the tests run the same simulation, and `index.html` still plays
+  from `file://` with no build: eight classic scripts in the same order, then
+  the inline core, unchanged.
+- **Parity is an equality gate, not a ratchet.** `tools/parity.test.mjs`
+  compares the shipped core's 900-tick digest and a committed **per-tick hash
+  chain** against `tools/parity/shipped-baseline.json`, naming the first
+  divergent tick. `packages/sim/tests/parity-shipped.test.ts` drives every
+  golden twice — through the facade and through a raw `stepGame` loop with no
+  facade code in the path — and requires identical per-tick chains and final
+  digests. `tools/parity/cross-sim-baseline.json` records one digest on both
+  sides (`520|1|6|0|0|3|2|2|292.235|812.040|6|5|0`, chain `ba9ab8b8`), and
+  `node tools/parity/sim-digest.mjs --write` refuses to record a disagreement.
+- **Re-recorded deliberately, and why.** The scenario now states its contract
+  (autofire off, `R`/`FX` reseeded) so both paths are comparable — that moved
+  the shipped chain from `007c6be8` to `ba9ab8b8`. The three goldens were
+  regenerated from the shipped core (`version: 3`) and now carry `chain` and
+  `tickChain` so drift names a tick.
+- **No test was deleted or weakened to agree.** Where the copy had invented
+  mechanics, the assertion now states the game's: a boss is `boss: true`,
+  `state: 'boss'`, with health on its nodes (no `bossId`/`hp`/`enter`); the ram
+  holds then leaves rather than diving at 4 s; the sniper's bolt has left the
+  screen by the time an old assertion looked for it (an emitted-shot counter is
+  used instead); the splitter has no timer split; the orbiter fires one volley;
+  `startWave(5)` queues rather than spawning instantly; and seed divergence is
+  asserted over 1,200 ticks because 480 straight ticks contain no RNG event.
+- **The gate was proved to bite.** Changing player bolt speed `1020 → 980` in
+  `firePrimary` failed `node --test tools/parity.test.mjs` with
+  `shipped per-tick state diverged at tick 95`, and turned the parity suite
+  from 17 passed to 4 failed; restoring it returned both to green.
+- **Types are a gate.** `npm run typecheck` (`tsc --noEmit`, `strict`) covers
+  `packages/sim/src` and runs from `check.sh`. This repo had no typecheck step.
+- **Coverage has a number, and it is honest about its denominator.**
+  `npm run test:coverage` reports 98.05% statements / 82.14% branches / 92.85%
+  functions / 98.87% lines over the facade (report only; not a gate). The
+  simulation itself is inline JavaScript and cannot be instrumented by v8 here;
+  its cover is the per-tick parity and golden gates.
+
+### Documentation truth pass
+- README and ARCHITECTURE said five modules load before the inline core; it is
+  eight (`mirror-public`, `cloud` and `hangar` were missing from the list).
+- "No build step" is now stated as what it is: nothing to compile to play;
+  `build:site` and `build:portal` package and hash the files.
+- The account copy now matches the client: Google sign-in ships and appears
+  when the Supabase project enables it, alongside email and guest play.
+- `LICENSE` is pure MIT again; the font and vendored-code notices moved to
+  `THIRD_PARTY_NOTICES.md`, so GitHub stops reading the licence as
+  NOASSERTION.
+- `tools/copyguard.js` now derives these claims from the files that own them:
+  the module count from `index.html`, the build-step wording, the auth
+  providers from `js/cloud.js`, and the licence from `LICENSE`.
+
 ## [4.31.0] — 2026-11-14
 
 The menu and settings overhaul ([PR #111](https://github.com/FahadIbrahim93/emberfall/pull/111)), a render pass ([PR #114](https://github.com/FahadIbrahim93/emberfall/pull/114)), and a settings-open fix. Release notes: [docs/releases/v4.31.0.md](docs/releases/v4.31.0.md). No database change; existing saves are untouched.

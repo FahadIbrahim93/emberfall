@@ -15,7 +15,7 @@ Current release: **v4.31.0** (2026-11-14). See [what's new](#whats-new-in-v4310)
   <img src="docs/screenshots/gameplay.png" alt="EMBERFALL gameplay: the corridor, hostile fire and the HUD" width="720">
 </p>
 
-No install and no account needed. Art, music and sound are generated in code at runtime, so there are no asset files and no build step. After the first visit it plays offline.
+No install and no account needed. Art, music and sound are generated in code at runtime, so there are no asset files and nothing to compile before play: `index.html` runs from disk. Release packaging (`npm run build:site`, `npm run build:portal`) copies and hashes the files; it does not build the game. After the first visit it plays offline.
 
 ## Features
 
@@ -26,7 +26,7 @@ No install and no account needed. Art, music and sound are generated in code at 
 - **You see it before you pay for it.** Tapping an item shows what it changes against your current fit and a "Buy" button. Nothing is spent on a single tap.
 - **Fair boards.** New gear is capped at the existing power ceiling on Endless and Tour, and never flies on the Daily Gauntlet, Boss Rush or flight school. Each run's loadout code is shown on the boards and the stats page.
 - **Accessibility options:** four colour palettes, reduced motion, left-handed and large touch layouts, high-visibility bullets.
-- **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Sign in with X is not in the product today; email accounts and guest play are.
+- **Global and daily leaderboards.** Play as a guest with no account, or create one with your email and a password, confirm the email, and pick a callsign. Your Endless and Daily runs then post to the worldwide boards, which list registered pilots only. Email accounts, guest play, and Google sign-in when the Supabase project has that provider enabled (the button only appears when it is). Sign in with X is not in the product today.
 - **Installable PWA** that works offline.
 
 ## Controls
@@ -65,9 +65,12 @@ Tests need Node 22 or newer:
 
 ```bash
 npm ci
-bash check.sh             # syntax gate
+bash check.sh             # syntax, types, shipped-sim digest
+npm run typecheck         # tsc --noEmit over packages/sim (also in check.sh)
+npm run test:parity       # steps the shipped inline core headlessly
 node deadscan.js --check  # dead code and load order
-npm run test:sim          # Vitest, packages/sim
+npm run test:sim          # Vitest: one simulation — the facade over the shipped core
+npm run test:coverage     # the same suite with a coverage report (not gated)
 npm run test:browser      # Playwright
 npm run test:sql          # executable Supabase migration-chain regression (PGlite)
 npm test                  # sim + browser + in-game self-test
@@ -75,7 +78,7 @@ npm test                  # sim + browser + in-game self-test
 
 You can also run the self-test in the page with `index.html?selftest` (75 checks).
 
-CI runs these checks on every push to `main`. At v4.31.0 that is 106 browser tests, 61 simulation tests, 47 release tests (including 12 SQL migration tests) and 75 in-game checks.
+CI runs these checks on every push to `main`. Currently that is 106 browser tests, 78 simulation tests (all driving the shipped inline core through `packages/sim`, plus per-tick parity against it), 47 release tests (including 12 SQL migration tests) and 75 in-game checks.
 
 For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-portal.zip`. Portal builds keep scores on the device. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
@@ -90,6 +93,7 @@ For web game portals, `npm run build:portal` writes `dist-portal/` and `dist-por
 ## Docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): module load order, state ownership, invariants
+- [docs/sim-parity.md](docs/sim-parity.md): one simulation, the parity gates, and how to re-record them
 - [docs/LEADERBOARD-AND-ACCOUNTS.md](docs/LEADERBOARD-AND-ACCOUNTS.md): accounts, boards and their limits
 - [docs/DATABASE.md](docs/DATABASE.md): the Supabase schema
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): hosting, Supabase setup, portal builds

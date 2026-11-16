@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { ARENA_W, ARENA_H, STEP, MAX_ACCUM } from '../src/constants.ts';
-import { sinLut, cosLut, TAU } from '../src/trig.ts';
+import {
+  ARENA_W, ARENA_H, STEP, MAX_ACCUM, GRAZE_HEAT_DECAY,
+  SHIP_SCALE, SHOT_SCALE, createWorld,
+} from '../src/index.ts';
 
 describe('T-ARENA constants', () => {
   it('logical arena is fixed 540×960', () => {
@@ -17,15 +19,22 @@ describe('T-ARENA constants', () => {
   });
 });
 
-describe('trig LUT', () => {
-  it('sin/cos at 0 and π/2 match Math within LUT resolution', () => {
-    expect(sinLut(0)).toBeCloseTo(0, 4);
-    expect(cosLut(0)).toBeCloseTo(1, 4);
-    expect(sinLut(TAU / 4)).toBeCloseTo(1, 3);
-    expect(cosLut(TAU / 4)).toBeCloseTo(0, 3);
+describe('shipped geometry and decay', () => {
+  /* the old trig-LUT block went with the duplicate sim: the shipped core uses
+     Math.sin/cos directly, so there is no LUT to compare. These assertions
+     cover the dimensions and decay constants that replaced it. */
+  it('a fresh world is laid out at the shipped scale', () => {
+    const w = createWorld({ seed: 3 });
+    expect(w.player.x).toBeGreaterThan(0);
+    expect(w.player.x).toBeLessThan(ARENA_W);
+    expect(w.player.y).toBeGreaterThan(0);
+    expect(w.player.y).toBeLessThan(ARENA_H);
+    expect(w.player.r).toBeGreaterThan(0);
   });
 
-  it('is deterministic across calls', () => {
-    expect(sinLut(1.234)).toBe(sinLut(1.234));
+  it('render scales and graze decay are the shipped values', () => {
+    expect(SHIP_SCALE).toBe(1.3);
+    expect(SHOT_SCALE).toBe(1.18);
+    expect(GRAZE_HEAT_DECAY).toBe(1);
   });
 });
