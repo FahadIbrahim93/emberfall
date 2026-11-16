@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HULLS, FOES, FOE_IDS, BOSSES, BOONS, DIFF } from '../src/catalog.ts';
+import { HULLS, FOES, FOE_IDS, BOSSES, BOONS, DIFF } from '../src/index.ts';
 
 describe('content catalogs (live counts — G-CONTENT grows later)', () => {
   it('has 5 hulls including seraph prism', () => {
